@@ -1,0 +1,1965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MatchMaker Mobile App Prototype</title>
+    <style>
+        :root {
+            --bg-dark: #090B10;
+            --card-dark: #141722;
+            --accent-pink: #FF4458;
+            --accent-orange: #FF6B4A;
+            --accent-gradient: linear-gradient(135deg, #FF4458 0%, #FF6B4A 100%);
+            --accent-green: #00E676;
+            --text-primary: #FFFFFF;
+            --text-secondary: #9094A6;
+            --border-color: #24293A;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: #050608;
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Mobile Container Shell mimicking a Premium Phone */
+        .app-shell {
+            width: 100%;
+            max-width: 412px;
+            height: 100vh;
+            max-height: 844px;
+            background-color: var(--bg-dark);
+            border-radius: 0;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+        }
+
+        @media (min-width: 480px) {
+            .app-shell {
+                border-radius: 40px;
+                border: 8px solid #1C1F2D;
+                height: 844px;
+                box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+            }
+        }
+
+        /* Status Bar Simulation */
+        .status-bar {
+            height: 40px;
+            padding: 0 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            background-color: var(--bg-dark);
+            user-select: none;
+            z-index: 10;
+        }
+
+        .status-bar .icons {
+            display: flex;
+            gap: 6px;
+        }
+
+        /* Modernized Header with Smart Navigation */
+        .app-header {
+            height: 64px;
+            padding: 0 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--bg-dark);
+            z-index: 100;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+        }
+
+        /* Smart back button - appears contextually */
+        .global-back-btn {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            display: none; /* Controlled dynamically by JavaScript */
+            align-items: center;
+            justify-content: center;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+
+        .global-back-btn:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .header-title-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .app-header h1 {
+            font-size: 1.45rem;
+            font-weight: 800;
+            background: var(--accent-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex: 1;
+        }
+
+        .header-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+        }
+
+        .header-btn:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .header-btn.active-match {
+            color: var(--accent-pink);
+        }
+
+        .notification-dot {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-pink);
+            border-radius: 50%;
+            display: none;
+        }
+
+        /* App Screens viewport container */
+        .screens-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            padding: 16px;
+            background-color: var(--bg-dark);
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        /* --- SCREEN 1: DISCOVERY (SWIPING) --- */
+        .discovery-workspace {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        .card-stack {
+            flex: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 1000px;
+        }
+
+        .profile-card {
+            width: 100%;
+            height: 96%;
+            border-radius: 24px;
+            overflow: hidden;
+            position: absolute;
+            background-color: var(--card-dark);
+            border: 1px solid var(--border-color);
+            transform-origin: center bottom;
+            cursor: grab;
+            user-select: none;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+        }
+
+        .profile-card:active {
+            cursor: grabbing;
+        }
+
+        .card-visual {
+            flex: 1;
+            background-size: cover;
+            background-position: center;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        .card-visual::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            background: linear-gradient(to top, rgba(9, 11, 16, 0.95) 0%, rgba(9, 11, 16, 0.4) 50%, transparent 100%);
+            pointer-events: none;
+        }
+
+        /* Swipe Stamps */
+        .stamp {
+            position: absolute;
+            top: 40px;
+            border: 4px solid;
+            padding: 8px 16px;
+            border-radius: 12px;
+            font-size: 2rem;
+            font-weight: 900;
+            text-transform: uppercase;
+            opacity: 0;
+            transform: rotate(-12deg);
+            z-index: 5;
+            transition: opacity 0.1s ease;
+            pointer-events: none;
+        }
+
+        .stamp-like {
+            left: 30px;
+            color: var(--accent-green);
+            border-color: var(--accent-green);
+            transform: rotate(-15deg);
+        }
+
+        .stamp-nope {
+            right: 30px;
+            color: var(--accent-pink);
+            border-color: var(--accent-pink);
+            transform: rotate(15deg);
+        }
+
+        .card-details {
+            position: relative;
+            z-index: 3;
+            padding: 20px 24px 24px 24px;
+            background-color: var(--bg-dark);
+        }
+
+        .profile-headline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .profile-headline h2 {
+            font-size: 1.62rem;
+            font-weight: 700;
+        }
+
+        .badge-verified {
+            color: #1DA1F2;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .profile-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .tag-pill {
+            background-color: var(--card-dark);
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .profile-bio {
+            font-size: 0.92rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        /* Controls Deck */
+        .action-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            padding: 10px 0;
+            z-index: 5;
+        }
+
+        .circular-btn {
+            width: 58px;
+            height: 58px;
+            border-radius: 50%;
+            border: none;
+            background-color: var(--card-dark);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+            transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .circular-btn:active {
+            transform: scale(0.9);
+        }
+
+        .circular-btn.btn-rewind {
+            width: 46px;
+            height: 46px;
+            color: #FFD54F;
+        }
+
+        .circular-btn.btn-pass {
+            color: var(--accent-pink);
+            border-color: rgba(255, 68, 88, 0.2);
+        }
+
+        .circular-btn.btn-like {
+            color: var(--accent-green);
+            border-color: rgba(0, 230, 118, 0.2);
+            width: 64px;
+            height: 64px;
+        }
+
+        /* Empty State */
+        .stack-empty {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 30px;
+            z-index: 1;
+        }
+
+        .stack-empty h3 {
+            font-size: 1.4rem;
+            margin-bottom: 8px;
+        }
+
+        .stack-empty p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+            margin-bottom: 24px;
+        }
+
+        .accent-gradient-btn {
+            background: var(--accent-gradient);
+            color: white;
+            border: none;
+            padding: 12px 32px;
+            border-radius: 30px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(255, 68, 88, 0.4);
+        }
+
+        /* --- SCREEN 2: MATCHES LIST --- */
+        .matches-workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            height: 100%;
+        }
+
+        .matches-grid-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-top: 10px;
+        }
+
+        .matches-horizontal-list {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .matches-horizontal-list::-webkit-scrollbar {
+            display: none;
+        }
+
+        .match-bubble-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .match-bubble-avatar {
+            width: 64px;
+            height: 64px;
+            border-radius: 50%;
+            border: 2px solid var(--accent-pink);
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        .match-bubble-name {
+            font-size: 0.8rem;
+            font-weight: 600;
+            max-width: 70px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conversations-vertical-list {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+        }
+
+        .convo-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(36, 41, 58, 0.4);
+            cursor: pointer;
+        }
+
+        .convo-avatar {
+            width: 54px;
+            height: 54px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .convo-body {
+            flex: 1;
+        }
+
+        .convo-name {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .convo-snippet {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+
+        .convo-time {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            align-self: flex-start;
+            margin-top: 4px;
+        }
+
+        /* --- SCREEN 3: PROFILE ONBOARDING --- */
+        .profile-workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            height: 100%;
+            padding-bottom: 40px;
+        }
+
+        .profile-workspace::-webkit-scrollbar {
+            display: none;
+        }
+
+        .my-avatar-preview-box {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            margin-top: 10px;
+        }
+
+        .my-avatar-view {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            border: 3px solid var(--accent-pink);
+            box-shadow: 0 4px 15px rgba(255, 68, 88, 0.2);
+        }
+
+        /* AI Avatar Laboratory Premium Styles */
+        .ai-lab-card {
+            background: linear-gradient(145deg, rgba(20, 23, 34, 0.95) 0%, rgba(13, 15, 23, 0.95) 100%);
+            border: 1px solid rgba(255, 68, 88, 0.15);
+            border-radius: 20px;
+            padding: 18px;
+            margin-bottom: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-lab-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 107, 74, 0.08) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .ai-lab-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 1.1rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            color: #FFF;
+        }
+
+        .ai-lab-subtitle {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+            line-height: 1.4;
+        }
+
+        .ai-profile-selector-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .ai-profile-item {
+            background-color: rgba(9, 11, 16, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 8px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .ai-profile-item.selected {
+            border-color: var(--accent-pink);
+            background-color: rgba(255, 68, 88, 0.05);
+            box-shadow: 0 0 10px rgba(255, 68, 88, 0.1);
+        }
+
+        .ai-profile-item img {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-bottom: 4px;
+            border: 1.5px solid rgba(255, 255, 255, 0.2);
+            transition: border-color 0.2s;
+        }
+
+        .ai-profile-item.selected img {
+            border-color: var(--accent-pink);
+        }
+
+        .ai-profile-item span {
+            font-size: 0.72rem;
+            font-weight: 600;
+            display: block;
+            color: var(--text-secondary);
+        }
+
+        .ai-profile-item.selected span {
+            color: white;
+        }
+
+        .prompt-textarea-wrapper {
+            position: relative;
+            margin-bottom: 16px;
+        }
+
+        .ai-prompt-box {
+            width: 100%;
+            height: 72px;
+            background-color: rgba(5, 6, 8, 0.7);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 10px;
+            font-size: 0.85rem;
+            color: white;
+            resize: none;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .ai-prompt-box:focus {
+            border-color: var(--accent-pink);
+        }
+
+        .ai-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.82rem;
+            color: #00E676;
+            margin-top: 10px;
+            min-height: 24px;
+            font-weight: 600;
+        }
+
+        .ai-spin-loader {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top: 2px solid var(--accent-pink);
+            border-radius: 50%;
+            animation: aiSpinner 0.8s linear infinite;
+            display: none;
+        }
+
+        @keyframes aiSpinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .ai-action-buttons {
+            display: flex;
+            gap: 10px;
+        }
+
+        .ai-action-buttons button {
+            flex: 1;
+            padding: 10px 14px;
+            font-size: 0.85rem;
+            border-radius: 12px;
+            font-weight: 700;
+        }
+
+        .ai-btn-secondary {
+            background-color: var(--card-dark);
+            border: 1px solid var(--border-color);
+            color: white;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .ai-btn-secondary:hover {
+            background-color: rgba(255, 255, 255, 0.04);
+        }
+
+        .onboarding-form {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .form-row label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .form-row input, 
+        .form-row select, 
+        .form-row textarea {
+            background-color: var(--card-dark);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: white;
+            font-size: 0.95rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-row input:focus, 
+        .form-row select:focus, 
+        .form-row textarea:focus {
+            border-color: var(--accent-pink);
+        }
+
+        .form-row textarea {
+            resize: none;
+            height: 80px;
+        }
+
+        .save-toast {
+            text-align: center;
+            color: var(--accent-green);
+            font-weight: 600;
+            font-size: 0.9rem;
+            min-height: 20px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        /* --- SCREEN 4: ACTIVE CHAT SCREEN (Now a standalone peer screen) --- */
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .msg-bubble {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            font-size: 0.95rem;
+            line-height: 1.4;
+        }
+
+        .msg-bubble.received {
+            background-color: var(--card-dark);
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+            color: var(--text-primary);
+        }
+
+        .msg-bubble.sent {
+            background: var(--accent-gradient);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+            color: white;
+        }
+
+        .chat-input-bar {
+            padding: 12px 16px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background-color: var(--bg-dark);
+        }
+
+        .chat-field {
+            flex: 1;
+            background-color: var(--card-dark);
+            border: 1px solid var(--border-color);
+            color: white;
+            padding: 12px 16px;
+            border-radius: 25px;
+            outline: none;
+            font-size: 0.95rem;
+        }
+
+        .chat-field:focus {
+            border-color: var(--accent-pink);
+        }
+
+        .chat-send-btn {
+            background: var(--accent-gradient);
+            border: none;
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        /* --- POPUP MATCH CONGRATULATIONS OVERLAY --- */
+        .match-curtain-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(9, 11, 16, 0.96);
+            z-index: 1000;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .match-badge {
+            font-size: 3rem;
+            font-weight: 900;
+            background: linear-gradient(to right, #00E676, #00b0ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+            animation: matchPop 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .match-avatars-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            margin: 40px 0;
+        }
+
+        .match-modal-photo {
+            width: 110px;
+            height: 110px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            border: 4px solid white;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+
+        .match-modal-photo.user-side {
+            transform: rotate(-8deg);
+            animation: slideInLeft 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .match-modal-photo.target-side {
+            transform: rotate(8deg);
+            animation: slideInRight 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+
+        .heart-match-badge {
+            background-color: var(--accent-pink);
+            color: white;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.4rem;
+            box-shadow: 0 4px 10px rgba(255, 68, 88, 0.4);
+            z-index: 2;
+        }
+
+        .match-modal-subtext {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            margin-bottom: 40px;
+            line-height: 1.5;
+            max-width: 280px;
+        }
+
+        .match-modal-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            width: 100%;
+        }
+
+        .outline-match-btn {
+            background: none;
+            border: 2px solid var(--border-color);
+            color: white;
+            padding: 14px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .outline-match-btn:hover {
+            border-color: var(--accent-pink);
+        }
+
+        /* --- BOTTOM NAV BAR --- */
+        .bottom-nav {
+            height: 68px;
+            background-color: var(--bg-dark);
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding-bottom: 8px;
+            z-index: 10;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            color: var(--text-secondary);
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            width: 60px;
+            transition: color 0.2s;
+        }
+
+        .nav-item.active {
+            color: var(--accent-pink);
+        }
+
+        .nav-item svg {
+            width: 24px;
+            height: 24px;
+            fill: currentColor;
+        }
+
+        /* Animations */
+        @keyframes matchPop {
+            0% { transform: scale(0.4); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes slideInLeft {
+            0% { transform: translateX(-80px) rotate(-20deg); opacity: 0; }
+            100% { transform: translateX(0) rotate(-8deg); opacity: 1; }
+        }
+
+        @keyframes slideInRight {
+            0% { transform: translateX(80px) rotate(20deg); opacity: 0; }
+            100% { transform: translateX(0) rotate(8deg); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Main Native-App Shell Frame -->
+    <div class="app-shell">
+        
+        <!-- Status Bar Simulation -->
+        <div class="status-bar">
+            <span id="statusBarTime">09:41</span>
+            <div class="icons">
+                <span>📶</span>
+                <span>🔋</span>
+            </div>
+        </div>
+
+        <!-- Modernized Navigation Header Bar -->
+        <header class="app-header">
+            <div class="header-left">
+                <!-- Smart persistent back button -->
+                <button class="global-back-btn" id="globalBackBtn" onclick="handleGlobalBack()" title="Back">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <div class="header-title-container">
+                    <h1 id="appHeaderTitle">🔥 MatchMaker</h1>
+                </div>
+            </div>
+            
+            <div class="header-right">
+                <button class="header-btn" id="headerMatchesQuickBtn" onclick="switchTab('matches')" title="View Matches">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                    <div class="notification-dot" id="headerNotification"></div>
+                </button>
+            </div>
+        </header>
+
+        <!-- Screens Master Viewport -->
+        <div class="screens-container">
+            
+            <!-- SCREEN 1: DISCOVERY WORKSPACE -->
+            <div class="screen active" id="discoveryScreen">
+                <div class="discovery-workspace">
+                    <div class="card-stack" id="cardStack">
+                        <!-- Dynamic card layouts are generated here -->
+                    </div>
+                    
+                    <div class="stack-empty" id="stackEmptyState" style="display: none;">
+                        <h3>Out of matches in your area!</h3>
+                        <p>Customize your profile, expand your discovery search radius, or check back later.</p>
+                        <button class="accent-gradient-btn" onclick="reloadStackData()">Find New Profiles</button>
+                    </div>
+                </div>
+
+                <!-- Swipe Deck Controls -->
+                <div class="action-row" id="controlsDeck">
+                    <button class="circular-btn btn-rewind" onclick="undoLastAction()" title="Rewind">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                        </svg>
+                    </button>
+                    <button class="circular-btn btn-pass" onclick="triggerManualSwipe('left')" title="Pass Profile">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                    <button class="circular-btn btn-like" onclick="triggerManualSwipe('right')" title="Like Profile">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- SCREEN 2: MATCHES LIST -->
+            <div class="screen" id="matchesScreen">
+                <div class="matches-workspace">
+                    <h3 class="matches-grid-title">New Matches</h3>
+                    <div class="matches-horizontal-list" id="newMatchesRow">
+                        <p style="color: var(--text-secondary); font-size: 0.9rem; padding: 10px 0;">No active matches yet. Keep swiping!</p>
+                    </div>
+
+                    <h3 class="matches-grid-title">Conversations</h3>
+                    <div class="conversations-vertical-list" id="conversationsCol">
+                        <!-- Converted chat bubbles list here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCREEN 3: PROFILE ONBOARDING -->
+            <div class="screen" id="profileScreen">
+                <div class="profile-workspace">
+                    <div class="my-avatar-preview-box">
+                        <div class="my-avatar-view" id="myAvatarPreview"></div>
+                        <h3 id="profileFormLabel">Setup Your Discovery Profile</h3>
+                    </div>
+
+                    <!-- Premium AI Avatar Generation Suite -->
+                    <div class="ai-lab-card">
+                        <div class="ai-lab-title">
+                            <span>✨ AI Avatar Laboratory</span>
+                        </div>
+                        <p class="ai-lab-subtitle">
+                            Generate breathtaking, unique portraits using Google Imagen. Select Amara (Profile 3) or click "All" to bulk-generate bespoke AI avatars for everyone!
+                        </p>
+
+                        <!-- Profile Picker for AI Target -->
+                        <div class="ai-profile-selector-grid" id="aiProfilePickerGrid">
+                            <!-- Populated Dynamically by JS -->
+                        </div>
+
+                        <!-- Active Generation Prompt Input -->
+                        <div class="prompt-textarea-wrapper">
+                            <textarea id="aiPromptInput" class="ai-prompt-box" placeholder="Customize your portrait generation prompt..."></textarea>
+                        </div>
+
+                        <div class="ai-action-buttons">
+                            <button class="accent-gradient-btn" onclick="triggerSingleAIImageGen()" id="aiGenSingleBtn">Generate Selected</button>
+                            <button class="ai-btn-secondary" onclick="triggerAllAIImageGen()" id="aiGenAllBtn">✨ Generate All (6)</button>
+                        </div>
+
+                        <div class="ai-status-indicator" id="aiStatusPanel">
+                            <div class="ai-spin-loader" id="aiLoader"></div>
+                            <span id="aiStatusText">AI Model is Ready to Dream</span>
+                        </div>
+                    </div>
+
+                    <div class="onboarding-form">
+                        <div class="form-row">
+                            <label>Full Name</label>
+                            <input type="text" id="formNameInput" required>
+                        </div>
+                        <div class="form-row">
+                            <label>Age</label>
+                            <input type="number" id="formAgeInput" min="18" max="100" required>
+                        </div>
+                        <div class="form-row">
+                            <label>Gender / Interest</label>
+                            <select id="formGenderInput">
+                                <option value="Male">Male looking for Female</option>
+                                <option value="Female">Female looking for Male</option>
+                                <option value="Non-binary">Non-binary</option>
+                            </select>
+                        </div>
+                        <div class="form-row">
+                            <label>Location</label>
+                            <input type="text" id="formLocationInput" required>
+                        </div>
+                        <div class="form-row">
+                            <label>Avatar Photo URL</label>
+                            <input type="text" id="formPhotoUrlInput">
+                        </div>
+                        <div class="form-row">
+                            <label>Your Bio</label>
+                            <textarea id="formBioInput" placeholder="Write a short, fun description of yourself..."></textarea>
+                        </div>
+
+                        <p class="save-toast" id="saveFeedback">Profile data updated successfully!</p>
+                        <button class="accent-gradient-btn" onclick="saveMyProfileOnboarding()">Save & Start Swiping</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SCREEN 4: CHAT CONVERSATION VIEW -->
+            <div class="screen" id="chatScreen">
+                <div class="chat-messages" id="chatMessageThread">
+                    <!-- Dialogue bubbles updated here -->
+                </div>
+                
+                <div class="chat-input-bar">
+                    <input type="text" class="chat-field" id="chatTextInput" placeholder="Type a message..." onkeydown="handleChatSubmit(event)">
+                    <button class="chat-send-btn" onclick="sendChatMessage()">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- POPUP MATCH CONGRATULATIONS OVERLAY -->
+        <div class="match-curtain-modal" id="matchPopupScreen">
+            <h1 class="match-badge">It's a Match!</h1>
+            
+            <div class="match-avatars-row">
+                <div class="match-modal-photo user-side" id="matchPopupUserPhoto"></div>
+                <div class="heart-match-badge">❤️</div>
+                <div class="match-modal-photo target-side" id="matchPopupTargetPhoto"></div>
+            </div>
+
+            <p class="match-modal-subtext" id="matchPopupText">You have liked each other!</p>
+            
+            <div class="match-modal-buttons">
+                <button class="accent-gradient-btn" onclick="goToChatFromMatchPopup()">Send a Message</button>
+                <button class="outline-match-btn" onclick="closeMatchPopup()">Keep Swiping</button>
+            </div>
+        </div>
+
+        <!-- Bottom Navigation Dock -->
+        <nav class="bottom-nav" id="bottomNavBar">
+            <button class="nav-item active" id="navDiscoveryBtn" onclick="switchTab('discovery')">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.53c-.26-.81-1-1.4-1.9-1.4h-1v-3c0-.55-.45-1-1-1h-6v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.4z"/>
+                </svg>
+                Discovery
+            </button>
+            <button class="nav-item" id="navMatchesBtn" onclick="switchTab('matches')">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                </svg>
+                Matches
+            </button>
+            <button class="nav-item" id="navProfileBtn" onclick="switchTab('profile')">
+                <svg viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                Profile
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        // Set dynamic clock time
+        function updateTime() {
+            const timeSpan = document.getElementById("statusBarTime");
+            const now = new Date();
+            let hours = now.getHours().toString().padStart(2, '0');
+            let minutes = now.getMinutes().toString().padStart(2, '0');
+            timeSpan.textContent = `${hours}:${minutes}`;
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // Target mock profiles
+        const initialProfilesData = [
+            {
+                id: "profile_1",
+                name: "Zainab",
+                age: 22,
+                tags: ["Amapiano 🎵", "Travel ✈️", "Coffee ☕"],
+                bio: "Tech lover, massive music head. Let's exchange playlists and chill at Lekki beach. Swipe right for positive vibes!",
+                image: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80",
+                mutualMatchChance: true,
+                autoMsgReply: "Hey there! Thanks for matching with me. I was just listening to some new Amapiano tracks. Are you into music too?",
+                aiPrompt: "Beautiful professional portrait of a 22 year old African woman smiling, Amapiano aesthetic, vibrant lighting, highly detailed studio photo"
+            },
+            {
+                id: "profile_2",
+                name: "Tunde",
+                age: 25,
+                tags: ["Gamer 🎮", "Ibadan 🏞️", "Foodie 🍕"],
+                bio: "Software developer by day, PS5 legend by night. Looking for someone to check out cool lounges in Ibadan.",
+                image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80",
+                mutualMatchChance: false,
+                autoMsgReply: "",
+                aiPrompt: "Close portrait of a young African man, 25 years old software engineer, tech setup in background, soft twilight lighting, cinematic"
+            },
+            {
+                id: "profile_3",
+                name: "Amara",
+                age: 24,
+                tags: ["Fashion 👗", "Aesthetics 📸", "Brunch 🥂"],
+                bio: "Fashion label designer. Let's take aesthetic polaroid pictures together and find the best pancake spot in Lagos.",
+                image: "https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=500&q=80",
+                mutualMatchChance: true,
+                autoMsgReply: "Hi! I saw your profile and loved your bio. Are you ready for a photo session?",
+                aiPrompt: "Gorgeous artistic portrait of a creative 24 year old Nigerian fashion designer, studio backdrop with textiles, modern Lagos fashion, high detail"
+            },
+            {
+                id: "profile_4",
+                name: "Chidi",
+                age: 27,
+                tags: ["Fitness 💪", "Art 🎨", "Business 📈"],
+                bio: "Art gallery host. If you love fitness and museum date nights, let's connect.",
+                image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=80",
+                mutualMatchChance: true,
+                autoMsgReply: "Hey! Glad we matched. What's your idea of a perfect weekend getaway?",
+                aiPrompt: "Close headshot of a handsome smiling 27 year old African man, gallery director, blurred artistic oil paintings background, clean lighting"
+            },
+            {
+                id: "profile_5",
+                name: "Sade",
+                age: 23,
+                tags: ["Books 📚", "Nature 🌿", "Yoruba Dem 💫"],
+                bio: "Bookworm and part-time content designer. Looking for honest connections only. Tell me your favorite book!",
+                image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=500&q=80",
+                mutualMatchChance: false,
+                autoMsgReply: "",
+                aiPrompt: "Thoughtful close portrait of a 23 year old African girl in a beautiful botanical garden holding a vintage book, natural ambient sunshine"
+            }
+        ];
+
+        let profileStack = [...initialProfilesData];
+        let matchedUsers = [];
+        let conversationHistory = {}; // Key is profileId: { messages: [...] }
+        
+        // Navigation states tracker
+        let currentScreen = 'discovery'; 
+        let previousScreen = 'discovery';
+        let currentActiveChatId = null;
+        let lastActionDetails = null; // Holds profile for rewind
+
+        let myProfile = {
+            id: "my_profile",
+            name: "Dave Bigdave",
+            age: 24,
+            bio: "Software engineer and builder. Love beach hangouts in Lekki and good vibes!",
+            image: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80",
+            aiPrompt: "Handsome 24 year old male software engineer, warm friendly expression, workspace background, realistic 3D rendered digital art, portrait"
+        };
+
+        // AI Lab States
+        let aiSelectedProfileId = "profile_3"; // Default highlight Amara (the 3rd one)
+
+        // UI state variables
+        let isDragging = false;
+        let startX = 0;
+        let startY = 0;
+        let currentX = 0;
+        let currentY = 0;
+        let activeCard = null;
+
+        function initApp() {
+            renderCardStack();
+            updateMatchesView();
+            loadOnboardingValues();
+            updateHeaderNavigationState();
+            renderAiLabInterface();
+        }
+
+        // --- SECTION 1: GLOBAL NAVIGATION ROUTER ---
+        function switchTab(tabId) {
+            // Dismiss chat view state cleanly if switching tabs via bottom nav
+            if (currentScreen === 'chat') {
+                currentActiveChatId = null;
+            }
+
+            previousScreen = currentScreen;
+            currentScreen = tabId;
+
+            const screens = ["discovery", "matches", "profile", "chat"];
+            screens.forEach(s => {
+                document.getElementById(`${s}Screen`).classList.remove("active");
+                const navBtn = document.getElementById(`nav${s.charAt(0).toUpperCase() + s.slice(1)}Btn`);
+                if (navBtn) navBtn.classList.remove("active");
+            });
+
+            document.getElementById(`${tabId}Screen`).classList.add("active");
+            const activeNavBtn = document.getElementById(`nav${tabId.charAt(0).toUpperCase() + tabId.slice(1)}Btn`);
+            if (activeNavBtn) activeNavBtn.classList.add("active");
+
+            // Mark notification dot as read on visiting Matches list
+            if (tabId === 'matches') {
+                document.getElementById("headerNotification").style.display = "none";
+            }
+
+            updateHeaderNavigationState();
+        }
+
+        function updateHeaderNavigationState() {
+            const backBtn = document.getElementById("globalBackBtn");
+            const headerTitle = document.getElementById("appHeaderTitle");
+            const quickMatchesBtn = document.getElementById("headerMatchesQuickBtn");
+
+            // Configure layout properties based on current active screen router
+            if (currentScreen === 'discovery') {
+                backBtn.style.display = "none";
+                headerTitle.innerHTML = "🔥 MatchMaker";
+                quickMatchesBtn.style.display = "flex";
+            } else if (currentScreen === 'matches') {
+                backBtn.style.display = "flex";
+                headerTitle.innerHTML = "My Matches";
+                quickMatchesBtn.style.display = "none";
+            } else if (currentScreen === 'profile') {
+                backBtn.style.display = "flex";
+                headerTitle.innerHTML = "My Profile";
+                quickMatchesBtn.style.display = "none";
+            } else if (currentScreen === 'chat') {
+                backBtn.style.display = "flex";
+                quickMatchesBtn.style.display = "none";
+                
+                // Set Header Title to matched user's name
+                const activePartner = matchedUsers.find(u => u.id === currentActiveChatId);
+                if (activePartner) {
+                    headerTitle.innerHTML = `${activePartner.name} <span style="color: var(--accent-green); font-size: 0.75rem; margin-left: 8px;">●</span>`;
+                }
+            }
+        }
+
+        // Global Back Arrow Triggered logic
+        function handleGlobalBack() {
+            if (currentScreen === 'chat') {
+                // If we entered chat from matches list, return back to matches
+                if (previousScreen === 'matches') {
+                    switchTab('matches');
+                } else {
+                    // Otherwise default to the Home Matchmaking feed
+                    switchTab('discovery');
+                }
+            } else if (currentScreen === 'matches' || currentScreen === 'profile') {
+                // Return to main Discovery view
+                switchTab('discovery');
+            }
+        }
+
+        // --- SECTION 1.5: THE AI AVATAR ENGINE ---
+        function renderAiLabInterface() {
+            const grid = document.getElementById("aiProfilePickerGrid");
+            grid.innerHTML = "";
+
+            // List of all potential generation targets (including user)
+            const allTargets = [
+                { id: "profile_3", name: "Amara (3)", image: initialProfilesData[2].image },
+                { id: "profile_1", name: "Zainab", image: initialProfilesData[0].image },
+                { id: "profile_2", name: "Tunde", image: initialProfilesData[1].image },
+                { id: "profile_4", name: "Chidi", image: initialProfilesData[3].image },
+                { id: "profile_5", name: "Sade", image: initialProfilesData[4].image },
+                { id: "my_profile", name: "Me", image: myProfile.image }
+            ];
+
+            allTargets.forEach(target => {
+                const isSelected = target.id === aiSelectedProfileId;
+                const item = document.createElement("div");
+                item.className = `ai-profile-item ${isSelected ? 'selected' : ''}`;
+                item.onclick = () => selectAiTargetProfile(target.id);
+
+                item.innerHTML = `
+                    <img src="${target.image}" onerror="this.src='https://placehold.co/80x80/FF4458/FFF?text=Avatar'">
+                    <span>${target.name}</span>
+                `;
+                grid.appendChild(item);
+            });
+
+            // Update prompt text with preset
+            const promptBox = document.getElementById("aiPromptInput");
+            if (aiSelectedProfileId === "my_profile") {
+                promptBox.value = myProfile.aiPrompt;
+            } else {
+                const found = initialProfilesData.find(p => p.id === aiSelectedProfileId);
+                if (found) {
+                    promptBox.value = found.aiPrompt;
+                }
+            }
+        }
+
+        function selectAiTargetProfile(id) {
+            aiSelectedProfileId = id;
+            renderAiLabInterface();
+        }
+
+        // Call Google Imagen API with Exponential Backoff
+        async function fetchAIImageFromPrompt(promptText) {
+            const apiKey = ""; // Left empty - auto injected by Canvas environment 
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
+            const payload = {
+                instances: [{ prompt: promptText }],
+                parameters: { sampleCount: 1 }
+            };
+
+            let delay = 1000;
+            const maxRetries = 4;
+
+            for (let attempt = 0; attempt < maxRetries; attempt++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 429) {
+                        // Throttled: Wait with backoff
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        delay *= 2;
+                        continue;
+                    }
+
+                    const result = await response.json();
+                    const base64Data = result?.predictions?.[0]?.bytesBase64Encoded;
+                    if (base64Data) {
+                        return `data:image/png;base64,${base64Data}`;
+                    }
+                    throw new Error("Invalid structure returned from Google Imagen API");
+                } catch (err) {
+                    if (attempt === maxRetries - 1) throw err;
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    delay *= 2;
+                }
+            }
+            throw new Error("Generation failed after maximum retries");
+        }
+
+        async function triggerSingleAIImageGen() {
+            const promptInput = document.getElementById("aiPromptInput").value.trim();
+            const loader = document.getElementById("aiLoader");
+            const statusText = document.getElementById("aiStatusText");
+            const genSingleBtn = document.getElementById("aiGenSingleBtn");
+            const genAllBtn = document.getElementById("aiGenAllBtn");
+
+            if (promptInput === "") {
+                statusText.textContent = "⚠️ Please write a detailed portrait prompt!";
+                statusText.style.color = "#FF4458";
+                return;
+            }
+
+            // Set UI Loading state
+            loader.style.display = "block";
+            statusText.textContent = "Dreaming up your AI Portrait...";
+            statusText.style.color = "#FFD54F";
+            genSingleBtn.disabled = true;
+            genAllBtn.disabled = true;
+
+            try {
+                const generatedImageUrl = await fetchAIImageFromPrompt(promptInput);
+                
+                // Update corresponding profile data block
+                if (aiSelectedProfileId === "my_profile") {
+                    myProfile.image = generatedImageUrl;
+                    myProfile.aiPrompt = promptInput;
+                    document.getElementById("formPhotoUrlInput").value = generatedImageUrl;
+                    document.getElementById("myAvatarPreview").style.backgroundImage = `url('${generatedImageUrl}')`;
+                } else {
+                    const targetIdx = initialProfilesData.findIndex(p => p.id === aiSelectedProfileId);
+                    if (targetIdx !== -1) {
+                        initialProfilesData[targetIdx].image = generatedImageUrl;
+                        initialProfilesData[targetIdx].aiPrompt = promptInput;
+                    }
+                    // Sync up live state arrays
+                    const stackIdx = profileStack.findIndex(p => p.id === aiSelectedProfileId);
+                    if (stackIdx !== -1) {
+                        profileStack[stackIdx].image = generatedImageUrl;
+                    }
+                    const matchedIdx = matchedUsers.findIndex(u => u.id === aiSelectedProfileId);
+                    if (matchedIdx !== -1) {
+                        matchedUsers[matchedIdx].image = generatedImageUrl;
+                    }
+                }
+
+                // Render Changes Instantly
+                renderCardStack();
+                updateMatchesView();
+                renderAiLabInterface();
+
+                statusText.textContent = "✨ Avatar generated and synced successfully!";
+                statusText.style.color = "#00E676";
+            } catch (error) {
+                console.error(error);
+                statusText.textContent = "⚠️ Throttled or Error. Please try again in a few seconds!";
+                statusText.style.color = "#FF4458";
+            } finally {
+                loader.style.display = "none";
+                genSingleBtn.disabled = false;
+                genAllBtn.disabled = false;
+            }
+        }
+
+        async function triggerAllAIImageGen() {
+            const loader = document.getElementById("aiLoader");
+            const statusText = document.getElementById("aiStatusText");
+            const genSingleBtn = document.getElementById("aiGenSingleBtn");
+            const genAllBtn = document.getElementById("aiGenAllBtn");
+
+            const allProfiles = [
+                { id: "profile_3", type: "preset", name: "Amara (Profile 3)" },
+                { id: "profile_1", type: "preset", name: "Zainab" },
+                { id: "profile_2", type: "preset", name: "Tunde" },
+                { id: "profile_4", type: "preset", name: "Chidi" },
+                { id: "profile_5", type: "preset", name: "Sade" },
+                { id: "my_profile", type: "my_profile", name: "Your Own Profile" }
+            ];
+
+            loader.style.display = "block";
+            genSingleBtn.disabled = true;
+            genAllBtn.disabled = true;
+
+            for (let i = 0; i < allProfiles.length; i++) {
+                const target = allProfiles[i];
+                statusText.textContent = `⏳ Generatating ${target.name} (${i + 1}/${allProfiles.length})...`;
+                statusText.style.color = "#FFD54F";
+                selectAiTargetProfile(target.id);
+
+                try {
+                    const activePrompt = document.getElementById("aiPromptInput").value;
+                    const generatedUrl = await fetchAIImageFromPrompt(activePrompt);
+
+                    if (target.type === "my_profile") {
+                        myProfile.image = generatedUrl;
+                        document.getElementById("formPhotoUrlInput").value = generatedUrl;
+                        document.getElementById("myAvatarPreview").style.backgroundImage = `url('${generatedUrl}')`;
+                    } else {
+                        const targetIdx = initialProfilesData.findIndex(p => p.id === target.id);
+                        if (targetIdx !== -1) {
+                            initialProfilesData[targetIdx].image = generatedUrl;
+                        }
+                        const stackIdx = profileStack.findIndex(p => p.id === target.id);
+                        if (stackIdx !== -1) {
+                            profileStack[stackIdx].image = generatedUrl;
+                        }
+                        const matchedIdx = matchedUsers.findIndex(u => u.id === target.id);
+                        if (matchedIdx !== -1) {
+                            matchedUsers[matchedIdx].image = generatedUrl;
+                        }
+                    }
+
+                    // Render changes step-by-step
+                    renderCardStack();
+                    updateMatchesView();
+                } catch (err) {
+                    console.warn(`Could not generate portrait for ${target.name}. Skipping...`, err);
+                }
+
+                // Brief cool-down period to prevent rate-limit bursts
+                await new Promise(resolve => setTimeout(resolve, 800));
+            }
+
+            loader.style.display = "none";
+            genSingleBtn.disabled = false;
+            genAllBtn.disabled = false;
+            statusText.textContent = "✨ All profiles successfully upgraded with bespoke AI Art!";
+            statusText.style.color = "#00E676";
+            renderAiLabInterface();
+        }
+
+        // --- SECTION 2: SWIPE PHYSICS ENGINE ---
+        function renderCardStack() {
+            const stackContainer = document.getElementById("cardStack");
+            const emptyState = document.getElementById("stackEmptyState");
+            const controls = document.getElementById("controlsDeck");
+            
+            stackContainer.innerHTML = '';
+
+            if (profileStack.length === 0) {
+                emptyState.style.display = "flex";
+                controls.style.opacity = "0.2";
+                controls.style.pointerEvents = "none";
+                return;
+            }
+
+            emptyState.style.display = "none";
+            controls.style.opacity = "1";
+            controls.style.pointerEvents = "auto";
+
+            for (let i = profileStack.length - 1; i >= 0; i--) {
+                const p = profileStack[i];
+                const card = document.createElement("div");
+                card.className = "profile-card";
+                card.id = p.id;
+                
+                if (i > 0) {
+                    const depthOffset = Math.min(i, 2);
+                    card.style.transform = `scale(${1 - (depthOffset * 0.04)}) translateY(${-depthOffset * 10}px)`;
+                    card.style.zIndex = 10 - depthOffset;
+                    card.style.pointerEvents = "none"; 
+                } else {
+                    card.style.zIndex = 10;
+                    activeCard = card;
+                    addDragListeners(card);
+                }
+
+                let tagsHTML = p.tags.map(tag => `<span class="tag-pill">${tag}</span>`).join('');
+                card.innerHTML = `
+                    <div class="card-visual" style="background-image: url('${p.image}')">
+                        <div class="stamp stamp-like">LIKE</div>
+                        <div class="stamp stamp-nope">NOPE</div>
+                    </div>
+                    <div class="card-details">
+                        <div class="profile-headline">
+                            <h2>${p.name}, ${p.age}</h2>
+                            <span class="badge-verified" title="Verified Member">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                </svg>
+                            </span>
+                        </div>
+                        <div class="profile-tags">${tagsHTML}</div>
+                        <p class="profile-bio">${p.bio}</p>
+                    </div>
+                `;
+                
+                stackContainer.appendChild(card);
+            }
+        }
+
+        function addDragListeners(card) {
+            card.addEventListener('touchstart', dragStart, {passive: true});
+            card.addEventListener('touchmove', dragMove, {passive: true});
+            card.addEventListener('touchend', dragEnd);
+
+            card.addEventListener('mousedown', dragStart);
+            document.addEventListener('mousemove', dragMove);
+            document.addEventListener('mouseup', dragEnd);
+        }
+
+        function dragStart(e) {
+            isDragging = true;
+            if (e.type === 'touchstart') {
+                startX = e.touches[0].clientX;
+                startY = e.touches[0].clientY;
+            } else {
+                startX = e.clientX;
+                startY = e.clientY;
+            }
+            activeCard.style.transition = 'none';
+        }
+
+        function dragMove(e) {
+            if (!isDragging) return;
+
+            if (e.type === 'touchmove') {
+                currentX = e.touches[0].clientX;
+                currentY = e.touches[0].clientY;
+            } else {
+                currentX = e.clientX;
+                currentY = e.clientY;
+            }
+
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+            const rotateAngle = deltaX / 15;
+
+            activeCard.style.transform = `translate3d(${deltaX}px, ${deltaY}px, 0) rotate(${rotateAngle}deg)`;
+
+            const stampLike = activeCard.querySelector(".stamp-like");
+            const stampNope = activeCard.querySelector(".stamp-nope");
+            const normalizedDrag = Math.min(Math.abs(deltaX) / 100, 1);
+
+            if (deltaX > 0) {
+                stampLike.style.opacity = normalizedDrag;
+                stampNope.style.opacity = 0;
+            } else if (deltaX < 0) {
+                stampNope.style.opacity = normalizedDrag;
+                stampLike.style.opacity = 0;
+            }
+        }
+
+        function dragEnd() {
+            if (!isDragging) return;
+            isDragging = false;
+
+            const deltaX = currentX - startX;
+            const threshold = 120; 
+
+            if (deltaX > threshold) {
+                swipeOutCard('right');
+            } else if (deltaX < -threshold) {
+                swipeOutCard('left');
+            } else {
+                activeCard.style.transition = 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                activeCard.style.transform = 'translate3d(0, 0, 0) rotate(0)';
+                activeCard.querySelector(".stamp-like").style.opacity = 0;
+                activeCard.querySelector(".stamp-nope").style.opacity = 0;
+            }
+        }
+
+        function triggerManualSwipe(direction) {
+            if (!activeCard) return;
+            activeCard.style.transition = 'transform 0.5s ease-in-out, opacity 0.5s';
+            
+            if (direction === 'right') {
+                activeCard.querySelector(".stamp-like").style.opacity = 1;
+                activeCard.style.transform = 'translate3d(300px, 30px, 0) rotate(20deg)';
+                setTimeout(() => swipeOutCard('right'), 300);
+            } else {
+                activeCard.querySelector(".stamp-nope").style.opacity = 1;
+                activeCard.style.transform = 'translate3d(-300px, 30px, 0) rotate(-20deg)';
+                setTimeout(() => swipeOutCard('left'), 300);
+            }
+        }
+
+        function swipeOutCard(direction) {
+            const currentProfile = profileStack[0];
+            lastActionDetails = { profile: currentProfile, direction: direction };
+
+            profileStack.shift();
+            renderCardStack();
+
+            if (direction === 'right' && currentProfile.mutualMatchChance) {
+                triggerMatchAnimation(currentProfile);
+            }
+        }
+
+        function undoLastAction() {
+            if (!lastActionDetails) return;
+            profileStack.unshift(lastActionDetails.profile);
+            lastActionDetails = null; 
+            renderCardStack();
+        }
+
+        function reloadStackData() {
+            profileStack = [...initialProfilesData];
+            renderCardStack();
+        }
+
+        // --- SECTION 3: MUTUAL MATCH POPUPS ---
+        function triggerMatchAnimation(matchedProfile) {
+            if (!matchedUsers.find(u => u.id === matchedProfile.id)) {
+                matchedUsers.push(matchedProfile);
+                conversationHistory[matchedProfile.id] = {
+                    messages: [
+                        { sender: 'them', text: `It's a match! Ask me anything.` }
+                    ]
+                };
+            }
+
+            updateMatchesView();
+
+            document.getElementById("matchPopupUserPhoto").style.backgroundImage = `url('${myProfile.image}')`;
+            document.getElementById("matchPopupTargetPhoto").style.backgroundImage = `url('${matchedProfile.image}')`;
+            document.getElementById("matchPopupText").textContent = `You and ${matchedProfile.name} have liked each other!`;
+            
+            document.getElementById("matchPopupScreen").style.display = "flex";
+            document.getElementById("headerNotification").style.display = "block";
+        }
+
+        function closeMatchPopup() {
+            document.getElementById("matchPopupScreen").style.display = "none";
+        }
+
+        function goToChatFromMatchPopup() {
+            closeMatchPopup();
+            const matchedProfile = matchedUsers[matchedUsers.length - 1];
+            previousScreen = 'discovery'; // Direct return to discovery on back arrow
+            openChatRoom(matchedProfile.id);
+        }
+
+        // --- SECTION 4: CONVERSATIONS & CHAT ---
+        function updateMatchesView() {
+            const matchesRow = document.getElementById("newMatchesRow");
+            const convosCol = document.getElementById("conversationsCol");
+
+            if (matchedUsers.length === 0) {
+                matchesRow.innerHTML = `<p style="color: var(--text-secondary); font-size: 0.9rem; padding: 10px 0;">No matches yet. Keep swiping!</p>`;
+                convosCol.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); padding: 40px 10px;">
+                        <p style="font-size: 0.95rem;">Matches appear here when you both like each other!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            matchesRow.innerHTML = matchedUsers.map(user => `
+                <div class="match-bubble-item" onclick="openChatRoom('${user.id}')">
+                    <div class="match-bubble-avatar" style="background-image: url('${user.image}')"></div>
+                    <span class="match-bubble-name">${user.name}</span>
+                </div>
+            `).join('');
+
+            convosCol.innerHTML = matchedUsers.map(user => {
+                const history = conversationHistory[user.id]?.messages || [];
+                const lastMsg = history[history.length - 1]?.text || "Say hi to your new match!";
+                return `
+                    <div class="convo-row" onclick="openChatRoom('${user.id}')">
+                        <div class="convo-avatar" style="background-image: url('${user.image}')"></div>
+                        <div class="convo-body">
+                            <h4 class="convo-name">${user.name}, ${user.age}</h4>
+                            <p class="convo-snippet">${lastMsg}</p>
+                        </div>
+                        <span class="convo-time">Just now</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function openChatRoom(profileId) {
+            currentActiveChatId = profileId;
+            switchTab('chat');
+            renderChatMessageThread();
+        }
+
+        function renderChatMessageThread() {
+            const threadContainer = document.getElementById("chatMessageThread");
+            const history = conversationHistory[currentActiveChatId]?.messages || [];
+
+            threadContainer.innerHTML = history.map(msg => `
+                <div class="msg-bubble ${msg.sender === 'me' ? 'sent' : 'received'}">
+                    ${msg.text}
+                </div>
+            `).join('');
+
+            threadContainer.scrollTop = threadContainer.scrollHeight;
+        }
+
+        function sendChatMessage() {
+            const inputField = document.getElementById("chatTextInput");
+            const userMsgText = inputField.value.trim();
+
+            if (userMsgText === '') return;
+
+            conversationHistory[currentActiveChatId].messages.push({
+                sender: 'me',
+                text: userMsgText
+            });
+
+            inputField.value = '';
+            renderChatMessageThread();
+
+            const targetUser = matchedUsers.find(u => u.id === currentActiveChatId);
+            if (targetUser && targetUser.autoMsgReply) {
+                setTimeout(() => {
+                    if (currentActiveChatId !== targetUser.id) return;
+
+                    conversationHistory[targetUser.id].messages.push({
+                        sender: 'them',
+                        text: targetUser.autoMsgReply
+                    });
+                    
+                    targetUser.autoMsgReply = ""; 
+                    renderChatMessageThread();
+                }, 1500);
+            }
+        }
+
+        function handleChatSubmit(event) {
+            if (event.key === 'Enter') {
+                sendChatMessage();
+            }
+        }
+
+        // --- SECTION 5: PROFILE MANAGEMENT ---
+        function loadOnboardingValues() {
+            document.getElementById("myAvatarPreview").style.backgroundImage = `url('${myProfile.image}')`;
+            document.getElementById("formNameInput").value = myProfile.name;
+            document.getElementById("formAgeInput").value = myProfile.age;
+            document.getElementById("formBioInput").value = myProfile.bio;
+            document.getElementById("formPhotoUrlInput").value = myProfile.image;
+            document.getElementById("formLocationInput").value = "Lagos, Nigeria";
+        }
+
+        function saveMyProfileOnboarding() {
+            const formName = document.getElementById("formNameInput").value.trim();
+            const formAge = parseInt(document.getElementById("formAgeInput").value);
+            const formBio = document.getElementById("formBioInput").value.trim();
+            const formPhoto = document.getElementById("formPhotoUrlInput").value.trim();
+
+            if (formName === "" || isNaN(formAge) || formBio === "" || formPhoto === "") {
+                alert("Please fill out all the discovery parameters to save your profile!");
+                return;
+            }
+
+            myProfile = {
+                name: formName,
+                age: formAge,
+                bio: formBio,
+                image: formPhoto
+            };
+
+            document.getElementById("myAvatarPreview").style.backgroundImage = `url('${myProfile.image}')`;
+            
+            const feedback = document.getElementById("saveFeedback");
+            feedback.style.opacity = 1;
+
+            setTimeout(() => {
+                feedback.style.opacity = 0;
+                switchTab('discovery'); 
+            }, 1200);
+        }
+
+        window.onload = function() {
+            initApp();
+            updateTime();
+        };
+    </script>
+</body>
+</html>
