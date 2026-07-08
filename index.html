@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>hookmebysam</title>
+    <title>hookmebysam | VIP Edition</title>
     <style>
         :root {
             --bg-dark: #090B10;
@@ -12,6 +12,10 @@
             --accent-orange: #FF6B4A;
             --accent-gradient: linear-gradient(135deg, #FF4458 0%, #FF6B4A 100%);
             --accent-green: #00E676;
+            --accent-gold: #FFD700;
+            --gold-gradient: linear-gradient(135deg, #FFE259 0%, #FFA751 100%);
+            --vip-purple: #7B1FA2;
+            --vip-gradient: linear-gradient(135deg, #6A1B9A 0%, #8E24AA 50%, #FF8F00 100%);
             --text-primary: #FFFFFF;
             --text-secondary: #9094A6;
             --border-color: #24293A;
@@ -158,6 +162,21 @@
 
         .header-btn.active-match {
             color: var(--accent-pink);
+        }
+
+        /* VIP Badge on Header */
+        .header-vip-badge {
+            background: var(--gold-gradient);
+            color: #000;
+            font-size: 0.65rem;
+            font-weight: 900;
+            padding: 3px 6px;
+            border-radius: 8px;
+            margin-left: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: none; /* Dynamic in JS */
+            box-shadow: 0 0 10px rgba(255, 226, 89, 0.4);
         }
 
         .notification-dot {
@@ -356,6 +375,7 @@
             align-items: center;
             box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
             transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
         }
 
         .circular-btn:active {
@@ -378,6 +398,24 @@
             border-color: rgba(0, 230, 118, 0.2);
             width: 64px;
             height: 64px;
+        }
+
+        /* Limit badge for free rewinds */
+        .limit-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: var(--gold-gradient);
+            color: #000;
+            font-size: 0.6rem;
+            font-weight: 800;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
         }
 
         /* Empty State */
@@ -407,121 +445,94 @@
             margin-bottom: 24px;
         }
 
-        .accent-gradient-btn {
-            background: var(--accent-gradient);
-            color: white;
-            border: none;
-            padding: 12px 32px;
-            border-radius: 30px;
-            font-weight: 700;
-            font-size: 1rem;
-            cursor: pointer;
-            box-shadow: 0 4px 15px rgba(255, 68, 88, 0.4);
-        }
-
         /* --- SCREEN 2: MATCHES LIST --- */
         .matches-workspace {
             display: flex;
             flex-direction: column;
             gap: 20px;
             height: 100%;
+            overflow-y: auto;
         }
-
-        .matches-grid-title {
-            font-size: 1rem;
-            font-weight: 700;
-            color: var(--text-secondary);
-            margin-top: 10px;
-        }
-
-        .matches-horizontal-list {
-            display: flex;
-            gap: 16px;
-            overflow-x: auto;
-            padding-bottom: 8px;
-        }
-
-        .matches-horizontal-list::-webkit-scrollbar {
+        
+        .matches-workspace::-webkit-scrollbar {
             display: none;
         }
 
-        .match-bubble-item {
+        /* NEW: VIP Likes You Blur Block */
+        .vip-blur-promo-card {
+            background: linear-gradient(145deg, rgba(26, 20, 48, 0.95) 0%, rgba(13, 11, 23, 0.95) 100%);
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            border-radius: 20px;
+            padding: 16px;
             display: flex;
             flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .vip-blur-promo-card:active {
+            transform: scale(0.98);
+        }
+
+        .vip-blur-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .vip-title-gold {
+            font-size: 1rem;
+            font-weight: 800;
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
             align-items: center;
             gap: 6px;
-            cursor: pointer;
-            position: relative;
         }
 
-        .match-bubble-avatar {
-            width: 64px;
-            height: 64px;
-            border-radius: 50%;
-            border: 2px solid var(--accent-pink);
-            background-size: cover;
-            background-position: center;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-        }
-
-        .match-bubble-name {
-            font-size: 0.8rem;
-            font-weight: 600;
-            max-width: 70px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .conversations-vertical-list {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            overflow-y: auto;
-        }
-
-        .convo-row {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(36, 41, 58, 0.4);
-            cursor: pointer;
-        }
-
-        .convo-avatar {
-            width: 54px;
-            height: 54px;
-            border-radius: 50%;
-            background-size: cover;
-            background-position: center;
-        }
-
-        .convo-body {
-            flex: 1;
-        }
-
-        .convo-name {
-            font-size: 1rem;
-            font-weight: 700;
-            margin-bottom: 4px;
-        }
-
-        .convo-snippet {
-            font-size: 0.85rem;
+        .vip-blur-subtitle {
+            font-size: 0.82rem;
             color: var(--text-secondary);
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 220px;
         }
 
-        .convo-time {
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            align-self: flex-start;
+        .vip-blur-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
             margin-top: 4px;
+        }
+
+        .blur-grid-item {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            background-size: cover;
+            background-position: center;
+            filter: blur(14px) brightness(0.6);
+            border: 1.5px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+            transition: filter 0.5s ease;
+        }
+
+        .blur-grid-item.unlocked {
+            filter: blur(0px) brightness(1);
+            border-color: var(--accent-green);
+        }
+
+        .blur-lock-symbol {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.2rem;
+            color: #FFD700;
+            filter: none;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.8);
+            z-index: 5;
+            display: block;
         }
 
         /* --- SCREEN 3: PROFILE ONBOARDING --- */
@@ -544,6 +555,7 @@
             align-items: center;
             gap: 12px;
             margin-top: 10px;
+            position: relative;
         }
 
         .my-avatar-view {
@@ -554,6 +566,12 @@
             background-position: center;
             border: 3px solid var(--accent-pink);
             box-shadow: 0 4px 15px rgba(255, 68, 88, 0.2);
+            transition: border-color 0.3s;
+        }
+
+        .my-avatar-view.vip-active {
+            border-color: var(--accent-gold);
+            box-shadow: 0 4px 20px rgba(255, 215, 0, 0.4);
         }
 
         /* AI Avatar Laboratory Premium Styles */
@@ -585,7 +603,6 @@
             gap: 8px;
             font-size: 1.1rem;
             font-weight: 800;
-            margin-bottom: 12px;
             color: #FFF;
         }
 
@@ -815,7 +832,7 @@
             width: auto;
         }
 
-        /* NEW: Icebreaker Chips Suggestion Track */
+        /* Icebreaker Chips Suggestion Track */
         .icebreakers-container {
             display: flex;
             gap: 8px;
@@ -872,7 +889,7 @@
             border-color: var(--accent-pink);
         }
 
-        /* NEW: Voice Note Recording Microphone Button */
+        /* Voice Note Recording Microphone Button */
         .voice-btn {
             background: none;
             border: none;
@@ -902,7 +919,7 @@
             color: white;
         }
 
-        /* NEW: Pulse Recording Voice Waveform Overlay panel */
+        /* Pulse Recording Voice Waveform Overlay panel */
         .waveform-overlay {
             position: absolute;
             bottom: 68px;
@@ -947,19 +964,162 @@
             margin-top: 2px;
         }
 
-        @keyframes micro-pulse {
-            0% {
-                transform: scale(0.92);
-                box-shadow: 0 0 0 0 rgba(255, 68, 88, 0.6);
-            }
-            70% {
-                transform: scale(1.06);
-                box-shadow: 0 0 0 16px rgba(255, 68, 88, 0);
-            }
-            100% {
-                transform: scale(0.92);
-                box-shadow: 0 0 0 0 rgba(255, 68, 88, 0);
-            }
+        /* --- NEW: GOLDEN VIP SUBSCRIPTION OVERLAY MODAL --- */
+        .vip-paywall-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(5, 6, 8, 0.98);
+            z-index: 5000;
+            display: none;
+            flex-direction: column;
+            overflow-y: auto;
+            padding: 24px;
+            animation: slideUpUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.1) forwards;
+        }
+
+        @keyframes slideUpUp {
+            from { transform: translateY(100%); }
+            to { transform: translateY(0); }
+        }
+
+        .paywall-close-btn {
+            align-self: flex-start;
+            background: rgba(255, 255, 255, 0.08);
+            border: none;
+            color: white;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .paywall-header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .paywall-header h2 {
+            font-size: 2rem;
+            font-weight: 900;
+            background: var(--gold-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .paywall-header p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .vip-benefits-list {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-bottom: 30px;
+            background: rgba(255, 215, 0, 0.03);
+            border: 1px solid rgba(255, 215, 0, 0.1);
+            padding: 20px;
+            border-radius: 16px;
+        }
+
+        .benefit-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .benefit-icon {
+            color: var(--accent-gold);
+            font-size: 1.2rem;
+        }
+
+        /* Paywall pricing tiles matrix */
+        .pricing-tiers-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+
+        .pricing-tile {
+            background-color: var(--card-dark);
+            border: 1.5px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .pricing-tile.recommended {
+            border-color: var(--accent-gold);
+            background: linear-gradient(145deg, rgba(30, 26, 40, 0.8) 0%, rgba(20, 23, 34, 0.9) 100%);
+            transform: scale(1.04);
+        }
+
+        .pricing-badge {
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--gold-gradient);
+            color: #000;
+            font-size: 0.55rem;
+            font-weight: 900;
+            padding: 3px 8px;
+            border-radius: 8px;
+            white-space: nowrap;
+        }
+
+        .pricing-duration {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-weight: 700;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .pricing-rate {
+            font-size: 1.15rem;
+            font-weight: 900;
+            color: white;
+            margin-bottom: 4px;
+        }
+
+        .pricing-strike {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-decoration: line-through;
+            margin-bottom: 4px;
+        }
+
+        .pricing-tile.recommended .pricing-rate {
+            color: var(--accent-gold);
+        }
+
+        .paywall-guarantee {
+            text-align: center;
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            margin-top: 14px;
+            line-height: 1.4;
         }
 
         /* --- POPUP MATCH CONGRATULATIONS OVERLAY --- */
@@ -1142,6 +1302,7 @@
                 </button>
                 <div class="header-title-container">
                     <h1 id="appHeaderTitle">hookmebysam</h1>
+                    <span class="header-vip-badge" id="appHeaderVipBadge">VIP GOLD</span>
                 </div>
             </div>
             
@@ -1174,10 +1335,12 @@
 
                 <!-- Swipe Deck Controls -->
                 <div class="action-row" id="controlsDeck">
+                    <!-- Rewind button with dynamic limit status badge -->
                     <button class="circular-btn btn-rewind" onclick="undoLastAction()" title="Rewind">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
                         </svg>
+                        <div class="limit-badge" id="rewindLimitBadge">1</div>
                     </button>
                     <button class="circular-btn btn-pass" onclick="triggerManualSwipe('left')" title="Pass Profile">
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
@@ -1195,6 +1358,31 @@
             <!-- SCREEN 2: MATCHES LIST -->
             <div class="screen" id="matchesScreen">
                 <div class="matches-workspace">
+                    
+                    <!-- NEW: Glowing VIP Blurred Matches Container -->
+                    <div class="vip-blur-promo-card" onclick="openVipPaywall('likes_you')">
+                        <div class="vip-blur-header">
+                            <span class="vip-title-gold">👑 See Who Likes You</span>
+                            <span style="font-size: 0.75rem; font-weight: 700; color: #FFA751;">VIP GOLD FEATURE</span>
+                        </div>
+                        <p class="vip-blur-subtitle">4 premium users have swiped right on you in Nigeria! Upgrade to match instantly.</p>
+                        
+                        <div class="vip-blur-grid">
+                            <div class="blur-grid-item" id="blurMatch1" style="background-image: url('https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80')">
+                                <span class="blur-lock-symbol" id="lockMatch1">🔒</span>
+                            </div>
+                            <div class="blur-grid-item" id="blurMatch2" style="background-image: url('https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=150&q=80')">
+                                <span class="blur-lock-symbol" id="lockMatch2">🔒</span>
+                            </div>
+                            <div class="blur-grid-item" id="blurMatch3" style="background-image: url('https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=150&q=80')">
+                                <span class="blur-lock-symbol" id="lockMatch3">🔒</span>
+                            </div>
+                            <div class="blur-grid-item" id="blurMatch4" style="background-image: url('https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80')">
+                                <span class="blur-lock-symbol" id="lockMatch4">🔒</span>
+                            </div>
+                        </div>
+                    </div>
+
                     <h3 class="matches-grid-title">New Matches</h3>
                     <div class="matches-horizontal-list" id="newMatchesRow">
                         <p style="color: var(--text-secondary); font-size: 0.9rem; padding: 10px 0;">No active matches yet. Keep swiping!</p>
@@ -1219,9 +1407,10 @@
                     <div class="ai-lab-card">
                         <div class="ai-lab-title">
                             <span>✨ AI Avatar Laboratory</span>
+                            <span class="limit-badge" style="position:static; margin-left:6px; display:inline-flex;" id="aiLimitBadge">1</span>
                         </div>
                         <p class="ai-lab-subtitle">
-                            Generate breathtaking, unique portraits using Google Imagen. Select Amara (Profile 3) or click "All" to bulk-generate bespoke AI avatars for everyone!
+                            Generate breathtaking, unique portraits using Google Imagen. Select Amara (Profile 3) or click "All" to bulk-generate bespoke AI avatars!
                         </p>
 
                         <!-- Profile Picker for AI Target -->
@@ -1286,7 +1475,7 @@
                 <!-- Dialogue bubbles updated here -->
                 <div class="chat-messages" id="chatMessageThread"></div>
                 
-                <!-- NEW: Interactive Icebreaker Suggestions Bubbles -->
+                <!-- Interactive Icebreaker Suggestions Bubbles -->
                 <div class="icebreakers-container" id="icebreakersBox">
                     <span class="icebreaker-badge" onclick="sendIcebreaker('Hey ghost! 👻')">Hey ghost! 👻</span>
                     <span class="icebreaker-badge" onclick="sendIcebreaker('What playlist are we jamming to? 🎵')">What playlist are we jamming to? 🎵</span>
@@ -1319,6 +1508,61 @@
                 </div>
             </div>
 
+        </div>
+
+        <!-- NEW: PREMIUM GOLDEN SUBSCRIPTION PAYWALL MODAL -->
+        <div class="vip-paywall-modal" id="vipPaywallScreen">
+            <button class="paywall-close-btn" onclick="closeVipPaywall()">✕</button>
+            
+            <div class="paywall-header">
+                <h2>Upgrade to Gold</h2>
+                <p id="paywallReasonText">Uncap hookmebysam VIP Elite dating matches</p>
+            </div>
+
+            <div class="vip-benefits-list">
+                <div class="benefit-item">
+                    <span class="benefit-icon">👑</span>
+                    <span>See Who Likes You (Match Instantly)</span>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-icon">↩️</span>
+                    <span>Infinite Profile Rewinds (Never lose a match)</span>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-icon">✨</span>
+                    <span>Infinite AI Portrait Generations</span>
+                </div>
+                <div class="benefit-item">
+                    <span class="benefit-icon">🎖️</span>
+                    <span>Bespoke Gold Profile VIP Badge</span>
+                </div>
+            </div>
+
+            <!-- Pricing Grid -->
+            <div class="pricing-tiers-grid">
+                <div class="pricing-tile" id="priceTile1" onclick="selectPricingTile(1)">
+                    <span class="pricing-duration">1 Week</span>
+                    <span class="pricing-rate">₦2,500</span>
+                    <span class="pricing-strike">₦3,500</span>
+                </div>
+                <div class="pricing-tile recommended" id="priceTile2" onclick="selectPricingTile(2)">
+                    <div class="pricing-badge">BEST VALUE</div>
+                    <span class="pricing-duration">1 Month</span>
+                    <span class="pricing-rate">₦7,500</span>
+                    <span class="pricing-strike">₦14,000</span>
+                </div>
+                <div class="pricing-tile" id="priceTile3" onclick="selectPricingTile(3)">
+                    <span class="pricing-duration">Lifetime</span>
+                    <span class="pricing-rate">₦25,000</span>
+                    <span class="pricing-strike">₦45,000</span>
+                </div>
+            </div>
+
+            <button class="accent-gradient-btn" style="background: var(--gold-gradient); color: #000; box-shadow: 0 4px 20px rgba(255, 215, 0, 0.45); height: 50px;" onclick="simulateVipPurchase()">
+                Subscribe Now
+            </button>
+
+            <p class="paywall-guarantee">Cancel anytime inside the app. Pricing calculated in NGN for local accounts.</p>
         </div>
 
         <!-- POPUP MATCH CONGRATULATIONS OVERLAY -->
@@ -1444,6 +1688,12 @@
         let lastActionDetails = null; // Holds profile for rewind
         let isRecordingVoice = false;
 
+        // NEW: VIP / Monetization State Engine 
+        let isVipUser = false;
+        let freeRewindsLeft = 1;
+        let freeAiGenerationsLeft = 1;
+        let selectedPaywallTier = 2; // Default Month tier
+
         let myProfile = {
             id: "my_profile",
             name: "Dave Bigdave",
@@ -1470,6 +1720,7 @@
             loadOnboardingValues();
             updateHeaderNavigationState();
             renderAiLabInterface();
+            updateMonetizationUI();
         }
 
         // --- SECTION 1: GLOBAL NAVIGATION ROUTER ---
@@ -1554,7 +1805,6 @@
             const grid = document.getElementById("aiProfilePickerGrid");
             grid.innerHTML = "";
 
-            // List of all potential generation targets (including user)
             const allTargets = [
                 { id: "profile_3", name: "Amara (3)", image: initialProfilesData[2].image },
                 { id: "profile_1", name: "Zainab", image: initialProfilesData[0].image },
@@ -1596,7 +1846,7 @@
 
         // Call Google Imagen API with Exponential Backoff
         async function fetchAIImageFromPrompt(promptText) {
-            const apiKey = ""; // Left empty - auto injected by Canvas environment 
+            const apiKey = ""; // Provided automatically at runtime
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
             const payload = {
                 instances: [{ prompt: promptText }],
@@ -1615,7 +1865,6 @@
                     });
 
                     if (response.status === 429) {
-                        // Throttled: Wait with backoff
                         await new Promise(resolve => setTimeout(resolve, delay));
                         delay *= 2;
                         continue;
@@ -1637,6 +1886,12 @@
         }
 
         async function triggerSingleAIImageGen() {
+            // Guard: Check AI free limits for non-VIPs
+            if (!isVipUser && freeAiGenerationsLeft <= 0) {
+                openVipPaywall('ai_generation');
+                return;
+            }
+
             const promptInput = document.getElementById("aiPromptInput").value.trim();
             const loader = document.getElementById("aiLoader");
             const statusText = document.getElementById("aiStatusText");
@@ -1671,7 +1926,6 @@
                         initialProfilesData[targetIdx].image = generatedImageUrl;
                         initialProfilesData[targetIdx].aiPrompt = promptInput;
                     }
-                    // Sync up live state arrays
                     const stackIdx = profileStack.findIndex(p => p.id === aiSelectedProfileId);
                     if (stackIdx !== -1) {
                         profileStack[stackIdx].image = generatedImageUrl;
@@ -1682,7 +1936,12 @@
                     }
                 }
 
-                // Render Changes Instantly
+                // Decrement free gens
+                if (!isVipUser) {
+                    freeAiGenerationsLeft--;
+                    updateMonetizationUI();
+                }
+
                 renderCardStack();
                 updateMatchesView();
                 renderAiLabInterface();
@@ -1701,6 +1960,12 @@
         }
 
         async function triggerAllAIImageGen() {
+            // Guard: Force VIP paywall if bulk generation is clicked by a free user
+            if (!isVipUser) {
+                openVipPaywall('bulk_ai_generation');
+                return;
+            }
+
             const loader = document.getElementById("aiLoader");
             const statusText = document.getElementById("aiStatusText");
             const genSingleBtn = document.getElementById("aiGenSingleBtn");
@@ -1748,14 +2013,12 @@
                         }
                     }
 
-                    // Render changes step-by-step
                     renderCardStack();
                     updateMatchesView();
                 } catch (err) {
                     console.warn(`Could not generate portrait for ${target.name}. Skipping...`, err);
                 }
 
-                // Brief cool-down period to prevent rate-limit bursts
                 await new Promise(resolve => setTimeout(resolve, 800));
             }
 
@@ -1765,6 +2028,145 @@
             statusText.textContent = "✨ All profiles successfully upgraded with bespoke AI Art!";
             statusText.style.color = "#00E676";
             renderAiLabInterface();
+        }
+
+        // --- SECTION 1.8: MONETIZATION & SUBSCRIPTION TRIGGERS ---
+        function updateMonetizationUI() {
+            const headerVip = document.getElementById("appHeaderVipBadge");
+            const avatarView = document.getElementById("myAvatarPreview");
+            const rewindLimitBadge = document.getElementById("rewindLimitBadge");
+            const aiLimitBadge = document.getElementById("aiLimitBadge");
+
+            // Locks/unlocks matching grids
+            const blurItems = [1, 2, 3, 4];
+
+            if (isVipUser) {
+                // Update Premium badge triggers
+                headerVip.style.display = "inline-flex";
+                avatarView.classList.add("vip-active");
+                
+                // Show ∞ symbols on limits
+                rewindLimitBadge.textContent = "∞";
+                rewindLimitBadge.style.background = "var(--gold-gradient)";
+                aiLimitBadge.textContent = "∞";
+                aiLimitBadge.style.background = "var(--gold-gradient)";
+
+                // Lift the Locks on "Likes You" matching grid
+                blurItems.forEach(id => {
+                    const gridItem = document.getElementById(`blurMatch${id}`);
+                    const lockSymbol = document.getElementById(`lockMatch${id}`);
+                    if (gridItem) gridItem.classList.add("unlocked");
+                    if (lockSymbol) lockSymbol.style.display = "none";
+                });
+            } else {
+                headerVip.style.display = "none";
+                avatarView.classList.remove("vip-active");
+
+                // Show counters
+                rewindLimitBadge.textContent = freeRewindsLeft;
+                rewindLimitBadge.style.background = freeRewindsLeft <= 0 ? "var(--accent-pink)" : "var(--gold-gradient)";
+                aiLimitBadge.textContent = freeAiGenerationsLeft;
+                aiLimitBadge.style.background = freeAiGenerationsLeft <= 0 ? "var(--accent-pink)" : "var(--gold-gradient)";
+
+                // Lock up grid
+                blurItems.forEach(id => {
+                    const gridItem = document.getElementById(`blurMatch${id}`);
+                    const lockSymbol = document.getElementById(`lockMatch${id}`);
+                    if (gridItem) gridItem.classList.remove("unlocked");
+                    if (lockSymbol) lockSymbol.style.display = "block";
+                });
+            }
+        }
+
+        function openVipPaywall(context) {
+            const paywall = document.getElementById("vipPaywallScreen");
+            const reasonText = document.getElementById("paywallReasonText");
+
+            // Customize paywall reason based on what action triggered it
+            if (context === 'rewind') {
+                reasonText.textContent = "You've run out of free Rewinds! Upgrade to Gold for infinite rewinds.";
+            } else if (context === 'ai_generation') {
+                reasonText.textContent = "You've run out of free AI Generations! Upgrade to Gold for infinite creations.";
+            } else if (context === 'bulk_ai_generation') {
+                reasonText.textContent = "Bulk AI Portrait Upgrades require a Premium hookmebysam VIP Subscription.";
+            } else if (context === 'likes_you') {
+                reasonText.textContent = "See who swiped right on you in Nigeria and match instantly with Gold VIP.";
+            } else {
+                reasonText.textContent = "Unlock hookmebysam VIP features and match with premium users.";
+            }
+
+            paywall.style.display = "flex";
+        }
+
+        function closeVipPaywall() {
+            document.getElementById("vipPaywallScreen").style.display = "none";
+        }
+
+        function selectPricingTile(index) {
+            selectedPaywallTier = index;
+            const tiles = [1, 2, 3];
+            tiles.forEach(i => {
+                const t = document.getElementById(`priceTile${i}`);
+                if (i === index) {
+                    t.classList.add("recommended");
+                } else {
+                    t.classList.remove("recommended");
+                }
+            });
+        }
+
+        function simulateVipPurchase() {
+            const statusText = document.getElementById("aiStatusText");
+            isVipUser = true;
+            updateMonetizationUI();
+            
+            // Pop an attractive native-style success prompt
+            const notification = document.createElement("div");
+            notification.style.position = "absolute";
+            notification.style.bottom = "80px";
+            notification.style.left = "50%";
+            notification.style.transform = "translateX(-50%)";
+            notification.style.background = "var(--gold-gradient)";
+            notification.style.color = "#000";
+            notification.style.padding = "14px 24px";
+            notification.style.borderRadius = "30px";
+            notification.style.fontWeight = "900";
+            notification.style.zIndex = "10000";
+            notification.style.boxShadow = "0 10px 30px rgba(0,0,0,0.5)";
+            notification.style.textAlign = "center";
+            notification.style.fontSize = "0.95rem";
+            notification.innerHTML = "👑 VIP GOLD ACTIVATED!";
+            
+            document.body.appendChild(notification);
+            closeVipPaywall();
+
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+
+            // If we are currently in Matches Screen, trigger matching reveal animations
+            if (currentScreen === 'matches') {
+                revealVipSimulatedMatches();
+            }
+        }
+
+        function revealVipSimulatedMatches() {
+            // Unlocked matches are matched into matched list
+            const premiumMatches = [
+                { id: "premium_1", name: "Fifi", age: 23, tags: ["Vibe ⚡", "Music 🎷"], bio: "Aesthetic queen. Already liked you!", image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80", mutualMatchChance: true, autoMsgReply: "Wow, we finally matched! I've been waiting for you." },
+                { id: "premium_2", name: "Kemi", age: 24, tags: ["Brunch 🥞", "Art 🎨"], bio: "Let's explore Lagos galleries. Already liked you!", image: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=150&q=80", mutualMatchChance: true, autoMsgReply: "Hey! You upgraded to VIP too? Love to see it!" }
+            ];
+
+            premiumMatches.forEach(match => {
+                if (!matchedUsers.find(u => u.id === match.id)) {
+                    matchedUsers.push(match);
+                    conversationHistory[match.id] = {
+                        messages: [{ sender: 'them', text: `You unlocked matching! Say hello.` }]
+                    };
+                }
+            });
+
+            updateMatchesView();
         }
 
         // --- SECTION 2: SWIPE PHYSICS ENGINE ---
@@ -1926,7 +2328,20 @@
         }
 
         function undoLastAction() {
+            // Guard: Check Rewind limit for non-VIPs
+            if (!isVipUser && freeRewindsLeft <= 0) {
+                openVipPaywall('rewind');
+                return;
+            }
+
             if (!lastActionDetails) return;
+
+            // Decrement rewinds
+            if (!isVipUser) {
+                freeRewindsLeft--;
+                updateMonetizationUI();
+            }
+
             profileStack.unshift(lastActionDetails.profile);
             lastActionDetails = null; 
             renderCardStack();
@@ -2025,7 +2440,6 @@
 
             threadContainer.innerHTML = history.map(msg => {
                 if (msg.isVoice) {
-                    // Render styled voice bubble matching CSS guidelines
                     return `
                         <div class="msg-bubble outgoing audio-bubble">
                             <div style="display: flex; align-items: center; gap: 10px; width: 170px; padding: 2px 0;">
@@ -2049,7 +2463,6 @@
             threadContainer.scrollTop = threadContainer.scrollHeight;
         }
 
-        // Standard messaging controller
         function sendChatMessage() {
             const inputField = document.getElementById("chatTextInput");
             const userMsgText = inputField.value.trim();
@@ -2066,14 +2479,12 @@
             triggerAutoReply();
         }
 
-        // Submits chosen quick chat tags directly to frame view streams
         function sendIcebreaker(icebreakerText) {
             conversationHistory[currentActiveChatId].messages.push({
                 sender: 'me',
                 text: icebreakerText
             });
             
-            // Taps close container context properties for layout cleanup
             const icebreakersBox = document.getElementById('icebreakersBox');
             icebreakersBox.style.opacity = "0.2";
             icebreakersBox.style.pointerEvents = "none";
@@ -2082,7 +2493,6 @@
             triggerAutoReply();
         }
 
-        // Core voice note engine system controller
         function toggleVoiceRecording() {
             const overlayView = document.getElementById('voiceWaveformOverlay');
             const micControlNode = document.getElementById('voiceNoteBtn');
@@ -2095,13 +2505,12 @@
                 isRecordingVoice = true;
                 overlayText.textContent = `Recording voice note for ${partnerName}...`;
                 overlayView.classList.remove('hidden');
-                micControlNode.style.color = '#00E676'; // Highlight mic action indicator track green
+                micControlNode.style.color = '#00E676'; 
             } else {
                 isRecordingVoice = false;
                 overlayView.classList.add('hidden');
-                micControlNode.style.color = 'var(--accent-pink)'; // Restore system theme defaults
+                micControlNode.style.color = 'var(--accent-pink)'; 
                 
-                // Append custom mock audio bubble
                 conversationHistory[currentActiveChatId].messages.push({
                     sender: 'me',
                     isVoice: true,
@@ -2124,7 +2533,7 @@
                         text: targetUser.autoMsgReply
                     });
                     
-                    targetUser.autoMsgReply = ""; // Clear so it only replies once naturally
+                    targetUser.autoMsgReply = ""; 
                     renderChatMessageThread();
                 }, 1500);
             }
