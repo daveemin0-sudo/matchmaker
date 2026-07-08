@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>MatchMaker Mobile App Prototype</title>
+    <title>hookmebysam</title>
     <style>
         :root {
             --bg-dark: #090B10;
@@ -773,7 +773,7 @@
             transition: opacity 0.3s;
         }
 
-        /* --- SCREEN 4: ACTIVE CHAT SCREEN (Now a standalone peer screen) --- */
+        /* --- SCREEN 4: STANDALONE CHAT CONVERSATION VIEW --- */
         .chat-messages {
             flex: 1;
             overflow-y: auto;
@@ -789,6 +789,7 @@
             border-radius: 18px;
             font-size: 0.95rem;
             line-height: 1.4;
+            word-wrap: break-word;
         }
 
         .msg-bubble.received {
@@ -803,6 +804,48 @@
             align-self: flex-end;
             border-bottom-right-radius: 4px;
             color: white;
+        }
+
+        /* Custom Interactive Simulated Outgoing Voice Note Layout Bubble */
+        .msg-bubble.audio-bubble {
+            background: var(--accent-gradient);
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+            color: white;
+            width: auto;
+        }
+
+        /* NEW: Icebreaker Chips Suggestion Track */
+        .icebreakers-container {
+            display: flex;
+            gap: 8px;
+            padding: 10px 16px;
+            overflow-x: auto;
+            white-space: nowrap;
+            background: rgba(0, 0, 0, 0.2);
+            scrollbar-width: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .icebreakers-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .icebreaker-badge {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-primary);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .icebreaker-badge:hover {
+            background: var(--accent-gradient);
+            transform: translateY(-1px);
         }
 
         .chat-input-bar {
@@ -829,6 +872,23 @@
             border-color: var(--accent-pink);
         }
 
+        /* NEW: Voice Note Recording Microphone Button */
+        .voice-btn {
+            background: none;
+            border: none;
+            color: var(--accent-pink);
+            padding: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+        }
+
+        .voice-btn:hover {
+            color: var(--accent-orange);
+        }
+
         .chat-send-btn {
             background: var(--accent-gradient);
             border: none;
@@ -840,6 +900,66 @@
             justify-content: center;
             align-items: center;
             color: white;
+        }
+
+        /* NEW: Pulse Recording Voice Waveform Overlay panel */
+        .waveform-overlay {
+            position: absolute;
+            bottom: 68px;
+            left: 4%;
+            width: 92%;
+            background: rgba(14, 13, 22, 0.96);
+            border: 1px solid rgba(255, 68, 88, 0.25);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+            box-sizing: border-box;
+            z-index: 100;
+        }
+
+        .waveform-overlay.hidden {
+            display: none;
+        }
+
+        .pulse-circle {
+            width: 44px;
+            height: 44px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            animation: micro-pulse 1.3s infinite ease-in-out;
+            margin-bottom: 10px;
+        }
+
+        .waveform-overlay p {
+            color: #ffffff;
+            font-size: 14px;
+            margin: 4px 0;
+            font-weight: 500;
+        }
+
+        .stop-recording-hint {
+            color: var(--text-secondary);
+            font-size: 11px;
+            margin-top: 2px;
+        }
+
+        @keyframes micro-pulse {
+            0% {
+                transform: scale(0.92);
+                box-shadow: 0 0 0 0 rgba(255, 68, 88, 0.6);
+            }
+            70% {
+                transform: scale(1.06);
+                box-shadow: 0 0 0 16px rgba(255, 68, 88, 0);
+            }
+            100% {
+                transform: scale(0.92);
+                box-shadow: 0 0 0 0 rgba(255, 68, 88, 0);
+            }
         }
 
         /* --- POPUP MATCH CONGRATULATIONS OVERLAY --- */
@@ -1021,7 +1141,7 @@
                     </svg>
                 </button>
                 <div class="header-title-container">
-                    <h1 id="appHeaderTitle">🔥 MatchMaker</h1>
+                    <h1 id="appHeaderTitle">hookmebysam</h1>
                 </div>
             </div>
             
@@ -1163,17 +1283,39 @@
 
             <!-- SCREEN 4: CHAT CONVERSATION VIEW -->
             <div class="screen" id="chatScreen">
-                <div class="chat-messages" id="chatMessageThread">
-                    <!-- Dialogue bubbles updated here -->
-                </div>
+                <!-- Dialogue bubbles updated here -->
+                <div class="chat-messages" id="chatMessageThread"></div>
                 
+                <!-- NEW: Interactive Icebreaker Suggestions Bubbles -->
+                <div class="icebreakers-container" id="icebreakersBox">
+                    <span class="icebreaker-badge" onclick="sendIcebreaker('Hey ghost! 👻')">Hey ghost! 👻</span>
+                    <span class="icebreaker-badge" onclick="sendIcebreaker('What playlist are we jamming to? 🎵')">What playlist are we jamming to? 🎵</span>
+                    <span class="icebreaker-badge" onclick="sendIcebreaker('Rate your swiping luck so far out of 10 😂')">Rate your swiping luck so far out of 10 😂</span>
+                </div>
+
+                <!-- Polished Controls Input Bar -->
                 <div class="chat-input-bar">
                     <input type="text" class="chat-field" id="chatTextInput" placeholder="Type a message..." onkeydown="handleChatSubmit(event)">
+                    
+                    <!-- Voice Note Microphone Trigger Button -->
+                    <button id="voiceNoteBtn" class="voice-btn" type="button" onclick="toggleVoiceRecording()">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
+                            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
+                        </svg>
+                    </button>
+
                     <button class="chat-send-btn" onclick="sendChatMessage()">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
                             <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                         </svg>
                     </button>
+                </div>
+
+                <!-- Voice Recording Pulse Overlay Animation -->
+                <div id="voiceWaveformOverlay" class="waveform-overlay hidden">
+                    <div class="pulse-circle"></div>
+                    <p id="voiceOverlayText">Recording voice note...</p>
+                    <span class="stop-recording-hint">Tap microphone again to send</span>
                 </div>
             </div>
 
@@ -1300,6 +1442,7 @@
         let previousScreen = 'discovery';
         let currentActiveChatId = null;
         let lastActionDetails = null; // Holds profile for rewind
+        let isRecordingVoice = false;
 
         let myProfile = {
             id: "my_profile",
@@ -1341,7 +1484,9 @@
 
             const screens = ["discovery", "matches", "profile", "chat"];
             screens.forEach(s => {
-                document.getElementById(`${s}Screen`).classList.remove("active");
+                const screenElement = document.getElementById(`${s}Screen`);
+                if (screenElement) screenElement.classList.remove("active");
+                
                 const navBtn = document.getElementById(`nav${s.charAt(0).toUpperCase() + s.slice(1)}Btn`);
                 if (navBtn) navBtn.classList.remove("active");
             });
@@ -1366,7 +1511,7 @@
             // Configure layout properties based on current active screen router
             if (currentScreen === 'discovery') {
                 backBtn.style.display = "none";
-                headerTitle.innerHTML = "🔥 MatchMaker";
+                headerTitle.innerHTML = "hookmebysam";
                 quickMatchesBtn.style.display = "flex";
             } else if (currentScreen === 'matches') {
                 backBtn.style.display = "flex";
@@ -1576,7 +1721,7 @@
 
             for (let i = 0; i < allProfiles.length; i++) {
                 const target = allProfiles[i];
-                statusText.textContent = `⏳ Generatating ${target.name} (${i + 1}/${allProfiles.length})...`;
+                statusText.textContent = `⏳ Generating ${target.name} (${i + 1}/${allProfiles.length})...`;
                 statusText.style.color = "#FFD54F";
                 selectAiTargetProfile(target.id);
 
@@ -1824,7 +1969,7 @@
             openChatRoom(matchedProfile.id);
         }
 
-        // --- SECTION 4: CONVERSATIONS & CHAT ---
+        // --- SECTION 4: CONVERSATIONS & RICH CHAT ---
         function updateMatchesView() {
             const matchesRow = document.getElementById("newMatchesRow");
             const convosCol = document.getElementById("conversationsCol");
@@ -1865,6 +2010,12 @@
         function openChatRoom(profileId) {
             currentActiveChatId = profileId;
             switchTab('chat');
+            
+            // Reset icebreakers track state on opening a new chat session
+            const icebreakersBox = document.getElementById('icebreakersBox');
+            icebreakersBox.style.opacity = "1";
+            icebreakersBox.style.pointerEvents = "auto";
+
             renderChatMessageThread();
         }
 
@@ -1872,15 +2023,33 @@
             const threadContainer = document.getElementById("chatMessageThread");
             const history = conversationHistory[currentActiveChatId]?.messages || [];
 
-            threadContainer.innerHTML = history.map(msg => `
-                <div class="msg-bubble ${msg.sender === 'me' ? 'sent' : 'received'}">
-                    ${msg.text}
-                </div>
-            `).join('');
+            threadContainer.innerHTML = history.map(msg => {
+                if (msg.isVoice) {
+                    // Render styled voice bubble matching CSS guidelines
+                    return `
+                        <div class="msg-bubble outgoing audio-bubble">
+                            <div style="display: flex; align-items: center; gap: 10px; width: 170px; padding: 2px 0;">
+                                <span style="cursor: pointer; font-size: 14px;">▶️</span>
+                                <div style="flex-grow: 1; height: 4px; background: rgba(255, 255, 255, 0.35); border-radius: 2px; position: relative;">
+                                    <div style="width: 55%; height: 100%; background: #ffffff; border-radius: 2px;"></div>
+                                </div>
+                                <span style="font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.95);">${msg.duration}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    return `
+                        <div class="msg-bubble ${msg.sender === 'me' ? 'sent' : 'received'}">
+                            ${msg.text}
+                        </div>
+                    `;
+                }
+            }).join('');
 
             threadContainer.scrollTop = threadContainer.scrollHeight;
         }
 
+        // Standard messaging controller
         function sendChatMessage() {
             const inputField = document.getElementById("chatTextInput");
             const userMsgText = inputField.value.trim();
@@ -1894,7 +2063,57 @@
 
             inputField.value = '';
             renderChatMessageThread();
+            triggerAutoReply();
+        }
 
+        // Submits chosen quick chat tags directly to frame view streams
+        function sendIcebreaker(icebreakerText) {
+            conversationHistory[currentActiveChatId].messages.push({
+                sender: 'me',
+                text: icebreakerText
+            });
+            
+            // Taps close container context properties for layout cleanup
+            const icebreakersBox = document.getElementById('icebreakersBox');
+            icebreakersBox.style.opacity = "0.2";
+            icebreakersBox.style.pointerEvents = "none";
+
+            renderChatMessageThread();
+            triggerAutoReply();
+        }
+
+        // Core voice note engine system controller
+        function toggleVoiceRecording() {
+            const overlayView = document.getElementById('voiceWaveformOverlay');
+            const micControlNode = document.getElementById('voiceNoteBtn');
+            const overlayText = document.getElementById('voiceOverlayText');
+            
+            const activePartner = matchedUsers.find(u => u.id === currentActiveChatId);
+            const partnerName = activePartner ? activePartner.name : "your match";
+
+            if (!isRecordingVoice) {
+                isRecordingVoice = true;
+                overlayText.textContent = `Recording voice note for ${partnerName}...`;
+                overlayView.classList.remove('hidden');
+                micControlNode.style.color = '#00E676'; // Highlight mic action indicator track green
+            } else {
+                isRecordingVoice = false;
+                overlayView.classList.add('hidden');
+                micControlNode.style.color = 'var(--accent-pink)'; // Restore system theme defaults
+                
+                // Append custom mock audio bubble
+                conversationHistory[currentActiveChatId].messages.push({
+                    sender: 'me',
+                    isVoice: true,
+                    duration: '0:05'
+                });
+
+                renderChatMessageThread();
+                triggerAutoReply();
+            }
+        }
+
+        function triggerAutoReply() {
             const targetUser = matchedUsers.find(u => u.id === currentActiveChatId);
             if (targetUser && targetUser.autoMsgReply) {
                 setTimeout(() => {
@@ -1905,7 +2124,7 @@
                         text: targetUser.autoMsgReply
                     });
                     
-                    targetUser.autoMsgReply = ""; 
+                    targetUser.autoMsgReply = ""; // Clear so it only replies once naturally
                     renderChatMessageThread();
                 }, 1500);
             }
