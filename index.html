@@ -22,7 +22,8 @@
   <meta name="twitter:description" content="Meet amazing people near you. Real vibes, premium connections.">
   <title>hookmebysam | Premium Dating App</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=5.0">
+  <link rel="stylesheet" href="premium.css?v=5.0">
 </head>
 <body>
 
@@ -54,6 +55,11 @@
         </div>
       </div>
       <div id="headerRight" class="header-right">
+        <button class="header-btn" id="headerSearchBtn" onclick="focusUserSearch()" aria-label="Search users" title="Search users">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+          </svg>
+        </button>
         <button class="header-btn" id="matchesQuickBtn" onclick="switchTab('matches')" aria-label="Matches">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
@@ -355,6 +361,14 @@
       <div class="screen" id="discoveryScreen">
         <div class="discovery-workspace">
 
+          <!-- Discovery Top Search Bar -->
+          <div class="user-search-wrap" style="padding: 6px 14px 10px; margin-bottom: 2px;">
+            <div style="position:relative;display:flex;align-items:center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <input type="text" class="form-input" placeholder="🔍 Search registered users..." onclick="focusUserSearch()" readonly style="padding-left:42px;height:40px;font-size:0.84rem;border-radius:20px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;width:100%;cursor:pointer">
+            </div>
+          </div>
+
           <!-- Card Stack -->
           <div class="card-stack" id="cardStack">
             <!-- Rendered by JS -->
@@ -416,6 +430,26 @@
            ===================================================== -->
       <div class="screen" id="matchesScreen">
         <div class="matches-workspace">
+
+          <!-- User Search Bar -->
+          <div class="user-search-wrap" style="padding: 12px 16px 8px;">
+            <div style="position:relative;display:flex;align-items:center;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              <input type="text" class="form-input" id="userSearchInput" placeholder="🔍 Search registered users by name or email..." oninput="handleUserSearchInput(event)" style="padding-left:42px;padding-right:36px;height:46px;font-size:0.88rem;border-radius:24px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;width:100%;box-shadow:0 4px 16px rgba(0,0,0,0.2)">
+              <button id="clearSearchBtn" onclick="clearUserSearch()" style="display:none;position:absolute;right:14px;background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-weight:700;font-size:1rem">✕</button>
+            </div>
+          </div>
+
+          <!-- Search Results Container -->
+          <div id="searchResultsContainer" style="display:none;padding:4px 16px 16px;">
+            <div class="section-header" style="margin-bottom:10px">
+              <span class="section-title" style="font-size:0.92rem">Search Results</span>
+              <span class="section-count" id="searchResultsCount" style="background:var(--flame-grad,#ff2d78)">0</span>
+            </div>
+            <div id="searchResultsList" style="display:flex;flex-direction:column;gap:10px">
+              <!-- Search results rendered by JS -->
+            </div>
+          </div>
 
           <!-- Stories / Top Picks Row -->
           <div class="stories-section" id="storiesSection">
@@ -503,7 +537,30 @@
       <!-- =====================================================
            SCREEN: CHAT
            ===================================================== -->
-      <div class="screen" id="chatScreen" style="position:relative">
+      <div class="screen" id="chatScreen">
+
+        <!-- Chat Header Info Bar (partner name / status) -->
+        <div class="chat-partner-bar" id="chatPartnerBar">
+          <div class="chat-partner-avatar" id="chatPartnerAvatar"></div>
+          <div class="chat-partner-info">
+            <div class="chat-partner-name" id="chatPartnerName"></div>
+            <div class="chat-partner-status" id="chatPartnerStatus">Active now ●</div>
+          </div>
+          <div class="chat-call-btns">
+            <button class="chat-call-btn" onclick="startVoiceCall()" title="Voice Call" aria-label="Voice call">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
+              </svg>
+            </button>
+            <button class="chat-call-btn" onclick="startVideoCall()" title="Video Call" aria-label="Video call">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Messages Area -->
         <div class="chat-messages-area" id="chatMessages">
           <!-- Rendered by JS -->
         </div>
@@ -516,26 +573,134 @@
           <span class="ice-chip" onclick="sendIcebreaker('Tell me your hottest take 🔥')">Tell me your hottest take 🔥</span>
         </div>
 
-        <!-- Input Bar -->
+        <!-- Emoji Picker Panel -->
+        <div class="emoji-picker-panel" id="emojiPickerPanel" style="display:none">
+          <div class="emoji-category-tabs" id="emojiCategoryTabs"></div>
+          <div class="emoji-grid" id="emojiGrid"></div>
+        </div>
+
+        <!-- Chat Input Bar -->
         <div class="chat-input-bar">
-          <input class="chat-field" id="chatInput" type="text" placeholder="Type a message..." onkeydown="handleChatKeydown(event)" autocomplete="off">
-          <button class="chat-mic-btn" id="micBtn" onclick="toggleVoiceRecording()" aria-label="Voice note">
+          <button class="chat-icon-btn" id="emojiToggleBtn" onclick="toggleEmojiPicker()" aria-label="Emoji" title="Emoji">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5 14.67 11 15.5 11zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+            </svg>
+          </button>
+          <button class="chat-icon-btn" onclick="document.getElementById('chatImageInput').click()" aria-label="Attach image" title="Send image">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+            </svg>
+          </button>
+          <input type="file" id="chatImageInput" accept="image/*" style="display:none" onchange="sendImageMessage(event)">
+          <input class="chat-field" id="chatInput" type="text" placeholder="Message..." onkeydown="handleChatKeydown(event)" oninput="onChatInputChange()" autocomplete="off">
+          <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" aria-label="Send" style="display:none">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+          <button class="chat-mic-btn" id="micBtn" onclick="toggleVoiceRecording()" aria-label="Voice note" title="Hold to record">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/>
             </svg>
           </button>
-          <button class="chat-send-btn" onclick="sendMessage()" aria-label="Send">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-            </svg>
+        </div>
+
+        <!-- Voice Recording Waveform Bar (replaces overlay) -->
+        <div class="voice-record-bar" id="voiceRecordBar" style="display:none">
+          <button class="voice-cancel-btn" onclick="cancelVoiceRecording()" aria-label="Cancel">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+          </button>
+          <div class="voice-wave-anim">
+            <span></span><span></span><span></span><span></span><span></span>
+          </div>
+          <span class="voice-rec-timer" id="voiceRecTimer">0:00</span>
+          <button class="voice-send-btn" onclick="sendVoiceNote()" aria-label="Send voice note">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
         </div>
 
-        <!-- Voice Recording Overlay -->
-        <div class="voice-overlay hidden" id="voiceOverlay">
-          <div class="voice-pulse"></div>
-          <div class="voice-label" id="voiceRecordingLabel">Recording voice note...</div>
-          <div class="voice-hint">Tap mic again to send</div>
+      </div>
+
+      <!-- =====================================================
+           VOICE CALL OVERLAY
+           ===================================================== -->
+      <div class="call-overlay" id="voiceCallOverlay" style="display:none">
+        <div class="call-overlay-bg"></div>
+        <div class="call-top-actions">
+          <button class="call-minimize-btn" onclick="endCall()" aria-label="Back">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          </button>
+          <span class="call-type-label">Voice Call</span>
+        </div>
+        <div class="call-content">
+          <div class="call-avatar-ring">
+            <div class="call-avatar-img" id="callAvatarImg"></div>
+          </div>
+          <div class="call-name" id="callName">Zainab</div>
+          <div class="call-status" id="callStatusText">Ringing...</div>
+          <div class="call-live-timer" id="callLiveTimer" style="display:none">0:00</div>
+          <div class="call-signal-bars">
+            <span></span><span></span><span></span><span></span>
+          </div>
+        </div>
+        <div class="call-controls-row">
+          <div class="call-ctrl-item">
+            <button class="call-ctrl-btn" id="callMuteBtn" onclick="toggleCallMute()">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+            <span>Mute</span>
+          </div>
+          <div class="call-ctrl-item">
+            <button class="call-ctrl-btn call-ctrl-end" onclick="endCall()">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+            </button>
+            <span>End</span>
+          </div>
+          <div class="call-ctrl-item">
+            <button class="call-ctrl-btn" id="callSpeakerBtn" onclick="toggleSpeaker()">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+            </button>
+            <span>Speaker</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- =====================================================
+           VIDEO CALL OVERLAY
+           ===================================================== -->
+      <div class="call-overlay video-call-ov" id="videoCallOverlay" style="display:none">
+        <div class="video-remote-bg" id="videoRemoteBg"></div>
+        <div class="video-pip" id="myVideoPip">
+          <video id="myVideoStream" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover;border-radius:12px"></video>
+          <div class="pip-cam-off" id="pipCamOff">📷</div>
+        </div>
+        <div class="call-top-actions">
+          <button class="call-minimize-btn" onclick="endVideoCall()">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+          </button>
+          <span class="call-type-label">Video Call</span>
+          <span class="call-live-timer" id="videoCallTimer">0:00</span>
+        </div>
+        <div class="video-call-name" id="videoCallName">Zainab</div>
+        <div class="call-controls-row">
+          <div class="call-ctrl-item">
+            <button class="call-ctrl-btn" id="videoMuteBtn" onclick="toggleVideoMute()">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+            </button>
+            <span>Mute</span>
+          </div>
+          <div class="call-ctrl-item">
+            <button class="call-ctrl-btn call-ctrl-end" onclick="endVideoCall()">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+            </button>
+            <span>End</span>
+          </div>
+          <div class="call-ctrl-item">
+            <button class="call-ctrl-btn" id="videoCamBtn" onclick="toggleCamera()">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+            </button>
+            <span>Camera</span>
+          </div>
         </div>
       </div>
 
@@ -553,11 +718,13 @@
             <div class="profile-avatar-wrap">
               <div class="profile-big-avatar" id="profileAvatar" style="background-image:url('https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80')">
               </div>
-              <div class="avatar-edit-btn" onclick="document.getElementById('editPhotoUrl').focus()">
+              <div class="avatar-edit-btn" onclick="document.getElementById('profilePhotoFile').click()" title="Change photo">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
-                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
                 </svg>
+                <span style="font-size:0.55rem;font-weight:700">CHANGE</span>
               </div>
+              <input type="file" id="profilePhotoFile" accept="image/*" style="display:none" onchange="handleProfilePhotoUpload(event)">
             </div>
 
             <div class="profile-stats-row">
@@ -604,8 +771,19 @@
                 <textarea class="form-textarea" id="editBio" placeholder="Tell the world about yourself..."></textarea>
               </div>
               <div class="form-field">
-                <label>Photo URL</label>
-                <input class="form-input" id="editPhotoUrl" type="text" placeholder="https://...">
+                <label>Profile Photo</label>
+                <div class="photo-upload-area" onclick="document.getElementById('profilePhotoFile').click()">
+                  <div class="photo-upload-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                    </svg>
+                  </div>
+                  <div class="photo-upload-text-wrap">
+                    <span class="photo-upload-label">Change Profile Photo</span>
+                    <small class="photo-upload-hint">JPG, PNG or HEIC</small>
+                  </div>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color:var(--txt-muted)"><path d="M10 17l5-5-5-5v10z"/></svg>
+                </div>
               </div>
 
               <div class="save-feedback" id="profileSaveFeedback">✓ Profile saved successfully!</div>
@@ -1016,6 +1194,14 @@
         <div class="nav-active-dot"></div>
       </button>
 
+      <button class="nav-tab" data-tab="search" onclick="openSearchModal()" aria-label="Search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+        </svg>
+        Search
+        <div class="nav-active-dot"></div>
+      </button>
+
       <button class="nav-tab" data-tab="matches" onclick="switchTab('matches')" aria-label="Matches">
         <svg viewBox="0 0 24 24">
           <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
@@ -1158,8 +1344,48 @@
       </div>
     </div>
 
+    <!-- =====================================================
+         USER SEARCH MODAL OVERLAY
+         ===================================================== -->
+    <div class="search-modal-overlay" id="searchModalOverlay" style="display:none">
+      <div class="search-modal-card">
+        <div class="search-modal-header">
+          <div style="position:relative;flex:1;display:flex;align-items:center;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            <input type="text" class="form-input" id="searchModalInput" placeholder="Search registered users by name or email..." oninput="handleModalSearchInput(event)" style="padding-left:42px;padding-right:36px;height:46px;font-size:0.9rem;border-radius:23px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;width:100%">
+            <button id="clearModalSearchBtn" onclick="clearModalSearch()" style="display:none;position:absolute;right:14px;background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-weight:700;font-size:1rem">✕</button>
+          </div>
+          <button class="search-modal-close" onclick="closeSearchModal()" aria-label="Close search">✕</button>
+        </div>
+        <div class="search-modal-body" id="searchModalResults">
+          <div style="text-align:center;padding:32px 16px;color:rgba(255,255,255,0.5);font-size:0.88rem">
+            Type a name or email above to search registered accounts 🔍
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALWAYS-VISIBLE FLOATING SEARCH BUTTON -->
+    <button class="global-floating-search-btn" id="globalFloatingSearchBtn" onclick="openSearchModal()" title="Search registered users" aria-label="Search users" style="position:absolute;bottom:78px;right:16px;z-index:99999;background:linear-gradient(135deg,#FF2D78 0%,#FF7043 100%);color:#fff;border:none;border-radius:30px;padding:10px 18px;font-family:sans-serif;font-size:0.85rem;font-weight:800;display:flex;align-items:center;gap:8px;box-shadow:0 8px 30px rgba(255,45,120,0.6),0 0 0 2px rgba(255,255,255,0.2);cursor:pointer;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <span>Search Users</span>
+    </button>
+
   </div><!-- end .app-shell -->
 
-  <script src="script.js"></script>
+  <!-- Paystack Inline Payment Gateway SDK -->
+  <script src="https://js.paystack.co/v1/inline.js"></script>
+
+  <!-- Firebase v9 Compat SDKs (Auth, Firestore, Storage) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
+
+  <!-- Firebase & Paystack Adapter Module -->
+  <script src="firebase-config.js?v=5.0"></script>
+
+  <!-- Main Application Logic -->
+  <script src="script.js?v=5.0"></script>
 </body>
 </html>

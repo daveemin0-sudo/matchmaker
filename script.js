@@ -157,11 +157,46 @@ function initMainApp() {
   renderAiLabPicker();
   applyVipUI();
   renderStoriesRow();
+
+  // Fetch real registered users from Firestore into the card stack
+  loadProfilesForDiscovery();
+
+  // Subscribe to real-time matches from Firestore
+  if (typeof listenToUserMatches === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    listenToUserMatches((realMatches) => {
+      if (realMatches && realMatches.length > 0) {
+        realMatches.forEach(m => {
+          if (!matchedUsers.find(u => u.id === m.id)) {
+            matchedUsers.push(m);
+            if (!conversations[m.id]) {
+              conversations[m.id] = { messages: [] };
+            }
+          }
+        });
+        renderMatchesView();
+        saveToStorage();
+      }
+    });
+  }
+
   // Ask for notification permission after a short delay
   setTimeout(requestNotificationPermission, 3500);
   // Register service worker for PWA
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+}
+
+async function loadProfilesForDiscovery() {
+  if (typeof fetchRealUsersFromFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    const realUsers = await fetchRealUsersFromFirestore();
+    if (realUsers && realUsers.length > 0) {
+      profileStack = [...realUsers];
+      renderCardStack();
+      console.log(`🔥 Discovery stack updated with ${realUsers.length} real Firestore user(s)!`);
+    } else {
+      console.log("ℹ️ No other real Firestore users found in database yet. Register a 2nd user to see them here.");
+    }
   }
 }
 
@@ -250,6 +285,9 @@ function showScreen(screenId) {
   const navEl = document.getElementById('bottomNav');
   if (navEl) navEl.style.display = isAuth ? 'none' : 'flex';
 
+  const fab = document.getElementById('globalFloatingSearchBtn');
+  if (fab) fab.style.display = (isAuth || screenId === 'chat') ? 'none' : 'flex';
+
   updateHeader(screenId);
   updateBottomNav(screenId);
 }
@@ -267,6 +305,19 @@ function updateHeader(screenId) {
 
   if (!backBtn || !headerTitle) return;
 
+  // Ensure headerRight is visible on all main screens
+  if (headerRight) headerRight.style.display = 'flex';
+
+  const searchBtn = document.getElementById('headerSearchBtn');
+  const reportBtn = document.getElementById('chatReportBtn');
+  const upgradeBtn = document.getElementById('upgradeHeaderBtn');
+  const matchBtn  = document.getElementById('matchesQuickBtn');
+
+  if (searchBtn)  searchBtn.style.display  = screenId === 'chat' ? 'none' : 'flex';
+  if (reportBtn)  reportBtn.style.display  = screenId === 'chat' ? 'flex' : 'none';
+  if (upgradeBtn) upgradeBtn.style.display = screenId === 'chat' ? 'none' : 'flex';
+  if (matchBtn)   matchBtn.style.display   = screenId === 'chat' ? 'none' : 'flex';
+
   switch (screenId) {
     case 'discovery':
       backBtn.style.display = 'none';
@@ -275,63 +326,24 @@ function updateHeader(screenId) {
       headerTitle.style.background = '';
       headerTitle.style.webkitBackgroundClip = '';
       headerTitle.style.webkitTextFillColor = '';
-      if (headerRight) headerRight.style.display = 'flex';
       break;
     case 'matches':
       backBtn.style.display = 'flex';
       setHeaderTitle('My Matches');
-      if (headerRight) headerRight.style.display = 'none';
       break;
     case 'chat': {
       backBtn.style.display = 'flex';
       const partner = matchedUsers.find(u => u.id === appState.currentChatId);
       setHeaderTitle(partner ? `${escHtml(partner.name)} <span style="color:var(--green-match);font-size:0.7rem;margin-left:6px">●</span>` : 'Chat');
-      // Show report button; hide upgrade & matches buttons
-      const reportBtn = document.getElementById('chatReportBtn');
-      const upgradeBtn = document.getElementById('upgradeHeaderBtn');
-      const matchBtn  = document.getElementById('matchesQuickBtn');
-      if (headerRight) headerRight.style.display = 'flex';
-      if (reportBtn)  reportBtn.style.display  = 'flex';
-      if (upgradeBtn) upgradeBtn.style.display = 'none';
-      if (matchBtn)   matchBtn.style.display   = 'none';
       break;
     }
     case 'profile':
       backBtn.style.display = 'flex';
       setHeaderTitle('My Profile');
-      // Restore normal header buttons
-      if (headerRight) {
-        headerRight.style.display = 'none';
-        const reportBtn = document.getElementById('chatReportBtn');
-        const upgradeBtn = document.getElementById('upgradeHeaderBtn');
-        const matchBtn  = document.getElementById('matchesQuickBtn');
-        if (reportBtn)  reportBtn.style.display  = 'none';
-        if (upgradeBtn) upgradeBtn.style.display = 'flex';
-        if (matchBtn)   matchBtn.style.display   = 'flex';
-      }
       break;
     case 'settings':
       backBtn.style.display = 'flex';
       setHeaderTitle('Settings');
-      if (headerRight) {
-        headerRight.style.display = 'none';
-        const reportBtn2 = document.getElementById('chatReportBtn');
-        const upgradeBtn2 = document.getElementById('upgradeHeaderBtn');
-        const matchBtn2  = document.getElementById('matchesQuickBtn');
-        if (reportBtn2)  reportBtn2.style.display  = 'none';
-        if (upgradeBtn2) upgradeBtn2.style.display = 'flex';
-        if (matchBtn2)   matchBtn2.style.display   = 'flex';
-      }
-      break;
-    default:
-      if (headerRight) {
-        const reportBtn3 = document.getElementById('chatReportBtn');
-        const upgradeBtn3 = document.getElementById('upgradeHeaderBtn');
-        const matchBtn3  = document.getElementById('matchesQuickBtn');
-        if (reportBtn3)  reportBtn3.style.display  = 'none';
-        if (upgradeBtn3) upgradeBtn3.style.display = 'flex';
-        if (matchBtn3)   matchBtn3.style.display   = 'flex';
-      }
       break;
   }
 }
@@ -405,6 +417,10 @@ function handleBackBtn() {
 }
 
 function switchTab(tabId) {
+  if (tabId === 'search') {
+    openSearchModal();
+    return;
+  }
   if (appState.currentScreen === 'chat') {
     appState.currentChatId = null;
   }
@@ -422,24 +438,43 @@ function handleLogin() {
 
   errorEl.textContent = '';
 
-  if (!email || !password) {
-    errorEl.textContent = 'Please fill in all fields.';
-    return;
-  }
-  if (!email.includes('@')) {
-    errorEl.textContent = 'Please enter a valid email address.';
-    return;
-  }
-  if (password.length < 6) {
-    errorEl.textContent = 'Password must be at least 6 characters.';
-    return;
-  }
+  if (!email || !password) { errorEl.textContent = 'Please fill in all fields.'; return; }
+  if (!email.includes('@')) { errorEl.textContent = 'Please enter a valid email address.'; return; }
+  if (password.length < 6) { errorEl.textContent = 'Password must be at least 6 characters.'; return; }
 
-  // Simulate login
   const btn = document.getElementById('loginBtn');
   btn.disabled = true;
   btn.innerHTML = '<span>Signing in...</span>';
 
+  // ---- FIREBASE LIVE MODE ----
+  if (typeof fbAuth !== 'undefined' && fbAuth) {
+    fbAuth.signInWithEmailAndPassword(email, password)
+      .then((userCredential) => {
+        currentUser.email = userCredential.user.email;
+        currentUser.id = userCredential.user.uid;
+        appState.isLoggedIn = true;
+        saveToStorage();
+        showScreen('discovery');
+        initMainApp();
+      })
+      .catch((err) => {
+        console.warn("Firebase sign-in error code:", err.code, "message:", err.message);
+        const msgs = {
+          'auth/user-not-found': 'No account found with this email. Click "Sign Up Free" below to create one!',
+          'auth/wrong-password': 'Wrong password. Please check your password and try again.',
+          'auth/invalid-credential': 'Incorrect email or password. Click "Sign Up Free" below to register!',
+          'auth/invalid-login-credentials': 'Incorrect email or password. Click "Sign Up Free" below to register!',
+          'auth/invalid-email': 'Please enter a valid email address.',
+          'auth/user-disabled': 'This account has been disabled.',
+          'auth/too-many-requests': 'Too many attempts. Please wait a moment or reset your password.'
+        };
+        errorEl.textContent = msgs[err.code] || 'Incorrect email or password. Click "Sign Up Free" below to register.';
+      })
+      .finally(() => { btn.disabled = false; btn.innerHTML = 'Sign In'; });
+    return;
+  }
+
+  // ---- LOCAL FALLBACK (no Firebase yet) ----
   setTimeout(() => {
     currentUser.email = email;
     appState.isLoggedIn = true;
@@ -454,8 +489,31 @@ function handleLogin() {
 function handleGoogleLogin() {
   const btn = document.getElementById('googleLoginBtn');
   btn.disabled = true;
-  btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 4.5C13.8 4.5 15.4 5.2 16.6 6.3L19.9 3C17.9 1.1 15.1 0 12 0C7.4 0 3.4 2.6 1.4 6.4L5.2 9.3C6.2 6.5 8.8 4.5 12 4.5Z" fill="#EA4335"/><path d="M23.5 12.3C23.5 11.4 23.4 10.6 23.3 9.8H12V14.5H18.5C18.2 16 17.4 17.2 16.2 18L19.9 20.8C22.1 18.8 23.5 15.8 23.5 12.3Z" fill="#4285F4"/><path d="M5.2 14.7C4.9 13.9 4.8 13 4.8 12C4.8 11 5 10.1 5.2 9.3L1.4 6.4C0.5 8.1 0 10 0 12C0 14 0.5 15.9 1.4 17.6L5.2 14.7Z" fill="#FBBC05"/><path d="M12 24C15.1 24 17.8 23 19.9 20.8L16.2 18C15.1 18.7 13.7 19.2 12 19.2C8.8 19.2 6.2 17.2 5.2 14.4L1.4 17.3C3.4 21.4 7.4 24 12 24Z" fill="#34A853"/></svg> Signing in...`;
-  
+  const googleIconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 4.5C13.8 4.5 15.4 5.2 16.6 6.3L19.9 3C17.9 1.1 15.1 0 12 0C7.4 0 3.4 2.6 1.4 6.4L5.2 9.3C6.2 6.5 8.8 4.5 12 4.5Z" fill="#EA4335"/><path d="M23.5 12.3C23.5 11.4 23.4 10.6 23.3 9.8H12V14.5H18.5C18.2 16 17.4 17.2 16.2 18L19.9 20.8C22.1 18.8 23.5 15.8 23.5 12.3Z" fill="#4285F4"/><path d="M5.2 14.7C4.9 13.9 4.8 13 4.8 12C4.8 11 5 10.1 5.2 9.3L1.4 6.4C0.5 8.1 0 10 0 12C0 14 0.5 15.9 1.4 17.6L5.2 14.7Z" fill="#FBBC05"/><path d="M12 24C15.1 24 17.8 23 19.9 20.8L16.2 18C15.1 18.7 13.7 19.2 12 19.2C8.8 19.2 6.2 17.2 5.2 14.4L1.4 17.3C3.4 21.4 7.4 24 12 24Z" fill="#34A853"/></svg>`;
+  btn.innerHTML = `${googleIconSvg} Signing in...`;
+
+  // ---- FIREBASE GOOGLE LOGIN ----
+  if (typeof fbAuth !== 'undefined' && fbAuth && typeof firebase !== 'undefined') {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    fbAuth.signInWithPopup(provider)
+      .then((result) => {
+        currentUser.email = result.user.email;
+        currentUser.id = result.user.uid;
+        currentUser.displayName = result.user.displayName;
+        if (result.user.photoURL) currentUser.avatar = result.user.photoURL;
+        appState.isLoggedIn = true;
+        saveToStorage();
+        showScreen('discovery');
+        initMainApp();
+      })
+      .catch((err) => {
+        showToast(err.code === 'auth/popup-closed-by-user' ? 'Google sign-in cancelled.' : 'Google sign-in failed. Try again.', 'error');
+      })
+      .finally(() => { btn.disabled = false; btn.innerHTML = `${googleIconSvg} Continue with Google`; });
+    return;
+  }
+
+  // ---- LOCAL FALLBACK ----
   setTimeout(() => {
     appState.isLoggedIn = true;
     currentUser.email = 'google@user.com';
@@ -463,7 +521,7 @@ function handleGoogleLogin() {
     showScreen('discovery');
     initMainApp();
     btn.disabled = false;
-    btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 4.5C13.8 4.5 15.4 5.2 16.6 6.3L19.9 3C17.9 1.1 15.1 0 12 0C7.4 0 3.4 2.6 1.4 6.4L5.2 9.3C6.2 6.5 8.8 4.5 12 4.5Z" fill="#EA4335"/><path d="M23.5 12.3C23.5 11.4 23.4 10.6 23.3 9.8H12V14.5H18.5C18.2 16 17.4 17.2 16.2 18L19.9 20.8C22.1 18.8 23.5 15.8 23.5 12.3Z" fill="#4285F4"/><path d="M5.2 14.7C4.9 13.9 4.8 13 4.8 12C4.8 11 5 10.1 5.2 9.3L1.4 6.4C0.5 8.1 0 10 0 12C0 14 0.5 15.9 1.4 17.6L5.2 14.7Z" fill="#FBBC05"/><path d="M12 24C15.1 24 17.8 23 19.9 20.8L16.2 18C15.1 18.7 13.7 19.2 12 19.2C8.8 19.2 6.2 17.2 5.2 14.4L1.4 17.3C3.4 21.4 7.4 24 12 24Z" fill="#34A853"/></svg> Continue with Google`;
+    btn.innerHTML = `${googleIconSvg} Continue with Google`;
   }, 1100);
 }
 
@@ -591,13 +649,57 @@ function completeSignup() {
     return;
   }
 
-  currentUser.email = email;
-  appState.isLoggedIn = true;
-  saveToStorage();
-
   const btn = document.getElementById('signupCompleteBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = 'Creating account...'; }
 
+  // ---- FIREBASE LIVE SIGNUP ----
+  if (typeof fbAuth !== 'undefined' && fbAuth) {
+    fbAuth.createUserWithEmailAndPassword(email, password)
+      .then(async (userCredential) => {
+        const user = userCredential.user;
+        currentUser.email = email;
+        currentUser.id = user.uid;
+        appState.isLoggedIn = true;
+        saveToStorage();
+
+        // Save complete profile to Firestore
+        if (typeof fbDb !== 'undefined' && fbDb) {
+          const userName = currentUser.name || currentUser.displayName || email.split('@')[0];
+          await fbDb.collection('users').doc(user.uid).set({
+            id: user.uid,
+            email: email,
+            name: userName,
+            displayName: userName,
+            age: currentUser.age || 24,
+            bio: currentUser.bio || 'Looking for real connections on hookmebysam!',
+            gender: currentUser.gender || 'Female',
+            interests: currentUser.interests || ['Music 🎵', 'Vibes ✨'],
+            image: currentUser.image || currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+            isVip: false,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+        }
+
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
+        showScreen('signupSuccess');
+        initMainApp();
+      })
+      .catch((err) => {
+        const msgs = {
+          'auth/email-already-in-use': 'An account with this email already exists.',
+          'auth/weak-password': 'Password must be at least 6 characters.',
+          'auth/invalid-email': 'Please enter a valid email address.'
+        };
+        if (errorEl) errorEl.textContent = msgs[err.code] || 'Signup failed. Try again.';
+        if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
+      });
+    return;
+  }
+
+  // ---- LOCAL FALLBACK ----
+  currentUser.email = email;
+  appState.isLoggedIn = true;
+  saveToStorage();
   setTimeout(() => {
     if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
     showScreen('signupSuccess');
@@ -761,15 +863,24 @@ function triggerManualSwipe(dir) {
   setTimeout(() => doSwipe(dir), 320);
 }
 
-function doSwipe(dir) {
+async function doSwipe(dir) {
   if (profileStack.length === 0) return;
   const profile = profileStack[0];
   appState.lastAction = { profile, dir };
   profileStack.shift();
   renderCardStack();
 
-  if (dir === 'right' && profile.mutualChance) {
-    setTimeout(() => triggerMatchPopup(profile), 400);
+  // Record swipe in Firestore if logged in with Firebase
+  if (typeof recordSwipeInBackend === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    const isMutual = await recordSwipeInBackend(profile.id, dir === 'right' ? 'like' : 'pass');
+    if (isMutual && dir === 'right') {
+      triggerMatchPopup(profile);
+    }
+  } else {
+    // Local prototype mode
+    if (dir === 'right' && profile.mutualChance) {
+      setTimeout(() => triggerMatchPopup(profile), 400);
+    }
   }
 }
 
@@ -909,6 +1020,8 @@ function renderConversationList() {
 // CHAT
 // ==========================================================
 
+let activeRealtimeListener = null;
+
 function openChat(profileId) {
   appState.currentChatId = profileId;
   showScreen('chat');
@@ -917,6 +1030,33 @@ function openChat(profileId) {
   // Reset icebreakers
   const ice = document.getElementById('icebreakersRow');
   if (ice) { ice.style.opacity = '1'; ice.style.pointerEvents = 'auto'; }
+
+  // Unsubscribe from any previous Firestore chat listener
+  if (typeof activeRealtimeListener === 'function') {
+    activeRealtimeListener();
+    activeRealtimeListener = null;
+  }
+
+  // Subscribe to real-time Firebase chat if logged in
+  if (typeof listenToRealtimeMessages === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    const matchId = [fbAuth.currentUser.uid, profileId].sort().join('_');
+    activeRealtimeListener = listenToRealtimeMessages(matchId, (msgs) => {
+      if (msgs && msgs.length > 0) {
+        conversations[profileId] = {
+          messages: msgs.map(m => ({
+            sender: m.sender === fbAuth.currentUser.uid ? 'me' : 'them',
+            text: m.text || '',
+            isVoice: m.isVoice || false,
+            audioUrl: m.audioUrl || '',
+            imageUrl: m.imageUrl || '',
+            duration: m.duration || '0:05'
+          }))
+        };
+        renderChatThread();
+        renderConversationList();
+      }
+    });
+  }
 }
 
 function renderChatThread() {
@@ -936,13 +1076,13 @@ function renderChatThread() {
       const receiptHtml = msg.sender === 'me'
         ? `<span class="msg-receipt ${isLast ? 'read' : ''}">✓✓</span>` : '';
       return `
-        <div class="msg-bubble audio-bubble">
+        <div class="msg-bubble audio-bubble ${msg.sender === 'me' ? 'sent' : 'received'}">
           <div style="display:flex;align-items:center;gap:10px;width:170px">
             <span style="cursor:pointer;font-size:14px">▶️</span>
             <div style="flex:1;height:4px;background:rgba(255,255,255,0.3);border-radius:2px;position:relative">
               <div style="width:55%;height:100%;background:#fff;border-radius:2px"></div>
             </div>
-            <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.9)">${msg.duration}</span>
+            <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.9)">${msg.duration || '0:05'}</span>
           </div>
           ${receiptHtml}
         </div>`;
@@ -970,7 +1110,14 @@ function sendMessage() {
   renderChatThread();
   renderConversationList();
   saveToStorage();
-  triggerAutoReply();
+
+  // Send via real-time Firebase if logged in, otherwise handle local demo mode
+  if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
+    sendRealtimeMessage(matchId, text);
+  } else {
+    triggerAutoReply();
+  }
 }
 
 function handleChatKeydown(e) {
@@ -989,54 +1136,157 @@ function sendIcebreaker(text) {
 
   renderChatThread();
   saveToStorage();
-  triggerAutoReply();
+
+  if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
+    sendRealtimeMessage(matchId, text);
+  } else {
+    triggerAutoReply();
+  }
 }
 
 function triggerAutoReply() {
-  const partner = matchedUsers.find(u => u.id === appState.currentChatId);
-  if (!partner || !partner.autoReply) return;
+  // Never fire dummy bot auto-reply when user is signed in with live Firebase
+  if (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) return;
 
-  // Show typing indicator first
+  const partner = matchedUsers.find(u => u.id === appState.currentChatId);
+  if (!partner || !partner.autoReply || partner.autoReplied) return;
+
+  // Immediately lock to prevent repeated auto-replies
+  partner.autoReplied = true;
+  const replyText = partner.autoReply;
+  partner.autoReply = '';
+
+  // Show typing indicator
   showTypingIndicator();
 
   setTimeout(() => {
     if (appState.currentChatId !== partner.id) { removeTypingIndicator(); return; }
     removeTypingIndicator();
     if (!conversations[partner.id]) conversations[partner.id] = { messages: [] };
-    conversations[partner.id].messages.push({ sender: 'them', text: partner.autoReply });
-    partner.autoReply = '';
+    conversations[partner.id].messages.push({ sender: 'them', text: replyText });
     renderChatThread();
     renderConversationList();
     saveToStorage();
-  }, 1500 + Math.random() * 1000);
+  }, 1400 + Math.random() * 600);
 }
 
 function toggleVoiceRecording() {
-  const overlay = document.getElementById('voiceOverlay');
-  const micBtn = document.getElementById('micBtn');
+// ==========================================================
+// VOICE RECORDING — Real MediaRecorder API
+// ==========================================================
 
+let mediaRecorder = null;
+let audioChunks = [];
+let voiceRecTimerInterval = null;
+let voiceRecSeconds = 0;
+
+async function toggleVoiceRecording() {
   if (!appState.isRecording) {
-    appState.isRecording = true;
-    if (overlay) overlay.classList.remove('hidden');
-    if (micBtn) micBtn.classList.add('recording');
-
-    const partner = matchedUsers.find(u => u.id === appState.currentChatId);
-    const nameEl = document.getElementById('voiceRecordingLabel');
-    if (nameEl) nameEl.textContent = `Recording for ${partner?.name || 'them'}...`;
+    await startVoiceRecording();
   } else {
-    appState.isRecording = false;
-    if (overlay) overlay.classList.add('hidden');
-    if (micBtn) micBtn.classList.remove('recording');
+    // If tapping mic again while recording, send it
+    await sendVoiceNote();
+  }
+}
 
-    if (appState.currentChatId) {
+async function startVoiceRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+    mediaRecorder = new MediaRecorder(stream, { mimeType });
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.start();
+
+    appState.isRecording = true;
+    voiceRecSeconds = 0;
+
+    // Show waveform bar, hide input bar
+    const inputBar = document.querySelector('.chat-input-bar');
+    const recordBar = document.getElementById('voiceRecordBar');
+    if (inputBar) inputBar.style.display = 'none';
+    if (recordBar) recordBar.style.display = 'flex';
+
+    // Start timer
+    const timerEl = document.getElementById('voiceRecTimer');
+    voiceRecTimerInterval = setInterval(() => {
+      voiceRecSeconds++;
+      if (timerEl) timerEl.textContent = `${Math.floor(voiceRecSeconds/60)}:${String(voiceRecSeconds%60).padStart(2,'0')}`;
+      // Max 3 min recording
+      if (voiceRecSeconds >= 180) sendVoiceNote();
+    }, 1000);
+
+  } catch (err) {
+    showToast('Microphone access denied. Please allow mic access.', 'error');
+  }
+}
+
+async function sendVoiceNote() {
+  if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
+
+  clearInterval(voiceRecTimerInterval);
+
+  return new Promise(resolve => {
+    mediaRecorder.onstop = () => {
+      const mimeType = mediaRecorder.mimeType || 'audio/webm';
+      const audioBlob = new Blob(audioChunks, { type: mimeType });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const duration = voiceRecSeconds;
+      const durationStr = `${Math.floor(duration/60)}:${String(duration%60).padStart(2,'0')}`;
+
+      // Stop all tracks
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+
+      appState.isRecording = false;
+
+      // Restore input bar
+      const inputBar = document.querySelector('.chat-input-bar');
+      const recordBar = document.getElementById('voiceRecordBar');
+      if (inputBar) inputBar.style.display = 'flex';
+      if (recordBar) recordBar.style.display = 'none';
+
+      if (!appState.currentChatId) { resolve(); return; }
       if (!conversations[appState.currentChatId]) conversations[appState.currentChatId] = { messages: [] };
-      conversations[appState.currentChatId].messages.push({ sender: 'me', isVoice: true, duration: '0:05' });
+      conversations[appState.currentChatId].messages.push({
+        sender: 'me', isVoice: true, duration: durationStr, audioUrl
+      });
       renderChatThread();
       renderConversationList();
       saveToStorage();
-      triggerAutoReply();
-    }
+
+      if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+        const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
+        if (typeof uploadFileToBackend === 'function') {
+          uploadFileToBackend(audioBlob, 'voicenotes').then(uploadedUrl => {
+            sendRealtimeMessage(matchId, '', true, uploadedUrl || audioUrl);
+          }).catch(() => {
+            sendRealtimeMessage(matchId, '', true, audioUrl);
+          });
+        } else {
+          sendRealtimeMessage(matchId, '', true, audioUrl);
+        }
+      } else {
+        triggerAutoReply();
+      }
+      resolve();
+    };
+    mediaRecorder.stop();
+  });
+}
+
+function cancelVoiceRecording() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    mediaRecorder.stop();
   }
+  clearInterval(voiceRecTimerInterval);
+  appState.isRecording = false;
+
+  const inputBar = document.querySelector('.chat-input-bar');
+  const recordBar = document.getElementById('voiceRecordBar');
+  if (inputBar) inputBar.style.display = 'flex';
+  if (recordBar) recordBar.style.display = 'none';
 }
 
 // ==========================================================
@@ -1045,39 +1295,29 @@ function toggleVoiceRecording() {
 
 function renderProfileScreen() {
   const avatar = document.getElementById('profileAvatar');
+  const nameEl = document.getElementById('profileDisplayName');
+  const nameInput = document.getElementById('editName');
+  const ageInput = document.getElementById('editAge');
+  const bioInput = document.getElementById('editBio');
+  const locInput = document.getElementById('editLocation');
+
   if (avatar) {
-    avatar.style.backgroundImage = `url('${currentUser.image}')`;
+    avatar.style.backgroundImage = `url('${currentUser.image || currentUser.avatar || ''}')`;
     if (appState.isVip) avatar.classList.add('vip');
   }
+  if (nameEl) nameEl.textContent = `${currentUser.name || currentUser.displayName || 'User'}${currentUser.age ? `, ${currentUser.age}` : ''}`;
+  if (nameInput) nameInput.value = currentUser.name || currentUser.displayName || '';
+  if (ageInput) ageInput.value = currentUser.age || 24;
+  if (bioInput) bioInput.value = currentUser.bio || '';
+  if (locInput) locInput.value = currentUser.location || 'Lagos, Nigeria';
 
-  const displayName = document.getElementById('profileDisplayName');
-  if (displayName) displayName.textContent = `${currentUser.name}, ${currentUser.age}`;
-
-  const nameInput = document.getElementById('editName');
-  if (nameInput) nameInput.value = currentUser.name;
-  const ageInput = document.getElementById('editAge');
-  if (ageInput) ageInput.value = currentUser.age;
-  const bioInput = document.getElementById('editBio');
-  if (bioInput) bioInput.value = currentUser.bio;
-  const locInput = document.getElementById('editLocation');
-  if (locInput) locInput.value = currentUser.location;
-  const photoInput = document.getElementById('editPhotoUrl');
-  if (photoInput) photoInput.value = currentUser.image;
-
-  // Stats
-  const matchCount = document.getElementById('statMatches');
-  if (matchCount) matchCount.textContent = matchedUsers.length;
-  const likeCount = document.getElementById('statLikes');
-  if (likeCount) likeCount.textContent = Math.floor(Math.random() * 40) + 12;
-  const viewCount = document.getElementById('statViews');
-  if (viewCount) viewCount.textContent = Math.floor(Math.random() * 200) + 80;
+  const matchesCount = document.getElementById('statMatches');
+  if (matchesCount) matchesCount.textContent = matchedUsers.length;
 
   if (appState.isVip) {
     const badge = document.getElementById('profileVipBadge');
     if (badge) badge.style.display = 'inline-flex';
   }
-
-  renderAiLabPicker();
 }
 
 function saveProfile() {
@@ -1085,7 +1325,6 @@ function saveProfile() {
   const age = parseInt(document.getElementById('editAge')?.value);
   const bio = document.getElementById('editBio')?.value.trim();
   const location = document.getElementById('editLocation')?.value.trim();
-  const photo = document.getElementById('editPhotoUrl')?.value.trim();
 
   if (!name || isNaN(age) || !bio) {
     showToast('Please fill in all required fields.', 'error');
@@ -1095,8 +1334,7 @@ function saveProfile() {
   currentUser.name = name;
   currentUser.age = age;
   currentUser.bio = bio;
-  currentUser.location = location;
-  if (photo) currentUser.image = photo;
+  if (location) currentUser.location = location;
 
   saveToStorage();
   renderProfileScreen();
@@ -1351,15 +1589,41 @@ function updateSliderGradient(slider) {
   slider.style.setProperty('--val', `${pct}%`);
 }
 
-function handleLogout() {
+async function handleLogout() {
   if (!confirm('Are you sure you want to log out?')) return;
+
+  // Sign out from Firebase Auth if active
+  if (typeof fbAuth !== 'undefined' && fbAuth) {
+    try {
+      await fbAuth.signOut();
+    } catch (e) {
+      console.warn("Firebase signout warning:", e);
+    }
+  }
+
   appState.isLoggedIn = false;
   localStorage.removeItem('hmbs_state');
+  localStorage.removeItem('hmbs_user');
+  localStorage.removeItem('hmbs_matches');
+  localStorage.removeItem('hmbs_convos');
   location.reload();
 }
 
-function handleDeleteAccount() {
+async function handleDeleteAccount() {
   if (!confirm('⚠️ Delete your account? This cannot be undone.')) return;
+
+  if (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) {
+    try {
+      const uid = fbAuth.currentUser.uid;
+      if (typeof fbDb !== 'undefined' && fbDb) {
+        await fbDb.collection('users').doc(uid).delete();
+      }
+      await fbAuth.currentUser.delete();
+    } catch (e) {
+      console.warn("Firebase delete account warning:", e);
+    }
+  }
+
   localStorage.clear();
   location.reload();
 }
@@ -1400,34 +1664,47 @@ function selectPricingTier(n) {
 }
 
 function simulatePurchase() {
-  // In production, this would call Paystack.js
-  // PaystackPop.setup({ key: 'pk_live_xxxx', email: currentUser.email, amount: price * 100, ... })
-  
   const btn = document.getElementById('paywallCta');
-  if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
+  
+  // Calculate price based on selected tier matching HTML pricing cards
+  const tierPrices = { 1: 2500, 2: 7500, 3: 25000 };
+  const tierNames  = { 1: '1 Week VIP Gold', 2: '1 Month VIP Gold', 3: 'Lifetime VIP Gold' };
+  const price = tierPrices[appState.selectedPricingTier] || 7500;
+  const name  = tierNames[appState.selectedPricingTier]  || '1 Month VIP Gold';
 
-  setTimeout(() => {
-    appState.isVip = true;
-    applyVipUI();
-    saveToStorage();
-    closePaywall();
-
-    showToast('👑 VIP GOLD ACTIVATED!');
-
-    // Reveal premium matches
-    PREMIUM_MATCHES.forEach(pm => {
-      if (!matchedUsers.find(u => u.id === pm.id)) {
-        matchedUsers.push(pm);
-        conversations[pm.id] = { messages: [{ sender: 'them', text: 'You unlocked matching with me! Say hi 💛' }] };
-      }
+  if (typeof triggerPaystackPayment === "function") {
+    triggerPaystackPayment(name, price, (response) => {
+      completeVipUpgrade();
     });
+  } else {
+    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
+    setTimeout(() => {
+      completeVipUpgrade();
+      if (btn) { btn.disabled = false; btn.textContent = '👑 Subscribe Now — Unlock VIP Gold'; }
+    }, 1200);
+  }
+}
 
-    renderMatchesView();
-    revealBlurredMatches();
-    saveToStorage();
+function completeVipUpgrade() {
+  appState.isVip = true;
+  applyVipUI();
+  saveToStorage();
+  closePaywall();
 
-    if (btn) { btn.disabled = false; btn.textContent = '👑 Subscribe Now — Unlock VIP Gold'; }
-  }, 1400);
+  showToast('👑 VIP GOLD ACTIVATED!');
+
+  // Reveal premium matches
+  PREMIUM_MATCHES.forEach(pm => {
+    if (!matchedUsers.find(u => u.id === pm.id)) {
+      matchedUsers.push(pm);
+      conversations[pm.id] = { messages: [{ sender: 'them', text: 'You unlocked matching with me! Say hi 💛' }] };
+    }
+  });
+
+  renderMatchesView();
+  revealBlurredMatches();
+  saveToStorage();
+}
 }
 
 function applyVipUI() {
@@ -1737,4 +2014,223 @@ function dismissNotifBanner() {
     banner.style.animation = 'slideDown 0.25s ease reverse both';
     setTimeout(() => banner.remove(), 250);
   }
+}
+
+// ==========================================================
+// USER SEARCH & DIRECT CONNECT ENGINE
+// ==========================================================
+
+let searchDebounceTimer = null;
+
+async function handleUserSearchInput(e) {
+  const query = e.target.value.trim();
+  const clearBtn = document.getElementById('clearSearchBtn');
+  const resultsContainer = document.getElementById('searchResultsContainer');
+  const resultsList = document.getElementById('searchResultsList');
+  const resultsCount = document.getElementById('searchResultsCount');
+  const mainContentSections = document.querySelectorAll('#storiesSection, .vip-blur-card, .ad-banner-slot');
+
+  if (clearBtn) clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+
+  if (!query) {
+    if (resultsContainer) resultsContainer.style.display = 'none';
+    mainContentSections.forEach(s => { if (s) s.style.display = ''; });
+    renderConversationList();
+    return;
+  }
+
+  // Hide collateral promo sections during search
+  mainContentSections.forEach(s => { if (s) s.style.display = 'none'; });
+
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(async () => {
+    if (resultsContainer) resultsContainer.style.display = 'block';
+    if (resultsList) resultsList.innerHTML = `<p style="color:var(--text-muted,#888);padding:12px;font-size:0.85rem;text-align:center">Searching registered users... 🔍</p>`;
+
+    let matches = [];
+
+    // Search real Firestore users if connected
+    if (typeof searchUsersInFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+      matches = await searchUsersInFirestore(query);
+    }
+
+    // Combine with local demo profiles
+    const qLower = query.toLowerCase();
+    const localMatches = [...PROFILES_DATA, ...matchedUsers].filter(u =>
+      (u.name && u.name.toLowerCase().includes(qLower)) ||
+      (u.bio && u.bio.toLowerCase().includes(qLower)) ||
+      (u.email && u.email.toLowerCase().includes(qLower))
+    );
+
+    // Merge without duplicates
+    const seenIds = new Set(matches.map(m => m.id));
+    localMatches.forEach(lm => {
+      if (!seenIds.has(lm.id)) {
+        matches.push(lm);
+        seenIds.add(lm.id);
+      }
+    });
+
+    if (resultsCount) resultsCount.textContent = matches.length;
+
+    if (matches.length === 0) {
+      if (resultsList) {
+        resultsList.innerHTML = `
+          <div style="text-align:center;padding:24px 12px;color:var(--text-muted,#888)">
+            <div style="font-size:2rem;margin-bottom:6px">🔍</div>
+            <p style="font-size:0.88rem">No users found matching "${escHtml(query)}"</p>
+          </div>`;
+      }
+      return;
+    }
+
+    if (resultsList) {
+      resultsList.innerHTML = matches.map(u => `
+        <div class="convo-item" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);padding:10px 14px;border-radius:16px;display:flex;align-items:center;gap:12px">
+          <div class="convo-avatar" style="background-image:url('${u.image || u.avatar}');width:48px;height:48px;border-radius:50%;border:2px solid #FF2D78;background-size:cover;background-position:center;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:0.95rem;color:var(--txt-primary,#fff)">${escHtml(u.name)}${u.age ? `, ${u.age}` : ''}</div>
+            <div style="font-size:0.78rem;color:var(--txt-secondary,#aaa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.bio || u.email || '')}</div>
+          </div>
+          <button class="accent-btn" onclick="connectAndChatWithUser('${u.id}', '${escHtml(u.name)}', '${u.image || u.avatar || ''}')" style="padding:7px 14px;font-size:0.8rem;border-radius:20px;flex-shrink:0;background:var(--flame-grad,#ff2d78)">
+            Chat 💬
+          </button>
+        </div>
+      `).join('');
+    }
+  }, 250);
+}
+
+function clearUserSearch() {
+  const input = document.getElementById('userSearchInput');
+  if (input) input.value = '';
+  handleUserSearchInput({ target: { value: '' } });
+}
+
+async function connectAndChatWithUser(userId, userName, userImage) {
+  let partner = matchedUsers.find(u => u.id === userId);
+  if (!partner) {
+    partner = {
+      id: userId,
+      name: userName,
+      image: userImage || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+      isRealUser: true
+    };
+    matchedUsers.push(partner);
+  }
+
+  if (!conversations[userId]) {
+    conversations[userId] = { messages: [] };
+  }
+
+  // Create match in Firestore if connected
+  if (typeof recordSwipeInBackend === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    await recordSwipeInBackend(userId, 'like');
+  }
+
+  saveToStorage();
+  renderMatchesView();
+  openChat(userId);
+  showToast(`Connected with ${userName}! Say hi 👋`, 'gold');
+}
+
+function openSearchModal() {
+  const overlay = document.getElementById('searchModalOverlay');
+  const input = document.getElementById('searchModalInput');
+  if (overlay) overlay.style.display = 'flex';
+  if (input) {
+    input.value = '';
+    setTimeout(() => input.focus(), 150);
+  }
+}
+
+function closeSearchModal() {
+  const overlay = document.getElementById('searchModalOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function focusUserSearch() {
+  openSearchModal();
+}
+
+let modalSearchDebounce = null;
+
+async function handleModalSearchInput(e) {
+  const query = e.target.value.trim();
+  const clearBtn = document.getElementById('clearModalSearchBtn');
+  const resultsBody = document.getElementById('searchModalResults');
+
+  if (clearBtn) clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+
+  if (!query) {
+    if (resultsBody) {
+      resultsBody.innerHTML = `
+        <div style="text-align:center;padding:32px 16px;color:rgba(255,255,255,0.5);font-size:0.88rem">
+          Type a name or email above to search registered accounts 🔍
+        </div>`;
+    }
+    return;
+  }
+
+  clearTimeout(modalSearchDebounce);
+  modalSearchDebounce = setTimeout(async () => {
+    if (resultsBody) {
+      resultsBody.innerHTML = `<p style="color:rgba(255,255,255,0.6);padding:16px;font-size:0.88rem;text-align:center">Searching registered users... 🔍</p>`;
+    }
+
+    let matches = [];
+
+    // Query Firestore if connected
+    if (typeof searchUsersInFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+      matches = await searchUsersInFirestore(query);
+    }
+
+    // Combine with local demo profiles
+    const qLower = query.toLowerCase();
+    const localMatches = [...PROFILES_DATA, ...matchedUsers].filter(u =>
+      (u.name && u.name.toLowerCase().includes(qLower)) ||
+      (u.bio && u.bio.toLowerCase().includes(qLower)) ||
+      (u.email && u.email.toLowerCase().includes(qLower))
+    );
+
+    const seenIds = new Set(matches.map(m => m.id));
+    localMatches.forEach(lm => {
+      if (!seenIds.has(lm.id)) {
+        matches.push(lm);
+        seenIds.add(lm.id);
+      }
+    });
+
+    if (matches.length === 0) {
+      if (resultsBody) {
+        resultsBody.innerHTML = `
+          <div style="text-align:center;padding:28px 12px;color:rgba(255,255,255,0.5)">
+            <div style="font-size:2rem;margin-bottom:6px">🔍</div>
+            <p style="font-size:0.88rem">No users found matching "${escHtml(query)}"</p>
+          </div>`;
+      }
+      return;
+    }
+
+    if (resultsBody) {
+      resultsBody.innerHTML = matches.map(u => `
+        <div class="convo-item" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:12px 14px;border-radius:18px;display:flex;align-items:center;gap:12px">
+          <div class="convo-avatar" style="background-image:url('${u.image || u.avatar}');width:48px;height:48px;border-radius:50%;border:2px solid #FF2D78;background-size:cover;background-position:center;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:700;font-size:0.95rem;color:#fff">${escHtml(u.name)}${u.age ? `, ${u.age}` : ''}</div>
+            <div style="font-size:0.78rem;color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.bio || u.email || '')}</div>
+          </div>
+          <button class="accent-btn" onclick="closeSearchModal();connectAndChatWithUser('${u.id}', '${escHtml(u.name)}', '${u.image || u.avatar || ''}')" style="padding:8px 16px;font-size:0.82rem;border-radius:20px;flex-shrink:0;background:var(--flame-grad,#ff2d78)">
+            Chat 💬
+          </button>
+        </div>
+      `).join('');
+    }
+  }, 220);
+}
+
+function clearModalSearch() {
+  const input = document.getElementById('searchModalInput');
+  if (input) input.value = '';
+  handleModalSearchInput({ target: { value: '' } });
 }
