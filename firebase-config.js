@@ -5,13 +5,7 @@
 // 1. YOUR FIREBASE CONFIG KEYS
 // Replace the placeholder values below with your keys from https://console.firebase.google.com
 const firebaseConfig = {
-  apiKey: "AIzaSyCCjBefT39USp6JslywXA-ZCUOK_t9gmUk",
-  authDomain: "hookmebysam.firebaseapp.com",
-  projectId: "hookmebysam",
-  storageBucket: "hookmebysam.firebasestorage.app",
-  messagingSenderId: "512221711818",
-  appId: "1:512221711818:web:d0c40fcb9f934c4e249333",
-  measurementId: "G-XYWLF7VS28"
+  
 };
 
 // 2. YOUR PAYSTACK PUBLIC KEY
@@ -107,17 +101,27 @@ function listenToAuthChanges() {
   if (!fbAuth) return;
   fbAuth.onAuthStateChanged(async (user) => {
     if (user) {
-      const doc = await fbDb.collection('users').doc(user.uid).get();
-      if (doc.exists) {
-        window.currentUser = doc.data();
-        if (window.appState) window.appState.isLoggedIn = true;
-        if (typeof showScreen === 'function') showScreen('discovery');
-        if (typeof initMainApp === 'function') initMainApp();
+      try {
+        if (fbDb) {
+          const doc = await fbDb.collection('users').doc(user.uid).get();
+          if (doc.exists) {
+            window.currentUser = Object.assign({}, window.currentUser, doc.data());
+          }
+        }
+      } catch (err) {
+        console.warn("Firestore profile read fallback:", err.message);
       }
+      // Ensure currentUser has at least auth email and uid
+      if (!window.currentUser.email && user.email) window.currentUser.email = user.email;
+      if (!window.currentUser.id) window.currentUser.id = user.uid;
+      
+      if (window.appState) window.appState.isLoggedIn = true;
+      if (typeof showScreen === 'function') showScreen('discovery');
+      if (typeof initMainApp === 'function') initMainApp();
     } else {
       if (window.appState) window.appState.isLoggedIn = false;
       if (typeof showScreen === 'function') showScreen('login');
-      if (typeof updateHeaderForAuth === 'function') updateHeaderForAuth();
+      if (typeof updateHeader === 'function') updateHeader('login');
     }
   });
 }
@@ -130,32 +134,36 @@ async function recordSwipeInBackend(targetUserId, action) {
   if (!fbDb || !fbAuth?.currentUser) return false;
   const currentUserId = fbAuth.currentUser.uid;
 
-  // Record swipe action in Firestore
-  await fbDb.collection('swipes').add({
-    fromUserId: currentUserId,
-    toUserId: targetUserId,
-    action: action, // "like", "pass", "superlike"
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  });
+  try {
+    // Record swipe action in Firestore
+    await fbDb.collection('swipes').add({
+      fromUserId: currentUserId,
+      toUserId: targetUserId,
+      action: action, // "like", "pass", "superlike"
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
 
-  // If action is like, check for mutual match
-  if (action === 'like' || action === 'superlike') {
-    const matchQuery = await fbDb.collection('swipes')
-      .where('fromUserId', '==', targetUserId)
-      .where('toUserId', '==', currentUserId)
-      .where('action', 'in', ['like', 'superlike'])
-      .get();
+    // If action is like, check for mutual match
+    if (action === 'like' || action === 'superlike') {
+      const matchQuery = await fbDb.collection('swipes')
+        .where('fromUserId', '==', targetUserId)
+        .where('toUserId', '==', currentUserId)
+        .where('action', 'in', ['like', 'superlike'])
+        .get();
 
-    if (!matchQuery.empty) {
-      // Mutual match found! Create match document
-      const matchId = [currentUserId, targetUserId].sort().join('_');
-      await fbDb.collection('matches').doc(matchId).set({
-        users: [currentUserId, targetUserId],
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      console.log("🎉 Realtime Match Created in Firestore:", matchId);
-      return true; // Indicates mutual match!
+      if (!matchQuery.empty) {
+        // Mutual match found! Create match document
+        const matchId = [currentUserId, targetUserId].sort().join('_');
+        await fbDb.collection('matches').doc(matchId).set({
+          users: [currentUserId, targetUserId],
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        console.log("🎉 Realtime Match Created in Firestore:", matchId);
+        return true; // Indicates mutual match!
+      }
     }
+  } catch (err) {
+    console.warn("recordSwipeInBackend warning:", err.message);
   }
   return false;
 }
@@ -236,36 +244,43 @@ function listenToUserMatches(callback) {
   if (!fbDb || !fbAuth?.currentUser) return null;
   const currentUserId = fbAuth.currentUser.uid;
 
-  return fbDb.collection('matches')
-    .where('users', 'array-contains', currentUserId)
-    .onSnapshot(async (snapshot) => {
-      const matchedProfiles = [];
-      for (const doc of snapshot.docs) {
-        const matchData = doc.data();
-        const partnerId = matchData.users.find(id => id !== currentUserId);
-        if (partnerId) {
-          try {
-            const userDoc = await fbDb.collection('users').doc(partnerId).get();
-            if (userDoc.exists) {
-              const data = userDoc.data();
-              matchedProfiles.push({
-                id: partnerId,
-                name: data.displayName || data.name || 'Match',
-                age: data.age || 24,
-                bio: data.bio || '',
-                image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
-                tags: data.interests || [],
-                distance: '2 km',
-                isRealUser: true
-              });
+  try {
+    return fbDb.collection('matches')
+      .where('users', 'array-contains', currentUserId)
+      .onSnapshot(async (snapshot) => {
+        const matchedProfiles = [];
+        for (const doc of snapshot.docs) {
+          const matchData = doc.data();
+          const partnerId = matchData.users.find(id => id !== currentUserId);
+          if (partnerId) {
+            try {
+              const userDoc = await fbDb.collection('users').doc(partnerId).get();
+              if (userDoc.exists) {
+                const data = userDoc.data();
+                matchedProfiles.push({
+                  id: partnerId,
+                  name: data.displayName || data.name || 'Match',
+                  age: data.age || 24,
+                  bio: data.bio || '',
+                  image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+                  tags: data.interests || [],
+                  distance: '2 km',
+                  isRealUser: true
+                });
+              }
+            } catch (e) {
+              console.warn("Error loading match profile:", e);
             }
-          } catch (e) {
-            console.warn("Error loading match profile:", e);
           }
         }
-      }
-      callback(matchedProfiles);
-    });
+        callback(matchedProfiles);
+      }, (error) => {
+        console.warn("Firestore matches listener offline/disabled:", error.message);
+      });
+  } catch (err) {
+    console.warn("listenToUserMatches failed:", err.message);
+    return null;
+  }
 }
 
 // ----------------------------------------------------------
@@ -274,26 +289,37 @@ function listenToUserMatches(callback) {
 
 function listenToRealtimeMessages(matchId, callback) {
   if (!fbDb) return null;
-  return fbDb.collection('matches').doc(matchId).collection('messages')
-    .orderBy('timestamp', 'asc')
-    .onSnapshot(snapshot => {
-      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      callback(msgs);
-    });
+  try {
+    return fbDb.collection('matches').doc(matchId).collection('messages')
+      .orderBy('timestamp', 'asc')
+      .onSnapshot(snapshot => {
+        const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        callback(msgs);
+      }, (error) => {
+        console.warn("Firestore messages listener offline/disabled:", error.message);
+      });
+  } catch (err) {
+    console.warn("listenToRealtimeMessages failed:", err.message);
+    return null;
+  }
 }
 
 async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "") {
   if (!fbDb || !fbAuth?.currentUser) return;
   const currentUserId = fbAuth.currentUser.uid;
 
-  await fbDb.collection('matches').doc(matchId).collection('messages').add({
-    sender: currentUserId,
-    text: text || "",
-    isVoice: isVoice,
-    audioUrl: audioUrl,
-    imageUrl: imageUrl,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-  });
+  try {
+    await fbDb.collection('matches').doc(matchId).collection('messages').add({
+      sender: currentUserId,
+      text: text || "",
+      isVoice: isVoice,
+      audioUrl: audioUrl,
+      imageUrl: imageUrl,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (err) {
+    console.warn("sendRealtimeMessage fallback:", err.message);
+  }
 }
 
 // ----------------------------------------------------------
@@ -302,10 +328,15 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
 
 async function uploadFileToBackend(file, path) {
   if (!fbStorage) return null;
-  const storageRef = fbStorage.ref(`${path}/${Date.now()}_${file.name || 'file'}`);
-  const snapshot = await storageRef.put(file);
-  const downloadUrl = await snapshot.ref.getDownloadURL();
-  return downloadUrl;
+  try {
+    const storageRef = fbStorage.ref(`${path}/${Date.now()}_${file.name || 'file'}`);
+    const snapshot = await storageRef.put(file);
+    const downloadUrl = await snapshot.ref.getDownloadURL();
+    return downloadUrl;
+  } catch (err) {
+    console.warn("uploadFileToBackend warning:", err.message);
+    return null;
+  }
 }
 
 // ----------------------------------------------------------
