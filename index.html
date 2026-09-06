@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="description" content="hookmebysam — Nigeria's #1 premium dating &amp; matchmaking app. Meet real people nearby, swipe, match, and connect.">
   <meta name="keywords" content="dating app, matchmaking, nigeria, lagos, relationships, meet people nearby">
-  <meta name="theme-color" content="#0E0E12">
+  <meta name="theme-color" content="#0A0710">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -22,8 +22,8 @@
   <meta name="twitter:description" content="Meet amazing people near you. Real vibes, premium connections.">
   <title>hookmebysam | Premium Dating App</title>
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=5.0">
-  <link rel="stylesheet" href="premium.css?v=5.0">
+  <link rel="stylesheet" href="style.css?v=9.0">
+  <link rel="stylesheet" href="premium.css?v=9.0">
 </head>
 <body>
 
@@ -45,8 +45,8 @@
     <header class="app-header" id="appHeader" style="display:none;">
       <div class="header-left">
         <button class="global-back-btn" id="backBtn" onclick="handleBackBtn()" aria-label="Go back">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M15 19l-7-7 7-7"/>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 12H5M5 12l6 6M5 12l6-6" stroke-dasharray="0"/>
           </svg>
         </button>
         <div class="header-title-wrap">
@@ -55,11 +55,6 @@
         </div>
       </div>
       <div id="headerRight" class="header-right">
-        <button class="header-btn" id="headerSearchBtn" onclick="focusUserSearch()" aria-label="Search users" title="Search users">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-          </svg>
-        </button>
         <button class="header-btn" id="matchesQuickBtn" onclick="switchTab('matches')" aria-label="Matches">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
             <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
@@ -296,11 +291,13 @@
 
           <!-- Nav buttons -->
           <div style="display:flex;gap:10px;margin-top:4px">
-            <button class="secondary-btn" style="flex:0 0 auto;width:auto;padding:13px 20px" onclick="prevSignupStep()">
-              ← Back
+            <button class="secondary-btn" style="flex:0 0 auto;width:auto;padding:13px 20px;display:flex;align-items:center;gap:8px" onclick="prevSignupStep()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M5 12l6 6M5 12l6-6"/></svg>
+              Back
             </button>
-            <button class="accent-btn" id="signupCompleteBtn" onclick="nextSignupStep()">
-              Continue →
+            <button class="accent-btn" id="signupCompleteBtn" onclick="nextSignupStep()" style="display:flex;align-items:center;justify-content:center;gap:8px">
+              Continue
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
             </button>
           </div>
 
@@ -317,15 +314,15 @@
           <div class="success-content">
 
             <div class="success-crown-wrap">
-              <svg class="vip-crown-svg crown-xl" viewBox="0 0 64 52" xmlns="http://www.w3.org/2000/svg">
-                <path class="crown-body" d="M5 44 L12 16 L24 31 L32 6 L40 31 L52 16 L59 44 Z"/>
-                <rect class="crown-base" x="5" y="42" width="54" height="9" rx="3.5"/>
-                <circle class="gem-top" cx="32" cy="6" r="5"/>
-                <circle class="gem-side" cx="12" cy="16" r="3.5"/>
-                <circle class="gem-side" cx="52" cy="16" r="3.5"/>
-                <circle class="gem-base" cx="18" cy="46.5" r="2.3"/>
-                <circle class="gem-base" cx="32" cy="46.5" r="2.3"/>
-                <circle class="gem-base" cx="46" cy="46.5" r="2.3"/>
+              <svg width="72" height="72" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 0 20px rgba(255,46,112,0.6))">
+                <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="url(#successGrad)" stroke="rgba(255,46,112,0.3)" stroke-width="0.5"/>
+                <defs>
+                  <linearGradient id="successGrad" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#FF2E70"/>
+                    <stop offset="50%" stop-color="#FF6584"/>
+                    <stop offset="100%" stop-color="#F4C550"/>
+                  </linearGradient>
+                </defs>
               </svg>
             </div>
 
@@ -361,14 +358,6 @@
       <div class="screen" id="discoveryScreen">
         <div class="discovery-workspace">
 
-          <!-- Discovery Top Search Bar -->
-          <div class="user-search-wrap" style="padding: 6px 14px 10px; margin-bottom: 2px;">
-            <div style="position:relative;display:flex;align-items:center;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-              <input type="text" class="form-input" placeholder="🔍 Search registered users..." onclick="focusUserSearch()" readonly style="padding-left:42px;height:40px;font-size:0.84rem;border-radius:20px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;width:100%;cursor:pointer">
-            </div>
-          </div>
-
           <!-- Card Stack -->
           <div class="card-stack" id="cardStack">
             <!-- Rendered by JS -->
@@ -383,35 +372,37 @@
           </div>
         </div>
 
-        <!-- Action Controls -->
+        <!-- Action Controls — Premium Floating Bar -->
         <div class="action-row" id="actionRow">
-          <button class="circ-btn btn-rewind" onclick="undoSwipe()" title="Rewind" aria-label="Undo last swipe">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/>
-            </svg>
-            <div class="limit-badge" id="rewindBadge">1</div>
-          </button>
-          <button class="circ-btn btn-pass" onclick="triggerManualSwipe('left')" title="Pass" aria-label="Pass this profile">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-              <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-          <button class="circ-btn btn-like" onclick="triggerManualSwipe('right')" title="Like" aria-label="Like this profile">
-            <svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>
-          </button>
-          <button class="circ-btn btn-super" onclick="openPaywall('super_like')" title="Super Like" aria-label="Super like">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M11.99 2L9.17 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.17-.62z"/>
-            </svg>
-          </button>
-          <button class="circ-btn btn-boost" id="boostBtn" onclick="startBoost()" title="Boost Profile" aria-label="Boost profile">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M7 2v11h3v9l7-12h-4l4-8z"/>
-            </svg>
-            <div class="boost-timer" id="boostTimer" style="display:none"></div>
-          </button>
+          <div class="action-row-inner">
+            <button class="circ-btn btn-rewind" onclick="pulseClick(this);undoSwipe()" title="Rewind" aria-label="Undo last swipe">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/>
+              </svg>
+              <div class="limit-badge" id="rewindBadge">1</div>
+            </button>
+            <button class="circ-btn btn-pass" onclick="pulseClick(this);triggerManualSwipe('left')" title="Pass" aria-label="Pass this profile">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+            <button class="circ-btn btn-like" onclick="pulseClick(this);triggerManualSwipe('right')" title="Like" aria-label="Like this profile">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            </button>
+            <button class="circ-btn btn-super" onclick="pulseClick(this);openPaywall('super_like')" title="Super Like" aria-label="Super like">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.99 2L9.17 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.17-.62z"/>
+              </svg>
+            </button>
+            <button class="circ-btn btn-boost" id="boostBtn" onclick="pulseClick(this);startBoost()" title="Boost" aria-label="Boost profile">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M7 2v11h3v9l7-12h-4l4-8z"/>
+              </svg>
+              <div class="boost-timer" id="boostTimer" style="display:none"></div>
+            </button>
+          </div>
         </div>
 
         <!-- Inline Ad Slot (shows between card sets) -->
@@ -431,26 +422,6 @@
       <div class="screen" id="matchesScreen">
         <div class="matches-workspace">
 
-          <!-- User Search Bar -->
-          <div class="user-search-wrap" style="padding: 12px 16px 8px;">
-            <div style="position:relative;display:flex;align-items:center;">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-              <input type="text" class="form-input" id="userSearchInput" placeholder="🔍 Search registered users by name or email..." oninput="handleUserSearchInput(event)" style="padding-left:42px;padding-right:36px;height:46px;font-size:0.88rem;border-radius:24px;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);color:#fff;width:100%;box-shadow:0 4px 16px rgba(0,0,0,0.2)">
-              <button id="clearSearchBtn" onclick="clearUserSearch()" style="display:none;position:absolute;right:14px;background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-weight:700;font-size:1rem">✕</button>
-            </div>
-          </div>
-
-          <!-- Search Results Container -->
-          <div id="searchResultsContainer" style="display:none;padding:4px 16px 16px;">
-            <div class="section-header" style="margin-bottom:10px">
-              <span class="section-title" style="font-size:0.92rem">Search Results</span>
-              <span class="section-count" id="searchResultsCount" style="background:var(--flame-grad,#ff2d78)">0</span>
-            </div>
-            <div id="searchResultsList" style="display:flex;flex-direction:column;gap:10px">
-              <!-- Search results rendered by JS -->
-            </div>
-          </div>
-
           <!-- Stories / Top Picks Row -->
           <div class="stories-section" id="storiesSection">
             <div class="stories-header-row">
@@ -466,15 +437,8 @@
           <div class="vip-blur-card" onclick="openPaywall('likes_you')">
             <div class="vip-card-header">
               <span class="vip-card-title">
-                <svg class="vip-crown-svg" style="width:18px;height:18px;vertical-align:middle;margin-right:5px" viewBox="0 0 64 52" xmlns="http://www.w3.org/2000/svg">
-                  <path class="crown-body" d="M5 44 L12 16 L24 31 L32 6 L40 31 L52 16 L59 44 Z"/>
-                  <rect class="crown-base" x="5" y="42" width="54" height="9" rx="3.5"/>
-                  <circle class="gem-top" cx="32" cy="6" r="5"/>
-                  <circle class="gem-side" cx="12" cy="16" r="3.5"/>
-                  <circle class="gem-side" cx="52" cy="16" r="3.5"/>
-                  <circle class="gem-base" cx="18" cy="46.5" r="2.3"/>
-                  <circle class="gem-base" cx="32" cy="46.5" r="2.3"/>
-                  <circle class="gem-base" cx="46" cy="46.5" r="2.3"/>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:6px;filter:drop-shadow(0 0 4px rgba(244,197,80,0.8))">
+                  <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="#F4C550"/>
                 </svg>
                 People Who Liked You
               </span>
@@ -628,7 +592,7 @@
         <div class="call-overlay-bg"></div>
         <div class="call-top-actions">
           <button class="call-minimize-btn" onclick="endCall()" aria-label="Back">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M5 12l6 6M5 12l6-6"/></svg>
           </button>
           <span class="call-type-label">Voice Call</span>
         </div>
@@ -676,7 +640,7 @@
         </div>
         <div class="call-top-actions">
           <button class="call-minimize-btn" onclick="endVideoCall()">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="white"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M5 12l6 6M5 12l6-6"/></svg>
           </button>
           <span class="call-type-label">Video Call</span>
           <span class="call-live-timer" id="videoCallTimer">0:00</span>
@@ -782,7 +746,7 @@
                     <span class="photo-upload-label">Change Profile Photo</span>
                     <small class="photo-upload-hint">JPG, PNG or HEIC</small>
                   </div>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="color:var(--txt-muted)"><path d="M10 17l5-5-5-5v10z"/></svg>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--txt-muted)"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                 </div>
               </div>
 
@@ -819,20 +783,19 @@
             <!-- Upgrade CTA -->
             <div class="profile-upgrade-banner" onclick="openPaywall('profile_upgrade')">
               <div class="upgrade-crown-wrap">
-                <svg class="vip-crown-svg" style="width:52px;height:42px" viewBox="0 0 64 52" xmlns="http://www.w3.org/2000/svg">
-                  <path class="crown-body" d="M5 44 L12 16 L24 31 L32 6 L40 31 L52 16 L59 44 Z"/>
-                  <rect class="crown-base" x="5" y="42" width="54" height="9" rx="3.5"/>
-                  <circle class="gem-top" cx="32" cy="6" r="5"/>
-                  <circle class="gem-side" cx="12" cy="16" r="3.5"/>
-                  <circle class="gem-side" cx="52" cy="16" r="3.5"/>
-                  <circle class="gem-base" cx="18" cy="46.5" r="2.3"/>
-                  <circle class="gem-base" cx="32" cy="46.5" r="2.3"/>
-                  <circle class="gem-base" cx="46" cy="46.5" r="2.3"/>
+                <svg width="52" height="52" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 0 16px rgba(244,197,80,0.7))">
+                  <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="url(#goldGrad1)"/>
+                  <defs>
+                    <linearGradient id="goldGrad1" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
+                      <stop offset="0%" stop-color="#F4C550"/>
+                      <stop offset="100%" stop-color="#B8842B"/>
+                    </linearGradient>
+                  </defs>
                 </svg>
               </div>
               <div class="upgrade-vip-title">Upgrade to VIP Gold</div>
               <p class="upgrade-vip-sub">See who likes you, unlimited rewinds, infinite AI portraits, and a gold badge.</p>
-              <button class="accent-btn" style="background:var(--gold-grad);color:#3A1800;box-shadow:var(--shadow-gold);max-width:240px;margin:0 auto" onclick="event.stopPropagation();openPaywall('profile_upgrade')">View Plans →</button>
+              <button class="accent-btn" style="background:var(--gold-grad);color:#2E1A08;box-shadow:var(--shadow-gold);max-width:240px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:8px" onclick="event.stopPropagation();openPaywall('profile_upgrade')">View Plans <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
             </div>
 
           </div>
@@ -840,19 +803,19 @@
       </div>
 
       <!-- =====================================================
-           SCREEN: SETTINGS
+           SCREEN: SETTINGS (Canva Prototype UI Upgrade)
            ===================================================== -->
       <div class="screen" id="settingsScreen">
         <div class="settings-workspace">
 
-          <!-- Profile mini card at top -->
+          <!-- Profile Header Card (Canva Prototype Style) -->
           <div class="settings-profile-card">
             <div class="settings-profile-avatar" id="settingsAvatar"></div>
             <div class="settings-profile-info">
-              <div class="settings-profile-name" id="settingsProfileName">Dave Bigdave</div>
-              <div class="settings-profile-sub">View and edit profile →</div>
+              <div class="settings-profile-name" id="settingsProfileName">Zainab</div>
+              <div class="settings-online-status"><span class="online-dot"></span> Online</div>
             </div>
-            <button class="settings-profile-edit-btn" onclick="switchTab('profile')" aria-label="Edit profile">
+            <button class="settings-profile-edit-btn" onclick="switchTab('profile')" aria-label="Edit profile" title="Edit Profile">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
             </button>
           </div>
@@ -860,82 +823,44 @@
           <!-- VIP Upgrade Banner -->
           <div class="settings-vip-banner" onclick="openPaywall('settings')">
             <div class="settings-vip-icon">
-              <svg class="vip-crown-svg" style="width:34px;height:28px" viewBox="0 0 64 52" xmlns="http://www.w3.org/2000/svg">
-                <path class="crown-body" d="M5 44 L12 16 L24 31 L32 6 L40 31 L52 16 L59 44 Z"/>
-                <rect class="crown-base" x="5" y="42" width="54" height="9" rx="3.5"/>
-                <circle class="gem-top" cx="32" cy="6" r="5"/>
-                <circle class="gem-side" cx="12" cy="16" r="3.5"/>
-                <circle class="gem-side" cx="52" cy="16" r="3.5"/>
-                <circle class="gem-base" cx="18" cy="46.5" r="2.3"/>
-                <circle class="gem-base" cx="32" cy="46.5" r="2.3"/>
-                <circle class="gem-base" cx="46" cy="46.5" r="2.3"/>
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 0 10px rgba(244,197,80,0.7))">
+                <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="url(#goldGrad2)"/>
+                <defs>
+                  <linearGradient id="goldGrad2" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#F4C550"/>
+                    <stop offset="100%" stop-color="#B8842B"/>
+                  </linearGradient>
+                </defs>
               </svg>
             </div>
             <div class="settings-vip-text">
               <div class="settings-vip-title">Upgrade to VIP Gold</div>
               <div class="settings-vip-sub">See who likes you · Unlimited rewinds · AI portraits</div>
             </div>
-            <div class="settings-vip-arrow">→</div>
+            <div class="settings-vip-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
           </div>
 
-          <!-- APPEARANCE -->
+          <!-- SECTION: ABOUT ME (Canva Prototype) -->
           <div class="settings-section">
             <div class="settings-section-label">
-              <span class="section-label-dot" style="background:linear-gradient(135deg,#FE3C72,#FF655B)"></span>
-              Appearance
+              <span class="section-label-dot" style="background:linear-gradient(135deg,#D13A63,#E0567F)"></span>
+              About Me
             </div>
             <div class="settings-card">
 
-              <!-- Dark / Light mode toggle with icons -->
-              <div class="settings-row" style="cursor:default">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(90,70,255,0.12); --icon-color: #8B7FFF">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 3a9 9 0 100 18A9 9 0 0012 3zm0 16a7 7 0 110-14 7 7 0 010 14z"/>
-                  </svg>
+              <div class="settings-row" onclick="showToast('Username copied!')">
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(209,58,99,0.1); --icon-color: #D13A63">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                 </div>
                 <div class="settings-row-body">
-                  <div class="settings-row-label">Appearance</div>
-                  <div class="settings-row-sub" id="themeLabel">Dark Mode</div>
+                  <div class="settings-row-label">Username</div>
+                  <div class="settings-row-sub" id="settingsUsernameValue">@daveemin0</div>
                 </div>
-                <div class="theme-toggle-group" id="themeToggleGroup">
-                  <button class="theme-btn active" id="themeBtnDark" onclick="setTheme('dark')" aria-label="Dark mode">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 000 18 9 9 0 000-18z"/></svg>
-                    Dark
-                  </button>
-                  <button class="theme-btn" id="themeBtnLight" onclick="setTheme('light')" aria-label="Light mode">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7a5 5 0 100 10A5 5 0 0012 7zM2 13h2a1 1 0 000-2H2a1 1 0 000 2zm18 0h2a1 1 0 000-2h-2a1 1 0 000 2zM11 2v2a1 1 0 002 0V2a1 1 0 00-2 0zm0 18v2a1 1 0 002 0v-2a1 1 0 00-2 0zM5.99 4.58a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41L5.99 4.58zm12.37 12.37a1 1 0 00-1.41 1.41l1.06 1.06a1 1 0 001.41-1.41l-1.06-1.06zm1.06-10.96a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06zM7.05 17.96a1 1 0 00-1.41-1.41l-1.06 1.06a1 1 0 001.41 1.41l1.06-1.06z"/></svg>
-                    Light
-                  </button>
-                </div>
+                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
               </div>
-
-              <!-- Language -->
-              <div class="settings-row" onclick="showToast('Language settings coming soon!')">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(75,176,255,0.12); --icon-color: #4BB0FF">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Language</div>
-                  <div class="settings-row-sub">English (UK)</div>
-                </div>
-                <div class="settings-chevron">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- ACCOUNT -->
-          <div class="settings-section">
-            <div class="settings-section-label">
-              <span class="section-label-dot" style="background:linear-gradient(135deg,#4BB0FF,#2690FF)"></span>
-              Account
-            </div>
-            <div class="settings-card">
 
               <div class="settings-row" style="cursor:default">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(254,60,114,0.1); --icon-color: #FE3C72">
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(75,176,255,0.1); --icon-color: #4BB0FF">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
                 </div>
                 <div class="settings-row-body">
@@ -946,103 +871,56 @@
               </div>
 
               <div class="settings-row" onclick="showToast('Phone verification coming soon!')">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(75,176,255,0.1); --icon-color: #4BB0FF">
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(33,176,107,0.1); --icon-color: #21B06B">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
                 </div>
                 <div class="settings-row-body">
                   <div class="settings-row-label">Phone Number</div>
-                  <div class="settings-row-sub">Tap to verify</div>
+                  <div class="settings-row-sub">+234 812 345 6789</div>
                 </div>
-                <div class="settings-chevron">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-                </div>
+                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
               </div>
 
-              <div class="settings-row" onclick="openPaywall('settings')">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(255,217,82,0.12); --icon-color: #FFD952">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M5 16L3 5l5.5 5L12 4l3.5 6L21 5l-2 11H5zm2.1-2h9.8l1-5.4-3.5 3.4L12 7.1l-2.4 5-3.5-3.4 1 5.3z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Subscription</div>
-                  <div id="vipStatusRow" class="settings-row-sub">Free Plan</div>
-                </div>
-                <div class="settings-chevron">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- DISCOVERY -->
-          <div class="settings-section">
-            <div class="settings-section-label">
-              <span class="section-label-dot" style="background:linear-gradient(135deg,#21B06B,#25D366)"></span>
-              Discovery
-            </div>
-            <div class="settings-card">
-
-              <div class="settings-row settings-slider-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(33,176,107,0.1); --icon-color: #21B06B">
+              <div class="settings-row" onclick="showToast('Location updated')">
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(244,197,80,0.12); --icon-color: #F4C550">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
                 </div>
-                <div class="settings-slider-group">
-                  <div class="settings-slider-header">
-                    <span class="settings-row-label">Maximum Distance</span>
-                    <span class="settings-slider-value" id="distanceLabel">50 km</span>
-                  </div>
-                  <input class="range-slider" id="distanceSlider" type="range" min="5" max="200" value="50" oninput="updateDistanceSetting()">
+                <div class="settings-row-body">
+                  <div class="settings-row-label">Address / Location</div>
+                  <div class="settings-row-sub">Lagos, Nigeria</div>
                 </div>
-              </div>
-
-              <div class="settings-row settings-slider-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(255,101,91,0.1); --icon-color: #FF655B">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                </div>
-                <div class="settings-slider-group">
-                  <div class="settings-slider-header">
-                    <span class="settings-row-label">Age Range</span>
-                    <span class="settings-slider-value" id="ageRangeLabel">20 – 35</span>
-                  </div>
-                  <div style="display:flex;gap:10px;align-items:center">
-                    <input class="range-slider" style="flex:1" id="minAgeSlider" type="range" min="18" max="60" value="20" oninput="updateAgeSetting()">
-                    <input class="range-slider" style="flex:1" id="maxAgeSlider" type="range" min="19" max="80" value="35" oninput="updateAgeSetting()">
-                  </div>
-                </div>
+                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
               </div>
 
             </div>
           </div>
 
-          <!-- NOTIFICATIONS -->
+          <!-- SECTION: APP SETTINGS (Canva Prototype) -->
           <div class="settings-section">
             <div class="settings-section-label">
-              <span class="section-label-dot" style="background:linear-gradient(135deg,#FFD952,#FF9E45)"></span>
-              Notifications
+              <span class="section-label-dot" style="background:linear-gradient(135deg,#4BB0FF,#2690FF)"></span>
+              Settings &amp; Preferences
             </div>
             <div class="settings-card">
 
-              <div class="settings-row settings-toggle-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(254,60,114,0.1); --icon-color: #FE3C72">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <div class="settings-row" onclick="showToast('Language settings coming soon!')">
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(75,176,255,0.12); --icon-color: #4BB0FF">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
                 </div>
                 <div class="settings-row-body">
-                  <div class="settings-row-label">New Matches</div>
-                  <div class="settings-row-sub">Get notified of mutual likes</div>
+                  <div class="settings-row-label">Language</div>
+                  <div class="settings-row-sub">English (UK)</div>
                 </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="toggleNotifMatches" checked onchange="updateToggleSetting('notifMatches', this)">
-                  <span class="toggle-slider"></span>
-                </label>
+                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
               </div>
 
               <div class="settings-row settings-toggle-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(75,176,255,0.1); --icon-color: #4BB0FF">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(209,58,99,0.1); --icon-color: #D13A63">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
                 </div>
                 <div class="settings-row-body">
-                  <div class="settings-row-label">Messages</div>
-                  <div class="settings-row-sub">Get notified when they reply</div>
+                  <div class="settings-row-label">Notifications &amp; Messages</div>
+                  <div class="settings-row-sub">Get push alerts on matches</div>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="toggleNotifMessages" checked onchange="updateToggleSetting('notifMessages', this)">
@@ -1051,127 +929,54 @@
               </div>
 
               <div class="settings-row settings-toggle-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(255,217,82,0.12); --icon-color: #FFD952">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2L9.17 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.17-.62z"/></svg>
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(33,176,107,0.12); --icon-color: #21B06B">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>
                 </div>
                 <div class="settings-row-body">
-                  <div class="settings-row-label">Likes &amp; Super Likes</div>
-                  <div class="settings-row-sub">Know who swiped right</div>
+                  <div class="settings-row-label">Dark Mode</div>
+                  <div class="settings-row-sub" id="themeLabel">Dark theme active</div>
                 </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="toggleNotifLikes" onchange="updateToggleSetting('notifLikes', this)">
+                <label class="toggle-switch green-switch">
+                  <input type="checkbox" id="toggleDarkModeCheck" checked onchange="setTheme(this.checked ? 'dark' : 'light')">
                   <span class="toggle-slider"></span>
                 </label>
+              </div>
+
+              <div class="settings-row" onclick="showToast('Camera, Location & Microphone active')">
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(139,127,255,0.12); --icon-color: #8B7FFF">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+                </div>
+                <div class="settings-row-body">
+                  <div class="settings-row-label">Camera, Location &amp; Microphone</div>
+                  <div class="settings-row-sub">Device permissions</div>
+                </div>
+                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+              </div>
+
+              <div class="settings-row" onclick="showToast('Streaming Quality: HD 1080p')">
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(244,197,80,0.12); --icon-color: #F4C550">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                </div>
+                <div class="settings-row-body">
+                  <div class="settings-row-label">Highest Quality</div>
+                  <div class="settings-row-sub">Mobile Data &amp; Video Call settings</div>
+                </div>
+                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
               </div>
 
             </div>
           </div>
 
-          <!-- PRIVACY -->
-          <div class="settings-section">
-            <div class="settings-section-label">
-              <span class="section-label-dot" style="background:linear-gradient(135deg,#8B7FFF,#5F5FFF)"></span>
-              Privacy &amp; Safety
-            </div>
-            <div class="settings-card">
-
-              <div class="settings-row settings-toggle-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(33,176,107,0.1); --icon-color: #21B06B">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Show Online Status</div>
-                  <div class="settings-row-sub">Let matches see when you're active</div>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="toggleShowOnline" checked onchange="updateToggleSetting('showOnline', this)">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-
-              <div class="settings-row settings-toggle-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(75,176,255,0.1); --icon-color: #4BB0FF">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Share Location</div>
-                  <div class="settings-row-sub">Show approximate distance to matches</div>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="toggleShareLocation" checked onchange="updateToggleSetting('shareLocation', this)">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-
-              <div class="settings-row" onclick="showToast('Blocked users list coming soon.')">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(254,60,114,0.08); --icon-color: #FE3C72">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1C19.37 8.45 20 10.15 20 12c0 4.42-3.58 8-8 8z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Blocked Users</div>
-                  <div class="settings-row-sub">0 accounts blocked</div>
-                </div>
-                <div class="settings-chevron">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-                </div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- SUPPORT -->
-          <div class="settings-section">
-            <div class="settings-section-label">
-              <span class="section-label-dot" style="background:linear-gradient(135deg,#A0A0B0,#666680)"></span>
-              Support
-            </div>
-            <div class="settings-card">
-
-              <div class="settings-row" onclick="showToast('Opening help centre...')">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(75,176,255,0.1); --icon-color: #4BB0FF">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Help Centre</div>
-                  <div class="settings-row-sub">FAQs, guides &amp; tips</div>
-                </div>
-                <div class="settings-chevron">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-                </div>
-              </div>
-
-              <div class="settings-row" onclick="showToast('Opening privacy policy...')">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(33,176,107,0.1); --icon-color: #21B06B">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Privacy Policy</div>
-                  <div class="settings-row-sub">How we protect your data</div>
-                </div>
-                <div class="settings-chevron">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 18l6-6-6-6"/></svg>
-                </div>
-              </div>
-
-              <div class="settings-row" onclick="showToast('App version 2.0.0 — Build 2026.08')">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(255,217,82,0.1); --icon-color: #FFD952">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">App Version</div>
-                  <div class="settings-row-sub">2.0.0</div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Danger Zone -->
+          <!-- DANGER & SIGN OUT (Canva Prototype) -->
           <div class="settings-section" style="padding-top:8px">
-            <button class="danger-btn" onclick="handleLogout()">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
-              Log Out
-            </button>
-            <button class="danger-btn" style="margin-top:8px;opacity:0.6" onclick="handleDeleteAccount()">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <button class="danger-btn" onclick="handleLogout()" style="flex:1;max-width:200px">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+                Sign Out
+              </button>
+              <a href="#" onclick="showToast('Privacy Policy');return false;" style="color:var(--txt-muted);font-size:0.82rem;font-weight:600;text-decoration:none">Privacy &amp; Policy</a>
+            </div>
+            <button class="danger-btn" style="margin-top:12px;opacity:0.65;background:transparent;border:1px solid rgba(209,58,99,0.3)" onclick="handleDeleteAccount()">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
               Delete Account
             </button>
@@ -1194,13 +999,7 @@
         <div class="nav-active-dot"></div>
       </button>
 
-      <button class="nav-tab" data-tab="search" onclick="openSearchModal()" aria-label="Search">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-        </svg>
-        Search
-        <div class="nav-active-dot"></div>
-      </button>
+
 
       <button class="nav-tab" data-tab="matches" onclick="switchTab('matches')" aria-label="Matches">
         <svg viewBox="0 0 24 24">
@@ -1244,15 +1043,15 @@
 
         <div class="paywall-hero">
           <span class="paywall-crown">
-            <svg class="vip-crown-svg crown-xl" viewBox="0 0 64 52" xmlns="http://www.w3.org/2000/svg">
-              <path class="crown-body" d="M5 44 L12 16 L24 31 L32 6 L40 31 L52 16 L59 44 Z"/>
-              <rect class="crown-base" x="5" y="42" width="54" height="9" rx="3.5"/>
-              <circle class="gem-top" cx="32" cy="6" r="5"/>
-              <circle class="gem-side" cx="12" cy="16" r="3.5"/>
-              <circle class="gem-side" cx="52" cy="16" r="3.5"/>
-              <circle class="gem-base" cx="18" cy="46.5" r="2.3"/>
-              <circle class="gem-base" cx="32" cy="46.5" r="2.3"/>
-              <circle class="gem-base" cx="46" cy="46.5" r="2.3"/>
+            <svg width="72" height="72" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 0 24px rgba(244,197,80,0.75));animation:paywallGemPulse 2s ease-in-out infinite alternate">
+              <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="url(#paywallGrad)"/>
+              <defs>
+                <linearGradient id="paywallGrad" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#FFF3B0"/>
+                  <stop offset="40%" stop-color="#F4C550"/>
+                  <stop offset="100%" stop-color="#B8842B"/>
+                </linearGradient>
+              </defs>
             </svg>
           </span>
           <h2>Upgrade to Gold</h2>
@@ -1261,27 +1060,39 @@
 
         <div class="paywall-benefits">
           <div class="benefit-row">
-            <span class="benefit-icon">👁️</span>
+            <span class="benefit-icon-chip">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            </span>
             <span>See exactly who liked you — match instantly</span>
           </div>
           <div class="benefit-row">
-            <span class="benefit-icon">↩️</span>
+            <span class="benefit-icon-chip">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg>
+            </span>
             <span>Unlimited profile rewinds, never miss a match</span>
           </div>
           <div class="benefit-row">
-            <span class="benefit-icon">✨</span>
+            <span class="benefit-icon-chip">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/></svg>
+            </span>
             <span>Infinite AI portrait generations via Google Imagen</span>
           </div>
           <div class="benefit-row">
-            <span class="benefit-icon">⭐</span>
+            <span class="benefit-icon-chip">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2L9.17 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.17-.62z"/></svg>
+            </span>
             <span>5 Super Likes per day to stand out</span>
           </div>
           <div class="benefit-row">
-            <span class="benefit-icon">🎖️</span>
+            <span class="benefit-icon-chip">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7v2H2v6c0 2.21 1.79 4 4 4h.28c.35 1.61 1.53 2.9 3.09 3.39L9 21h6l-.37-2.61c1.56-.49 2.74-1.78 3.09-3.39H18c2.21 0 4-1.79 4-4V5h-5V3zM4 11V7h3v3.9c0 .04 0 .07-.01.1H6c-1.1 0-2-.9-2-2zm16 0c0 1.1-.9 2-2 2h-1c0-.03-.01-.06-.01-.1V7h3v4z"/></svg>
+            </span>
             <span>Exclusive Gold profile badge — show you're serious</span>
           </div>
           <div class="benefit-row">
-            <span class="benefit-icon">🚀</span>
+            <span class="benefit-icon-chip">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5c-2.1 2-3.6 5-3.6 8.1 0 1.12.22 2.18.63 3.15L6 17.9V21l3.5-2 2.5 1.5 2.5-1.5 3.5 2v-3.1l-3.03-4.15c.41-.97.63-2.03.63-3.15 0-3.1-1.5-6.1-3.6-8.1zM12 9.3a1.6 1.6 0 110-3.2 1.6 1.6 0 010 3.2z"/></svg>
+            </span>
             <span>Profile Boost — be seen by 10× more people</span>
           </div>
         </div>
@@ -1308,7 +1119,7 @@
         <!-- Paystack-ready CTA -->
         <!-- In production: <script src="https://js.paystack.co/v1/inline.js"></script> -->
         <button class="paywall-cta-btn" id="paywallCta" onclick="simulatePurchase()">
-          👑 Subscribe Now — Unlock VIP Gold
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-3px;margin-right:6px"><path d="M5 18h14l1.5-9-5 3-3.5-6-3.5 6-5-3z"/></svg><span id="paywallCtaLabel">Subscribe Now — Unlock VIP Gold</span>
         </button>
 
         <p class="paywall-fine-print">
@@ -1344,32 +1155,70 @@
       </div>
     </div>
 
+
+
     <!-- =====================================================
-         USER SEARCH MODAL OVERLAY
+         TOP PICK SPOTLIGHT / STORY VIEWER
          ===================================================== -->
-    <div class="search-modal-overlay" id="searchModalOverlay" style="display:none">
-      <div class="search-modal-card">
-        <div class="search-modal-header">
-          <div style="position:relative;flex:1;display:flex;align-items:center;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;left:14px;pointer-events:none"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-            <input type="text" class="form-input" id="searchModalInput" placeholder="Search registered users by name or email..." oninput="handleModalSearchInput(event)" style="padding-left:42px;padding-right:36px;height:46px;font-size:0.9rem;border-radius:23px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);color:#fff;width:100%">
-            <button id="clearModalSearchBtn" onclick="clearModalSearch()" style="display:none;position:absolute;right:14px;background:none;border:none;color:rgba(255,255,255,0.6);cursor:pointer;font-weight:700;font-size:1rem">✕</button>
-          </div>
-          <button class="search-modal-close" onclick="closeSearchModal()" aria-label="Close search">✕</button>
+    <div class="story-viewer-overlay" id="storyViewerOverlay" style="display:none">
+      <!-- Background Image with Vignette -->
+      <div class="story-bg-img" id="storyBgImg"></div>
+      <div class="story-vignette"></div>
+
+      <!-- Top Header & Progress -->
+      <div class="story-header-area">
+        <div class="story-progress-bars" id="storyProgressBars">
+          <div class="story-progress-bar"><div class="story-progress-fill" id="storyProgressFill"></div></div>
         </div>
-        <div class="search-modal-body" id="searchModalResults">
-          <div style="text-align:center;padding:32px 16px;color:rgba(255,255,255,0.5);font-size:0.88rem">
-            Type a name or email above to search registered accounts 🔍
+
+        <div class="story-top-bar">
+          <div class="story-user-info">
+            <div class="story-user-avatar" id="storyUserAvatar"></div>
+            <div class="story-user-meta">
+              <div class="story-user-name-wrap">
+                <span class="story-user-name" id="storyUserName">Sade</span>
+                <span class="story-user-age" id="storyUserAge">, 23</span>
+                <span class="story-top-pick-badge">TOP PICK</span>
+              </div>
+              <span class="story-user-loc" id="storyUserLoc">📍 Lagos, 18 km away</span>
+            </div>
           </div>
+          <button class="story-close-btn" onclick="closeStoryViewer()" aria-label="Close story">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Story Center Touch Zones (for Left/Right navigation) -->
+      <div class="story-nav-zones">
+        <div class="story-zone-left" onclick="prevStory(event)"></div>
+        <div class="story-zone-right" onclick="nextStory(event)"></div>
+      </div>
+
+      <!-- Bottom Profile Details & Actions -->
+      <div class="story-bottom-area">
+        <div class="story-bio-card">
+          <p class="story-bio-text" id="storyBioText">Bookworm and part-time content designer. Looking for honest connections only.</p>
+          <div class="story-tags-row" id="storyTagsRow">
+            <span class="story-tag-chip">Books 📚</span>
+            <span class="story-tag-chip">Nature 🌿</span>
+          </div>
+        </div>
+
+        <!-- Action Row -->
+        <div class="story-action-row">
+          <div class="story-reply-wrap">
+            <input type="text" class="story-reply-input" id="storyMsgInput" placeholder="Send a message..." onkeydown="handleStoryKeydown(event)">
+            <button class="story-send-btn" onclick="sendStoryReply()" aria-label="Send message">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+          <button class="story-like-btn" onclick="likeStoryProfile()" title="Like" aria-label="Like this profile">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </button>
         </div>
       </div>
     </div>
-
-    <!-- ALWAYS-VISIBLE FLOATING SEARCH BUTTON -->
-    <button class="global-floating-search-btn" id="globalFloatingSearchBtn" onclick="openSearchModal()" title="Search registered users" aria-label="Search users" style="position:absolute;bottom:78px;right:16px;z-index:99999;background:linear-gradient(135deg,#FF2D78 0%,#FF7043 100%);color:#fff;border:none;border-radius:30px;padding:10px 18px;font-family:sans-serif;font-size:0.85rem;font-weight:800;display:flex;align-items:center;gap:8px;box-shadow:0 8px 30px rgba(255,45,120,0.6),0 0 0 2px rgba(255,255,255,0.2);cursor:pointer;">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-      <span>Search Users</span>
-    </button>
 
   </div><!-- end .app-shell -->
 
@@ -1383,9 +1232,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
   <!-- Firebase & Paystack Adapter Module -->
-  <script src="firebase-config.js?v=5.0"></script>
+  <script src="firebase-config.js?v=9.0"></script>
 
   <!-- Main Application Logic -->
-  <script src="script.js?v=5.0"></script>
+  <script src="script.js?v=9.0"></script>
 </body>
 </html>

@@ -113,6 +113,78 @@ function getVipExpiry(planName) {
 }
 
 /* ==========================================================
+   PAYSTACK DIRECT VERIFICATION — Server-side transaction check
+   ========================================================== */
+app.post('/paystack/verify', async (req, res) => {
+  const { reference, planName, userId } = req.body;
+
+  if (!reference || !userId) {
+    return res.status(400).json({ success: false, error: 'Reference and userId are required.' });
+  }
+
+  try {
+    const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
+    if (!paystackSecret) {
+      // In dev mode without secret key, log warning and allow fallback if needed
+      console.warn('⚠️  PAYSTACK_SECRET_KEY not set in .env — skipping remote API call');
+    }
+
+    let verified = false;
+    let customerEmail = '';
+    let paidAmount = 0;
+
+    if (paystackSecret) {
+      const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${paystackSecret}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      const data = await response.json();
+      if (response.ok && data.status && data.data?.status === 'success') {
+        verified = true;
+        customerEmail = data.data.customer?.email || '';
+        paidAmount = (data.data.amount || 0) / 100;
+      } else {
+        console.error('Paystack verification returned failure:', data);
+        return res.status(400).json({ success: false, error: data.message || 'Transaction not verified.' });
+      }
+    } else {
+      // Dev mode fallback
+      verified = true;
+    }
+
+    if (verified) {
+      const plan = planName || 'VIP Gold';
+      const expiryDate = getVipExpiry(plan);
+
+      await db.collection('users').doc(userId).update({
+        isVip: true,
+        vipPlan: plan,
+        vipExpiry: expiryDate,
+        vipActivatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        paystackReference: reference,
+        paystackEmail: customerEmail,
+        paystackAmount: paidAmount
+      });
+
+      console.log(`✅ VIP unlocked via backend verification for user ${userId} | Ref: ${reference}`);
+      return res.json({
+        success: true,
+        isVip: true,
+        vipPlan: plan,
+        vipExpiry: expiryDate.toISOString(),
+        reference
+      });
+    }
+  } catch (err) {
+    console.error('Paystack verify endpoint error:', err);
+    return res.status(500).json({ success: false, error: 'Server verification error.' });
+  }
+});
+
+/* ==========================================================
    TERMII OTP — Nigerian Phone Number SMS Verification
    ========================================================== */
 

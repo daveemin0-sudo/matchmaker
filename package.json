@@ -1,10 +1,13 @@
 {
-  "name": "match-making",
+  "name": "hookmebysam",
   "version": "1.0.0",
-  "description": "",
+  "description": "Nigeria's #1 Premium Dating & Matchmaking App",
   "main": "firebase-config.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "npx http-server . -p 5500 -o",
+    "server": "cd webhook-server && npm run start",
+    "both": "npm-run-all -p start server"
   },
   "repository": {
     "type": "git",
@@ -22,5 +25,10 @@
     "@capacitor/android": "^8.5.0",
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0"
+  },
+  "devDependencies": {
+    "firebase-tools": "^15.27.0",
+    "live-server": "^1.2.2"
   }
+
 }

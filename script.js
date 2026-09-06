@@ -181,9 +181,14 @@ function initMainApp() {
 
   // Ask for notification permission after a short delay
   setTimeout(requestNotificationPermission, 3500);
-  // Register service worker for PWA
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  // Register service worker for PWA — but never on localhost/local dev
+  // servers. The SW exists to help real users go offline and get fast
+  // repeat loads; while you're actively editing and reloading via Live
+  // Server (127.0.0.1) it only gets in the way. It still registers
+  // normally once this is deployed to a real domain.
+  const isLocalDev = ['localhost', '127.0.0.1', '', '::1'].includes(location.hostname);
+  if ('serviceWorker' in navigator && !isLocalDev) {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
   }
 }
 
@@ -852,6 +857,14 @@ function onDragEnd() {
   document.removeEventListener('mouseup', onDragEnd);
 }
 
+function pulseClick(el) {
+  if (!el) return;
+  el.classList.remove('btn-clicked');
+  // Force reflow so the animation restarts even on rapid repeat clicks
+  void el.offsetWidth;
+  el.classList.add('btn-clicked');
+}
+
 function triggerManualSwipe(dir) {
   if (!appState.activeCard) return;
   appState.activeCard.style.transition = 'transform 0.45s ease-in-out, opacity 0.4s';
@@ -1072,6 +1085,14 @@ function renderChatThread() {
 
   container.innerHTML = hist.map((msg, idx) => {
     const isLast = idx === hist.length - 1;
+    if (msg.imageUrl) {
+      const receiptHtml = msg.sender === 'me' ? `<span class="msg-receipt ${isLast ? 'read' : ''}">✓✓</span>` : '';
+      return `
+        <div class="msg-bubble ${msg.sender === 'me' ? 'sent' : 'received'}" style="padding:4px;max-width:220px;overflow:hidden">
+          <img src="${msg.imageUrl}" style="width:100%;border-radius:14px;display:block">
+          ${receiptHtml}
+        </div>`;
+    }
     if (msg.isVoice) {
       const receiptHtml = msg.sender === 'me'
         ? `<span class="msg-receipt ${isLast ? 'read' : ''}">✓✓</span>` : '';
@@ -1094,6 +1115,111 @@ function renderChatThread() {
 
   container.scrollTop = container.scrollHeight;
 }
+
+function onChatInputChange() {
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+  const micBtn = document.getElementById('micBtn');
+  if (!input) return;
+  const hasText = input.value.trim().length > 0;
+  if (sendBtn) sendBtn.style.display = hasText ? 'flex' : 'none';
+  if (micBtn) micBtn.style.display = hasText ? 'none' : 'flex';
+}
+
+function toggleEmojiPicker() {
+  const panel = document.getElementById('emojiPickerPanel');
+  if (!panel) return;
+  const isOpen = panel.style.display === 'flex';
+  panel.style.display = isOpen ? 'none' : 'flex';
+
+  if (!isOpen) {
+    const grid = document.getElementById('emojiGrid');
+    if (grid && !grid.children.length) {
+      const popularEmojis = ['❤️', '🔥', '😍', '✨', '😂', '🥂', '🥳', '🙌', '🎵', '✈️', '☕', '🌮', '👍', '💬', '🤩', '💖', '👑', '🌸', '💃', '🎉'];
+      grid.innerHTML = popularEmojis.map(e => `
+        <span onclick="insertEmoji('${e}')" style="font-size:1.4rem;cursor:pointer;padding:6px;text-align:center;border-radius:8px;transition:background 0.15s">${e}</span>
+      `).join('');
+    }
+  }
+}
+
+function insertEmoji(emoji) {
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  input.value += emoji;
+  onChatInputChange();
+  input.focus();
+}
+
+function sendImageMessage(event) {
+  const file = event.target.files?.[0];
+  if (!file || !appState.currentChatId) return;
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const imageUrl = e.target.result;
+    if (!conversations[appState.currentChatId]) {
+      conversations[appState.currentChatId] = { messages: [] };
+    }
+    conversations[appState.currentChatId].messages.push({
+      sender: 'me',
+      imageUrl: imageUrl
+    });
+    renderChatThread();
+    renderConversationList();
+    saveToStorage();
+    showToast('📷 Image sent!', 'gold');
+
+    if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+      const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
+      sendRealtimeMessage(matchId, '', false, '', imageUrl);
+    }
+  };
+  reader.readAsDataURL(file);
+  event.target.value = '';
+}
+
+function startVoiceCall() {
+  const partner = matchedUsers.find(u => u.id === appState.currentChatId);
+  const name = partner ? partner.name : 'User';
+  const overlay = document.getElementById('voiceCallOverlay');
+  if (overlay) overlay.style.display = 'flex';
+  showToast(`Calling ${name}... 📞`, 'info');
+}
+
+function startVideoCall() {
+  const partner = matchedUsers.find(u => u.id === appState.currentChatId);
+  const name = partner ? partner.name : 'User';
+  const overlay = document.getElementById('videoCallOverlay');
+  if (overlay) overlay.style.display = 'flex';
+  showToast(`Starting video call with ${name}... 📹`, 'info');
+}
+
+function endCall() {
+  const voice = document.getElementById('voiceCallOverlay');
+  const video = document.getElementById('videoCallOverlay');
+  if (voice) voice.style.display = 'none';
+  if (video) video.style.display = 'none';
+  showToast('Call ended', 'info');
+}
+
+function toggleMute() {
+  showToast('Microphone toggled', 'info');
+}
+
+function toggleVideo() {
+  showToast('Camera toggled', 'info');
+}
+
+function switchCamera() {
+  showToast('Camera switched', 'info');
+}
+
+function toggleCallMute() { toggleMute(); }
+function toggleVideoMute() { toggleMute(); }
+function toggleCamera() { toggleVideo(); }
+function endVideoCall() { endCall(); }
+function toggleSpeaker() { showToast('Speaker toggled 🔊', 'info'); }
 
 function sendMessage() {
   const input = document.getElementById('chatInput');
@@ -1171,7 +1297,6 @@ function triggerAutoReply() {
   }, 1400 + Math.random() * 600);
 }
 
-function toggleVoiceRecording() {
 // ==========================================================
 // VOICE RECORDING — Real MediaRecorder API
 // ==========================================================
@@ -1665,22 +1790,39 @@ function selectPricingTier(n) {
 
 function simulatePurchase() {
   const btn = document.getElementById('paywallCta');
-  
+  const label = document.getElementById('paywallCtaLabel');
+
   // Calculate price based on selected tier matching HTML pricing cards
   const tierPrices = { 1: 2500, 2: 7500, 3: 25000 };
   const tierNames  = { 1: '1 Week VIP Gold', 2: '1 Month VIP Gold', 3: 'Lifetime VIP Gold' };
-  const price = tierPrices[appState.selectedPricingTier] || 7500;
-  const name  = tierNames[appState.selectedPricingTier]  || '1 Month VIP Gold';
+  const tier  = appState.selectedPricingTier || 2;
+  const price = tierPrices[tier] || 7500;
+  const name  = tierNames[tier]  || '1 Month VIP Gold';
 
   if (typeof triggerPaystackPayment === "function") {
-    triggerPaystackPayment(name, price, (response) => {
-      completeVipUpgrade();
+    triggerPaystackPayment(name, price, async (response) => {
+      // Paystack's popup saying "success" is just JS running in this
+      // browser — it proves nothing by itself. Don't grant VIP until the
+      // backend has independently confirmed the payment with Paystack.
+      if (btn) { btn.disabled = true; }
+      if (label) { label.textContent = 'Confirming payment…'; }
+
+      const result = await verifyPaymentOnBackend(response.reference, tier);
+
+      if (btn) { btn.disabled = false; }
+      if (label) { label.textContent = 'Subscribe Now — Unlock VIP Gold'; }
+
+      if (result.success) {
+        completeVipUpgrade();
+      }
     });
   } else {
-    if (btn) { btn.disabled = true; btn.textContent = 'Processing...'; }
+    if (btn) { btn.disabled = true; }
+    if (label) { label.textContent = 'Processing...'; }
     setTimeout(() => {
       completeVipUpgrade();
-      if (btn) { btn.disabled = false; btn.textContent = '👑 Subscribe Now — Unlock VIP Gold'; }
+      if (btn) { btn.disabled = false; }
+      if (label) { label.textContent = 'Subscribe Now — Unlock VIP Gold'; }
     }, 1200);
   }
 }
@@ -1704,7 +1846,6 @@ function completeVipUpgrade() {
   renderMatchesView();
   revealBlurredMatches();
   saveToStorage();
-}
 }
 
 function applyVipUI() {
@@ -1756,9 +1897,19 @@ function showToast(msg, type = 'gold') {
   }
 
   toast.textContent = msg;
-  if (type === 'error') toast.style.background = 'var(--accent-pink)';
-  else if (type === 'info') toast.style.background = 'var(--card-mid)';
-  else toast.style.background = '';
+  if (type === 'error') {
+    toast.style.background = 'linear-gradient(135deg, #D13A63 0%, #8C1F45 100%)';
+    toast.style.color = '#FFFFFF';
+    toast.style.border = '1px solid rgba(255,255,255,0.3)';
+  } else if (type === 'info') {
+    toast.style.background = 'linear-gradient(135deg, #2C183B 0%, #150B20 100%)';
+    toast.style.color = '#FFFFFF';
+    toast.style.border = '1px solid rgba(209, 58, 99, 0.45)';
+  } else {
+    toast.style.background = 'linear-gradient(135deg, #F7D374 0%, #B8842B 100%)';
+    toast.style.color = '#1A0E04';
+    toast.style.border = '1px solid rgba(255,255,255,0.4)';
+  }
 
   toast.classList.add('visible');
   setTimeout(() => toast.classList.remove('visible'), 2800);
@@ -1788,26 +1939,64 @@ function handleSignupComplete() {
 // ==========================================================
 
 const STORY_DATA = [
-  { id: 's1', name: 'Zainab', image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80' },
-  { id: 's2', name: 'Amara',  image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80' },
-  { id: 's3', name: 'Sade',   image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80' },
-  { id: 's4', name: 'Chidi',  image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80' },
-  { id: 's5', name: 'Tunde',  image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80' },
-  { id: 's6', name: 'Kemi',   image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=150&q=80' },
+  {
+    id: 's1', name: 'Zainab', age: 22, location: 'Victoria Island, 3 km',
+    bio: 'Architecture student & sunset lover. Coffee date or gallery hopping?',
+    tags: ['Architecture 🏛️', 'Coffee ☕', 'Art 🎨'],
+    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=800&q=85',
+    thumb: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+  },
+  {
+    id: 's2', name: 'Amara', age: 24, location: 'Lekki Phase 1, 7 km',
+    bio: 'Fashion label designer. Let\'s find the best pancake spot in Lagos.',
+    tags: ['Fashion 👗', 'Aesthetics 📸', 'Brunch 🥂'],
+    image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=800&q=85',
+    thumb: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=150&q=80'
+  },
+  {
+    id: 's3', name: 'Sade', age: 23, location: 'Ikoyi, 18 km',
+    bio: 'Bookworm & content designer. Looking for honest connections only.',
+    tags: ['Books 📚', 'Nature 🌿', 'Music 🎧'],
+    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=800&q=85',
+    thumb: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=150&q=80'
+  },
+  {
+    id: 's4', name: 'Chidi', age: 27, location: 'Marina, 5 km',
+    bio: 'Art gallery host. If you love fitness and museum date nights, let\'s connect.',
+    tags: ['Fitness 💪', 'Art 🎨', 'Business 📈'],
+    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=800&q=85',
+    thumb: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=150&q=80'
+  },
+  {
+    id: 's5', name: 'Tunde', age: 25, location: 'Ibadan, 12 km',
+    bio: 'Software developer by day, PS5 legend by night. Looking for cool lounge vibes.',
+    tags: ['Gamer 🎮', 'Tech 💻', 'Foodie 🍕'],
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=800&q=85',
+    thumb: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80'
+  },
+  {
+    id: 's6', name: 'Kemi', age: 24, location: 'Surulere, 4 km',
+    bio: 'Let\'s explore Lagos galleries. Ready for adventures & good vibes ✨',
+    tags: ['Brunch 🥞', 'Travel ✈️', 'Vibes ⚡'],
+    image: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=800&q=85',
+    thumb: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=150&q=80'
+  }
 ];
 
 let seenStories = new Set();
+let currentStoryIndex = 0;
+let storyTimer = null;
 
 function renderStoriesRow() {
   const scroll = document.getElementById('storiesScroll');
   if (!scroll) return;
 
-  scroll.innerHTML = STORY_DATA.map(s => {
+  scroll.innerHTML = STORY_DATA.map((s, idx) => {
     const seen = seenStories.has(s.id);
     return `
       <div class="story-bubble ${seen ? 'seen' : ''}" onclick="viewStory('${s.id}')">
         <div class="story-avatar-ring">
-          <div class="story-avatar-img" style="background-image:url('${s.image}')"></div>
+          <div class="story-avatar-img" style="background-image:url('${s.thumb || s.image}')"></div>
         </div>
         <span class="story-name">${s.name}</span>
       </div>`;
@@ -1815,11 +2004,161 @@ function renderStoriesRow() {
 }
 
 function viewStory(storyId) {
-  const story = STORY_DATA.find(s => s.id === storyId);
-  if (!story) return;
-  seenStories.add(storyId);
+  const idx = STORY_DATA.findIndex(s => s.id === storyId);
+  if (idx === -1) return;
+  currentStoryIndex = idx;
+  showStoryAtIndex(currentStoryIndex);
+}
+
+function showStoryAtIndex(idx) {
+  if (idx < 0 || idx >= STORY_DATA.length) {
+    closeStoryViewer();
+    return;
+  }
+
+  currentStoryIndex = idx;
+  const story = STORY_DATA[currentStoryIndex];
+  seenStories.add(story.id);
   renderStoriesRow();
-  showToast(`✨ ${story.name}'s Top Pick — Swipe right to match!`, 'info');
+
+  const overlay = document.getElementById('storyViewerOverlay');
+  const bgImg = document.getElementById('storyBgImg');
+  const avatar = document.getElementById('storyUserAvatar');
+  const nameEl = document.getElementById('storyUserName');
+  const ageEl = document.getElementById('storyUserAge');
+  const locEl = document.getElementById('storyUserLoc');
+  const bioEl = document.getElementById('storyBioText');
+  const tagsRow = document.getElementById('storyTagsRow');
+  const inputEl = document.getElementById('storyMsgInput');
+
+  if (bgImg) bgImg.style.backgroundImage = `url('${story.image}')`;
+  if (avatar) avatar.style.backgroundImage = `url('${story.thumb || story.image}')`;
+  if (nameEl) nameEl.textContent = story.name;
+  if (ageEl) ageEl.textContent = `, ${story.age}`;
+  if (locEl) locEl.textContent = `📍 ${story.location}`;
+  if (bioEl) bioEl.textContent = story.bio;
+  if (inputEl) inputEl.placeholder = `Send a compliment to ${story.name}...`;
+
+  if (tagsRow) {
+    tagsRow.innerHTML = story.tags.map(t => `<span class="story-tag-chip">${t}</span>`).join('');
+  }
+
+  // Render Story Progress Indicators
+  const progressBars = document.getElementById('storyProgressBars');
+  if (progressBars) {
+    progressBars.innerHTML = STORY_DATA.map((_, i) => {
+      let cls = 'story-progress-bar';
+      if (i < currentStoryIndex) cls += ' completed';
+      else if (i === currentStoryIndex) cls += ' active';
+      return `<div class="${cls}"><div class="story-progress-fill"></div></div>`;
+    }).join('');
+  }
+
+  if (overlay) {
+    overlay.style.display = 'flex';
+  }
+
+  // Auto advance after 6s
+  clearTimeout(storyTimer);
+  storyTimer = setTimeout(() => {
+    nextStory();
+  }, 6000);
+}
+
+function nextStory(e) {
+  if (e) e.stopPropagation();
+  clearTimeout(storyTimer);
+  if (currentStoryIndex < STORY_DATA.length - 1) {
+    showStoryAtIndex(currentStoryIndex + 1);
+  } else {
+    closeStoryViewer();
+  }
+}
+
+function prevStory(e) {
+  if (e) e.stopPropagation();
+  clearTimeout(storyTimer);
+  if (currentStoryIndex > 0) {
+    showStoryAtIndex(currentStoryIndex - 1);
+  } else {
+    showStoryAtIndex(0);
+  }
+}
+
+function closeStoryViewer() {
+  clearTimeout(storyTimer);
+  const overlay = document.getElementById('storyViewerOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function likeStoryProfile() {
+  const story = STORY_DATA[currentStoryIndex];
+  if (!story) return;
+
+  // Add to matches if not already
+  const existing = matchedUsers.find(u => u.name === story.name);
+  if (!existing) {
+    matchedUsers.unshift({
+      id: 'm_' + story.id,
+      name: story.name,
+      age: story.age,
+      bio: story.bio,
+      image: story.image,
+      tags: story.tags,
+      distance: story.location,
+      isRealUser: false
+    });
+    renderNewMatchesRow();
+    renderConversationList();
+  }
+
+  showToast(`💖 You liked ${story.name}! It's a match!`, 'pink');
+  closeStoryViewer();
+  triggerConfetti();
+}
+
+function sendStoryReply() {
+  const input = document.getElementById('storyMsgInput');
+  if (!input) return;
+  const val = input.value.trim();
+  if (!val) return;
+
+  const story = STORY_DATA[currentStoryIndex];
+  showToast(`💬 Compliment sent to ${story?.name || 'User'}!`, 'pink');
+  input.value = '';
+
+  // Create match / conversation
+  if (story) {
+    const matchId = 'm_' + story.id;
+    if (!matchedUsers.find(u => u.name === story.name)) {
+      matchedUsers.unshift({
+        id: matchId,
+        name: story.name,
+        age: story.age,
+        bio: story.bio,
+        image: story.image,
+        tags: story.tags,
+        distance: story.location,
+        isRealUser: false
+      });
+      renderNewMatchesRow();
+      renderConversationList();
+    }
+    if (!conversations[matchId]) {
+      conversations[matchId] = { messages: [] };
+    }
+    conversations[matchId].messages.push({
+      sender: 'me',
+      text: val,
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    });
+  }
+
+  closeStoryViewer();
+}
+
+function handleStoryKeydown(e) {
+  if (e.key === 'Enter') sendStoryReply();
 }
 
 // ==========================================================

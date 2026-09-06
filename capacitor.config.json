@@ -17,13 +17,13 @@
   "plugins": {
     "SplashScreen": {
       "launchShowDuration": 2000,
-      "backgroundColor": "#09090F",
+      "backgroundColor": "#0A0710",
       "androidSplashResourceName": "splash",
       "showSpinner": false
     },
     "StatusBar": {
       "style": "DARK",
-      "backgroundColor": "#09090F"
+      "backgroundColor": "#0A0710"
     },
     "PushNotifications": {
       "presentationOptions": ["badge", "sound", "alert"]

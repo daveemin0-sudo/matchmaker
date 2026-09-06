@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ────────────────────────────────────────────────────────────
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Returns true if the current user is one of the two participants
+    // stored in matches/{matchId}.users array.
+    function isMatchParticipant(matchData) {
+      return isSignedIn() && request.auth.uid in matchData.users;
+    }
+
+    // ── users ───────────────────────────────────────────────────────────────
+    // Any signed-in user can read profiles (needed for discovery + match card).
+    // Only the owner may write their own document.
+    match /users/{userId} {
+      allow read:             if isSignedIn();
+      allow create, update:   if isOwner(userId);
+      allow delete:           if isOwner(userId);
+    }
+
+    // ── swipes ──────────────────────────────────────────────────────────────
+    // A swipe doc is: { fromUserId, toUserId, action, timestamp }
+    // • Any signed-in user may create a swipe where they are the sender.
+    // • Any signed-in user may read swipes to check for mutual matches
+    //   (the query filters to their own IDs, so the data exposed is minimal).
+    // • No update or delete — swipes are immutable records.
+    match /swipes/{swipeId} {
+      allow create: if isSignedIn()
+                    && request.resource.data.fromUserId == request.auth.uid;
+      allow read:   if isSignedIn();
+    }
+
+    // ── matches ─────────────────────────────────────────────────────────────
+    // A match doc is: { users: [uid1, uid2], createdAt }
+    // matchId is deterministic: [uid1, uid2].sort().join('_')
+    // • Only participants may read their match document.
+    // • Any signed-in user may create a match document (triggered after a
+    //   mutual swipe is confirmed client-side). The creator must be in users[].
+    // • No update/delete of the top-level match doc after creation.
+    match /matches/{matchId} {
+      allow read:   if isSignedIn()
+                    && request.auth.uid in resource.data.users;
+      allow create: if isSignedIn()
+                    && request.auth.uid in request.resource.data.users
+                    && request.resource.data.users.size() == 2;
+
+      // ── matches/{matchId}/messages ───────────────────────────────────────
+      // A message doc is: { sender, text, isVoice, audioUrl, imageUrl, timestamp }
+      // • Only the two match participants may read the message thread.
+      // • Only the sender (who must also be a participant) may create a message.
+      // • Messages are immutable — no update or delete.
+      match /messages/{messageId} {
+        allow read:   if isSignedIn()
+                      && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+        allow create: if isSignedIn()
+                      && request.resource.data.sender == request.auth.uid
+                      && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+      }
+    }
+
+    // ── reports ─────────────────────────────────────────────────────────────
+    // Signed-in users may file a report; admins read via the console.
+    match /reports/{reportId} {
+      allow create: if isSignedIn();
+      allow read:   if isSignedIn();
+    }
+
+    // NOTE: /chats/{chatId} is intentionally absent — the app does NOT use
+    // a top-level chats collection. Messages live at matches/{matchId}/messages.
+    // otp_requests is intentionally absent — no server-side OTP flow exists
+    // in this app version. Deny all by default (Firestore's implicit fallback).
+  }
+}
+

@@ -5,7 +5,14 @@
 // 1. YOUR FIREBASE CONFIG KEYS
 // Replace the placeholder values below with your keys from https://console.firebase.google.com
 const firebaseConfig = {
-  
+  apiKey: "AIzaSyCCjBefT39USp6JslywXA-ZCUOK_t9gmUk",
+  authDomain: "hookmebysam.firebaseapp.com",
+  databaseURL: "https://hookmebysam-default-rtdb.firebaseio.com",
+  projectId: "hookmebysam",
+  storageBucket: "hookmebysam.firebasestorage.app",
+  messagingSenderId: "512221711818",
+  appId: "1:512221711818:web:d0c40fcb9f934c4e249333",
+  measurementId: "G-XYWLF7VS28"
 };
 
 // 2. YOUR PAYSTACK PUBLIC KEY
@@ -101,24 +108,35 @@ function listenToAuthChanges() {
   if (!fbAuth) return;
   fbAuth.onAuthStateChanged(async (user) => {
     if (user) {
+      // Safely access or create currentUser object
+      let targetUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : (window.currentUser || {});
+      
       try {
         if (fbDb) {
           const doc = await fbDb.collection('users').doc(user.uid).get();
-          if (doc.exists) {
-            window.currentUser = Object.assign({}, window.currentUser, doc.data());
+          if (doc && doc.exists) {
+            targetUser = Object.assign({}, targetUser, doc.data());
           }
         }
       } catch (err) {
         console.warn("Firestore profile read fallback:", err.message);
       }
-      // Ensure currentUser has at least auth email and uid
-      if (!window.currentUser.email && user.email) window.currentUser.email = user.email;
-      if (!window.currentUser.id) window.currentUser.id = user.uid;
       
+      // Ensure targetUser has at least auth email and uid
+      if (user.email) targetUser.email = user.email;
+      if (user.uid) targetUser.id = user.uid;
+      
+      if (typeof currentUser !== 'undefined') {
+        Object.assign(currentUser, targetUser);
+      }
+      window.currentUser = targetUser;
+      
+      if (typeof appState !== 'undefined') appState.isLoggedIn = true;
       if (window.appState) window.appState.isLoggedIn = true;
       if (typeof showScreen === 'function') showScreen('discovery');
       if (typeof initMainApp === 'function') initMainApp();
     } else {
+      if (typeof appState !== 'undefined') appState.isLoggedIn = false;
       if (window.appState) window.appState.isLoggedIn = false;
       if (typeof showScreen === 'function') showScreen('login');
       if (typeof updateHeader === 'function') updateHeader('login');
@@ -380,6 +398,36 @@ function triggerPaystackPayment(planName, amountInNaira, onSuccessCallback) {
   handler.openIframe();
 }
 
+// Asks the backend to confirm — server-to-server, with Paystack's secret
+// key — that this reference really was paid, for the right amount, and
+// hasn't been redeemed before. The client-side "success" callback above
+// proves nothing on its own; this is the step that actually matters.
+async function verifyPaymentOnBackend(reference, tier) {
+  const uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser)
+    ? fbAuth.currentUser.uid
+    : null;
+
+  if (!uid) {
+    showToast('You need to be signed in to upgrade.', 'error');
+    return { success: false };
+  }
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/payment/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference, uid, tier }),
+    });
+    const data = await res.json();
+    if (data.success) return { success: true };
+    showToast(data.error || 'Could not confirm payment.', 'error');
+    return { success: false };
+  } catch (err) {
+    showToast('Offline — cannot confirm payment right now.', 'error');
+    return { success: false };
+  }
+}
+
 // ----------------------------------------------------------
 // TERMII OTP — Nigerian Phone Number SMS Verification
 // (Calls your webhook-server which talks to Termii API)
@@ -431,6 +479,32 @@ async function verifyOtp(phoneNumber, otpCode) {
   }
 }
 
+// Same backend endpoint as verifyOtp(), but for an ALREADY-signed-in user
+// re-verifying/adding a phone number in Settings. Deliberately does NOT
+// sign in with the returned custom token — that token belongs to a
+// phone-identified user record, and blindly signing in with it would
+// swap the active session away from the user's real (email-based)
+// account. This just confirms code ownership; the caller decides what
+// to do with that confirmation (here: save the number to their profile).
+async function verifyPhoneOwnershipOnly(phoneNumber, otpCode) {
+  try {
+    const res = await fetch(`${BACKEND_URL}/auth/verify-otp`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phoneNumber, otp: otpCode })
+    });
+    const data = await res.json();
+    if (data.success) {
+      return { success: true };
+    }
+    showToast(data.error || 'Wrong OTP. Try again.', 'error');
+    return { success: false, error: data.error };
+  } catch (err) {
+    showToast('Offline — cannot verify right now.', 'error');
+    return { success: false };
+  }
+}
+
 // ----------------------------------------------------------
 // VIP STATUS VERIFIER — Re-check from Firestore on app load
 // Prevents VIP expiry bypass via localStorage manipulation
@@ -442,7 +516,8 @@ async function checkAndSyncVipStatus() {
     if (!doc.exists) return;
     const data = doc.data();
     const isVip = data.isVip && data.vipExpiry && data.vipExpiry.toDate() > new Date();
-    window.appState.isVip = isVip;
+    if (typeof appState !== 'undefined') appState.isVip = isVip;
+    if (window.appState) window.appState.isVip = isVip;
     if (isVip && typeof applyVipUI === 'function') applyVipUI();
     console.log(`👑 VIP Status: ${isVip ? 'ACTIVE' : 'INACTIVE'} | Expires: ${data.vipExpiry?.toDate?.()?.toDateString?.() || 'N/A'}`);
   } catch (e) {
