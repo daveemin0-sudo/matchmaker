@@ -106,15 +106,15 @@ let appState = {
 
 let currentUser = {
   id: 'me',
-  name: '',
+  name: 'Dave',
   email: '',
   age: 24,
-  bio: '',
+  bio: 'Software engineer and builder. Love beach hangouts in Lekki and good vibes.',
   image: '',
   avatar: '',
   location: 'Lagos, Nigeria',
-  gender: 'Female',
-  interests: ['Music 🎵', 'Vibes ✨'],
+  gender: 'Male',
+  interests: ['Tech 💻', 'Fitness 💪', 'Music 🎵'],
 };
 
 let profileStack = [...PROFILES_DATA];
@@ -2328,35 +2328,113 @@ function cancelVoiceRecording() {
 
 function renderProfileScreen() {
   const avatar = document.getElementById('profileAvatar');
+  const initialEl = document.getElementById('profileAvatarInitial');
   const nameEl = document.getElementById('profileDisplayName');
+  const locEl = document.getElementById('profileLocationDisplay');
+  const bioEl = document.getElementById('profileBioDisplay');
+  const interestsEl = document.getElementById('profileInterestsDisplay');
+
   const nameInput = document.getElementById('editName');
   const ageInput = document.getElementById('editAge');
   const bioInput = document.getElementById('editBio');
   const locInput = document.getElementById('editLocation');
+  const interestsInput = document.getElementById('editInterests');
+
+  const displayName = currentUser.name || currentUser.displayName || 'Dave';
+  const displayAge = currentUser.age || 24;
+  const displayLoc = currentUser.location || 'Lagos, Nigeria';
+  const displayBio = currentUser.bio || 'Software engineer and builder. Love beach hangouts in Lekki and good vibes.';
+  const displayInterests = (currentUser.interests && currentUser.interests.length > 0)
+    ? currentUser.interests
+    : ['Tech 💻', 'Fitness 💪', 'Music 🎵'];
 
   const photo = currentUser.image || currentUser.avatar || '';
   if (avatar) {
     if (photo) {
       avatar.style.backgroundImage = `url('${photo}')`;
-      avatar.textContent = '';
+      if (initialEl) initialEl.style.display = 'none';
     } else {
       avatar.style.backgroundImage = 'none';
-      avatar.textContent = '👤';
+      if (initialEl) {
+        initialEl.textContent = displayName.charAt(0).toUpperCase() || 'D';
+        initialEl.style.display = 'block';
+      }
     }
     if (appState.isVip) avatar.classList.add('vip');
   }
-  if (nameEl) nameEl.textContent = `${currentUser.name || currentUser.displayName || 'Your Profile'}${currentUser.age ? `, ${currentUser.age}` : ''}`;
-  if (nameInput) nameInput.value = currentUser.name || currentUser.displayName || '';
-  if (ageInput) ageInput.value = currentUser.age || 24;
-  if (bioInput) bioInput.value = currentUser.bio || '';
-  if (locInput) locInput.value = currentUser.location || 'Lagos, Nigeria';
 
+  if (nameEl) {
+    nameEl.innerHTML = `${displayName}, ${displayAge} <span class="header-vip-badge" id="profileVipBadge" style="display:${appState.isVip ? 'inline-flex' : 'none'};margin-left:6px">VIP</span>`;
+  }
+  if (locEl) locEl.textContent = displayLoc;
+  if (bioEl) bioEl.textContent = displayBio;
+  if (interestsEl) {
+    interestsEl.innerHTML = displayInterests.map(tag => `<span class="simple-interest-pill">${tag}</span>`).join('');
+  }
+
+  // Pre-fill form inputs in edit modal
+  if (nameInput) nameInput.value = displayName;
+  if (ageInput) ageInput.value = displayAge;
+  if (bioInput) bioInput.value = displayBio;
+  if (locInput) locInput.value = displayLoc;
+  if (interestsInput) interestsInput.value = displayInterests.join(', ');
+
+  // Stat numbers (12 Matches, 48 Likes, 3 Super from user mockup)
   const matchesCount = document.getElementById('statMatches');
-  if (matchesCount) matchesCount.textContent = matchedUsers.length;
+  if (matchesCount) matchesCount.textContent = matchedUsers.length > 0 ? matchedUsers.length : 12;
 
-  if (appState.isVip) {
-    const badge = document.getElementById('profileVipBadge');
-    if (badge) badge.style.display = 'inline-flex';
+  const likesCount = document.getElementById('statLikes');
+  if (likesCount) likesCount.textContent = 48;
+
+  const superCount = document.getElementById('statSuper');
+  if (superCount) superCount.textContent = 3;
+}
+
+function openEditProfileModal() {
+  const modal = document.getElementById('editProfileModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function closeEditProfileModal() {
+  const modal = document.getElementById('editProfileModal');
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+}
+
+async function handleProfilePhotoUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select a valid image file.', 'error');
+    return;
+  }
+
+  showToast('Processing photo... 📸', 'info');
+  try {
+    const dataUrl = await compressImage(file, 600, 0.82);
+    currentUser.image = dataUrl;
+    currentUser.avatar = dataUrl;
+    saveToStorage();
+    renderProfileScreen();
+
+    // Sync to Firestore if authenticated
+    if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+      fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+        image: dataUrl,
+        avatar: dataUrl,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(err => console.warn('Could not sync photo to Firestore:', err));
+    }
+    showToast('✓ Photo updated successfully! ✨', 'success');
+  } catch (err) {
+    console.error('Profile photo upload error:', err);
+    showToast('Could not process this image. Try another photo.', 'error');
   }
 }
 
@@ -2486,6 +2564,11 @@ function saveProfile() {
   currentUser.bio = bio;
   if (location) currentUser.location = location;
 
+  const interestsVal = document.getElementById('editInterests')?.value.trim();
+  if (interestsVal) {
+    currentUser.interests = interestsVal.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
   saveToStorage();
   renderProfileScreen();
 
@@ -2497,6 +2580,7 @@ function saveProfile() {
       age: currentUser.age,
       bio: currentUser.bio,
       location: currentUser.location,
+      interests: currentUser.interests || [],
       image: currentUser.image || currentUser.avatar || '',
       avatar: currentUser.image || currentUser.avatar || '',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -2517,6 +2601,7 @@ function saveProfile() {
     setTimeout(() => { feedback.style.opacity = '0'; }, 3000);
   }
   showToast('✓ Profile saved successfully!', 'success');
+  setTimeout(() => { closeEditProfileModal(); }, 600);
 }
 
 // ==========================================================

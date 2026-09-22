@@ -82,31 +82,24 @@
            ===================================================== -->
       <div class="screen auth-screen active" id="loginScreen">
         <div class="auth-hero">
-          <!-- Brand Logo Hero -->
-          <div class="auth-brand-badge">
-            <div class="auth-logo-glyph">
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" fill="url(#brandGlyphGrad)"/>
-                <path d="M12 7.2c-.4 1.2-1.3 2-1.3 3.3 0 1.3.9 2.2 1.7 2.2s1.5-.7 1.5-1.8c0-1.4-1.1-2.2-1.9-3.7z" fill="#0A0710" opacity="0.9"/>
-                <defs>
-                  <linearGradient id="brandGlyphGrad" x1="2" y1="3" x2="22" y2="21.35" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#D13A63"/>
-                    <stop offset="100%" stop-color="#7A1638"/>
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-            <div class="auth-logo">
-              <span class="brand-hook">hookme</span><span class="brand-by">by</span><span class="brand-sam">sam</span>
-            </div>
-            <div class="auth-badge-tag">PREMIUM MATCHMAKING</div>
+          <!-- Amber Heart Badge (Mockup Design) -->
+          <div class="auth-amber-badge">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="#F4C550">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+            </svg>
           </div>
-          <p class="auth-tagline">Meet amazing people near you. Premium connections, real vibes.</p>
+
+          <h1 class="auth-hero-title">
+            Find your<br>
+            <span class="auth-hero-italic">person.</span>
+          </h1>
+
+          <p class="auth-tagline">Curated matchmaking for people who take their time seriously.</p>
         </div>
 
         <div class="auth-body">
           <div class="auth-form-group">
-            <label for="loginEmail">Email Address</label>
+            <label for="loginEmail">Email</label>
             <div class="auth-input-wrap">
               <span class="auth-input-icon">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
@@ -765,137 +758,155 @@
       </div>
 
       <!-- =====================================================
-           SCREEN: PROFILE
+           SCREEN: PROFILE (Simple Editorial Design from Mockup)
            ===================================================== -->
       <div class="screen" id="profileScreen">
         <div class="profile-workspace">
 
-          <!-- Hero Banner -->
-          <div class="profile-hero-section">
-            <div class="profile-hero-bg"></div>
-            <div class="profile-hero-glow"></div>
+          <!-- Header Title -->
+          <div class="simple-profile-header">
+            <h1 class="simple-profile-title">Profile</h1>
+          </div>
 
-            <div class="profile-avatar-wrap">
-              <div class="profile-big-avatar" id="profileAvatar" style="background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:2.4rem;color:var(--txt-muted);background-color:var(--bg-elevated)">
-                👤
+          <!-- Avatar & Identity Section -->
+          <div class="simple-avatar-container">
+            <div class="simple-avatar-wrap">
+              <div class="simple-avatar-circle" id="profileAvatar" onclick="openEditProfileModal()" title="View & edit profile">
+                <span class="simple-avatar-initial" id="profileAvatarInitial">D</span>
               </div>
-              <div class="avatar-edit-btn" onclick="document.getElementById('profilePhotoFile').click()" title="Change photo">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
-                  <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+              <div class="simple-avatar-pencil-badge" onclick="event.stopPropagation(); document.getElementById('profilePhotoFile').click()" title="Change photo">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                 </svg>
-                <span style="font-size:0.55rem;font-weight:700">CHANGE</span>
               </div>
               <input type="file" id="profilePhotoFile" accept="image/*" style="display:none" onchange="handleProfilePhotoUpload(event)">
             </div>
 
-            <div class="profile-stats-row">
-              <div class="profile-stat">
-                <div class="profile-stat-num" id="statMatches">0</div>
-                <div class="profile-stat-label">Matches</div>
-              </div>
-              <div class="profile-stat">
-                <div class="profile-stat-num" id="statLikes">24</div>
-                <div class="profile-stat-label">Likes</div>
-              </div>
-              <div class="profile-stat">
-                <div class="profile-stat-num" id="statViews">142</div>
-                <div class="profile-stat-label">Views</div>
-              </div>
+            <div class="simple-profile-name" id="profileDisplayName">
+              Dave, 24
+              <span class="header-vip-badge" id="profileVipBadge" style="display:none;margin-left:6px">VIP</span>
+            </div>
+            <div class="simple-profile-location" id="profileLocationDisplay">Lagos, Nigeria</div>
+          </div>
+
+          <!-- 3 Stats Cards Row (Mockup: Matches, Likes, Super) -->
+          <div class="simple-stats-row">
+            <div class="simple-stat-card">
+              <div class="simple-stat-number" id="statMatches">12</div>
+              <div class="simple-stat-label">Matches</div>
+            </div>
+            <div class="simple-stat-card">
+              <div class="simple-stat-number" id="statLikes">48</div>
+              <div class="simple-stat-label">Likes</div>
+            </div>
+            <div class="simple-stat-card">
+              <div class="simple-stat-number" id="statSuper">3</div>
+              <div class="simple-stat-label">Super</div>
             </div>
           </div>
 
-          <!-- Profile Content -->
-          <div class="profile-content">
-            <div class="profile-name-row">
-              <div class="profile-display-name" id="profileDisplayName">User, 24</div>
-              <span class="header-vip-badge" id="profileVipBadge" style="display:none">VIP</span>
-            </div>
-
-            <!-- Edit Form -->
-            <div class="profile-form">
-              <div class="form-field">
-                <label>Display Name</label>
-                <input class="form-input" id="editName" type="text" placeholder="Your name">
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-                <div class="form-field">
-                  <label>Age</label>
-                  <input class="form-input" id="editAge" type="number" min="18" max="80" placeholder="24">
-                </div>
-                <div class="form-field">
-                  <label>Location</label>
-                  <input class="form-input" id="editLocation" type="text" placeholder="Lagos">
-                </div>
-              </div>
-              <div class="form-field">
-                <label>Bio</label>
-                <textarea class="form-textarea" id="editBio" placeholder="Tell the world about yourself..."></textarea>
-              </div>
-              <div class="form-field">
-                <label>Profile Photo</label>
-                <div class="photo-upload-area" onclick="document.getElementById('profilePhotoFile').click()">
-                  <div class="photo-upload-icon">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-                    </svg>
-                  </div>
-                  <div class="photo-upload-text-wrap">
-                    <span class="photo-upload-label">Change Profile Photo</span>
-                    <small class="photo-upload-hint">JPG, PNG or HEIC</small>
-                  </div>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--txt-muted)"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-                </div>
-              </div>
-
-              <div class="save-feedback" id="profileSaveFeedback">✓ Profile saved successfully!</div>
-              <button class="accent-btn" onclick="saveProfile()">Save Profile</button>
-            </div>
-
-            <!-- AI Avatar Lab -->
-            <div class="ai-lab-card">
-              <div class="ai-lab-head">
-                <span>✨</span>
-                <span class="ai-lab-title">AI Avatar Laboratory</span>
-                <span class="limit-badge" id="aiLimitBadge" style="position:static;margin-left:6px;display:inline-flex">1</span>
-              </div>
-              <p class="ai-lab-sub">Generate stunning AI portraits for any profile using Google Imagen. Select a profile, customize the prompt, and hit Generate.</p>
-
-              <div class="ai-picker-grid" id="aiPickerGrid">
-                <!-- Rendered by JS -->
-              </div>
-
-              <textarea class="ai-prompt-input" id="aiPromptInput" placeholder="Describe the portrait you want to generate..."></textarea>
-
-              <div class="ai-btns-row">
-                <button class="accent-btn" style="font-size:0.85rem;padding:10px" id="aiGenBtn" onclick="generateAiImage()">Generate Selected</button>
-                <button class="secondary-btn" style="font-size:0.85rem;padding:10px" id="aiGenAllBtn" onclick="generateAllAiImages()">✨ All (6)</button>
-              </div>
-
-              <div class="ai-status">
-                <div class="ai-spinner" id="aiSpinner"></div>
-                <span id="aiStatusText">AI Model ready to dream ✨</span>
-              </div>
-            </div>
-
-            <!-- Upgrade CTA -->
-            <div class="profile-upgrade-banner" onclick="openPaywall('profile_upgrade')">
-              <div class="upgrade-crown-wrap">
-                <svg width="52" height="52" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 0 16px rgba(244,197,80,0.7))">
-                  <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="url(#goldGrad1)"/>
-                  <defs>
-                    <linearGradient id="goldGrad1" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
-                      <stop offset="0%" stop-color="#F4C550"/>
-                      <stop offset="100%" stop-color="#B8842B"/>
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-              <div class="upgrade-vip-title">Upgrade to VIP Gold</div>
-              <p class="upgrade-vip-sub">See who likes you, unlimited rewinds, infinite AI portraits, and a gold badge.</p>
-              <button class="accent-btn" style="background:var(--gold-grad);color:#2E1A08;box-shadow:var(--shadow-gold);max-width:240px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:8px" onclick="event.stopPropagation();openPaywall('profile_upgrade')">View Plans <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
-            </div>
-
+          <!-- About Section -->
+          <div class="simple-content-section">
+            <div class="simple-section-title">About</div>
+            <p class="simple-bio-text" id="profileBioDisplay">Software engineer and builder. Love beach hangouts in Lekki and good vibes.</p>
           </div>
+
+          <!-- Interests Section -->
+          <div class="simple-content-section">
+            <div class="simple-section-title">Interests</div>
+            <div class="simple-interests-wrap" id="profileInterestsDisplay">
+              <span class="simple-interest-pill">Tech 💻</span>
+              <span class="simple-interest-pill">Fitness 💪</span>
+              <span class="simple-interest-pill">Music 🎵</span>
+            </div>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="simple-actions-wrap">
+            <button class="simple-edit-profile-btn" onclick="openEditProfileModal()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+              </svg>
+              Edit Profile
+            </button>
+            <button class="simple-vip-banner-btn" onclick="openPaywall('profile_screen')">
+              <span>👑 VIP Gold Membership</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- =====================================================
+           MODAL: EDIT PROFILE
+           ===================================================== -->
+      <div class="modal-overlay" id="editProfileModal" style="display:none;align-items:center;justify-content:center;z-index:9000;background:rgba(8,5,14,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)">
+        <div class="edit-modal-sheet" style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:440px;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,0.8);position:relative">
+          
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+            <h2 style="font-family:'Fraunces',serif;font-size:1.4rem;color:#FFF;margin:0">Edit Profile</h2>
+            <button onclick="closeEditProfileModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+          </div>
+
+          <div class="profile-form">
+            <div class="form-field">
+              <label>Display Name</label>
+              <input class="form-input" id="editName" type="text" placeholder="Dave">
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+              <div class="form-field">
+                <label>Age</label>
+                <input class="form-input" id="editAge" type="number" min="18" max="80" placeholder="24">
+              </div>
+              <div class="form-field">
+                <label>Location</label>
+                <input class="form-input" id="editLocation" type="text" placeholder="Lagos, Nigeria">
+              </div>
+            </div>
+            <div class="form-field">
+              <label>Bio</label>
+              <textarea class="form-textarea" id="editBio" placeholder="Software engineer and builder. Love beach hangouts in Lekki and good vibes." rows="3"></textarea>
+            </div>
+            <div class="form-field">
+              <label>Interests (comma separated)</label>
+              <input class="form-input" id="editInterests" type="text" placeholder="Tech 💻, Fitness 💪, Music 🎵">
+            </div>
+            <div class="form-field">
+              <label>Profile Photo</label>
+              <div class="photo-upload-area" onclick="document.getElementById('profilePhotoFile').click()">
+                <div class="photo-upload-icon">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
+                  </svg>
+                </div>
+                <div class="photo-upload-text-wrap">
+                  <span class="photo-upload-label">Upload Custom Photo</span>
+                  <small class="photo-upload-hint">JPG, PNG or HEIC</small>
+                </div>
+              </div>
+            </div>
+
+            <!-- Collapsible AI Avatar Lab -->
+            <details style="margin:16px 0;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:12px">
+              <summary style="font-weight:600;font-size:0.88rem;color:#E5BA73;cursor:pointer;outline:none">✨ AI Avatar Laboratory (Optional)</summary>
+              <div style="margin-top:12px">
+                <div class="ai-picker-grid" id="aiPickerGrid"></div>
+                <textarea class="ai-prompt-input" id="aiPromptInput" placeholder="Describe the portrait you want to generate..." style="margin-top:10px"></textarea>
+                <div class="ai-btns-row" style="margin-top:10px">
+                  <button class="accent-btn" style="font-size:0.82rem;padding:8px" id="aiGenBtn" onclick="generateAiImage()">Generate</button>
+                  <button class="secondary-btn" style="font-size:0.82rem;padding:8px" id="aiGenAllBtn" onclick="generateAllAiImages()">✨ All</button>
+                </div>
+                <div class="ai-status" style="margin-top:8px">
+                  <div class="ai-spinner" id="aiSpinner"></div>
+                  <span id="aiStatusText" style="font-size:0.75rem">AI Model ready ✨</span>
+                </div>
+              </div>
+            </details>
+
+            <div class="save-feedback" id="profileSaveFeedback">✓ Profile saved successfully!</div>
+            <button class="accent-btn" onclick="saveProfile()" style="margin-top:12px;width:100%">Save Changes</button>
+          </div>
+
         </div>
       </div>
 

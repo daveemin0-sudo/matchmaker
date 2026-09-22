@@ -5031,3 +5031,324 @@ label, .form-field label, .auth-form-group label {
 [data-theme="light"] .blocked-user-date {
   color: #6B7280 !important;
 }
+
+/* ============================================================
+   MOCKUP DESIGN: LOGIN SCREEN REFINEMENTS (Screenshot 3)
+   ============================================================ */
+
+.auth-amber-badge {
+  width: 48px;
+  height: 42px;
+  background: rgba(244, 197, 80, 0.12);
+  border: 1px solid rgba(244, 197, 80, 0.28);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 18px;
+  box-shadow: 0 0 24px rgba(244, 197, 80, 0.22);
+  transition: transform var(--t-fast) var(--spring);
+}
+.auth-amber-badge:hover {
+  transform: scale(1.08);
+}
+
+.auth-hero-title {
+  font-family: 'Fraunces', Georgia, serif !important;
+  font-size: 2.35rem !important;
+  font-weight: 700 !important;
+  line-height: 1.15 !important;
+  color: #FFFFFF !important;
+  letter-spacing: -0.5px !important;
+  margin: 0 0 12px !important;
+  text-align: center !important;
+}
+
+.auth-hero-italic {
+  font-family: 'Fraunces', Georgia, serif !important;
+  font-style: italic !important;
+  font-weight: 400 !important;
+  color: #E2B96F !important; /* warm champagne gold */
+  display: inline-block;
+}
+
+/* ============================================================
+   MOCKUP DESIGN: SIMPLE PROFILE SCREEN (Screenshots 1 & 2)
+   ============================================================ */
+
+#profileScreen .profile-workspace {
+  padding: 24px 20px 84px !important;
+  background: var(--bg);
+}
+
+.simple-profile-header {
+  margin-bottom: 24px;
+}
+
+.simple-profile-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: -0.5px;
+  margin: 0;
+}
+
+/* Avatar Center Wrap */
+.simple-avatar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin-bottom: 26px;
+  position: relative;
+}
+
+.simple-avatar-wrap {
+  position: relative;
+  width: 108px;
+  height: 108px;
+  margin: 0 auto 16px;
+}
+
+.simple-avatar-circle {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #E15B64 0%, #C43D5C 100%);
+  border: 2.5px solid rgba(255, 120, 140, 0.4);
+  box-shadow: 0 0 35px rgba(225, 91, 100, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  transition: transform 0.25s var(--spring), box-shadow 0.25s ease;
+}
+.simple-avatar-circle:hover {
+  transform: scale(1.04);
+  box-shadow: 0 0 45px rgba(225, 91, 100, 0.65);
+}
+
+.simple-avatar-initial {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 3rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  line-height: 1;
+  user-select: none;
+}
+
+/* Amber pencil badge at bottom right */
+.simple-avatar-pencil-badge {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #E5A93C;
+  border: 2.5px solid #0F0A19;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  transition: transform 0.2s var(--spring), background-color 0.2s ease;
+  z-index: 3;
+}
+.simple-avatar-pencil-badge:hover {
+  transform: scale(1.15);
+  background: #F4BA4E;
+}
+.simple-avatar-pencil-badge svg {
+  color: #171120;
+}
+
+.simple-profile-name {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin: 0;
+  letter-spacing: -0.2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.simple-profile-location {
+  font-size: 0.88rem;
+  color: #8C869A;
+  margin-top: 4px;
+}
+
+/* 3 Stat Cards Row */
+.simple-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.simple-stat-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  padding: 16px 8px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.simple-stat-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(244, 197, 80, 0.3);
+  transform: translateY(-2px);
+}
+
+.simple-stat-number {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  color: #F4C550; /* warm gold from mockup */
+  line-height: 1.1;
+  margin-bottom: 5px;
+}
+
+.simple-stat-label {
+  font-size: 0.74rem;
+  color: #8C869A;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+}
+
+/* Content Sections (About, Interests) */
+.simple-content-section {
+  margin-bottom: 24px;
+}
+
+.simple-section-title {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  margin-bottom: 10px;
+  letter-spacing: -0.2px;
+}
+
+.simple-bio-text {
+  font-size: 0.88rem;
+  color: #9F9BAF;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.simple-interests-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.simple-interest-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.82rem;
+  color: #E2DFEC;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+.simple-interest-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Action Buttons */
+.simple-actions-wrap {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.simple-edit-profile-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  padding: 13px 20px;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+.simple-edit-profile-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+
+.simple-vip-banner-btn {
+  background: linear-gradient(135deg, rgba(244,197,80,0.15) 0%, rgba(209,58,99,0.15) 100%);
+  border: 1px solid rgba(244,197,80,0.3);
+  color: #F4C550;
+  padding: 13px 20px;
+  border-radius: 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+}
+.simple-vip-banner-btn:hover {
+  background: linear-gradient(135deg, rgba(244,197,80,0.25) 0%, rgba(209,58,99,0.25) 100%);
+  box-shadow: 0 4px 18px rgba(244, 197, 80, 0.25);
+  transform: translateY(-1px);
+}
+
+/* Light Theme Support */
+[data-theme="light"] .simple-profile-title,
+[data-theme="light"] .simple-profile-name,
+[data-theme="light"] .simple-section-title {
+  color: #111827 !important;
+}
+
+[data-theme="light"] .simple-profile-location,
+[data-theme="light"] .simple-stat-label,
+[data-theme="light"] .simple-bio-text {
+  color: #4B5563 !important;
+}
+
+[data-theme="light"] .simple-stat-card {
+  background: #FFFFFF !important;
+  border-color: #E5E7EB !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] .simple-interest-pill {
+  background: #F3F4F6 !important;
+  border-color: #E5E7EB !important;
+  color: #374151 !important;
+}
+
+[data-theme="light"] .simple-edit-profile-btn {
+  background: #F3F4F6 !important;
+  border-color: #D1D5DB !important;
+  color: #111827 !important;
+}
+
+[data-theme="light"] .simple-avatar-pencil-badge {
+  border-color: #FFFFFF !important;
+}
