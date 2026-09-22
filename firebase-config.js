@@ -115,7 +115,12 @@ function listenToAuthChanges() {
         if (fbDb) {
           const doc = await fbDb.collection('users').doc(user.uid).get();
           if (doc && doc.exists) {
-            targetUser = Object.assign({}, targetUser, doc.data());
+            const docData = doc.data();
+            targetUser = Object.assign({}, targetUser, docData);
+            if (docData.isVip) {
+              if (typeof appState !== 'undefined') appState.isVip = true;
+              if (window.appState) window.appState.isVip = true;
+            }
           }
         }
       } catch (err) {

@@ -505,6 +505,9 @@ function handleLogin() {
                 currentUser.image = uData.image || uData.avatar;
                 currentUser.avatar = currentUser.image;
               }
+              if (uData.isVip) {
+                appState.isVip = true;
+              }
             }
           } catch (e) {
             console.warn("Could not fetch user profile from Firestore:", e);
@@ -2572,6 +2575,11 @@ async function handleDeleteAccount() {
 // ==========================================================
 
 function openPaywall(context) {
+  if (appState.isVip) {
+    showToast('👑 VIP Gold Active: Unlimited access is unlocked!', 'gold');
+    return;
+  }
+
   const modal = document.getElementById('paywallModal');
   const reasonEl = document.getElementById('paywallReason');
   if (!modal) return;
@@ -2582,12 +2590,24 @@ function openPaywall(context) {
     bulk_ai: 'Bulk AI generation requires VIP Gold.',
     likes_you: 'See who swiped right on you instantly with VIP Gold.',
     settings: 'Unlock all premium features with VIP Gold.',
+    boost: 'Upgrade to VIP Gold for unlimited profile boosts.',
+    super_like: 'Send unlimited Super Likes with VIP Gold.',
+    profile_upgrade: 'Unlock all premium features with VIP Gold.',
     default: 'Unlock all VIP features and match instantly.'
   };
   if (reasonEl) reasonEl.textContent = reasons[context] || reasons.default;
 
   modal.classList.add('open');
   selectPricingTier(appState.selectedPricingTier);
+}
+
+function triggerSuperLike() {
+  if (!appState.isVip) {
+    openPaywall('super_like');
+    return;
+  }
+  showToast('⭐ Super Like sent! You will appear at the top of their matches!', 'gold');
+  triggerManualSwipe('right');
 }
 
 function closePaywall() {
@@ -2647,7 +2667,17 @@ function completeVipUpgrade() {
   saveToStorage();
   closePaywall();
 
-  showToast('👑 VIP GOLD ACTIVATED!');
+  showToast('👑 VIP GOLD ACTIVATED!', 'gold');
+
+  // Sync VIP status to Firestore for real registered accounts
+  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+      isVip: true,
+      subscriptionStatus: 'active',
+      vipTier: appState.selectedPricingTier || 2,
+      vipSince: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).catch(err => console.warn('Could not sync VIP to Firestore:', err));
+  }
 
   // Reveal premium matches (guest demo mode only)
   if (!isRealUserLoggedIn()) {
@@ -2661,32 +2691,118 @@ function completeVipUpgrade() {
 
   renderMatchesView();
   revealBlurredMatches();
+  renderProfileScreen();
+  renderSettingsScreen();
   saveToStorage();
 }
 
 function applyVipUI() {
-  // Header VIP badge
+  const isVip = Boolean(appState.isVip);
+
+  // 1. Header VIP badge
   const vipBadge = document.getElementById('headerVipBadge');
-  if (vipBadge) vipBadge.style.display = appState.isVip ? 'inline-flex' : 'none';
+  if (vipBadge) vipBadge.style.display = isVip ? 'inline-flex' : 'none';
 
-  // Profile avatar VIP ring
+  // 2. Profile avatar VIP halo ring
   const profileAvatar = document.getElementById('profileAvatar');
-  if (profileAvatar) profileAvatar.classList.toggle('vip', appState.isVip);
+  if (profileAvatar) profileAvatar.classList.toggle('vip', isVip);
 
+  // 3. Profile Screen VIP badge
+  const profileVipBadge = document.getElementById('profileVipBadge');
+  if (profileVipBadge) profileVipBadge.style.display = isVip ? 'inline-flex' : 'none';
+
+  // 4. Badges (Rewind & AI count show infinity for VIP)
   updateLimitBadges();
+
+  // 5. Hide discovery ads for VIP
+  const discoveryAd = document.getElementById('discoveryAd');
+  if (discoveryAd) discoveryAd.style.display = 'none';
+
+  // 6. Boost button state
+  const boostBtn = document.getElementById('boostBtn');
+  if (boostBtn && isVip) {
+    boostBtn.title = 'Profile Boost (VIP Unlimited)';
+  }
+
+  // 7. Matches screen: Blurred Likes card
+  const blurCard = document.querySelector('.vip-blur-card');
+  if (blurCard) {
+    if (isVip) {
+      blurCard.onclick = () => showToast('👑 VIP Unlocked: You can see everyone who likes you!', 'gold');
+      const cardTitle = blurCard.querySelector('.vip-card-title');
+      const cardBadge = blurCard.querySelector('.vip-card-badge');
+      const cardSub = blurCard.querySelector('.vip-card-sub');
+      if (cardTitle) {
+        cardTitle.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:6px;filter:drop-shadow(0 0 4px rgba(244,197,80,0.8))"><path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="#F4C550"/></svg> People Who Liked You`;
+      }
+      if (cardBadge) {
+        cardBadge.textContent = '👑 VIP UNLOCKED';
+        cardBadge.style.background = 'var(--gold-gradient)';
+        cardBadge.style.color = '#1A0E04';
+      }
+      if (cardSub) {
+        cardSub.textContent = 'VIP Gold active — all secret likes revealed!';
+      }
+      revealBlurredMatches();
+    }
+  }
+
+  // 8. Profile screen: Upgrade banner
+  const profileBanner = document.querySelector('.profile-upgrade-banner');
+  if (profileBanner) {
+    if (isVip) {
+      profileBanner.style.background = 'linear-gradient(135deg, rgba(244, 197, 80, 0.22) 0%, rgba(184, 132, 43, 0.12) 100%)';
+      profileBanner.style.border = '1.5px solid rgba(244, 197, 80, 0.45)';
+      profileBanner.innerHTML = `
+        <div class="upgrade-crown-wrap">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 0 16px rgba(244,197,80,0.9))">
+            <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="#F4C550"/>
+          </svg>
+        </div>
+        <div class="upgrade-vip-title" style="color:var(--gold-1)">👑 VIP Gold Member Active</div>
+        <p class="upgrade-vip-sub">You have unlimited rewinds, infinite AI dream portraits, and priority matching unlocked.</p>
+        <button class="accent-btn" style="background:var(--gold-grad);color:#2E1A08;box-shadow:var(--shadow-gold);max-width:240px;margin:0 auto;font-weight:800" onclick="event.stopPropagation();showToast('👑 VIP Gold status is active on your account!', 'gold')">✓ Perks Active</button>
+      `;
+      profileBanner.onclick = () => showToast('👑 You are currently enjoying full VIP Gold access!', 'gold');
+    }
+  }
+
+  // 9. Settings screen: VIP Banner & Row
+  const settingsBanner = document.querySelector('.settings-vip-banner');
+  if (settingsBanner) {
+    if (isVip) {
+      settingsBanner.style.borderColor = 'rgba(244, 197, 80, 0.5)';
+      settingsBanner.style.background = 'linear-gradient(135deg, rgba(244, 197, 80, 0.15) 0%, rgba(20, 10, 30, 0.6) 100%)';
+      const title = settingsBanner.querySelector('.settings-vip-title');
+      const sub = settingsBanner.querySelector('.settings-vip-sub');
+      const arrow = settingsBanner.querySelector('.settings-vip-arrow');
+      if (title) title.innerHTML = '<span style="color:var(--gold-1)">👑 VIP Gold Active</span>';
+      if (sub) sub.textContent = 'Unlimited Rewinds · Infinite AI · Secret Likes Unlocked';
+      if (arrow) arrow.innerHTML = '✓';
+      settingsBanner.onclick = () => showToast('👑 Your VIP Gold subscription is active!', 'gold');
+    }
+  }
+
+  const vipStatus = document.getElementById('vipStatusRow');
+  if (vipStatus) {
+    vipStatus.innerHTML = isVip
+      ? '<span style="color:var(--gold-1);font-weight:700">👑 VIP Gold Active (Unlimited)</span>'
+      : '<span style="color:var(--flame-1);font-weight:700;cursor:pointer" onclick="openPaywall(\'settings\')">Upgrade to VIP →</span>';
+  }
 }
 
 function updateLimitBadges() {
+  const isVip = Boolean(appState.isVip);
   const rewindBadge = document.getElementById('rewindBadge');
   if (rewindBadge) {
-    rewindBadge.textContent = appState.isVip ? '∞' : String(appState.freeRewinds);
-    rewindBadge.style.background = appState.isVip ? 'var(--gold-gradient)' : (appState.freeRewinds <= 0 ? 'var(--accent-pink)' : 'var(--gold-gradient)');
+    rewindBadge.textContent = isVip ? '∞' : String(appState.freeRewinds);
+    rewindBadge.style.background = isVip ? 'var(--gold-gradient)' : (appState.freeRewinds <= 0 ? 'var(--accent-pink)' : 'var(--gold-gradient)');
   }
 
   const aiBadge = document.getElementById('aiLimitBadge');
   if (aiBadge) {
-    aiBadge.textContent = appState.isVip ? '∞' : String(appState.freeAiGens);
-    aiBadge.style.background = appState.isVip ? 'var(--gold-gradient)' : (appState.freeAiGens <= 0 ? 'var(--accent-pink)' : 'var(--gold-gradient)');
+    aiBadge.textContent = isVip ? '∞' : String(appState.freeAiGens);
+    aiBadge.style.background = isVip ? 'var(--gold-gradient)' : (appState.freeAiGens <= 0 ? 'var(--accent-pink)' : 'var(--gold-gradient)');
   }
 }
 
@@ -2695,7 +2811,11 @@ function revealBlurredMatches() {
     const item = document.getElementById(`blurItem${i}`);
     const lock = document.getElementById(`blurLock${i}`);
     if (item) item.classList.add('revealed');
-    if (lock) lock.style.display = 'none';
+    if (lock) {
+      lock.textContent = '⭐';
+      lock.style.background = 'rgba(244,197,80,0.85)';
+      lock.style.color = '#1A0E04';
+    }
   }
 }
 
