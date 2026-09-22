@@ -1,92 +1,15 @@
 /* ================================================================
-   hookmebysam — ULTRA-LUXURY GLOBAL DESIGN SYSTEM v7.0
-   Inspired by Tinder Platinum, Raya, Bumble, Badoo & Tango
-   Obsidian Black • Ember Rose • Royal Gold • Electric Cyan
+   hookmebysam — PREMIUM COMPONENT STYLES
+   Token source of truth: style.css
+   This file provides only component overrides and enhancements.
    ================================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700;800&display=swap');
+/* Fonts already loaded by style.css — no duplicate import needed */
 
-/* --- 1. CORE DESIGN TOKENS --- */
-:root {
-  /* Typography */
-  --font-display: 'Outfit', 'Plus Jakarta Sans', sans-serif;
-  --font-body: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'Inter', monospace;
 
-  /* Luxury Brand Gradients */
-  --flame-1: #FF2E70;
-  --flame-2: #D13A63;
-  --flame-3: #8C1F45;
-  --flame-grad: linear-gradient(135deg, #FF2E70 0%, #D13A63 55%, #8C1F45 100%);
-  --flame-glow: 0 8px 32px rgba(255, 46, 112, 0.45);
 
-  --gold-1: #FFE066;
-  --gold-2: #F4C550;
-  --gold-3: #B8842B;
-  --gold-grad: linear-gradient(135deg, #FFE066 0%, #F4C550 50%, #B8842B 100%);
-  --gold-glow: 0 8px 32px rgba(244, 197, 80, 0.4);
-
-  --cyan-1: #00F0FF;
-  --cyan-2: #00A2FF;
-  --cyan-grad: linear-gradient(135deg, #00F0FF 0%, #00A2FF 100%);
-  --cyan-glow: 0 8px 32px rgba(0, 162, 255, 0.4);
-
-  --emerald-1: #34D399;
-  --emerald-2: #10B981;
-  --emerald-grad: linear-gradient(135deg, #34D399 0%, #10B981 100%);
-  --emerald-glow: 0 8px 24px rgba(16, 185, 129, 0.4);
-
-  --purple-1: #C084FC;
-  --purple-2: #9333EA;
-  --purple-grad: linear-gradient(135deg, #C084FC 0%, #9333EA 100%);
-
-  /* Surface & Obsidian Backgrounds */
-  --bg-pure: #040307;
-  --bg: #07050C;
-  --bg-surface: #0E0A16;
-  --bg-elevated: #151022;
-  --bg-card: #1B152B;
-  --bg-glass: rgba(255, 255, 255, 0.05);
-  --bg-glass-heavy: rgba(10, 7, 16, 0.82);
-
-  /* High Contrast Luxury Typography */
-  --txt-primary: #FFFFFF;
-  --txt-secondary: #E4E0EE;
-  --txt-muted: #9E97B0;
-  --txt-on-flame: #FFFFFF;
-
-  /* Glass Borders */
-  --border: rgba(255, 255, 255, 0.1);
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-active: rgba(255, 46, 112, 0.5);
-  --border-gold: rgba(244, 197, 80, 0.4);
-  --border-cyan: rgba(0, 162, 255, 0.4);
-
-  /* Shadows */
-  --shadow-sm: 0 4px 16px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 12px 36px rgba(0, 0, 0, 0.6);
-  --shadow-xl: 0 24px 70px rgba(0, 0, 0, 0.85);
-
-  /* Radii */
-  --r-xs: 8px;
-  --r-sm: 14px;
-  --r-md: 20px;
-  --r-lg: 28px;
-  --r-xl: 36px;
-  --r-pill: 999px;
-
-  /* Physics Transitions */
-  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --t-fast: 0.18s;
-  --t-mid: 0.3s;
-}
-
-/* --- 2. GLOBAL RESET & AMBIENT CANVAS --- */
+/* --- GLOBAL AMBIENT CANVAS --- */
 body {
-  font-family: var(--font-body) !important;
-  background: radial-gradient(circle at 50% 0%, #1A0817 0%, #06040A 60%, #030206 100%) !important;
-  color: var(--txt-primary) !important;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -96,20 +19,19 @@ body::before {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 600px 600px at 0% 10%, rgba(255, 46, 112, 0.08) 0%, transparent 65%),
-    radial-gradient(ellipse 500px 500px at 100% 90%, rgba(244, 197, 80, 0.07) 0%, transparent 65%),
-    radial-gradient(ellipse 400px 400px at 50% 50%, rgba(0, 162, 255, 0.04) 0%, transparent 70%);
+    radial-gradient(ellipse 600px 600px at 0% 10%, rgba(209, 58, 99, 0.06) 0%, transparent 65%),
+    radial-gradient(ellipse 500px 500px at 100% 90%, rgba(227, 179, 77, 0.05) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
 }
 
-/* --- 3. APP SHELL CONTAINER --- */
+/* --- APP SHELL CONTAINER --- */
 .app-shell {
-  background: var(--bg) !important;
   position: relative;
   z-index: 1;
   overflow: hidden;
 }
+
 
 @media (min-width: 500px) {
   .app-shell {
@@ -151,11 +73,11 @@ body::before {
   font-size: 1.45rem !important;
   font-weight: 900 !important;
   letter-spacing: -0.5px !important;
-  background: linear-gradient(135deg, #FF2E70 0%, #FF6584 50%, #FFA8BA 100%) !important;
+  background: var(--flame-grad) !important;
   -webkit-background-clip: text !important;
   -webkit-text-fill-color: transparent !important;
   background-clip: text !important;
-  filter: drop-shadow(0 0 14px rgba(255, 46, 112, 0.4)) !important;
+  filter: drop-shadow(0 0 14px rgba(209, 58, 99, 0.35)) !important;
 }
 
 .header-vip-badge {
@@ -166,7 +88,7 @@ body::before {
   letter-spacing: 0.6px !important;
   padding: 3px 9px !important;
   border-radius: var(--r-pill) !important;
-  box-shadow: 0 2px 10px rgba(244, 197, 80, 0.45) !important;
+  box-shadow: 0 2px 10px rgba(227, 179, 77, 0.45) !important;
 }
 
 .header-btn {
@@ -196,9 +118,9 @@ body::before {
   position: absolute;
   top: 9px; right: 9px;
   width: 9px; height: 9px;
-  background: #FF2E70 !important;
+  background: var(--flame-1) !important;
   border-radius: 50% !important;
-  box-shadow: 0 0 8px #FF2E70 !important;
+  box-shadow: 0 0 8px rgba(209,58,99,0.6) !important;
   border: 2px solid var(--bg) !important;
 }
 
@@ -223,19 +145,19 @@ body::before {
 .auth-flame-icon {
   width: 72px;
   height: 72px;
-  background: radial-gradient(circle, rgba(255, 46, 112, 0.25) 0%, rgba(209, 58, 99, 0.05) 70%);
-  border-radius: 50%;
+  background: radial-gradient(circle, rgba(209, 58, 99, 0.25) 0%, rgba(122, 22, 56, 0.08) 70%);
+  border-radius: var(--r-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 46, 112, 0.35);
-  box-shadow: 0 0 35px rgba(255, 46, 112, 0.4);
+  border: 1px solid rgba(209, 58, 99, 0.35);
+  box-shadow: 0 0 35px rgba(209, 58, 99, 0.35);
   animation: pulseGlow 3s ease-in-out infinite alternate;
 }
 
 @keyframes pulseGlow {
-  0% { transform: scale(1); box-shadow: 0 0 25px rgba(255, 46, 112, 0.3); }
-  100% { transform: scale(1.06); box-shadow: 0 0 45px rgba(255, 46, 112, 0.6); }
+  0% { transform: scale(1); box-shadow: 0 0 25px rgba(209, 58, 99, 0.25); }
+  100% { transform: scale(1.06); box-shadow: 0 0 45px rgba(209, 58, 99, 0.5); }
 }
 
 .auth-logo {
@@ -244,21 +166,38 @@ body::before {
   font-weight: 900 !important;
   letter-spacing: -0.8px !important;
 }
-.brand-hook { color: #FFFFFF !important; }
-.brand-by { color: #F4C550 !important; font-style: italic; margin: 0 3px; font-weight: 700; }
-.brand-sam { color: #FF2E70 !important; }
+/* brand wordmark colour split */
+.brand-hook {
+  background: linear-gradient(135deg, #D13A63 0%, #E0567F 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
+.brand-by {
+  color: var(--txt-secondary) !important;
+  font-style: italic;
+  margin: 0 2px;
+  font-weight: 700;
+  -webkit-text-fill-color: var(--txt-secondary) !important;
+}
+.brand-sam {
+  background: linear-gradient(135deg, #E3B34D 0%, #A07628 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+}
 
 .auth-badge-tag {
   font-size: 0.72rem !important;
   font-weight: 800 !important;
   letter-spacing: 2px !important;
   text-transform: uppercase !important;
-  color: #F4C550 !important;
-  background: rgba(244, 197, 80, 0.1) !important;
-  border: 1px solid rgba(244, 197, 80, 0.3) !important;
+  color: var(--gold-1) !important;
+  background: rgba(227, 179, 77, 0.1) !important;
+  border: 1px solid rgba(227, 179, 77, 0.3) !important;
   padding: 4px 12px !important;
   border-radius: var(--r-pill) !important;
-  box-shadow: 0 0 14px rgba(244, 197, 80, 0.2) !important;
+  box-shadow: 0 0 14px rgba(227, 179, 77, 0.2) !important;
 }
 
 .auth-tagline {
@@ -299,19 +238,19 @@ body::before {
   width: 100% !important;
   background: rgba(255, 255, 255, 0.05) !important;
   border: 1.5px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 18px !important;
+  border-radius: var(--r-input) !important;
   padding: 15px 48px 15px 48px !important;
-  color: #FFFFFF !important;
+  color: var(--txt-primary) !important;
   font-size: 0.95rem !important;
   font-weight: 500 !important;
   outline: none !important;
-  transition: all var(--t-fast) var(--ease-out) !important;
+  transition: all var(--t-fast) var(--ease) !important;
 }
 
 .auth-input:focus {
-  border-color: #FF2E70 !important;
-  background: rgba(255, 46, 112, 0.06) !important;
-  box-shadow: 0 0 0 4px rgba(255, 46, 112, 0.16), 0 0 20px rgba(255, 46, 112, 0.2) !important;
+  border-color: var(--flame-1) !important;
+  background: rgba(209, 58, 99, 0.06) !important;
+  box-shadow: 0 0 0 3px rgba(209, 58, 99, 0.14) !important;
 }
 
 .accent-btn {
@@ -366,16 +305,19 @@ body::before {
   padding: 10px 14px 0 !important;
 }
 
+/* Profile card — gold foil edge defined via box-shadow in style.css, no separate border here */
 .profile-card {
   position: absolute !important;
   inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
-  border-radius: 32px !important;
+  border-radius: var(--r-xl) !important;
   overflow: hidden !important;
   background: #08060E !important;
-  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.85), 0 1px 0 rgba(255, 255, 255, 0.14) inset !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow:
+    0 24px 70px rgba(0, 0, 0, 0.85),
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 0 0 var(--card-gold-edge-size) rgba(227, 179, 77, 0.55) !important;
 }
 
 .card-photo-area {
@@ -645,17 +587,17 @@ body::before {
   background: linear-gradient(135deg, rgba(30, 20, 45, 0.7) 0%, rgba(18, 12, 28, 0.8) 100%) !important;
   backdrop-filter: blur(24px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(24px) !important;
-  border: 1px solid rgba(244, 197, 80, 0.35) !important;
-  border-radius: 28px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg) !important;
   padding: 20px !important;
   margin-bottom: 22px !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 24px rgba(244, 197, 80, 0.15) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
   cursor: pointer !important;
-  transition: transform var(--t-fast) var(--spring) !important;
+  transition: transform var(--t-fast) var(--spring), border-color var(--t-fast) !important;
 }
 .vip-blur-card:hover {
   transform: translateY(-2px) scale(1.01) !important;
-  border-color: rgba(244, 197, 80, 0.6) !important;
+  border-color: var(--border-active) !important;
 }
 
 .vip-card-header {
@@ -717,11 +659,12 @@ body::before {
 
 /* --- 9. LUXURY GLASS BOTTOM NAVIGATION --- */
 .bottom-nav {
-  background: rgba(8, 6, 14, 0.88) !important;
+  background: rgba(8, 6, 14, 0.92) !important;
   backdrop-filter: blur(32px) saturate(200%) !important;
   -webkit-backdrop-filter: blur(32px) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-  height: 68px !important;
+  height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   display: flex;
   align-items: center !important;
   justify-content: space-around !important;
@@ -807,9 +750,9 @@ body::before {
 }
 
 .pricing-card.selected {
-  background: linear-gradient(135deg, rgba(244, 197, 80, 0.18) 0%, rgba(184, 132, 43, 0.25) 100%) !important;
-  border-color: #F4C550 !important;
-  box-shadow: 0 0 24px rgba(244, 197, 80, 0.35) !important;
+  background: linear-gradient(135deg, rgba(227, 179, 77, 0.14) 0%, rgba(160, 118, 40, 0.22) 100%) !important;
+  border-color: var(--gold-1) !important;
+  box-shadow: 0 0 24px rgba(227, 179, 77, 0.28) !important;
   transform: scale(1.03) !important;
 }
 
@@ -826,18 +769,22 @@ body::before {
 .paywall-cta-btn {
   background: var(--gold-grad) !important;
   color: #1A0E04 !important;
-  font-family: var(--font-display) !important;
-  font-size: 1.05rem !important;
+  font-family: var(--font-body) !important;
+  font-size: 1.02rem !important;
   font-weight: 900 !important;
   letter-spacing: 0.3px !important;
-  box-shadow: 0 8px 36px rgba(244, 197, 80, 0.5) !important;
-  border-radius: 28px !important;
+  box-shadow: var(--shadow-gold) !important;
+  border-radius: var(--r-pill) !important;
   height: 54px !important;
   border: none !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
 }
 
 .paywall-cta-btn:hover {
-  box-shadow: 0 12px 48px rgba(244, 197, 80, 0.75) !important;
+  box-shadow: 0 12px 48px rgba(160, 118, 40, 0.6) !important;
   transform: scale(1.02) !important;
 }
 
@@ -866,11 +813,7 @@ body[data-theme="light"]::before {
   box-shadow: 0 30px 100px rgba(70, 40, 90, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
 }
 
-/* Status Bar & Header (Light) */
-[data-theme="light"] .status-bar {
-  color: #140C1D !important;
-}
-
+/* Header (Light) */
 [data-theme="light"] .app-header {
   background: rgba(255, 255, 255, 0.92) !important;
   backdrop-filter: blur(28px) saturate(190%) !important;
@@ -1102,6 +1045,46 @@ body[data-theme="light"]::before {
   background: #F4EFFB !important;
   color: #140C1D !important;
   border: 1px solid #DDD5E7 !important;
+}
+
+[data-theme="light"] .chat-back-arrow-btn {
+  color: #140C1D !important;
+}
+
+[data-theme="light"] .chat-action-icon-btn {
+  color: #3E334D !important;
+}
+
+[data-theme="light"] .chat-action-icon-btn:hover {
+  background: rgba(209, 58, 99, 0.1) !important;
+  color: #D13A63 !important;
+}
+
+[data-theme="light"] .chat-dropdown-menu {
+  background: #FFFFFF !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.14) !important;
+}
+
+[data-theme="light"] .chat-dropdown-item {
+  color: #140C1D !important;
+}
+
+[data-theme="light"] .chat-dropdown-item:hover {
+  background: rgba(209, 58, 99, 0.08) !important;
+  color: #D13A63 !important;
+}
+
+[data-theme="light"] .chat-auto-suggest-box {
+  background: rgba(250, 245, 255, 0.95) !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-theme="light"] .chat-suggest-chip {
+  background: #FFFFFF !important;
+  border-color: rgba(209, 58, 99, 0.3) !important;
+  color: #140C1D !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
 }
 
 [data-theme="light"] .chat-messages-area {
@@ -1579,18 +1562,18 @@ body[data-theme="light"]::before {
 /* Upgrade VIP Card in Profile */
 .profile-upgrade-banner {
   background: radial-gradient(circle at 50% 0%, #2A1A0A 0%, #100B17 80%) !important;
-  border: 1.5px solid rgba(244, 197, 80, 0.4) !important;
-  border-radius: 28px !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg) !important;
   padding: 24px 20px !important;
   margin-top: 24px !important;
   text-align: center !important;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), 0 0 30px rgba(244, 197, 80, 0.15) !important;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7) !important;
   cursor: pointer !important;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease !important;
 }
 .profile-upgrade-banner:hover {
   transform: translateY(-2px) !important;
-  border-color: rgba(244, 197, 80, 0.7) !important;
+  border-color: var(--border-active) !important;
 }
 
 .upgrade-vip-features {
@@ -1865,6 +1848,49 @@ body[data-theme="light"]::before {
   transform: scale(1.1) !important;
 }
 
+.chat-back-arrow-btn {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: transparent !important;
+  color: #FFFFFF !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  margin-right: 2px !important;
+  flex-shrink: 0 !important;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.chat-back-arrow-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  transform: translateX(-2px) !important;
+}
+
+.chat-action-icon-btn {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #FFFFFF !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+}
+
+.chat-action-icon-btn:hover {
+  background: rgba(255, 46, 112, 0.22) !important;
+  border-color: #FF2E70 !important;
+  color: #FF2E70 !important;
+  transform: scale(1.08) !important;
+}
+
 /* Empty State Greeting */
 .chat-empty-greeting {
   text-align: center !important;
@@ -1955,11 +1981,11 @@ body[data-theme="light"]::before {
 
 /* Sent Bubble */
 .msg-bubble-wrap.sent .msg-bubble {
-  background: linear-gradient(135deg, #FF2E70 0%, #D13A63 60%, #9E1945 100%) !important;
+  background: var(--flame-grad) !important;
   color: #FFFFFF !important;
-  border-radius: 20px 20px 4px 20px !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  box-shadow: 0 6px 20px rgba(255, 46, 112, 0.35) !important;
+  border-radius: 18px 18px 4px 18px !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: var(--shadow-flame) !important;
 }
 
 /* Received Bubble */
@@ -2342,15 +2368,15 @@ body[data-theme="light"]::before {
   top: -60px !important;
 }
 
+.auth-logo-glyph,
 .auth-logo-emoji {
-  width: 76px !important; height: 76px !important;
-  font-size: 2.2rem !important;
-  background: radial-gradient(circle at 35% 30%, rgba(255,46,112,0.2), rgba(244,197,80,0.1) 70%) !important;
-  border: 1.5px solid rgba(255,46,112,0.4) !important;
+  width: 68px !important; height: 68px !important;
+  border-radius: var(--r-md) !important;
+  background: radial-gradient(circle at 35% 30%, rgba(209,58,99,0.22), rgba(122,22,56,0.1) 70%) !important;
+  border: 1.5px solid rgba(209,58,99,0.35) !important;
   box-shadow:
-    0 0 0 8px rgba(255,46,112,0.06),
-    0 0 0 16px rgba(255,46,112,0.03),
-    0 12px 40px rgba(0,0,0,0.6) !important;
+    0 0 0 6px rgba(209,58,99,0.06),
+    0 12px 32px rgba(0,0,0,0.6) !important;
 }
 
 .auth-body {
@@ -2455,8 +2481,8 @@ body[data-theme="light"]::before {
 }
 
 .match-bubble-ring {
-  background: linear-gradient(135deg, #FF2E70 0%, #D13A63 50%, #8C1F45 100%) !important;
-  box-shadow: 0 4px 20px rgba(255,46,112,0.45) !important;
+  background: var(--flame-grad) !important;
+  box-shadow: var(--shadow-flame) !important;
   width: 70px !important; height: 70px !important;
 }
 
@@ -2493,11 +2519,9 @@ body[data-theme="light"]::before {
 /* --- VIP BLUR CARD: More dramatic --- */
 .vip-blur-card {
   background: linear-gradient(135deg, rgba(28,16,52,0.98) 0%, rgba(10,7,16,1) 100%) !important;
-  border: 1px solid rgba(244,197,80,0.25) !important;
-  border-radius: 28px !important;
-  box-shadow:
-    0 8px 40px rgba(184,132,43,0.12),
-    inset 0 1px 0 rgba(244,197,80,0.1) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
 }
 
 /* --- PROFILE SCREEN: Elevated premium feel --- */
@@ -2516,15 +2540,15 @@ body[data-theme="light"]::before {
 .profile-form .form-textarea {
   background: rgba(255,255,255,0.05) !important;
   border: 1.5px solid rgba(255,255,255,0.1) !important;
-  border-radius: 18px !important;
-  color: #FFFFFF !important;
+  border-radius: var(--r-input) !important;
+  color: var(--txt-primary) !important;
   transition: all 0.2s ease !important;
 }
 .profile-form .form-input:focus,
 .profile-form .form-textarea:focus {
-  border-color: rgba(255,46,112,0.6) !important;
-  background: rgba(255,46,112,0.05) !important;
-  box-shadow: 0 0 0 4px rgba(255,46,112,0.15) !important;
+  border-color: var(--flame-1) !important;
+  background: rgba(209,58,99,0.06) !important;
+  box-shadow: 0 0 0 3px rgba(209,58,99,0.14) !important;
 }
 
 /* --- SETTINGS SCREEN: Card rows --- */
@@ -2548,12 +2572,10 @@ body[data-theme="light"]::before {
 }
 
 .settings-vip-banner {
-  background: linear-gradient(135deg, rgba(52,28,12,0.95) 0%, rgba(28,16,8,1) 100%) !important;
-  border: 1px solid rgba(244,197,80,0.35) !important;
-  border-radius: 24px !important;
-  box-shadow:
-    0 8px 32px rgba(184,132,43,0.15),
-    inset 0 1px 0 rgba(244,197,80,0.1) !important;
+  background: linear-gradient(135deg, rgba(32,18,36,0.95) 0%, rgba(16,10,22,1) 100%) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--r-lg) !important;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
 }
 
 .settings-vip-title {

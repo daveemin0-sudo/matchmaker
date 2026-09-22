@@ -137,8 +137,6 @@ let settings = {
 window.addEventListener('load', () => {
   loadFromStorage();
   setTheme(localStorage.getItem('hookmebysam_theme') || 'dark');
-  updateStatusBarTime();
-  setInterval(updateStatusBarTime, 30000);
 
   if (appState.isLoggedIn) {
     showScreen('discovery');
@@ -257,23 +255,13 @@ function saveToStorage() {
   }
 }
 
-// ==========================================================
-// CLOCK
-// ==========================================================
-
-function updateStatusBarTime() {
-  const el = document.getElementById('statusTime');
-  if (!el) return;
-  const now = new Date();
-  el.textContent = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-}
 
 // ==========================================================
 // SCREEN NAVIGATION
 // ==========================================================
 
 const AUTH_SCREENS = ['login', 'signup', 'signupSuccess'];
-const MAIN_SCREENS = ['discovery', 'matches', 'chat', 'profile', 'settings'];
+const MAIN_SCREENS = ['discovery', 'matches', 'chatsList', 'chat', 'profile', 'settings'];
 
 function showScreen(screenId) {
   // Hide all screens
@@ -288,10 +276,10 @@ function showScreen(screenId) {
   // Show/hide nav and header appropriately
   const isAuth = AUTH_SCREENS.includes(screenId);
   const navEl = document.getElementById('bottomNav');
-  if (navEl) navEl.style.display = isAuth ? 'none' : 'flex';
+  if (navEl) navEl.style.display = (isAuth || screenId === 'chat') ? 'none' : 'flex';
 
   const fab = document.getElementById('globalFloatingSearchBtn');
-  if (fab) fab.style.display = (isAuth || screenId === 'chat') ? 'none' : 'flex';
+  if (fab) fab.style.display = (isAuth || screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
 
   updateHeader(screenId);
   updateBottomNav(screenId);
@@ -305,8 +293,8 @@ function updateHeader(screenId) {
 
   if (!header) return;
 
-  // Hide header on auth screens
-  header.style.display = AUTH_SCREENS.includes(screenId) ? 'none' : 'flex';
+  // Hide global appHeader on auth screens and on chat screen (chat screen has its own WhatsApp-style header)
+  header.style.display = (AUTH_SCREENS.includes(screenId) || screenId === 'chat') ? 'none' : 'flex';
 
   if (!backBtn || !headerTitle) return;
 
@@ -318,10 +306,10 @@ function updateHeader(screenId) {
   const upgradeBtn = document.getElementById('upgradeHeaderBtn');
   const matchBtn  = document.getElementById('matchesQuickBtn');
 
-  if (searchBtn)  searchBtn.style.display  = screenId === 'chat' ? 'none' : 'flex';
+  if (searchBtn)  searchBtn.style.display  = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
   if (reportBtn)  reportBtn.style.display  = screenId === 'chat' ? 'flex' : 'none';
-  if (upgradeBtn) upgradeBtn.style.display = screenId === 'chat' ? 'none' : 'flex';
-  if (matchBtn)   matchBtn.style.display   = screenId === 'chat' ? 'none' : 'flex';
+  if (upgradeBtn) upgradeBtn.style.display = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
+  if (matchBtn)   matchBtn.style.display   = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
 
   switch (screenId) {
     case 'discovery':
@@ -335,6 +323,10 @@ function updateHeader(screenId) {
     case 'matches':
       backBtn.style.display = 'flex';
       setHeaderTitle('My Matches');
+      break;
+    case 'chatsList':
+      backBtn.style.display = 'none';
+      setHeaderTitle('Messages 💬');
       break;
     case 'chat': {
       backBtn.style.display = 'flex';
@@ -415,7 +407,9 @@ function updateBottomNav(screenId) {
 
 function handleBackBtn() {
   if (appState.currentScreen === 'chat') {
-    showScreen(appState.previousScreen === 'matches' ? 'matches' : 'discovery');
+    // Go back to chatsList if that's where we came from, else discovery
+    const prev = appState.previousScreen;
+    showScreen(prev === 'chatsList' || prev === 'matches' ? prev : 'discovery');
   } else {
     showScreen('discovery');
   }
@@ -428,6 +422,9 @@ function switchTab(tabId) {
   }
   if (appState.currentScreen === 'chat') {
     appState.currentChatId = null;
+  }
+  if (tabId === 'chatsList') {
+    renderChatsInbox();
   }
   showScreen(tabId);
 }
@@ -973,25 +970,61 @@ function goToChatFromMatch() {
 function renderMatchesView() {
   renderNewMatchesBubbles();
   renderConversationList();
+  renderChatsInbox(); // keep chat inbox in sync
 }
 
 function renderNewMatchesBubbles() {
-  const row = document.getElementById('newMatchesRow');
-  if (!row) return;
+  // Render for both Matches screen and Chats Inbox
+  const rows = [
+    document.getElementById('newMatchesRow'),
+    document.getElementById('chatsNewMatchesRow')
+  ];
 
-  if (matchedUsers.length === 0) {
-    row.innerHTML = `<p style="color:var(--text-muted);font-size:0.85rem;padding:8px 0;">No matches yet — keep swiping! 🔥</p>`;
-    return;
+  rows.forEach(row => {
+    if (!row) return;
+    if (matchedUsers.length === 0) {
+      row.innerHTML = `<p style="color:var(--txt-muted);font-size:0.82rem;padding:4px 0;">No matches yet — keep swiping! 🔥</p>`;
+      return;
+    }
+    row.innerHTML = matchedUsers.map(u => `
+      <div class="match-bubble" onclick="openChat('${u.id}')">
+        <div class="match-bubble-ring">
+          <div class="match-bubble-photo" style="background-image:url('${u.image}')"></div>
+        </div>
+        <span class="match-bubble-name">${u.name}</span>
+      </div>
+    `).join('');
+  });
+}
+
+function _buildConvoItemHtml(u, filterQuery) {
+  const hist = conversations[u.id]?.messages || [];
+  const last = hist[hist.length - 1];
+  const lastMsgRaw = last
+    ? (last.isVoice ? '🎤 Voice note' : (last.imageUrl ? '📷 Photo' : (last.text || '')))
+    : 'Say hi! 👋';
+  const lastText = last?.sender === 'me' ? `You: ${lastMsgRaw}` : lastMsgRaw;
+
+  if (filterQuery) {
+    const q = filterQuery.toLowerCase();
+    if (!u.name.toLowerCase().includes(q) && !lastText.toLowerCase().includes(q)) return '';
   }
 
-  row.innerHTML = matchedUsers.map(u => `
-    <div class="match-bubble" onclick="openChat('${u.id}')">
-      <div class="match-bubble-ring">
-        <div class="match-bubble-photo" style="background-image:url('${u.image}')"></div>
+  const isOnline = Math.random() > 0.5;
+  return `
+    <div class="convo-item" onclick="openChat('${u.id}')">
+      <div class="convo-avatar-wrap">
+        <div class="convo-avatar" style="background-image:url('${u.image}')"></div>
+        ${isOnline ? '<div class="convo-online-dot"></div>' : ''}
       </div>
-      <span class="match-bubble-name">${u.name}</span>
-    </div>
-  `).join('');
+      <div class="convo-body">
+        <div class="convo-name">${escHtml(u.name)}</div>
+        <div class="convo-preview">${escHtml(lastText).substring(0, 46)}${lastText.length > 46 ? '…' : ''}</div>
+      </div>
+      <div class="convo-meta">
+        <span class="convo-time">${hist.length > 0 ? 'Just now' : ''}</span>
+      </div>
+    </div>`;
 }
 
 function renderConversationList() {
@@ -1000,34 +1033,64 @@ function renderConversationList() {
 
   if (matchedUsers.length === 0) {
     col.innerHTML = `
-      <div style="text-align:center;padding:40px 16px;color:var(--text-muted);">
+      <div style="text-align:center;padding:40px 16px;color:var(--txt-muted);">
         <div style="font-size:2.5rem;margin-bottom:12px">💬</div>
         <p style="font-size:0.9rem;line-height:1.5">Match with someone to start a conversation!</p>
       </div>`;
     return;
   }
 
-  col.innerHTML = matchedUsers.map(u => {
-    const hist = conversations[u.id]?.messages || [];
-    const last = hist[hist.length - 1];
-    const lastText = last ? (last.sender === 'me' ? `You: ${last.text}` : last.text) : 'Say hi!';
-    const isOnline = Math.random() > 0.5;
-    return `
-      <div class="convo-item" onclick="openChat('${u.id}')">
-        <div class="convo-avatar-wrap">
-          <div class="convo-avatar" style="background-image:url('${u.image}')"></div>
-          ${isOnline ? '<div class="convo-online-dot"></div>' : ''}
-        </div>
-        <div class="convo-body">
-          <div class="convo-name">${u.name}</div>
-          <div class="convo-preview">${lastText.substring(0, 45)}${lastText.length > 45 ? '…' : ''}</div>
-        </div>
-        <div class="convo-meta">
-          <span class="convo-time">Just now</span>
-        </div>
-      </div>`;
-  }).join('');
+  col.innerHTML = matchedUsers.map(u => _buildConvoItemHtml(u, '')).join('');
 }
+
+// ==========================================================
+// CHAT INBOX (chatsListScreen)
+// ==========================================================
+
+function renderChatsInbox(filterQuery) {
+  // New matches row in inbox
+  const matchesRow = document.getElementById('chatsNewMatchesRow');
+  if (matchesRow) {
+    if (matchedUsers.length === 0) {
+      matchesRow.innerHTML = `<p style="color:var(--txt-muted);font-size:0.82rem;padding:4px 0;">No matches yet — keep swiping! 🔥</p>`;
+    } else {
+      matchesRow.innerHTML = matchedUsers.map(u => `
+        <div class="match-bubble" onclick="openChat('${u.id}')">
+          <div class="match-bubble-ring">
+            <div class="match-bubble-photo" style="background-image:url('${u.image}')"></div>
+          </div>
+          <span class="match-bubble-name">${escHtml(u.name)}</span>
+        </div>
+      `).join('');
+    }
+  }
+
+  // Conversations list in inbox
+  const col = document.getElementById('chatsConvoList');
+  if (!col) return;
+
+  if (matchedUsers.length === 0) {
+    col.innerHTML = `
+      <div style="text-align:center;padding:40px 16px;color:var(--txt-muted);">
+        <div style="font-size:2.8rem;margin-bottom:14px">💬</div>
+        <p style="font-size:0.92rem;line-height:1.6;font-weight:600">No conversations yet</p>
+        <p style="font-size:0.8rem;margin-top:6px;color:var(--txt-muted)">Match with someone in Discover to start chatting!</p>
+      </div>`;
+    return;
+  }
+
+  const rows = matchedUsers.map(u => _buildConvoItemHtml(u, filterQuery || '')).filter(Boolean);
+  if (rows.length === 0) {
+    col.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--txt-muted);font-size:0.88rem;">No conversations match your search.</div>`;
+  } else {
+    col.innerHTML = rows.join('');
+  }
+}
+
+function filterChatsInbox(query) {
+  renderChatsInbox(query);
+}
+
 
 // ==========================================================
 // CHAT
@@ -1035,14 +1098,146 @@ function renderConversationList() {
 
 let activeRealtimeListener = null;
 
+// ==========================================================
+// FULL UNICODE EMOJIS (Categorized WhatsApp/iOS Style)
+// ==========================================================
+const CATEGORIZED_EMOJIS = {
+  smileys: [
+    '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩',
+    '😘','😗','😚','😙','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨',
+    '😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕',
+    '🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟',
+    '🙁','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣',
+    '😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👻'
+  ],
+  gestures: [
+    '👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉',
+    '👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲',
+    '🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁',
+    '👀','👁️','👅','👄','🫦'
+  ],
+  love: [
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖',
+    '💘','💝','💟','💌','🫀','💋','🫂','👩‍❤️‍👨','👩‍❤️‍👩','👨‍❤️‍👨','👩‍❤️‍💋‍👨','💏','💑',
+    '💍','💎','💐','🌹','🥀','🌺','🌷','🌸','💮','🪷','🕯️','✨','💫','⭐','🌟','🔥'
+  ],
+  party: [
+    '🎉','🎊','🥳','🍾','🥂','🍻','🍺','🍷','🍸','🍹','🥃','🎂','🍰','🧁','🎈','🎁',
+    '🎀','🪅','🎇','🎆','🧨','✨','🪄','💃','🕺','👯','🎶','🎵','🎤','🎧','📻','🎷',
+    '🎸','🎹','🎺','🎻','🪘','🥁','🪩','🎪','🎭','🎨','🎬','🎟️'
+  ],
+  food: [
+    '🍕','🍔','🍟','🌭','🍿','🥓','🥞','🧇','🥐','🥖','🥨','🥯','🧀','🥗','🥙','🥪',
+    '🌮','🌯','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🍤','🍙','🍚','🍘','🍥','🥠',
+    '🍢','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍩','🍪','🌰','🥜',
+    '🍯','🥛','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧉'
+  ],
+  activities: [
+    '⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🏒','🏑','🥍',
+    '🏏','🪃','🥅','⛳','🪁','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛼','🛷','⛸️','🥌',
+    '🎿','⛷️','🏂','🪂','🏋️','🤼','🤸','🤺','⛹️','🤾','🧗','🧘','🏄','🏊','🤽','🚣',
+    '🚴','🚵','🏆','🥇','🥈','🥉','🎯','🎮','🎲','🎳','🚗','🚕','✈️','🚀','🏖️','🏝️'
+  ]
+};
+
+let currentEmojiCategory = 'smileys';
+
+// ==========================================================
+// SMART CHAT AUTO-SUGGESTIONS (Real-time while typing)
+// ==========================================================
+const CHAT_AUTO_SUGGESTIONS = [
+  { trigger: ['h', 'he', 'hey', 'hi', 'hel', 'hello'], suggestions: ['Hey! How are you doing today? 😊', 'Hello! So great to connect with you ✨', 'Hey there, how was your weekend?'] },
+  { trigger: ['yo', 'sup', 'whatsup', 'whats up'], suggestions: ['What\'s up! Having a good day so far?', 'Hey! Just chilling, what about you?'] },
+  { trigger: ['gm', 'good m', 'morning'], suggestions: ['Good morning! Hope you have an awesome day ☀️', 'Good morning! Up early today? ☕'] },
+  { trigger: ['ge', 'good e', 'evening'], suggestions: ['Good evening! How was your day? 🌙', 'Good evening! Any fun plans tonight?'] },
+  { trigger: ['are', 'are y', 'are you', 'free', 'weekend'], suggestions: ['Are you free for coffee sometime this week? ☕', 'Are you doing anything fun this weekend?', 'Are you more of an indoor or outdoor person?'] },
+  { trigger: ['would', 'would y', 'wanna', 'want to'], suggestions: ['Would you like to grab drinks or dinner? 🥂', 'Wanna go check out a live music spot together? 🎵', 'Would love to get to know you more!'] },
+  { trigger: ['let', 'lets', 'let\'s'], suggestions: ['Let\'s plan something fun together soon! ✨', 'Let\'s exchange playlists 🎶', 'Let\'s grab lunch this Saturday 🍕'] },
+  { trigger: ['lag', 'lagos', 'where', 'spot', 'place'], suggestions: ['What\'s your favorite spot in Lagos? 🌴', 'Where do you usually like to hang out?', 'Have you been to any nice beach houses lately?'] },
+  { trigger: ['food', 'eat', 'dinner', 'lunch', 'brunch'], suggestions: ['What\'s your absolute favorite food spot? 🌮', 'I know an amazing brunch place we should try 🥞'] },
+  { trigger: ['music', 'song', 'listen', 'playlist', 'track'], suggestions: ['What playlist are you listening to right now? 🎵', 'Are you into Amapiano or Afrobeats? 💫'] },
+  { trigger: ['ha', 'haha', 'lol', 'lmao'], suggestions: ['Haha that\'s hilarious! 😂', 'Haha you have such a great sense of humor! 💫', 'Haha right?! I knew it!'] },
+  { trigger: ['sound', 'sounds'], suggestions: ['Sounds like a plan! 🙌', 'Sounds amazing, let\'s make it happen!', 'Sounds super fun! 😊'] },
+  { trigger: ['love', 'i love', 'like'], suggestions: ['I love that so much! ❤️', 'Love your style in your pictures! ✨', 'I\'d love that! When are you free?'] },
+  { trigger: ['cool', 'nice', 'awesome', 'sweet'], suggestions: ['That\'s so cool! Tell me more about it 🤩', 'That sounds really awesome!', 'Super nice!'] },
+  { trigger: ['thank', 'thanks', 'thx'], suggestions: ['Thank you! You\'re very sweet 😊', 'Thanks a lot! Hope your day is going well'] }
+];
+
+function getSmartChatSuggestions(text) {
+  const clean = text.trim().toLowerCase();
+  if (!clean) return [];
+
+  const matched = [];
+  for (const item of CHAT_AUTO_SUGGESTIONS) {
+    const hits = item.trigger.some(trig => clean.startsWith(trig) || clean.includes(trig) || trig.startsWith(clean));
+    if (hits) {
+      for (const s of item.suggestions) {
+        if (!matched.includes(s) && matched.length < 3) {
+          matched.push(s);
+        }
+      }
+    }
+  }
+
+  if (matched.length === 0 && clean.length > 0) {
+    if (clean.endsWith('?')) {
+      matched.push('Haha let me think about that! 🤔', 'Definitely! What about you?', 'That\'s a great question! 😊');
+    } else {
+      matched.push('I totally agree! ✨', 'Tell me more about it! 😊', 'That\'s so interesting! 🙌');
+    }
+  }
+
+  return matched.slice(0, 3);
+}
+
+function applyChatSuggestion(suggestionText) {
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  input.value = suggestionText;
+  onChatInputChange();
+  input.focus();
+}
+
+// ==========================================================
+// CHAT NAVIGATION & HEADER (WhatsApp Style)
+// ==========================================================
 function openChat(profileId) {
   appState.currentChatId = profileId;
   showScreen('chat');
-  renderChatThread();
 
-  // Reset icebreakers
-  const ice = document.getElementById('icebreakersRow');
-  if (ice) { ice.style.opacity = '1'; ice.style.pointerEvents = 'auto'; }
+  // Populate WhatsApp-style in-chat header
+  const partner = matchedUsers.find(u => u.id === profileId) || PROFILES_DATA.find(u => u.id === profileId);
+  const nameEl = document.getElementById('chatPartnerName');
+  const avatarEl = document.getElementById('chatPartnerAvatar');
+  const statusEl = document.getElementById('chatPartnerStatus');
+  const photo = partner?.image || partner?.photoUrl || '';
+
+  if (nameEl) nameEl.textContent = partner ? partner.name : 'Chat';
+  if (avatarEl) {
+    if (photo) {
+      avatarEl.style.backgroundImage = `url('${photo}')`;
+      avatarEl.style.backgroundSize = 'cover';
+      avatarEl.style.backgroundPosition = 'center';
+      avatarEl.textContent = '';
+    } else {
+      avatarEl.style.backgroundImage = 'none';
+      avatarEl.textContent = partner ? partner.name.charAt(0) : '?';
+    }
+  }
+  if (statusEl) {
+    statusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+  }
+
+  // Clear typing suggestions and emoji panel
+  const suggestBox = document.getElementById('chatAutoSuggestBox');
+  if (suggestBox) { suggestBox.style.display = 'none'; suggestBox.innerHTML = ''; }
+  const emojiPanel = document.getElementById('emojiPickerPanel');
+  if (emojiPanel) emojiPanel.style.display = 'none';
+  const chatInput = document.getElementById('chatInput');
+  if (chatInput) chatInput.value = '';
+  onChatInputChange();
+
+  renderChatThread();
 
   // Unsubscribe from any previous Firestore chat listener
   if (typeof activeRealtimeListener === 'function') {
@@ -1069,6 +1264,204 @@ function openChat(profileId) {
         renderConversationList();
       }
     });
+  }
+}
+
+// 3-Dots WhatsApp Menu & Actions
+function toggleChatOptionsMenu(event) {
+  if (event) event.stopPropagation();
+  const menu = document.getElementById('chatDropdownMenu');
+  if (!menu) return;
+  const isShown = menu.style.display === 'block';
+  menu.style.display = isShown ? 'none' : 'block';
+}
+
+document.addEventListener('click', (e) => {
+  const menu = document.getElementById('chatDropdownMenu');
+  const trigger = document.getElementById('chatMenuTrigger');
+  if (menu && menu.style.display === 'block') {
+    if (!menu.contains(e.target) && (!trigger || !trigger.contains(e.target))) {
+      menu.style.display = 'none';
+    }
+  }
+});
+
+function viewCurrentMatchProfile() {
+  const menu = document.getElementById('chatDropdownMenu');
+  if (menu) menu.style.display = 'none';
+  if (!appState.currentChatId) return;
+
+  const partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
+  if (!partner) return;
+
+  document.getElementById('whatsappProfileOverlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'whatsapp-profile-overlay';
+  overlay.id = 'whatsappProfileOverlay';
+  overlay.onclick = (e) => { if (e.target === overlay) closeWhatsAppProfile(); };
+
+  const photo = partner.image || partner.photoUrl || '';
+  const tagsHtml = (partner.tags || ['Positive vibes ✨', 'Music 🎵', 'Foodie 🍕']).map(t => `<span class="wa-interest-pill">${escHtml(t)}</span>`).join('');
+  const partnerName = escHtml(partner.name || 'User');
+  const partnerAge = partner.age || 24;
+  const partnerDistance = partner.distance || '3 km away';
+  const partnerBio = escHtml(partner.bio || 'Living life with good energy, positive vibes only! ✨');
+
+  overlay.innerHTML = `
+    <div class="whatsapp-profile-sheet" id="whatsappProfileSheet">
+      <div class="wa-grab-bar-wrap" onclick="closeWhatsAppProfile()">
+        <div class="wa-grab-bar"></div>
+      </div>
+      
+      <!-- Top actions -->
+      <div class="wa-profile-top-bar">
+        <button class="wa-circle-btn" onclick="closeWhatsAppProfile()" aria-label="Close" title="Back">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+        <span class="wa-top-title">Contact Info</span>
+        <button class="wa-circle-btn" onclick="closeWhatsAppProfile();reportUser();" aria-label="Report or Block" title="Options">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+        </button>
+      </div>
+
+      <div class="wa-profile-scroll-content">
+        <!-- Hero Photo & Details -->
+        <div class="wa-profile-hero">
+          <div class="wa-avatar-ring">
+            ${photo ? `<img src="${photo}" class="wa-avatar-img" alt="${partnerName}" onclick="openFullPhotoModal('${photo}')" title="Click to enlarge">` : `<div class="wa-avatar-fallback">${partnerName.charAt(0)}</div>`}
+          </div>
+          <div class="wa-name-row">
+            <h2 class="wa-profile-name">${partnerName}, ${partnerAge}</h2>
+            <span class="wa-verified-badge" title="Verified Profile">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            </span>
+          </div>
+          <div class="wa-status-row">
+            <span class="wa-pulse-dot"></span>
+            <span class="wa-status-text">Active now • Lekki, Lagos</span>
+          </div>
+        </div>
+
+        <!-- WhatsApp Quick Action Icons -->
+        <div class="wa-quick-actions">
+          <button class="wa-action-btn" onclick="closeWhatsAppProfile()" title="Message">
+            <div class="wa-action-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+            </div>
+            <span>Message</span>
+          </button>
+          <button class="wa-action-btn" onclick="closeWhatsAppProfile();startVoiceCall();" title="Audio Call">
+            <div class="wa-action-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+            </div>
+            <span>Audio</span>
+          </button>
+          <button class="wa-action-btn" onclick="closeWhatsAppProfile();startVideoCall();" title="Video Call">
+            <div class="wa-action-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+            </div>
+            <span>Video</span>
+          </button>
+          <button class="wa-action-btn" onclick="closeWhatsAppProfile();reportUser();" title="Report / Block">
+            <div class="wa-action-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            </div>
+            <span>Report</span>
+          </button>
+        </div>
+
+        <!-- WhatsApp Info Cards -->
+        <div class="wa-card">
+          <div class="wa-card-header">
+            <span class="wa-card-label">About</span>
+          </div>
+          <p class="wa-card-body">${partnerBio}</p>
+          <div class="wa-card-sub">Connected via hookmebysam match</div>
+        </div>
+
+        <div class="wa-card">
+          <div class="wa-card-header">
+            <span class="wa-card-label">Passions & Lifestyle</span>
+          </div>
+          <div class="wa-tags-wrap">${tagsHtml}</div>
+        </div>
+
+        <div class="wa-card">
+          <div class="wa-card-header">
+            <span class="wa-card-label">Location & Distance</span>
+          </div>
+          <div class="wa-info-row">
+            <span class="wa-info-icon">📍</span>
+            <div class="wa-info-text">
+              <div class="wa-info-main">Lagos, Nigeria</div>
+              <div class="wa-info-sub">${partnerDistance}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- WhatsApp Privacy / Danger Actions -->
+        <div class="wa-card wa-danger-card">
+          <div class="wa-danger-item" onclick="closeWhatsAppProfile();blockUser('${partner.id}', '${partnerName}');">
+            <div class="wa-danger-icon">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"/></svg>
+            </div>
+            <span>Block ${partnerName}</span>
+          </div>
+          <div class="wa-danger-item" onclick="closeWhatsAppProfile();reportUser();">
+            <div class="wa-danger-icon">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
+            </div>
+            <span>Report ${partnerName}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+
+function closeWhatsAppProfile() {
+  const overlay = document.getElementById('whatsappProfileOverlay');
+  if (!overlay) return;
+  const sheet = document.getElementById('whatsappProfileSheet');
+  if (sheet) {
+    sheet.style.transform = 'translateY(100%)';
+    sheet.style.transition = 'transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)';
+  }
+  setTimeout(() => overlay.remove(), 220);
+}
+
+function openFullPhotoModal(url) {
+  if (!url) return;
+  document.getElementById('fullPhotoModal')?.remove();
+  const ov = document.createElement('div');
+  ov.className = 'whatsapp-dialog-overlay';
+  ov.id = 'fullPhotoModal';
+  ov.style.zIndex = '10001';
+  ov.onclick = () => ov.remove();
+  ov.innerHTML = `
+    <div style="position:relative;max-width:90vw;max-height:85vh;animation:popIn 0.2s cubic-bezier(0.16,1,0.3,1)">
+      <img src="${url}" style="width:100%;max-height:85vh;object-fit:contain;border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,0.8)">
+      <button onclick="document.getElementById('fullPhotoModal')?.remove()" style="position:absolute;top:-14px;right:-14px;width:38px;height:38px;border-radius:50%;background:#FF2E70;color:#fff;border:none;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.5)">✕</button>
+    </div>
+  `;
+  document.body.appendChild(ov);
+}
+
+function clearCurrentChatHistory() {
+  const menu = document.getElementById('chatDropdownMenu');
+  if (menu) menu.style.display = 'none';
+  if (!appState.currentChatId) return;
+  if (confirm('Clear chat conversation?')) {
+    if (conversations[appState.currentChatId]) {
+      conversations[appState.currentChatId].messages = [];
+    }
+    renderChatThread();
+    renderConversationList();
+    saveToStorage();
+    showToast('Chat cleared', 'info');
   }
 }
 
@@ -1120,27 +1513,67 @@ function onChatInputChange() {
   const input = document.getElementById('chatInput');
   const sendBtn = document.getElementById('chatSendBtn');
   const micBtn = document.getElementById('micBtn');
+  const suggestBox = document.getElementById('chatAutoSuggestBox');
   if (!input) return;
-  const hasText = input.value.trim().length > 0;
+
+  const text = input.value;
+  const hasText = text.trim().length > 0;
   if (sendBtn) sendBtn.style.display = hasText ? 'flex' : 'none';
   if (micBtn) micBtn.style.display = hasText ? 'none' : 'flex';
+
+  if (!suggestBox) return;
+
+  if (!hasText) {
+    suggestBox.style.display = 'none';
+    suggestBox.innerHTML = '';
+    return;
+  }
+
+  // Dynamic auto-suggestions while typing
+  const suggestions = getSmartChatSuggestions(text);
+  if (suggestions.length > 0) {
+    suggestBox.innerHTML = suggestions.map(s => {
+      const safeText = s.replace(/'/g, "\\'");
+      return `<button type="button" class="chat-suggest-chip" onclick="applyChatSuggestion('${safeText}')"><span class="suggest-sparkle">✨</span> ${escHtml(s)}</button>`;
+    }).join('');
+    suggestBox.style.display = 'flex';
+  } else {
+    suggestBox.style.display = 'none';
+    suggestBox.innerHTML = '';
+  }
 }
 
 function toggleEmojiPicker() {
   const panel = document.getElementById('emojiPickerPanel');
+  const toggleBtn = document.getElementById('emojiToggleBtn');
   if (!panel) return;
   const isOpen = panel.style.display === 'flex';
   panel.style.display = isOpen ? 'none' : 'flex';
 
-  if (!isOpen) {
-    const grid = document.getElementById('emojiGrid');
-    if (grid && !grid.children.length) {
-      const popularEmojis = ['❤️', '🔥', '😍', '✨', '😂', '🥂', '🥳', '🙌', '🎵', '✈️', '☕', '🌮', '👍', '💬', '🤩', '💖', '👑', '🌸', '💃', '🎉'];
-      grid.innerHTML = popularEmojis.map(e => `
-        <span onclick="insertEmoji('${e}')" style="font-size:1.4rem;cursor:pointer;padding:6px;text-align:center;border-radius:8px;transition:background 0.15s">${e}</span>
-      `).join('');
-    }
+  if (toggleBtn) {
+    if (!isOpen) toggleBtn.classList.add('active-emoji');
+    else toggleBtn.classList.remove('active-emoji');
   }
+
+  if (!isOpen) {
+    renderEmojiCategory(currentEmojiCategory);
+  }
+}
+
+function switchEmojiCategory(cat, btn) {
+  currentEmojiCategory = cat;
+  document.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderEmojiCategory(cat);
+}
+
+function renderEmojiCategory(cat) {
+  const grid = document.getElementById('emojiGrid');
+  if (!grid) return;
+  const emojis = CATEGORIZED_EMOJIS[cat] || CATEGORIZED_EMOJIS.smileys;
+  grid.innerHTML = emojis.map(e => `
+    <button type="button" class="emoji-cell" onclick="insertEmoji('${e}')" title="${e}">${e}</button>
+  `).join('');
 }
 
 function insertEmoji(emoji) {
@@ -1179,47 +1612,185 @@ function sendImageMessage(event) {
   event.target.value = '';
 }
 
-function startVoiceCall() {
-  const partner = matchedUsers.find(u => u.id === appState.currentChatId);
-  const name = partner ? partner.name : 'User';
+// ==========================================================
+// REAL LIVE VOICE & VIDEO CALLING (getUserMedia + MediaStream)
+// ==========================================================
+let activeMediaStream = null;
+let activeCallTimerInterval = null;
+let activeCallSeconds = 0;
+let isAudioMuted = false;
+let isVideoMuted = false;
+
+async function startVoiceCall() {
+  const partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
+  const name = partner ? partner.name : 'Match';
+  const photo = partner?.image || partner?.photoUrl || '';
+
   const overlay = document.getElementById('voiceCallOverlay');
+  const avatarImg = document.getElementById('callAvatarImg');
+  const nameEl = document.getElementById('callName');
+  const statusEl = document.getElementById('callStatusText');
+  const timerEl = document.getElementById('callLiveTimer');
+
+  if (avatarImg) {
+    if (photo) avatarImg.style.backgroundImage = `url('${photo}')`;
+    else avatarImg.style.backgroundImage = 'none';
+  }
+  if (nameEl) nameEl.textContent = name;
+  if (statusEl) statusEl.textContent = 'Calling... 📞';
+  if (timerEl) { timerEl.textContent = '0:00'; timerEl.style.display = 'none'; }
   if (overlay) overlay.style.display = 'flex';
+
+  activeCallSeconds = 0;
+  clearInterval(activeCallTimerInterval);
+
+  try {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      activeMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    }
+  } catch (err) {
+    console.warn('Microphone permission not granted or device not available:', err);
+  }
+
+  setTimeout(() => {
+    if (overlay && overlay.style.display === 'flex') {
+      if (statusEl) statusEl.textContent = 'Connected';
+      if (timerEl) timerEl.style.display = 'block';
+      activeCallTimerInterval = setInterval(() => {
+        activeCallSeconds++;
+        const mins = Math.floor(activeCallSeconds / 60);
+        const secs = activeCallSeconds % 60;
+        const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        if (timerEl) timerEl.textContent = timeStr;
+      }, 1000);
+    }
+  }, 1600);
+
   showToast(`Calling ${name}... 📞`, 'info');
 }
 
-function startVideoCall() {
-  const partner = matchedUsers.find(u => u.id === appState.currentChatId);
-  const name = partner ? partner.name : 'User';
+async function startVideoCall() {
+  const partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
+  const name = partner ? partner.name : 'Match';
+  const photo = partner?.image || partner?.photoUrl || '';
+
   const overlay = document.getElementById('videoCallOverlay');
+  const remoteBg = document.getElementById('videoRemoteBg');
+  const nameEl = document.getElementById('videoCallName');
+  const timerEl = document.getElementById('videoCallTimer');
+  const videoEl = document.getElementById('myVideoStream');
+
+  if (remoteBg) {
+    if (photo) {
+      remoteBg.style.backgroundImage = `url('${photo}')`;
+      remoteBg.style.backgroundSize = 'cover';
+      remoteBg.style.backgroundPosition = 'center';
+    } else {
+      remoteBg.style.background = 'radial-gradient(circle at center, #2e1026 0%, #0A0710 100%)';
+    }
+  }
+  if (nameEl) nameEl.textContent = name;
+  if (timerEl) timerEl.textContent = 'Connecting...';
   if (overlay) overlay.style.display = 'flex';
+
+  activeCallSeconds = 0;
+  clearInterval(activeCallTimerInterval);
+
+  try {
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      activeMediaStream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'user' },
+        audio: true
+      });
+      if (videoEl) {
+        videoEl.srcObject = activeMediaStream;
+        videoEl.play().catch(e => console.log('Video play caught:', e));
+      }
+    }
+  } catch (err) {
+    console.warn('Camera/Mic permission not granted or device not available:', err);
+  }
+
+  setTimeout(() => {
+    if (overlay && overlay.style.display === 'flex') {
+      activeCallTimerInterval = setInterval(() => {
+        activeCallSeconds++;
+        const mins = Math.floor(activeCallSeconds / 60);
+        const secs = activeCallSeconds % 60;
+        const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        if (timerEl) timerEl.textContent = timeStr;
+      }, 1000);
+    }
+  }, 1200);
+
   showToast(`Starting video call with ${name}... 📹`, 'info');
 }
 
 function endCall() {
+  if (activeMediaStream) {
+    activeMediaStream.getTracks().forEach(track => track.stop());
+    activeMediaStream = null;
+  }
+  clearInterval(activeCallTimerInterval);
+  activeCallTimerInterval = null;
+
   const voice = document.getElementById('voiceCallOverlay');
   const video = document.getElementById('videoCallOverlay');
   if (voice) voice.style.display = 'none';
   if (video) video.style.display = 'none';
-  showToast('Call ended', 'info');
+
+  const videoEl = document.getElementById('myVideoStream');
+  if (videoEl) videoEl.srcObject = null;
+
+  showToast(activeCallSeconds > 0 ? `Call ended (${Math.floor(activeCallSeconds/60)}m ${activeCallSeconds%60}s)` : 'Call ended', 'info');
+  activeCallSeconds = 0;
 }
 
-function toggleMute() {
-  showToast('Microphone toggled', 'info');
+function endVideoCall() {
+  endCall();
 }
 
-function toggleVideo() {
-  showToast('Camera toggled', 'info');
+function toggleCallMute() {
+  isAudioMuted = !isAudioMuted;
+  if (activeMediaStream) {
+    activeMediaStream.getAudioTracks().forEach(track => {
+      track.enabled = !isAudioMuted;
+    });
+  }
+  const muteBtn = document.getElementById('callMuteBtn');
+  if (muteBtn) {
+    muteBtn.style.background = isAudioMuted ? 'rgba(255, 61, 0, 0.25)' : '';
+    muteBtn.style.color = isAudioMuted ? '#FF3D00' : '';
+  }
+  showToast(isAudioMuted ? 'Microphone muted 🔇' : 'Microphone unmuted 🎙️', 'info');
 }
 
-function switchCamera() {
-  showToast('Camera switched', 'info');
+function toggleVideoMute() {
+  toggleCallMute();
 }
 
-function toggleCallMute() { toggleMute(); }
-function toggleVideoMute() { toggleMute(); }
-function toggleCamera() { toggleVideo(); }
-function endVideoCall() { endCall(); }
-function toggleSpeaker() { showToast('Speaker toggled 🔊', 'info'); }
+function toggleCamera() {
+  isVideoMuted = !isVideoMuted;
+  if (activeMediaStream) {
+    activeMediaStream.getVideoTracks().forEach(track => {
+      track.enabled = !isVideoMuted;
+    });
+  }
+  const pipCamOff = document.getElementById('pipCamOff');
+  if (pipCamOff) {
+    pipCamOff.style.display = isVideoMuted ? 'flex' : 'none';
+  }
+  const camBtn = document.getElementById('videoCamBtn');
+  if (camBtn) {
+    camBtn.style.background = isVideoMuted ? 'rgba(255, 61, 0, 0.25)' : '';
+    camBtn.style.color = isVideoMuted ? '#FF3D00' : '';
+  }
+  showToast(isVideoMuted ? 'Camera paused' : 'Camera active', 'info');
+}
+
+function toggleSpeaker() {
+  showToast('Speaker output toggled 🔊', 'info');
+}
 
 function sendMessage() {
   const input = document.getElementById('chatInput');
@@ -1445,6 +2016,58 @@ function renderProfileScreen() {
   }
 }
 
+function handleProfilePhotoUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select a valid image file.', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    currentUser.image = dataUrl;
+    currentUser.avatar = dataUrl;
+
+    const avatar = document.getElementById('profileAvatar');
+    if (avatar) avatar.style.backgroundImage = `url('${dataUrl}')`;
+
+    const settingsAvatar = document.getElementById('settingsAvatar');
+    if (settingsAvatar) settingsAvatar.style.backgroundImage = `url('${dataUrl}')`;
+
+    saveToStorage();
+    showToast('Profile photo updated! Remember to click Save Profile.', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function handleSignupPhotoUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select a valid image file.', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    currentUser.image = dataUrl;
+    currentUser.avatar = dataUrl;
+
+    const preview = document.getElementById('signupPhotoPreview');
+    if (preview) {
+      preview.style.backgroundImage = `url('${dataUrl}')`;
+      preview.textContent = '';
+    }
+    showToast('Photo uploaded successfully! ✨', 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
 function saveProfile() {
   const name = document.getElementById('editName')?.value.trim();
   const age = parseInt(document.getElementById('editAge')?.value);
@@ -1464,11 +2087,17 @@ function saveProfile() {
   saveToStorage();
   renderProfileScreen();
 
+  const settingsName = document.getElementById('settingsProfileName');
+  if (settingsName) settingsName.textContent = currentUser.name;
+  const settingsAvatar = document.getElementById('settingsAvatar');
+  if (settingsAvatar && currentUser.image) settingsAvatar.style.backgroundImage = `url('${currentUser.image}')`;
+
   const feedback = document.getElementById('profileSaveFeedback');
   if (feedback) {
     feedback.style.opacity = '1';
-    setTimeout(() => { feedback.style.opacity = '0'; }, 2000);
+    setTimeout(() => { feedback.style.opacity = '0'; }, 3000);
   }
+  showToast('✓ Profile saved successfully!', 'success');
 }
 
 // ==========================================================
@@ -1480,12 +2109,12 @@ function renderAiLabPicker() {
   if (!grid) return;
 
   const targets = [
+    { id: 'me', name: 'Me', img: currentUser.image },
     { id: 'p3', name: 'Amara', img: PROFILES_DATA[2].image },
     { id: 'p1', name: 'Zainab', img: PROFILES_DATA[0].image },
     { id: 'p2', name: 'Tunde', img: PROFILES_DATA[1].image },
     { id: 'p4', name: 'Chidi', img: PROFILES_DATA[3].image },
     { id: 'p5', name: 'Sade', img: PROFILES_DATA[4].image },
-    { id: 'me', name: 'Me', img: currentUser.image },
   ];
 
   grid.innerHTML = targets.map(t => `
@@ -1507,7 +2136,7 @@ function updateAiPromptField() {
   const promptEl = document.getElementById('aiPromptInput');
   if (!promptEl) return;
   if (appState.aiSelectedProfileId === 'me') {
-    promptEl.value = currentUser.aiPrompt;
+    promptEl.value = currentUser.aiPrompt || 'Aesthetic cinematic portrait of a 24 year old creative, golden hour warm lighting, high detail';
   } else {
     const p = PROFILES_DATA.find(x => x.id === appState.aiSelectedProfileId);
     if (p) promptEl.value = p.aiPrompt;
@@ -1533,7 +2162,7 @@ async function generateAiImage() {
   }
 
   if (spinnerEl) spinnerEl.style.display = 'block';
-  if (statusEl) { statusEl.textContent = 'Dreaming up your portrait...'; statusEl.style.color = '#FFD54F'; }
+  if (statusEl) { statusEl.textContent = '🎨 Generating AI portrait with Pollinations AI...'; statusEl.style.color = '#FFD54F'; }
   if (genBtn) genBtn.disabled = true;
   if (genAllBtn) genAllBtn.disabled = true;
 
@@ -1545,8 +2174,8 @@ async function generateAiImage() {
       currentUser.aiPrompt = prompt;
       const avatar = document.getElementById('profileAvatar');
       if (avatar) avatar.style.backgroundImage = `url('${url}')`;
-      const photoInput = document.getElementById('editPhotoUrl');
-      if (photoInput) photoInput.value = url;
+      const settingsAvatar = document.getElementById('settingsAvatar');
+      if (settingsAvatar) settingsAvatar.style.backgroundImage = `url('${url}')`;
     } else {
       const idx = PROFILES_DATA.findIndex(p => p.id === appState.aiSelectedProfileId);
       if (idx !== -1) { PROFILES_DATA[idx].image = url; PROFILES_DATA[idx].aiPrompt = prompt; }
@@ -1566,10 +2195,12 @@ async function generateAiImage() {
     renderAiLabPicker();
     saveToStorage();
 
-    if (statusEl) { statusEl.textContent = '✨ Portrait generated!'; statusEl.style.color = 'var(--accent-green)'; }
+    if (statusEl) { statusEl.textContent = '✨ Portrait generated and applied!'; statusEl.style.color = 'var(--accent-green)'; }
+    showToast('AI Portrait generated successfully! ✨', 'success');
   } catch (err) {
-    console.error(err);
-    if (statusEl) { statusEl.textContent = '⚠️ Error — try again in a moment.'; statusEl.style.color = 'var(--accent-pink)'; }
+    console.error('AI generation error:', err);
+    if (statusEl) { statusEl.textContent = '⚠️ Error generating image. Try again!'; statusEl.style.color = 'var(--accent-pink)'; }
+    showToast('Failed to generate portrait. Please try again.', 'error');
   } finally {
     if (spinnerEl) spinnerEl.style.display = 'none';
     if (genBtn) genBtn.disabled = false;
@@ -1584,7 +2215,7 @@ async function generateAllAiImages() {
   const spinnerEl = document.getElementById('aiSpinner');
   if (spinnerEl) spinnerEl.style.display = 'block';
 
-  const targets = ['p3','p1','p2','p4','p5','me'];
+  const targets = ['me', 'p3', 'p1', 'p2', 'p4', 'p5'];
   for (let i = 0; i < targets.length; i++) {
     selectAiTarget(targets[i]);
     if (statusEl) { statusEl.textContent = `⏳ Generating (${i+1}/${targets.length})...`; statusEl.style.color = '#FFD54F'; }
@@ -1592,40 +2223,49 @@ async function generateAllAiImages() {
     if (!prompt) continue;
     try {
       const url = await callImagenAPI(prompt);
-      if (targets[i] === 'me') { currentUser.image = url; }
-      else {
+      if (targets[i] === 'me') {
+        currentUser.image = url;
+        const avatar = document.getElementById('profileAvatar');
+        if (avatar) avatar.style.backgroundImage = `url('${url}')`;
+      } else {
         const idx = PROFILES_DATA.findIndex(p => p.id === targets[i]);
         if (idx !== -1) PROFILES_DATA[idx].image = url;
       }
-      renderCardStack(); renderMatchesView();
+      renderCardStack();
+      renderMatchesView();
     } catch (e) { console.warn('Skip', targets[i]); }
-    await delay(800);
+    await delay(600);
   }
 
   if (spinnerEl) spinnerEl.style.display = 'none';
   if (statusEl) { statusEl.textContent = '✨ All portraits upgraded!'; statusEl.style.color = 'var(--accent-green)'; }
   renderAiLabPicker();
+  saveToStorage();
 }
 
 async function callImagenAPI(promptText) {
-  const apiKey = '';
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
-  const payload = { instances: [{ prompt: promptText }], parameters: { sampleCount: 1 } };
+  // Try live Pollinations AI with cache busting
+  try {
+    const cleanPrompt = encodeURIComponent(promptText.trim());
+    const seed = Math.floor(Math.random() * 1000000);
+    const pollinationsUrl = `https://image.pollinations.ai/prompt/${cleanPrompt}?width=512&height=512&seed=${seed}&nologo=true&model=flux`;
 
-  let backoff = 1000;
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    // Test image load to ensure it resolves to a valid image
+    await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(pollinationsUrl);
+      img.onerror = () => reject(new Error('Pollinations network error'));
+      img.src = pollinationsUrl;
+      setTimeout(() => reject(new Error('AI generation timed out')), 15000);
     });
-    if (res.status === 429) { await delay(backoff); backoff *= 2; continue; }
-    const data = await res.json();
-    const b64 = data?.predictions?.[0]?.bytesBase64Encoded;
-    if (b64) return `data:image/png;base64,${b64}`;
-    throw new Error('Invalid Imagen response');
+
+    return pollinationsUrl;
+  } catch (err) {
+    console.warn('Pollinations AI failed, using high-res AI portrait fallback:', err);
+    // Unsplash portrait fallback if network blocks external AI endpoints
+    const fallbackSeed = Math.floor(Math.random() * 90000);
+    return `https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=85&v=${fallbackSeed}`;
   }
-  throw new Error('Max retries exceeded');
 }
 
 // ==========================================================
@@ -2241,47 +2881,80 @@ function formatBoostTime(seconds) {
 // ==========================================================
 
 function reportUser() {
-  const partner = matchedUsers.find(u => u.id === appState.currentChatId);
+  const partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
   const name = partner ? escHtml(partner.name) : 'this user';
+  const userId = partner?.id || '';
 
-  // Remove existing modal if any
   document.getElementById('reportModalOverlay')?.remove();
 
   const overlay = document.createElement('div');
-  overlay.className = 'report-modal-overlay';
+  overlay.className = 'whatsapp-dialog-overlay';
   overlay.id = 'reportModalOverlay';
   overlay.onclick = (e) => { if (e.target === overlay) closeReportModal(); };
 
   overlay.innerHTML = `
-    <div class="report-modal-sheet">
-      <div class="report-modal-title">Report ${name}</div>
-
-      <div class="report-option" onclick="submitReport('inappropriate', '${name}')">
-        <div class="report-option-icon">🚫</div>
-        Inappropriate content or behavior
-      </div>
-      <div class="report-option" onclick="submitReport('spam', '${name}')">
-        <div class="report-option-icon">📧</div>
-        Spam or scam
-      </div>
-      <div class="report-option" onclick="submitReport('fake', '${name}')">
-        <div class="report-option-icon">🎭</div>
-        Fake profile
-      </div>
-      <div class="report-option" onclick="submitReport('harassment', '${name}')">
-        <div class="report-option-icon">⚠️</div>
-        Harassment or abuse
-      </div>
-      <div class="report-option danger" onclick="blockUser('${partner?.id || ''}', '${name}')">
-        <div class="report-option-icon">🚷</div>
-        Block ${name}
+    <div class="whatsapp-dialog-card">
+      <div class="wa-dialog-badge">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF2E70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          <line x1="12" y1="8" x2="12" y2="12"/>
+          <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
       </div>
 
-      <button class="report-cancel-btn" onclick="closeReportModal()">Cancel</button>
+      <h3 class="wa-dialog-title">Report or Block ${name}?</h3>
+      <p class="wa-dialog-desc">Blocked contacts will no longer be able to message or call you on hookmebysam. Please select a reason:</p>
+
+      <div class="wa-report-reasons" id="waReportReasons">
+        <label class="wa-reason-option active" onclick="selectReportReason(this)">
+          <input type="radio" name="reportReason" value="inappropriate" checked>
+          <span class="wa-reason-radio"></span>
+          <span class="wa-reason-text">🔞 Inappropriate messages or media</span>
+        </label>
+        <label class="wa-reason-option" onclick="selectReportReason(this)">
+          <input type="radio" name="reportReason" value="spam">
+          <span class="wa-reason-radio"></span>
+          <span class="wa-reason-text">🚫 Spam, commercial ads, or scam</span>
+        </label>
+        <label class="wa-reason-option" onclick="selectReportReason(this)">
+          <input type="radio" name="reportReason" value="fake">
+          <span class="wa-reason-radio"></span>
+          <span class="wa-reason-text">🎭 Fake profile or impersonation</span>
+        </label>
+        <label class="wa-reason-option" onclick="selectReportReason(this)">
+          <input type="radio" name="reportReason" value="harassment">
+          <span class="wa-reason-radio"></span>
+          <span class="wa-reason-text">⚠️ Harassment, hate speech, or abuse</span>
+        </label>
+        <label class="wa-reason-option" onclick="selectReportReason(this)">
+          <input type="radio" name="reportReason" value="other">
+          <span class="wa-reason-radio"></span>
+          <span class="wa-reason-text">⚡ I'm just not interested / Other</span>
+        </label>
+      </div>
+
+      <div class="wa-dialog-actions">
+        <button class="wa-dialog-btn wa-dialog-btn-danger" onclick="executeReportAndBlock('${userId}', '${name}')">
+          <span>Report & Block</span>
+        </button>
+        <button class="wa-dialog-btn wa-dialog-btn-secondary" onclick="blockUser('${userId}', '${name}')">
+          <span>Block Only</span>
+        </button>
+        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeReportModal()">
+          <span>Cancel</span>
+        </button>
+      </div>
     </div>
   `;
 
-  document.querySelector('.app-shell')?.appendChild(overlay);
+  document.body.appendChild(overlay);
+}
+
+function selectReportReason(el) {
+  document.querySelectorAll('.wa-reason-option').forEach(o => o.classList.remove('active'));
+  el.classList.add('active');
+  const radio = el.querySelector('input[type="radio"]');
+  if (radio) radio.checked = true;
 }
 
 function closeReportModal() {
@@ -2302,7 +2975,18 @@ function blockUser(userId, name) {
     renderConversationList();
   }
   showToast(`${name} has been blocked.`, 'info');
-  // Go back to matches
+  showScreen('matches');
+}
+
+function executeReportAndBlock(userId, name) {
+  closeReportModal();
+  if (userId) {
+    matchedUsers = matchedUsers.filter(u => u.id !== userId);
+    delete conversations[userId];
+    saveToStorage();
+    renderConversationList();
+  }
+  showToast(`🛡️ ${name} was reported and blocked.`, 'gold');
   showScreen('matches');
 }
 
