@@ -130,6 +130,16 @@ let settings = {
   shareLocation: true,
 };
 
+// Known dummy / AI demo profile IDs
+const DUMMY_USER_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'pm1', 'pm2', 's1', 's2', 's3', 's4', 's5'];
+
+function isRealUserLoggedIn() {
+  return Boolean(
+    (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) ||
+    (appState.isLoggedIn && currentUser.email && !currentUser.email.includes('guest') && !currentUser.email.includes('demo') && currentUser.id && !currentUser.id.startsWith('demo'))
+  );
+}
+
 // ==========================================================
 // INIT
 // ==========================================================
@@ -148,6 +158,17 @@ window.addEventListener('load', () => {
 });
 
 function initMainApp() {
+  if (isRealUserLoggedIn()) {
+    // Purge any guest/demo dummy AI profiles so the logged-in user only interacts with 100% real users
+    matchedUsers = (matchedUsers || []).filter(u => !DUMMY_USER_IDS.includes(u.id));
+    DUMMY_USER_IDS.forEach(id => delete conversations[id]);
+    profileStack = [];
+    saveToStorage();
+  } else {
+    // Guest exploration mode: allow playing with demo profiles
+    profileStack = [...PROFILES_DATA];
+  }
+
   renderCardStack();
   renderMatchesView();
   renderProfileScreen();
@@ -164,7 +185,7 @@ function initMainApp() {
     listenToUserMatches((realMatches) => {
       if (realMatches && realMatches.length > 0) {
         realMatches.forEach(m => {
-          if (!matchedUsers.find(u => u.id === m.id)) {
+          if (!DUMMY_USER_IDS.includes(m.id) && !matchedUsers.find(u => u.id === m.id)) {
             matchedUsers.push(m);
             if (!conversations[m.id]) {
               conversations[m.id] = { messages: [] };
@@ -191,15 +212,25 @@ function initMainApp() {
 }
 
 async function loadProfilesForDiscovery() {
-  if (typeof fetchRealUsersFromFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    const realUsers = await fetchRealUsersFromFirestore();
-    if (realUsers && realUsers.length > 0) {
-      profileStack = [...realUsers];
-      renderCardStack();
-      console.log(`🔥 Discovery stack updated with ${realUsers.length} real Firestore user(s)!`);
+  if (isRealUserLoggedIn()) {
+    // REAL LOGGED IN USER: ONLY fetch from Firestore, never fall back to dummy AI users
+    if (typeof fetchRealUsersFromFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+      const realUsers = await fetchRealUsersFromFirestore();
+      if (realUsers && realUsers.length > 0) {
+        profileStack = [...realUsers];
+        console.log(`🔥 Discovery stack updated with ${realUsers.length} real Firestore user(s)!`);
+      } else {
+        profileStack = [];
+        console.log("ℹ️ No other real Firestore users found in database yet. Waiting for new users to register.");
+      }
     } else {
-      console.log("ℹ️ No other real Firestore users found in database yet. Register a 2nd user to see them here.");
+      profileStack = [];
     }
+    renderCardStack();
+  } else {
+    // GUEST DEMO MODE: load mock profiles for exploration
+    profileStack = [...PROFILES_DATA];
+    renderCardStack();
   }
 }
 
@@ -525,6 +556,26 @@ function handleGoogleLogin() {
     btn.disabled = false;
     btn.innerHTML = `${googleIconSvg} Continue with Google`;
   }, 1100);
+}
+
+function handleGuestLogin() {
+  appState.isLoggedIn = true;
+  currentUser = {
+    id: 'demo_guest_' + Date.now(),
+    name: 'Guest Explorer',
+    age: 24,
+    email: 'guest@demo.local',
+    gender: 'female',
+    interests: ['Music 🎵', 'Travel ✈️', 'Foodie 🍕'],
+    bio: 'Exploring HookMeBySam in guest mode ✨',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
+    location: 'Lagos, Nigeria',
+    shareLocation: true,
+  };
+  saveToStorage();
+  showToast('Logged in as Guest Explorer! 🌟', 'info');
+  showScreen('discovery');
+  initMainApp();
 }
 
 function togglePasswordVisibility(inputId, btnEl) {
@@ -913,9 +964,14 @@ function undoSwipe() {
 }
 
 function refreshStack() {
-  profileStack = [...PROFILES_DATA];
-  appState.lastAction = null;
-  renderCardStack();
+  if (isRealUserLoggedIn()) {
+    showToast('Checking for new profiles nearby... 🔍', 'info');
+    loadProfilesForDiscovery();
+  } else {
+    profileStack = [...PROFILES_DATA];
+    appState.lastAction = null;
+    renderCardStack();
+  }
 }
 
 // ==========================================================
@@ -2475,13 +2531,15 @@ function completeVipUpgrade() {
 
   showToast('👑 VIP GOLD ACTIVATED!');
 
-  // Reveal premium matches
-  PREMIUM_MATCHES.forEach(pm => {
-    if (!matchedUsers.find(u => u.id === pm.id)) {
-      matchedUsers.push(pm);
-      conversations[pm.id] = { messages: [{ sender: 'them', text: 'You unlocked matching with me! Say hi 💛' }] };
-    }
-  });
+  // Reveal premium matches (guest demo mode only)
+  if (!isRealUserLoggedIn()) {
+    PREMIUM_MATCHES.forEach(pm => {
+      if (!matchedUsers.find(u => u.id === pm.id)) {
+        matchedUsers.push(pm);
+        conversations[pm.id] = { messages: [{ sender: 'them', text: 'You unlocked matching with me! Say hi 💛' }] };
+      }
+    });
+  }
 
   renderMatchesView();
   revealBlurredMatches();
@@ -2630,6 +2688,20 @@ let storyTimer = null;
 function renderStoriesRow() {
   const scroll = document.getElementById('storiesScroll');
   if (!scroll) return;
+
+  if (isRealUserLoggedIn()) {
+    // Show user's own story bubble (+ icon / add status like WhatsApp/Instagram)
+    const userAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+    scroll.innerHTML = `
+      <div class="story-bubble your-story" onclick="showToast('Story uploads coming soon! 📸', 'info')">
+        <div class="story-avatar-ring your-story-ring">
+          <div class="story-avatar-img" style="background-image:url('${userAvatar}')"></div>
+          <span class="story-add-badge">+</span>
+        </div>
+        <span class="story-name">Your Story</span>
+      </div>`;
+    return;
+  }
 
   scroll.innerHTML = STORY_DATA.map((s, idx) => {
     const seen = seenStories.has(s.id);
@@ -3077,9 +3149,12 @@ async function handleUserSearchInput(e) {
       matches = await searchUsersInFirestore(query);
     }
 
-    // Combine with local demo profiles
+    // Combine with local pool: only include demo profiles for guests
     const qLower = query.toLowerCase();
-    const localMatches = [...PROFILES_DATA, ...matchedUsers].filter(u =>
+    const localPool = isRealUserLoggedIn() ? (matchedUsers || []) : [...PROFILES_DATA, ...matchedUsers];
+    const localMatches = localPool.filter(u =>
+      !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
+    ).filter(u =>
       (u.name && u.name.toLowerCase().includes(qLower)) ||
       (u.bio && u.bio.toLowerCase().includes(qLower)) ||
       (u.email && u.email.toLowerCase().includes(qLower))
@@ -3208,9 +3283,12 @@ async function handleModalSearchInput(e) {
       matches = await searchUsersInFirestore(query);
     }
 
-    // Combine with local demo profiles
+    // Combine with local pool: only include demo profiles for guests
     const qLower = query.toLowerCase();
-    const localMatches = [...PROFILES_DATA, ...matchedUsers].filter(u =>
+    const localPool = isRealUserLoggedIn() ? (matchedUsers || []) : [...PROFILES_DATA, ...matchedUsers];
+    const localMatches = localPool.filter(u =>
+      !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
+    ).filter(u =>
       (u.name && u.name.toLowerCase().includes(qLower)) ||
       (u.bio && u.bio.toLowerCase().includes(qLower)) ||
       (u.email && u.email.toLowerCase().includes(qLower))
