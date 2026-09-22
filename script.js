@@ -120,6 +120,7 @@ let currentUser = {
 let profileStack = [...PROFILES_DATA];
 let matchedUsers = [];
 let conversations = {};
+let blockedUsers = [];
 let settings = {
   maxDistance: 50,
   minAge: 20, maxAge: 35,
@@ -300,6 +301,12 @@ function loadFromStorage() {
     if (savedConvos) {
       conversations = JSON.parse(savedConvos);
     }
+    const savedBlocked = localStorage.getItem('hmbs_blocked');
+    if (savedBlocked) {
+      try {
+        blockedUsers = JSON.parse(savedBlocked);
+      } catch (e) {}
+    }
     sortMatchedUsersByLatest();
     updateMatchesNotificationBadge();
   } catch (e) {
@@ -319,6 +326,7 @@ function saveToStorage() {
     localStorage.setItem('hmbs_settings', JSON.stringify(settings));
     localStorage.setItem('hmbs_matches', JSON.stringify(matchedUsers));
     localStorage.setItem('hmbs_convos', JSON.stringify(conversations));
+    localStorage.setItem('hmbs_blocked', JSON.stringify(blockedUsers));
   } catch (e) {
     console.warn('Storage save error', e);
   }
@@ -2727,6 +2735,13 @@ function renderSettingsScreen() {
   // User email
   const emailRow = document.getElementById('settingsEmailValue');
   if (emailRow) emailRow.textContent = currentUser.email;
+
+  // Blocked contacts count
+  const blockedSub = document.getElementById('settingsBlockedCountSub');
+  if (blockedSub) {
+    const count = blockedUsers.length;
+    blockedSub.textContent = count === 1 ? '1 contact blocked' : `${count} contacts blocked`;
+  }
 }
 
 function updateDistanceSetting() {
@@ -3516,10 +3531,29 @@ function submitReport(reason, name) {
 function blockUser(userId, name) {
   closeReportModal();
   if (userId) {
+    const existing = matchedUsers.find(u => u.id === userId);
+    const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
+    const userObj = existing || fallback || { id: userId, name: name };
+
+    if (!blockedUsers.some(b => b.id === userId)) {
+      blockedUsers.unshift({
+        id: userId,
+        name: userObj.name || name || 'User',
+        image: userObj.image || userObj.photoUrl || '',
+        bio: userObj.bio || '',
+        age: userObj.age || 24,
+        blockedAt: Date.now()
+      });
+    }
+
     matchedUsers = matchedUsers.filter(u => u.id !== userId);
+    profileStack = profileStack.filter(p => p.id !== userId);
     delete conversations[userId];
+
     saveToStorage();
-    renderConversationList();
+    renderMatchesView();
+    renderSettingsScreen();
+    updateMatchesNotificationBadge();
   }
   showToast(`${name} has been blocked.`, 'info');
   showScreen('matches');
@@ -3528,13 +3562,188 @@ function blockUser(userId, name) {
 function executeReportAndBlock(userId, name) {
   closeReportModal();
   if (userId) {
+    const existing = matchedUsers.find(u => u.id === userId);
+    const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
+    const userObj = existing || fallback || { id: userId, name: name };
+
+    if (!blockedUsers.some(b => b.id === userId)) {
+      blockedUsers.unshift({
+        id: userId,
+        name: userObj.name || name || 'User',
+        image: userObj.image || userObj.photoUrl || '',
+        bio: userObj.bio || '',
+        age: userObj.age || 24,
+        blockedAt: Date.now()
+      });
+    }
+
     matchedUsers = matchedUsers.filter(u => u.id !== userId);
+    profileStack = profileStack.filter(p => p.id !== userId);
     delete conversations[userId];
+
     saveToStorage();
-    renderConversationList();
+    renderMatchesView();
+    renderSettingsScreen();
+    updateMatchesNotificationBadge();
   }
   showToast(`🛡️ ${name} was reported and blocked.`, 'gold');
   showScreen('matches');
+}
+
+// ==========================================================
+// UNBLOCK & BLOCKED CONTACTS MANAGEMENT
+// ==========================================================
+
+function openBlockedUsersModal() {
+  document.getElementById('blockedUsersModalOverlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'whatsapp-dialog-overlay';
+  overlay.id = 'blockedUsersModalOverlay';
+  overlay.onclick = (e) => { if (e.target === overlay) closeBlockedUsersModal(); };
+
+  overlay.innerHTML = `
+    <div class="whatsapp-dialog-card" style="max-width:480px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:38px;height:38px;border-radius:50%;background:rgba(255,46,112,0.14);display:flex;align-items:center;justify-content:center;color:#FF2E70;flex-shrink:0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1c1.06 1.35 1.69 3.05 1.69 4.9 0 4.42-3.58 8-8 8z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="wa-dialog-title" style="margin:0;font-size:1.15rem;text-align:left;">Blocked Contacts</h3>
+            <span style="font-size:0.75rem;color:var(--txt-muted);display:block;margin-top:2px;">Manage contacts you've blocked</span>
+          </div>
+        </div>
+        <button onclick="closeBlockedUsersModal()" style="background:none;border:none;color:var(--txt-muted);cursor:pointer;font-size:1.3rem;padding:4px 8px;">✕</button>
+      </div>
+
+      <p class="wa-dialog-desc" style="text-align:left;font-size:0.83rem;margin-bottom:6px;">
+        Blocked contacts cannot message or call you. Tap <strong>Unblock</strong> beside any contact to restore them.
+      </p>
+
+      <div class="blocked-users-list" id="blockedUsersContainer">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeBlockedUsersModal()" style="width:auto;padding:8px 24px;">
+          <span>Done</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  renderBlockedUsersListInModal();
+}
+
+function closeBlockedUsersModal() {
+  document.getElementById('blockedUsersModalOverlay')?.remove();
+}
+
+function renderBlockedUsersListInModal() {
+  const container = document.getElementById('blockedUsersContainer');
+  if (!container) return;
+
+  if (blockedUsers.length === 0) {
+    container.innerHTML = `
+      <div class="blocked-empty-box">
+        <div class="blocked-empty-icon">🛡️</div>
+        <div class="blocked-empty-text" style="font-weight:600;color:var(--txt-primary);">No Blocked Contacts</div>
+        <div class="blocked-empty-text" style="font-size:0.8rem;margin-top:4px;">You haven't blocked any contacts. Profiles you block will appear here.</div>
+        <button class="unblock-action-btn" onclick="restoreDefaultDemoContacts()" style="margin-top:16px;background:rgba(255,46,112,0.12);border-color:#FF2E70;padding:8px 18px;font-size:0.82rem;">
+          🔄 Restore All Demo Matches
+        </button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = blockedUsers.map(u => {
+    const photo = u.image || '';
+    const initial = u.name ? u.name.charAt(0) : '?';
+    const dateStr = u.blockedAt ? new Date(u.blockedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Recently';
+
+    return `
+      <div class="blocked-user-item">
+        <div class="blocked-user-left">
+          <div class="blocked-avatar" style="${photo ? `background-image:url('${photo}')` : ''}">
+            ${!photo ? initial : ''}
+          </div>
+          <div class="blocked-user-meta">
+            <div class="blocked-user-name">${escHtml(u.name)}</div>
+            <div class="blocked-user-date">Blocked • ${dateStr}</div>
+          </div>
+        </div>
+        <button class="unblock-action-btn" onclick="unblockUser('${u.id}', '${u.name.replace(/'/g, "\\'")}')">
+          Unblock
+        </button>
+      </div>
+    `;
+  }).join('');
+}
+
+function unblockUser(userId, name) {
+  const idx = blockedUsers.findIndex(b => b.id === userId);
+  let userName = name || 'User';
+  let userObj = null;
+
+  if (idx !== -1) {
+    userObj = blockedUsers[idx];
+    userName = userObj.name || userName;
+    blockedUsers.splice(idx, 1);
+  }
+
+  // Restore the user back to matches and conversations so user can chat with them again!
+  const restoredProfile = userObj || PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
+  if (restoredProfile) {
+    if (!matchedUsers.some(u => u.id === userId)) {
+      matchedUsers.unshift({
+        id: restoredProfile.id,
+        name: restoredProfile.name || userName,
+        age: restoredProfile.age || 24,
+        image: restoredProfile.image || '',
+        bio: restoredProfile.bio || '',
+        tags: restoredProfile.tags || ['Music 🎵', 'Positive vibes ✨'],
+        distance: restoredProfile.distance || '2 km'
+      });
+    }
+    if (!conversations[userId]) {
+      conversations[userId] = {
+        messages: [{ sender: 'them', text: 'You unblocked this contact. Say hi! 👋', read: true, timestamp: Date.now() }]
+      };
+    }
+  }
+
+  saveToStorage();
+  renderMatchesView();
+  renderSettingsScreen();
+  updateMatchesNotificationBadge();
+
+  showToast(`✨ ${userName} has been unblocked!`, 'gold');
+  renderBlockedUsersListInModal();
+}
+
+function restoreDefaultDemoContacts() {
+  PROFILES_DATA.slice(0, 3).forEach(p => {
+    if (!matchedUsers.some(u => u.id === p.id)) {
+      matchedUsers.push(p);
+      if (!conversations[p.id]) {
+        conversations[p.id] = {
+          messages: [{ sender: 'them', text: 'Hey there! Let\'s chat 😊', read: true, timestamp: Date.now() }]
+        };
+      }
+    }
+  });
+  blockedUsers = [];
+  saveToStorage();
+  renderMatchesView();
+  renderSettingsScreen();
+  updateMatchesNotificationBadge();
+  closeBlockedUsersModal();
+  showToast('✨ Contacts restored successfully!', 'gold');
 }
 
 // ==========================================================
