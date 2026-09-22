@@ -106,15 +106,15 @@ let appState = {
 
 let currentUser = {
   id: 'me',
-  name: 'Dave Bigdave',
-  email: 'dave@example.com',
+  name: '',
+  email: '',
   age: 24,
-  bio: 'Software engineer and builder. Love beach hangouts in Lekki and good vibes!',
-  image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80',
+  bio: '',
+  image: '',
+  avatar: '',
   location: 'Lagos, Nigeria',
-  gender: 'Male',
-  interests: ['Tech 💻', 'Fitness 💪', 'Music 🎵'],
-  aiPrompt: 'Handsome 24 year old male software engineer, warm friendly expression, workspace background, realistic portrait'
+  gender: 'Female',
+  interests: ['Music 🎵', 'Vibes ✨'],
 };
 
 let profileStack = [...PROFILES_DATA];
@@ -251,6 +251,11 @@ function loadFromStorage() {
     const savedUser = localStorage.getItem('hmbs_user');
     if (savedUser) {
       currentUser = { ...currentUser, ...JSON.parse(savedUser) };
+      // Purge any legacy template demo image so user must upload their own real photo
+      if (currentUser.image && (currentUser.image.includes('photo-1506794778202') || currentUser.image.includes('photo-1534528741775'))) {
+        currentUser.image = '';
+        currentUser.avatar = '';
+      }
     }
     const savedSettings = localStorage.getItem('hmbs_settings');
     if (savedSettings) {
@@ -482,9 +487,29 @@ function handleLogin() {
   // ---- FIREBASE LIVE MODE ----
   if (typeof fbAuth !== 'undefined' && fbAuth) {
     fbAuth.signInWithEmailAndPassword(email, password)
-      .then((userCredential) => {
+      .then(async (userCredential) => {
         currentUser.email = userCredential.user.email;
         currentUser.id = userCredential.user.uid;
+        if (typeof fbDb !== 'undefined' && fbDb) {
+          try {
+            const userDoc = await fbDb.collection('users').doc(userCredential.user.uid).get();
+            if (userDoc && userDoc.exists) {
+              const uData = userDoc.data();
+              if (uData.name || uData.displayName) currentUser.name = uData.displayName || uData.name;
+              if (uData.age) currentUser.age = uData.age;
+              if (uData.bio) currentUser.bio = uData.bio;
+              if (uData.gender) currentUser.gender = uData.gender;
+              if (uData.interests) currentUser.interests = uData.interests;
+              if (uData.location) currentUser.location = uData.location;
+              if (uData.image || uData.avatar) {
+                currentUser.image = uData.image || uData.avatar;
+                currentUser.avatar = currentUser.image;
+              }
+            }
+          } catch (e) {
+            console.warn("Could not fetch user profile from Firestore:", e);
+          }
+        }
         appState.isLoggedIn = true;
         saveToStorage();
         showScreen('discovery');
@@ -667,6 +692,10 @@ function nextSignupStep() {
       if (errorEl) errorEl.textContent = 'Write a short bio (at least 10 characters).';
       return;
     }
+    if (!currentUser.image && !currentUser.avatar) {
+      if (errorEl) errorEl.textContent = 'Please upload your profile photo to continue! Every user must have their own real photo. 📸';
+      return;
+    }
     currentUser.bio = bio;
     currentUser.location = location || 'Lagos, Nigeria';
   }
@@ -702,6 +731,12 @@ function completeSignup() {
     return;
   }
 
+  const userPhoto = currentUser.image || currentUser.avatar;
+  if (!userPhoto) {
+    if (errorEl) errorEl.textContent = 'Profile picture missing. Please go back to Step 3 and upload your photo.';
+    return;
+  }
+
   const btn = document.getElementById('signupCompleteBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = 'Creating account...'; }
 
@@ -715,7 +750,7 @@ function completeSignup() {
         appState.isLoggedIn = true;
         saveToStorage();
 
-        // Save complete profile to Firestore
+        // Save complete profile to Firestore with their real uploaded photo
         if (typeof fbDb !== 'undefined' && fbDb) {
           const userName = currentUser.name || currentUser.displayName || email.split('@')[0];
           await fbDb.collection('users').doc(user.uid).set({
@@ -727,7 +762,8 @@ function completeSignup() {
             bio: currentUser.bio || 'Looking for real connections on hookmebysam!',
             gender: currentUser.gender || 'Female',
             interests: currentUser.interests || ['Music 🎵', 'Vibes ✨'],
-            image: currentUser.image || currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+            image: userPhoto,
+            avatar: userPhoto,
             isVip: false,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
@@ -2053,11 +2089,18 @@ function renderProfileScreen() {
   const bioInput = document.getElementById('editBio');
   const locInput = document.getElementById('editLocation');
 
+  const photo = currentUser.image || currentUser.avatar || '';
   if (avatar) {
-    avatar.style.backgroundImage = `url('${currentUser.image || currentUser.avatar || ''}')`;
+    if (photo) {
+      avatar.style.backgroundImage = `url('${photo}')`;
+      avatar.textContent = '';
+    } else {
+      avatar.style.backgroundImage = 'none';
+      avatar.textContent = '👤';
+    }
     if (appState.isVip) avatar.classList.add('vip');
   }
-  if (nameEl) nameEl.textContent = `${currentUser.name || currentUser.displayName || 'User'}${currentUser.age ? `, ${currentUser.age}` : ''}`;
+  if (nameEl) nameEl.textContent = `${currentUser.name || currentUser.displayName || 'Your Profile'}${currentUser.age ? `, ${currentUser.age}` : ''}`;
   if (nameInput) nameInput.value = currentUser.name || currentUser.displayName || '';
   if (ageInput) ageInput.value = currentUser.age || 24;
   if (bioInput) bioInput.value = currentUser.bio || '';
@@ -2072,7 +2115,42 @@ function renderProfileScreen() {
   }
 }
 
-function handleProfilePhotoUpload(event) {
+// Client-side image compression to store real photos compactly & fast in Firestore
+function compressImage(file, maxDimension = 600, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = reject;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > height) {
+          if (width > maxDimension) {
+            height = Math.round((height * maxDimension) / width);
+            width = maxDimension;
+          }
+        } else {
+          if (height > maxDimension) {
+            width = Math.round((width * maxDimension) / height);
+            height = maxDimension;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleProfilePhotoUpload(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
 
@@ -2081,25 +2159,43 @@ function handleProfilePhotoUpload(event) {
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const dataUrl = e.target.result;
+  showToast('Processing your photo... 📸', 'info');
+  try {
+    const dataUrl = await compressImage(file, 600, 0.82);
     currentUser.image = dataUrl;
     currentUser.avatar = dataUrl;
 
     const avatar = document.getElementById('profileAvatar');
-    if (avatar) avatar.style.backgroundImage = `url('${dataUrl}')`;
+    if (avatar) {
+      avatar.style.backgroundImage = `url('${dataUrl}')`;
+      avatar.textContent = '';
+    }
 
     const settingsAvatar = document.getElementById('settingsAvatar');
-    if (settingsAvatar) settingsAvatar.style.backgroundImage = `url('${dataUrl}')`;
+    if (settingsAvatar) {
+      settingsAvatar.style.backgroundImage = `url('${dataUrl}')`;
+      settingsAvatar.textContent = '';
+    }
 
     saveToStorage();
-    showToast('Profile photo updated! Remember to click Save Profile.', 'success');
-  };
-  reader.readAsDataURL(file);
+
+    // Immediately sync real photo to Firestore so other members see it
+    if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+      fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+        image: dataUrl,
+        avatar: dataUrl,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(err => console.warn('Could not sync photo to Firestore:', err));
+    }
+
+    showToast('✓ Real profile photo updated! ✨', 'success');
+  } catch (err) {
+    console.error('Photo upload error:', err);
+    showToast('Could not process this image. Try another photo.', 'error');
+  }
 }
 
-function handleSignupPhotoUpload(event) {
+async function handleSignupPhotoUpload(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
 
@@ -2108,9 +2204,9 @@ function handleSignupPhotoUpload(event) {
     return;
   }
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const dataUrl = e.target.result;
+  showToast('Processing photo... 📸', 'info');
+  try {
+    const dataUrl = await compressImage(file, 600, 0.82);
     currentUser.image = dataUrl;
     currentUser.avatar = dataUrl;
 
@@ -2118,10 +2214,15 @@ function handleSignupPhotoUpload(event) {
     if (preview) {
       preview.style.backgroundImage = `url('${dataUrl}')`;
       preview.textContent = '';
+      preview.style.borderColor = 'var(--flame-1)';
     }
-    showToast('Photo uploaded successfully! ✨', 'success');
-  };
-  reader.readAsDataURL(file);
+    const errEl = document.getElementById('signupError3');
+    if (errEl) errEl.textContent = '';
+    showToast('✓ Photo ready! Looks great! ✨', 'success');
+  } catch (err) {
+    console.error('Signup photo upload error:', err);
+    showToast('Could not process this image. Try another photo.', 'error');
+  }
 }
 
 function saveProfile() {
@@ -2143,10 +2244,27 @@ function saveProfile() {
   saveToStorage();
   renderProfileScreen();
 
+  // Sync profile details and custom photo to Firestore
+  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+      name: currentUser.name,
+      displayName: currentUser.name,
+      age: currentUser.age,
+      bio: currentUser.bio,
+      location: currentUser.location,
+      image: currentUser.image || currentUser.avatar || '',
+      avatar: currentUser.image || currentUser.avatar || '',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).catch(err => console.warn('Could not sync profile to Firestore:', err));
+  }
+
   const settingsName = document.getElementById('settingsProfileName');
   if (settingsName) settingsName.textContent = currentUser.name;
   const settingsAvatar = document.getElementById('settingsAvatar');
-  if (settingsAvatar && currentUser.image) settingsAvatar.style.backgroundImage = `url('${currentUser.image}')`;
+  if (settingsAvatar && (currentUser.image || currentUser.avatar)) {
+    settingsAvatar.style.backgroundImage = `url('${currentUser.image || currentUser.avatar}')`;
+    settingsAvatar.textContent = '';
+  }
 
   const feedback = document.getElementById('profileSaveFeedback');
   if (feedback) {

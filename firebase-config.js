@@ -125,11 +125,16 @@ function listenToAuthChanges() {
       // Ensure targetUser has at least auth email and uid
       if (user.email) targetUser.email = user.email;
       if (user.uid) targetUser.id = user.uid;
+      if (targetUser.image || targetUser.avatar) {
+        targetUser.image = targetUser.image || targetUser.avatar;
+        targetUser.avatar = targetUser.image;
+      }
       
       if (typeof currentUser !== 'undefined') {
         Object.assign(currentUser, targetUser);
       }
       window.currentUser = targetUser;
+      if (typeof saveToStorage === 'function') saveToStorage();
       
       if (typeof appState !== 'undefined') appState.isLoggedIn = true;
       if (window.appState) window.appState.isLoggedIn = true;
@@ -197,13 +202,17 @@ async function fetchRealUsersFromFirestore() {
     snapshot.forEach(doc => {
       if (doc.id !== currentUserId) {
         const data = doc.data();
+        const userPhoto = data.image || data.avatar || '';
+        // Only show users who have uploaded their own real profile picture
+        if (!userPhoto) return;
+
         users.push({
           id: doc.id,
           name: data.displayName || data.name || 'User',
           age: data.age || 24,
           bio: data.bio || 'New on hookmebysam! Swipe right to chat.',
           gender: data.gender || 'Female',
-          image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+          image: userPhoto,
           tags: data.interests || ['Music 🎵', 'Vibes ✨'],
           distance: '2 km',
           mutualChance: true,
@@ -236,6 +245,7 @@ async function searchUsersInFirestore(queryText) {
         const bio = (data.bio || '').toLowerCase();
 
         if (name.includes(q) || email.includes(q) || bio.includes(q)) {
+          const userPhoto = data.image || data.avatar || '';
           results.push({
             id: doc.id,
             name: data.displayName || data.name || 'User',
@@ -243,7 +253,7 @@ async function searchUsersInFirestore(queryText) {
             age: data.age || 24,
             bio: data.bio || 'Registered user on hookmebysam.',
             gender: data.gender || 'Female',
-            image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+            image: userPhoto,
             tags: data.interests || ['Music 🎵', 'Vibes ✨'],
             isRealUser: true
           });
@@ -252,7 +262,7 @@ async function searchUsersInFirestore(queryText) {
     });
     return results;
   } catch (err) {
-    console.warn("User search error in Firestore:", err.message);
+    console.warn("Error searching Firestore users:", err.message);
     return [];
   }
 }

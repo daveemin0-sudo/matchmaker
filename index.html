@@ -265,15 +265,16 @@
             </div>
 
             <div class="auth-form-group">
-              <label>Profile Picture</label>
-              <div class="photo-upload-area" onclick="document.getElementById('signupPhotoFile').click()" style="padding:12px 14px;background:rgba(255,255,255,0.05);border:1.5px dashed var(--border);border-radius:var(--r-md);display:flex;align-items:center;gap:12px;cursor:pointer">
-                <div id="signupPhotoPreview" style="width:44px;height:44px;border-radius:50%;background:var(--bg-elevated);border:1.5px solid var(--border);background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:1.3rem">
+              <label>Profile Picture <span style="color:var(--flame-1)">*</span> <small style="font-weight:normal;color:var(--txt-muted);font-size:0.75rem">(Your own real photo required)</small></label>
+              <div class="photo-upload-area" onclick="document.getElementById('signupPhotoFile').click()" style="padding:14px;background:rgba(255,255,255,0.05);border:1.5px dashed var(--flame-1);border-radius:var(--r-md);display:flex;align-items:center;gap:14px;cursor:pointer">
+                <div id="signupPhotoPreview" style="width:52px;height:52px;border-radius:50%;background:var(--bg-elevated);border:2px solid var(--border);background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">
                   📷
                 </div>
                 <div style="flex:1">
-                  <div style="font-weight:700;font-size:0.86rem;color:var(--txt-primary)">Upload Your Photo</div>
-                  <div style="font-size:0.74rem;color:var(--txt-muted)">Tap to choose from gallery or files</div>
+                  <div style="font-weight:700;font-size:0.9rem;color:var(--txt-primary)">Upload Your Real Photo</div>
+                  <div style="font-size:0.74rem;color:var(--txt-muted)">Tap to choose from phone gallery or camera</div>
                 </div>
+                <button type="button" class="accent-btn" style="padding:6px 14px;font-size:0.78rem;width:auto;flex-shrink:0" onclick="event.stopPropagation();document.getElementById('signupPhotoFile').click()">Choose</button>
               </div>
               <input type="file" id="signupPhotoFile" accept="image/*" style="display:none" onchange="handleSignupPhotoUpload(event)">
             </div>
@@ -772,7 +773,8 @@
             <div class="profile-hero-glow"></div>
 
             <div class="profile-avatar-wrap">
-              <div class="profile-big-avatar" id="profileAvatar" style="background-image:url('https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=300&q=80')">
+              <div class="profile-big-avatar" id="profileAvatar" style="background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:2.4rem;color:var(--txt-muted);background-color:var(--bg-elevated)">
+                👤
               </div>
               <div class="avatar-edit-btn" onclick="document.getElementById('profilePhotoFile').click()" title="Change photo">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
@@ -802,7 +804,7 @@
           <!-- Profile Content -->
           <div class="profile-content">
             <div class="profile-name-row">
-              <div class="profile-display-name" id="profileDisplayName">Dave Bigdave, 24</div>
+              <div class="profile-display-name" id="profileDisplayName">User, 24</div>
               <span class="header-vip-badge" id="profileVipBadge" style="display:none">VIP</span>
             </div>
 
