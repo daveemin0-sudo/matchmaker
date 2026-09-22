@@ -176,6 +176,7 @@ function initMainApp() {
   renderAiLabPicker();
   applyVipUI();
   renderStoriesRow();
+  updateMatchesNotificationBadge();
 
   // Fetch real registered users from Firestore into the card stack
   loadProfilesForDiscovery();
@@ -184,16 +185,46 @@ function initMainApp() {
   if (typeof listenToUserMatches === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     listenToUserMatches((realMatches) => {
       if (realMatches && realMatches.length > 0) {
+        let hasNewIncomingMessage = false;
         realMatches.forEach(m => {
-          if (!DUMMY_USER_IDS.includes(m.id) && !matchedUsers.find(u => u.id === m.id)) {
-            matchedUsers.push(m);
+          if (!DUMMY_USER_IDS.includes(m.id)) {
+            const existingIndex = matchedUsers.findIndex(u => u.id === m.id);
+            if (existingIndex === -1) {
+              matchedUsers.unshift(m);
+            } else {
+              matchedUsers[existingIndex] = { ...matchedUsers[existingIndex], ...m };
+            }
             if (!conversations[m.id]) {
               conversations[m.id] = { messages: [] };
             }
+            // If match doc has latest message from partner, sync it
+            if (m.lastMessage && m.lastSender && fbAuth.currentUser && m.lastSender !== fbAuth.currentUser.uid) {
+              const msgs = conversations[m.id].messages;
+              const lastLocal = msgs[msgs.length - 1];
+              if (!lastLocal || lastLocal.text !== m.lastMessage) {
+                const isViewing = (appState.currentScreen === 'chat' && appState.currentChatId === m.id);
+                msgs.push({
+                  sender: 'them',
+                  text: m.lastMessage,
+                  read: isViewing,
+                  timestamp: m.lastUpdated || Date.now()
+                });
+                movePartnerToTop(m.id);
+                if (!isViewing) {
+                  hasNewIncomingMessage = true;
+                  showToast(`💬 ${m.name}: ${m.lastMessage.substring(0, 36)}...`, 'info');
+                }
+              }
+            }
           }
         });
+        sortMatchedUsersByLatest();
         renderMatchesView();
+        updateMatchesNotificationBadge();
         saveToStorage();
+        if (hasNewIncomingMessage) {
+          playNotificationSound();
+        }
       }
     });
   }
@@ -269,6 +300,8 @@ function loadFromStorage() {
     if (savedConvos) {
       conversations = JSON.parse(savedConvos);
     }
+    sortMatchedUsersByLatest();
+    updateMatchesNotificationBadge();
   } catch (e) {
     console.warn('Storage load error', e);
   }
@@ -459,7 +492,9 @@ function switchTab(tabId) {
   if (appState.currentScreen === 'chat') {
     appState.currentChatId = null;
   }
-  if (tabId === 'chatsList') {
+  if (tabId === 'matches') {
+    renderMatchesView();
+  } else if (tabId === 'chatsList') {
     renderChatsInbox();
   }
   showScreen(tabId);
@@ -1014,16 +1049,143 @@ function refreshStack() {
 }
 
 // ==========================================================
+// REAL-TIME NOTIFICATIONS & CONVERSATION ORDERING HELPERS
+// ==========================================================
+
+function getUnreadMessagesCount(partnerId) {
+  const msgs = conversations[partnerId]?.messages || [];
+  return msgs.filter(m => m.sender === 'them' && m.read === false).length;
+}
+
+function getTotalUnreadCount() {
+  let total = 0;
+  for (const partnerId in conversations) {
+    total += getUnreadMessagesCount(partnerId);
+  }
+  return total;
+}
+
+function updateMatchesNotificationBadge() {
+  const badge = document.getElementById('matchesNavBadge');
+  const headerBadge = document.getElementById('headerMatchesCountBadge');
+  const headerDot = document.getElementById('headerNotifDot');
+  const count = getTotalUnreadCount();
+
+  if (badge) {
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : count;
+      badge.style.display = 'inline-flex';
+      badge.classList.remove('badge-pop');
+      void badge.offsetWidth;
+      badge.classList.add('badge-pop');
+    } else {
+      badge.style.display = 'none';
+      badge.textContent = '0';
+    }
+  }
+
+  if (headerBadge) {
+    if (count > 0) {
+      headerBadge.textContent = count > 99 ? '99+' : count;
+      headerBadge.style.display = 'inline-flex';
+    } else {
+      headerBadge.style.display = 'none';
+      headerBadge.textContent = '0';
+    }
+  }
+
+  if (headerDot) {
+    headerDot.style.display = count > 0 ? 'block' : 'none';
+  }
+}
+
+function movePartnerToTop(partnerId) {
+  if (!partnerId) return;
+  const index = matchedUsers.findIndex(u => u.id === partnerId);
+  if (index > 0) {
+    const [partner] = matchedUsers.splice(index, 1);
+    matchedUsers.unshift(partner);
+  } else if (index === -1) {
+    const p = PROFILES_DATA.find(u => u.id === partnerId);
+    if (p) {
+      matchedUsers.unshift({ ...p });
+    }
+  }
+}
+
+function sortMatchedUsersByLatest() {
+  matchedUsers.sort((a, b) => {
+    const aHist = conversations[a.id]?.messages || [];
+    const bHist = conversations[b.id]?.messages || [];
+    const aLast = aHist[aHist.length - 1];
+    const bLast = bHist[bHist.length - 1];
+    const aTime = aLast?.timestamp || (a.lastUpdated || a.matchedAt || 0);
+    const bTime = bLast?.timestamp || (b.lastUpdated || b.matchedAt || 0);
+    return bTime - aTime;
+  });
+}
+
+function markConversationAsRead(partnerId) {
+  if (conversations[partnerId]?.messages) {
+    let changed = false;
+    conversations[partnerId].messages.forEach(m => {
+      if (m.sender === 'them' && m.read === false) {
+        m.read = true;
+        changed = true;
+      }
+    });
+    if (changed) {
+      saveToStorage();
+      updateMatchesNotificationBadge();
+    }
+  }
+}
+
+function playNotificationSound() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(587.33, now); // D5
+    gain1.gain.setValueAtTime(0.12, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.32);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.32);
+
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(880, now + 0.1); // A5
+    gain2.gain.setValueAtTime(0.14, now + 0.1);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.52);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.1);
+    osc2.stop(now + 0.52);
+  } catch (e) {
+    // Audio context auto-play fallback
+  }
+}
+
+// ==========================================================
 // MATCH POPUP
 // ==========================================================
 
 function triggerMatchPopup(profile) {
   if (!matchedUsers.find(u => u.id === profile.id)) {
-    matchedUsers.push(profile);
+    matchedUsers.unshift(profile);
     conversations[profile.id] = {
-      messages: [{ sender: 'them', text: `It's a match! Say something 👋` }]
+      messages: [{ sender: 'them', text: `It's a match! Say something 👋`, read: false, timestamp: Date.now() }]
     };
     saveToStorage();
+    updateMatchesNotificationBadge();
   }
 
   renderMatchesView();
@@ -1041,9 +1203,8 @@ function triggerMatchPopup(profile) {
 
   if (popup) popup.classList.add('open');
 
-  // Notification dot
-  const dot = document.getElementById('headerNotifDot');
-  if (dot) dot.style.display = 'block';
+  // Notification badge & dot
+  updateMatchesNotificationBadge();
 }
 
 function closeMatchPopup() {
@@ -1054,7 +1215,7 @@ function closeMatchPopup() {
 function goToChatFromMatch() {
   closeMatchPopup();
   if (matchedUsers.length === 0) return;
-  const partner = matchedUsers[matchedUsers.length - 1];
+  const partner = matchedUsers[0];
   openChat(partner.id);
 }
 
@@ -1086,7 +1247,7 @@ function renderNewMatchesBubbles() {
         <div class="match-bubble-ring">
           <div class="match-bubble-photo" style="background-image:url('${u.image}')"></div>
         </div>
-        <span class="match-bubble-name">${u.name}</span>
+        <span class="match-bubble-name">${escHtml(u.name)}</span>
       </div>
     `).join('');
   });
@@ -1105,19 +1266,34 @@ function _buildConvoItemHtml(u, filterQuery) {
     if (!u.name.toLowerCase().includes(q) && !lastText.toLowerCase().includes(q)) return '';
   }
 
+  const unreadCount = getUnreadMessagesCount(u.id);
+  const isUnread = unreadCount > 0;
   const isOnline = Math.random() > 0.5;
+
+  let timeDisplay = '';
+  if (last?.timestamp) {
+    const diffSec = Math.floor((Date.now() - last.timestamp) / 1000);
+    if (diffSec < 60) timeDisplay = 'Just now';
+    else if (diffSec < 3600) timeDisplay = `${Math.floor(diffSec / 60)}m`;
+    else if (diffSec < 86400) timeDisplay = `${Math.floor(diffSec / 3600)}h`;
+    else timeDisplay = `${Math.floor(diffSec / 86400)}d`;
+  } else if (hist.length > 0) {
+    timeDisplay = 'Just now';
+  }
+
   return `
-    <div class="convo-item" onclick="openChat('${u.id}')">
+    <div class="convo-item ${isUnread ? 'convo-unread' : ''}" onclick="openChat('${u.id}')">
       <div class="convo-avatar-wrap">
         <div class="convo-avatar" style="background-image:url('${u.image}')"></div>
         ${isOnline ? '<div class="convo-online-dot"></div>' : ''}
       </div>
       <div class="convo-body">
-        <div class="convo-name">${escHtml(u.name)}</div>
-        <div class="convo-preview">${escHtml(lastText).substring(0, 46)}${lastText.length > 46 ? '…' : ''}</div>
+        <div class="convo-name ${isUnread ? 'convo-name-unread' : ''}">${escHtml(u.name)}</div>
+        <div class="convo-preview ${isUnread ? 'convo-preview-unread' : ''}">${escHtml(lastText).substring(0, 46)}${lastText.length > 46 ? '…' : ''}</div>
       </div>
       <div class="convo-meta">
-        <span class="convo-time">${hist.length > 0 ? 'Just now' : ''}</span>
+        <span class="convo-time ${isUnread ? 'convo-time-unread' : ''}">${timeDisplay}</span>
+        ${isUnread ? `<span class="convo-unread-pill">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''}
       </div>
     </div>`;
 }
@@ -1300,6 +1476,10 @@ function openChat(profileId) {
   appState.currentChatId = profileId;
   showScreen('chat');
 
+  // Mark all incoming messages in this chat as read and refresh badge
+  markConversationAsRead(profileId);
+  updateMatchesNotificationBadge();
+
   // Populate WhatsApp-style in-chat header
   const partner = matchedUsers.find(u => u.id === profileId) || PROFILES_DATA.find(u => u.id === profileId);
   const nameEl = document.getElementById('chatPartnerName');
@@ -1346,17 +1526,26 @@ function openChat(profileId) {
     activeRealtimeListener = listenToRealtimeMessages(matchId, (msgs) => {
       if (msgs && msgs.length > 0) {
         conversations[profileId] = {
-          messages: msgs.map(m => ({
-            sender: m.sender === fbAuth.currentUser.uid ? 'me' : 'them',
-            text: m.text || '',
-            isVoice: m.isVoice || false,
-            audioUrl: m.audioUrl || '',
-            imageUrl: m.imageUrl || '',
-            duration: m.duration || '0:05'
-          }))
+          messages: msgs.map(m => {
+            const isMe = m.sender === fbAuth.currentUser.uid;
+            return {
+              sender: isMe ? 'me' : 'them',
+              text: m.text || '',
+              isVoice: m.isVoice || false,
+              audioUrl: m.audioUrl || '',
+              imageUrl: m.imageUrl || '',
+              duration: m.duration || '0:05',
+              read: true, // chat is open!
+              timestamp: m.timestamp?.toMillis ? m.timestamp.toMillis() : (typeof m.timestamp === 'number' ? m.timestamp : Date.now())
+            };
+          })
         };
+        movePartnerToTop(profileId);
         renderChatThread();
         renderConversationList();
+        renderChatsInbox();
+        updateMatchesNotificationBadge();
+        saveToStorage();
       }
     });
   }
@@ -1691,10 +1880,15 @@ function sendImageMessage(event) {
     }
     conversations[appState.currentChatId].messages.push({
       sender: 'me',
-      imageUrl: imageUrl
+      imageUrl: imageUrl,
+      read: true,
+      timestamp: Date.now()
     });
+    movePartnerToTop(appState.currentChatId);
     renderChatThread();
     renderConversationList();
+    renderChatsInbox();
+    updateMatchesNotificationBadge();
     saveToStorage();
     showToast('📷 Image sent!', 'gold');
 
@@ -1897,10 +2091,18 @@ function sendMessage() {
     conversations[appState.currentChatId] = { messages: [] };
   }
 
-  conversations[appState.currentChatId].messages.push({ sender: 'me', text });
+  conversations[appState.currentChatId].messages.push({
+    sender: 'me',
+    text,
+    read: true,
+    timestamp: Date.now()
+  });
   input.value = '';
+  movePartnerToTop(appState.currentChatId);
   renderChatThread();
   renderConversationList();
+  renderChatsInbox();
+  updateMatchesNotificationBadge();
   saveToStorage();
 
   // Send via real-time Firebase if logged in, otherwise handle local demo mode
@@ -1921,12 +2123,21 @@ function sendIcebreaker(text) {
   if (!conversations[appState.currentChatId]) {
     conversations[appState.currentChatId] = { messages: [] };
   }
-  conversations[appState.currentChatId].messages.push({ sender: 'me', text });
+  conversations[appState.currentChatId].messages.push({
+    sender: 'me',
+    text,
+    read: true,
+    timestamp: Date.now()
+  });
 
   const ice = document.getElementById('icebreakersRow');
   if (ice) { ice.style.opacity = '0.2'; ice.style.pointerEvents = 'none'; }
 
+  movePartnerToTop(appState.currentChatId);
   renderChatThread();
+  renderConversationList();
+  renderChatsInbox();
+  updateMatchesNotificationBadge();
   saveToStorage();
 
   if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
@@ -1953,13 +2164,28 @@ function triggerAutoReply() {
   showTypingIndicator();
 
   setTimeout(() => {
-    if (appState.currentChatId !== partner.id) { removeTypingIndicator(); return; }
     removeTypingIndicator();
     if (!conversations[partner.id]) conversations[partner.id] = { messages: [] };
-    conversations[partner.id].messages.push({ sender: 'them', text: replyText });
-    renderChatThread();
+
+    const isChatOpen = (appState.currentScreen === 'chat' && appState.currentChatId === partner.id);
+    conversations[partner.id].messages.push({
+      sender: 'them',
+      text: replyText,
+      read: isChatOpen,
+      timestamp: Date.now()
+    });
+
+    movePartnerToTop(partner.id);
+    if (isChatOpen) renderChatThread();
     renderConversationList();
+    renderChatsInbox();
+    updateMatchesNotificationBadge();
     saveToStorage();
+
+    if (!isChatOpen) {
+      playNotificationSound();
+      showToast(`💬 ${partner.name}: ${replyText.substring(0, 36)}...`, 'info');
+    }
   }, 1400 + Math.random() * 600);
 }
 
@@ -2040,10 +2266,18 @@ async function sendVoiceNote() {
       if (!appState.currentChatId) { resolve(); return; }
       if (!conversations[appState.currentChatId]) conversations[appState.currentChatId] = { messages: [] };
       conversations[appState.currentChatId].messages.push({
-        sender: 'me', isVoice: true, duration: durationStr, audioUrl
+        sender: 'me',
+        isVoice: true,
+        duration: durationStr,
+        audioUrl,
+        read: true,
+        timestamp: Date.now()
       });
+      movePartnerToTop(appState.currentChatId);
       renderChatThread();
       renderConversationList();
+      renderChatsInbox();
+      updateMatchesNotificationBadge();
       saveToStorage();
 
       if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
@@ -2683,12 +2917,15 @@ function completeVipUpgrade() {
   if (!isRealUserLoggedIn()) {
     PREMIUM_MATCHES.forEach(pm => {
       if (!matchedUsers.find(u => u.id === pm.id)) {
-        matchedUsers.push(pm);
-        conversations[pm.id] = { messages: [{ sender: 'them', text: 'You unlocked matching with me! Say hi 💛' }] };
+        matchedUsers.unshift(pm);
+        conversations[pm.id] = {
+          messages: [{ sender: 'them', text: 'You unlocked matching with me! Say hi 💛', read: false, timestamp: Date.now() }]
+        };
       }
     });
   }
 
+  updateMatchesNotificationBadge();
   renderMatchesView();
   revealBlurredMatches();
   renderProfileScreen();

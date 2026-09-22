@@ -298,6 +298,9 @@ function listenToUserMatches(callback) {
                   image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
                   tags: data.interests || [],
                   distance: '2 km',
+                  lastMessage: matchData.lastMessage || '',
+                  lastSender: matchData.lastSender || '',
+                  lastUpdated: matchData.lastUpdated?.toMillis ? matchData.lastUpdated.toMillis() : (matchData.createdAt?.toMillis ? matchData.createdAt.toMillis() : Date.now()),
                   isRealUser: true
                 });
               }
@@ -306,6 +309,8 @@ function listenToUserMatches(callback) {
             }
           }
         }
+        // Sort matches by latest updated descending so new messages immediately go to the top
+        matchedProfiles.sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
         callback(matchedProfiles);
       }, (error) => {
         console.warn("Firestore matches listener offline/disabled:", error.message);
@@ -348,8 +353,17 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
       isVoice: isVoice,
       audioUrl: audioUrl,
       imageUrl: imageUrl,
+      read: false,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     });
+
+    // Update parent match doc so partner gets instant real-time notification & re-ordering to top
+    const previewText = text || (isVoice ? '🎤 Voice note' : (imageUrl ? '📷 Photo' : 'New message'));
+    await fbDb.collection('matches').doc(matchId).set({
+      lastMessage: previewText,
+      lastSender: currentUserId,
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
   } catch (err) {
     console.warn("sendRealtimeMessage fallback:", err.message);
   }
