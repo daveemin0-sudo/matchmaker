@@ -20,7 +20,7 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
   .split(',').map((s) => s.trim()).filter(Boolean);
 
 if (!TERMII_API_KEY) {
-  console.error('❌ TERMII_API_KEY is missing. Get one from https://accounts.termii.com and add it to .env — see README.md.');
+  console.error('❌ TERMII_API_KEY is missing. Get one from https://app.termii.com and add it to .env — see README.md.');
   process.exit(1);
 }
 if (!PAYSTACK_SECRET_KEY) {
