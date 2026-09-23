@@ -331,7 +331,9 @@ function listenToRealtimeMessages(matchId, callback) {
     return fbDb.collection('matches').doc(matchId).collection('messages')
       .orderBy('timestamp', 'asc')
       .onSnapshot(snapshot => {
-        const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const msgs = snapshot.docs
+          .map(doc => ({ id: doc.id, ...doc.data() }))
+          .filter(m => !m.deleted);
         callback(msgs);
       }, (error) => {
         console.warn("Firestore messages listener offline/disabled:", error.message);
@@ -366,6 +368,61 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
     }, { merge: true });
   } catch (err) {
     console.warn("sendRealtimeMessage fallback:", err.message);
+  }
+}
+
+async function deleteRealtimeMessage(matchId, messageId) {
+  if (!fbDb || !matchId || !messageId) return;
+  try {
+    const msgRef = fbDb.collection('matches').doc(matchId).collection('messages').doc(messageId);
+    await msgRef.delete();
+  } catch (err) {
+    console.warn("deleteRealtimeMessage delete failed, attempting soft-delete:", err.message);
+    try {
+      await fbDb.collection('matches').doc(matchId).collection('messages').doc(messageId).update({
+        deleted: true
+      });
+    } catch (e2) {
+      console.warn("deleteRealtimeMessage soft-delete failed:", e2.message);
+    }
+  }
+}
+
+async function editRealtimeMessage(matchId, messageId, newText) {
+  if (!fbDb || !matchId || !messageId) return;
+  try {
+    await fbDb.collection('matches').doc(matchId).collection('messages').doc(messageId).update({
+      text: newText,
+      edited: true,
+      editedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (err) {
+    console.warn("editRealtimeMessage error:", err.message);
+  }
+}
+
+async function reactRealtimeMessage(matchId, messageId, emoji) {
+  if (!fbDb || !fbAuth?.currentUser || !matchId || !messageId || !emoji) return;
+  const uid = fbAuth.currentUser.uid;
+  const msgRef = fbDb.collection('matches').doc(matchId).collection('messages').doc(messageId);
+  try {
+    await fbDb.runTransaction(async (transaction) => {
+      const doc = await transaction.get(msgRef);
+      if (!doc.exists) return;
+      const data = doc.data() || {};
+      const reactions = data.reactions || {};
+      const currentList = Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
+      let updatedList;
+      if (currentList.includes(uid)) {
+        updatedList = currentList.filter(id => id !== uid);
+      } else {
+        updatedList = [...currentList, uid];
+      }
+      reactions[emoji] = updatedList;
+      transaction.update(msgRef, { reactions: reactions });
+    });
+  } catch (err) {
+    console.warn("reactRealtimeMessage error:", err.message);
   }
 }
 
@@ -746,26 +803,65 @@ async function uploadStoryToFirestore(storyData) {
 async function fetchActiveStoriesFromFirestore() {
   if (!fbDb) return [];
   try {
-    const now = firebase.firestore.Timestamp.now();
-    const snap = await fbDb
-      .collection('stories')
-      .where('expiresAt', '>', now)
-      .orderBy('expiresAt', 'desc')
-      .limit(40)
-      .get();
-
-    return snap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      // Normalize fields for the existing story UI
-      name: doc.data().ownerName,
-      image: doc.data().mediaUrl,
-      thumb: doc.data().ownerAvatar || doc.data().mediaUrl,
-      location: doc.data().location || 'Lagos',
-    }));
+    const snap = await fbDb.collection('stories').limit(60).get();
+    const nowMs = Date.now();
+    const stories = [];
+    snap.forEach(doc => {
+      const d = doc.data() || {};
+      const exp = d.expiresAt?.toMillis ? d.expiresAt.toMillis() : null;
+      if (!exp || exp > nowMs) {
+        stories.push({
+          id: doc.id,
+          ownerId: d.ownerId,
+          name: d.ownerName || 'HookMe Member',
+          image: d.mediaUrl || d.image,
+          thumb: d.ownerAvatar || d.thumb || d.mediaUrl || d.image,
+          location: d.location || 'Lagos',
+          bio: d.bio || '',
+          tags: d.tags || [],
+          createdAt: d.createdAt?.toMillis ? d.createdAt.toMillis() : Date.now(),
+          expiresAt: exp
+        });
+      }
+    });
+    return stories.sort((a, b) => b.createdAt - a.createdAt);
   } catch (e) {
     console.warn('fetchActiveStories error:', e);
     return [];
+  }
+}
+
+// Real-time listener for community stories
+function listenToCommunityStories(callback) {
+  if (!fbDb) return null;
+  try {
+    return fbDb.collection('stories').limit(60).onSnapshot(snap => {
+      const nowMs = Date.now();
+      const stories = [];
+      snap.forEach(doc => {
+        const d = doc.data() || {};
+        const exp = d.expiresAt?.toMillis ? d.expiresAt.toMillis() : null;
+        if (!exp || exp > nowMs) {
+          stories.push({
+            id: doc.id,
+            ownerId: d.ownerId,
+            name: d.ownerName || 'HookMe Member',
+            image: d.mediaUrl || d.image,
+            thumb: d.ownerAvatar || d.thumb || d.mediaUrl || d.image,
+            location: d.location || 'Lagos',
+            bio: d.bio || '',
+            tags: d.tags || [],
+            createdAt: d.createdAt?.toMillis ? d.createdAt.toMillis() : Date.now(),
+            expiresAt: exp
+          });
+        }
+      });
+      callback(stories.sort((a, b) => b.createdAt - a.createdAt));
+    }, err => {
+      console.warn('Community stories listener error:', err.message);
+    });
+  } catch (e) {
+    return null;
   }
 }
 

@@ -5508,3 +5508,56 @@ label, .form-field label, .auth-form-group label {
   white-space: nowrap;
   flex-shrink: 0;
 }
+
+/* ==========================================================
+   CHAT ACTION SHEET & STORY TOUCH ZONES
+   ========================================================== */
+
+.msg-action-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 99998;
+  background: rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  animation: backdropFadeIn 0.15s ease-out;
+  touch-action: none;
+}
+@keyframes backdropFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.msg-menu-btn:active {
+  background: rgba(255, 255, 255, 0.16);
+  transform: scale(0.98);
+}
+.msg-menu-btn-danger:active {
+  background: rgba(255, 46, 112, 0.25);
+  transform: scale(0.98);
+}
+
+.story-nav-zones {
+  position: absolute;
+  top: 75px;
+  bottom: 140px;
+  left: 0;
+  right: 0;
+  display: flex;
+  z-index: 25;
+  pointer-events: auto;
+}
+.story-zone-left {
+  flex: 1;
+  height: 100%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.story-zone-right {
+  flex: 2;
+  height: 100%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}

@@ -177,6 +177,7 @@ function initMainApp() {
   renderAiLabPicker();
   applyVipUI();
   renderStoriesRow();
+  initCommunityStoriesListener();
   updateMatchesNotificationBadge();
 
   // Fetch real registered users from Firestore into the card stack
@@ -2139,16 +2140,23 @@ function sendMessage() {
   // Handle edit message mode
   if (_editingState) {
     const { matchId, msgId } = _editingState;
-    const isLocal = msgId.startsWith('local_');
-    const msgIdx = isLocal ? parseInt(msgId.replace('local_', ''), 10) : null;
     const hist = conversations[appState.currentChatId]?.messages;
-
-    if (hist && msgIdx !== null && hist[msgIdx]) {
-      hist[msgIdx].text = text;
-      hist[msgIdx].edited = true;
+    let msgIdx = -1;
+    if (hist) {
+      if (msgId.startsWith('local_')) {
+        msgIdx = parseInt(msgId.replace('local_', ''), 10);
+      } else {
+        msgIdx = hist.findIndex(m => m.firestoreId === msgId);
+      }
+      if (msgIdx !== -1 && hist[msgIdx]) {
+        hist[msgIdx].text = text;
+        hist[msgIdx].edited = true;
+      }
     }
 
-    if (typeof fbDb !== 'undefined' && fbDb && matchId && !isLocal) {
+    if (typeof editRealtimeMessage === 'function' && matchId && !msgId.startsWith('local_')) {
+      editRealtimeMessage(matchId, msgId, text);
+    } else if (typeof fbDb !== 'undefined' && fbDb && matchId && !msgId.startsWith('local_')) {
       fbDb.collection('matches').doc(matchId).collection('messages').doc(msgId)
         .update({ text, edited: true }).catch(() => {});
     }
@@ -3338,52 +3346,96 @@ const STORY_DATA = [
 let seenStories = new Set();
 let currentStoryIndex = 0;
 let storyTimer = null;
-
 let _viewingUserStory = false;
+let communityStories = [];
+
+function getAllCommunityStories() {
+  const combined = [];
+  const seenIds = new Set();
+  const nowMs = Date.now();
+
+  // 1. Stories from real users fetched via Firestore
+  (communityStories || []).forEach(s => {
+    if (s && s.id && !seenIds.has(s.id)) {
+      if (!s.expiresAt || s.expiresAt > nowMs) {
+        seenIds.add(s.id);
+        combined.push(s);
+      }
+    }
+  });
+
+  // 2. Preset community stories
+  (STORY_DATA || []).forEach(s => {
+    if (s && s.id && !seenIds.has(s.id)) {
+      seenIds.add(s.id);
+      combined.push(s);
+    }
+  });
+
+  return combined;
+}
+
+function initCommunityStoriesListener() {
+  if (typeof listenToCommunityStories === 'function') {
+    listenToCommunityStories((stories) => {
+      if (stories && stories.length > 0) {
+        communityStories = stories.filter(s => {
+          if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+            return s.ownerId !== fbAuth.currentUser.uid;
+          }
+          return true;
+        });
+        renderStoriesRow();
+      }
+    });
+  }
+}
 
 function renderStoriesRow() {
   const scroll = document.getElementById('storiesScroll');
   if (!scroll) return;
 
-  const hasStory = (typeof userStories !== 'undefined' && userStories.length > 0);
+  const hasStory = (typeof userStories !== 'undefined' && Array.isArray(userStories) && userStories.length > 0);
   const userAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
 
   let html = `
-    <div class="story-bubble your-story" onclick="${hasStory ? 'viewYourStory()' : 'openYourStoryUpload()'}">
+    <div class="story-bubble your-story" onclick="${hasStory ? 'viewYourStory(0)' : 'openYourStoryUpload()'}">
       <div class="story-avatar-ring ${hasStory ? 'your-story-active-ring' : 'your-story-ring'}">
         <div class="story-avatar-img" style="background-image:url('${userAvatar}')"></div>
         <span class="story-add-badge" onclick="event.stopPropagation();openYourStoryUpload(event);" title="${hasStory ? 'Add photo' : 'Upload story'}">+</span>
       </div>
-      <span class="story-name">${hasStory ? 'Your Story' : 'Add Story'}</span>
+      <span class="story-name">${hasStory ? (userStories.length > 1 ? `You (${userStories.length})` : 'Your Story') : 'Add Story'}</span>
     </div>`;
 
-  html += STORY_DATA.map((s, idx) => {
+  const list = getAllCommunityStories();
+  html += list.map((s) => {
     const seen = seenStories.has(s.id);
     return `
       <div class="story-bubble ${seen ? 'seen' : ''}" onclick="viewStory('${s.id}')">
         <div class="story-avatar-ring">
           <div class="story-avatar-img" style="background-image:url('${s.thumb || s.image}')"></div>
         </div>
-        <span class="story-name">${s.name}</span>
+        <span class="story-name">${escHtml(s.name)}</span>
       </div>`;
   }).join('');
 
   scroll.innerHTML = html;
 }
 
-function viewYourStory() {
+function viewYourStory(startIndex = 0) {
   if (!userStories || userStories.length === 0) {
     openYourStoryUpload();
     return;
   }
   _viewingUserStory = true;
-  currentStoryIndex = 0;
-  showStoryAtIndex(0);
+  currentStoryIndex = Math.min(Math.max(0, startIndex), userStories.length - 1);
+  showStoryAtIndex(currentStoryIndex);
 }
 
 function viewStory(storyId) {
   _viewingUserStory = false;
-  const idx = STORY_DATA.findIndex(s => s.id === storyId);
+  const list = getAllCommunityStories();
+  const idx = list.findIndex(s => s.id === storyId);
   if (idx === -1) return;
   currentStoryIndex = idx;
   showStoryAtIndex(currentStoryIndex);
@@ -3391,9 +3443,9 @@ function viewStory(storyId) {
 
 function showStoryAtIndex(idx) {
   const isOwn = _viewingUserStory;
-  const activeList = isOwn ? userStories : STORY_DATA;
+  const activeList = isOwn ? userStories : getAllCommunityStories();
 
-  if (idx < 0 || idx >= activeList.length) {
+  if (!activeList || activeList.length === 0 || idx < 0 || idx >= activeList.length) {
     closeStoryViewer();
     return;
   }
@@ -3420,7 +3472,7 @@ function showStoryAtIndex(idx) {
 
   if (bgImg) bgImg.style.backgroundImage = `url('${story.image}')`;
   if (avatar) avatar.style.backgroundImage = `url('${isOwn ? (currentUser.avatar || story.thumb || story.image) : (story.thumb || story.image)}')`;
-  if (nameEl) nameEl.textContent = isOwn ? 'Your Story' : story.name;
+  if (nameEl) nameEl.textContent = isOwn ? (userStories.length > 1 ? `Your Story (${currentStoryIndex + 1}/${userStories.length})` : 'Your Story') : story.name;
   if (ageEl) ageEl.textContent = isOwn ? '' : (story.age ? `, ${story.age}` : '');
   if (locEl) locEl.textContent = `📍 ${story.location || 'Lagos'}${isOwn ? ' • Active for 24h' : ''}`;
   if (bioEl) bioEl.textContent = story.bio || (isOwn ? 'My latest story ✨' : '');
@@ -3460,18 +3512,25 @@ function showStoryAtIndex(idx) {
 }
 
 function nextStory(e) {
-  if (e) e.stopPropagation();
+  if (e && e.stopPropagation) e.stopPropagation();
   clearTimeout(storyTimer);
-  const activeList = _viewingUserStory ? userStories : STORY_DATA;
+  const activeList = _viewingUserStory ? userStories : getAllCommunityStories();
   if (currentStoryIndex < activeList.length - 1) {
     showStoryAtIndex(currentStoryIndex + 1);
   } else {
-    closeStoryViewer();
+    // If finished own stories, seamlessly advance to community stories
+    if (_viewingUserStory && getAllCommunityStories().length > 0) {
+      _viewingUserStory = false;
+      currentStoryIndex = 0;
+      showStoryAtIndex(0);
+    } else {
+      closeStoryViewer();
+    }
   }
 }
 
 function prevStory(e) {
-  if (e) e.stopPropagation();
+  if (e && e.stopPropagation) e.stopPropagation();
   clearTimeout(storyTimer);
   if (currentStoryIndex > 0) {
     showStoryAtIndex(currentStoryIndex - 1);
@@ -3498,20 +3557,27 @@ function deleteCurrentUserStory() {
     fbDb.collection('stories').doc(removed.id).delete().catch(() => {});
   }
 
-  closeStoryViewer();
-  renderStoriesRow();
   showToast('Story deleted 🗑️', 'info');
+  renderStoriesRow();
+
+  if (userStories.length > 0) {
+    currentStoryIndex = Math.min(currentStoryIndex, userStories.length - 1);
+    showStoryAtIndex(currentStoryIndex);
+  } else {
+    closeStoryViewer();
+  }
 }
 
 function likeStoryProfile() {
-  const story = STORY_DATA[currentStoryIndex];
+  const list = _viewingUserStory ? userStories : getAllCommunityStories();
+  const story = list[currentStoryIndex];
   if (!story) return;
 
   // Add to matches if not already
   const existing = matchedUsers.find(u => u.name === story.name);
   if (!existing) {
     matchedUsers.unshift({
-      id: 'm_' + story.id,
+      id: 'm_' + (story.id || Date.now()),
       name: story.name,
       age: story.age,
       bio: story.bio,
@@ -4231,42 +4297,69 @@ function clearModalSearch() {
 }
 
 // ==========================================================
-// MESSAGE REACTIONS — Long press picker
+// MESSAGE REACTIONS & ACTION SHEET — Long press picker
 // ==========================================================
 
 let _longPressTimer = null;
 let _reactionPickerOpen = false;
+let _editingState = null;
+let _pendingForwardMsgId = null;
 
 const REACTION_EMOJIS_SET = ['\u2764\uFE0F', '\uD83D\uDE02', '\uD83D\uDE2E', '\uD83D\uDE22', '\uD83D\uDC4D', '\uD83D\uDD25'];
 
+function getMessageInfo(msgId) {
+  const currentChatId = appState.currentChatId;
+  const hist = (currentChatId && conversations[currentChatId]?.messages) ? conversations[currentChatId].messages : [];
+  if (!msgId) return { msg: null, idx: -1, hist };
+  if (msgId.startsWith('local_')) {
+    const idx = parseInt(msgId.replace('local_', ''), 10);
+    return { msg: hist[idx] || null, idx, hist };
+  }
+  const idx = hist.findIndex(m => m.firestoreId === msgId);
+  return { msg: idx !== -1 ? hist[idx] : null, idx, hist };
+}
+
 function startLongPress(event, matchId, msgId) {
+  clearTimeout(_longPressTimer);
   _longPressTimer = setTimeout(() => {
     showReactionPicker(event, matchId, msgId);
-  }, 500);
+  }, 480);
 }
 
 function cancelLongPress() {
   clearTimeout(_longPressTimer);
 }
 
-let _editingState = null;
-let _pendingForwardMsgId = null;
-
 function showReactionPicker(event, matchId, msgId) {
-  if (!matchId || matchId === 'null') return;
   clearTimeout(_longPressTimer);
+  closeReactionPicker();
 
-  document.getElementById('reactionPickerPopup')?.remove();
-
-  const isLocal = msgId.startsWith('local_');
-  const msgIdx = isLocal ? parseInt(msgId.replace('local_', ''), 10) : null;
-  const hist = conversations[appState.currentChatId]?.messages || [];
-  const msg = (msgIdx !== null && hist[msgIdx]) ? hist[msgIdx] : null;
+  const msgInfo = getMessageInfo(msgId);
+  const msg = msgInfo.msg;
   const isSent = msg ? (msg.sender === 'me') : false;
   const isText = msg ? (!msg.imageUrl && !msg.isVoice && msg.text) : true;
 
+  // 1. Full-screen backdrop for outside click/tap dismissal
+  const backdrop = document.createElement('div');
+  backdrop.id = 'reactionPickerBackdrop';
+  backdrop.className = 'msg-action-backdrop';
+  backdrop.onclick = (e) => {
+    e.stopPropagation();
+    closeReactionPicker();
+  };
+  backdrop.ontouchstart = (e) => {
+    e.stopPropagation();
+    closeReactionPicker();
+  };
+  document.body.appendChild(backdrop);
+
+  // 2. Action sheet popup
   const picker = document.createElement('div');
   picker.id = 'reactionPickerPopup';
+  // Prevent any event from bubbling to the backdrop
+  picker.onclick = (e) => e.stopPropagation();
+  picker.ontouchstart = (e) => e.stopPropagation();
+  picker.ontouchend = (e) => e.stopPropagation();
   picker.style.cssText = `
     position:fixed;z-index:99999;
     background:#1E1530;border:1px solid rgba(255,255,255,0.18);
@@ -4278,17 +4371,17 @@ function showReactionPicker(event, matchId, msgId) {
     animation:reactionPickerIn 0.18s cubic-bezier(0.175,0.885,0.32,1.275);
   `;
 
-  // Top: Emojis
+  // Top: Emojis Row
   const emojiRow = document.createElement('div');
   emojiRow.style.cssText = 'display:flex;justify-content:space-around;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);';
   emojiRow.innerHTML = REACTION_EMOJIS_SET.map(emoji =>
-    `<button onclick="toggleMsgReaction('${matchId}','${msgId}','${emoji}');closeReactionPicker();"
+    `<button onclick="event.stopPropagation();toggleMsgReaction('${matchId}','${msgId}','${emoji}');closeReactionPicker();"
       style="background:none;border:none;font-size:1.45rem;cursor:pointer;transition:transform 0.15s;padding:2px"
       onmouseenter="this.style.transform='scale(1.3)'" onmouseleave="this.style.transform='scale(1)'">${emoji}</button>`
   ).join('');
   picker.appendChild(emojiRow);
 
-  // Bottom: Actions list (Edit, Forward, Copy/Share, Delete)
+  // Bottom: Actions list (Edit, Forward, Share to User, Copy, Delete)
   const actionsList = document.createElement('div');
   actionsList.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding-top:2px;';
 
@@ -4296,22 +4389,26 @@ function showReactionPicker(event, matchId, msgId) {
 
   if (isSent && isText) {
     actionsHtml += `
-      <button class="msg-menu-btn" onclick="startEditMessage('${matchId}','${msgId}');closeReactionPicker();">
+      <button class="msg-menu-btn" onclick="event.stopPropagation();startEditMessage('${matchId}','${msgId}');closeReactionPicker();">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
         <span>Edit Message</span>
       </button>`;
   }
 
   actionsHtml += `
-    <button class="msg-menu-btn" onclick="forwardMessagePrompt('${msgId}');closeReactionPicker();">
+    <button class="msg-menu-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}');closeReactionPicker();">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
       <span>Forward</span>
     </button>
-    <button class="msg-menu-btn" onclick="copyOrShareMessage('${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-      <span>Copy / Share</span>
+    <button class="msg-menu-btn" onclick="event.stopPropagation();shareMessageToUserPrompt('${msgId}');closeReactionPicker();">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/></svg>
+      <span>Share to User</span>
     </button>
-    <button class="msg-menu-btn msg-menu-btn-danger" onclick="deleteMessagePrompt('${matchId}','${msgId}');closeReactionPicker();">
+    <button class="msg-menu-btn" onclick="event.stopPropagation();copyMessageText('${msgId}');closeReactionPicker();">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+      <span>Copy Text</span>
+    </button>
+    <button class="msg-menu-btn msg-menu-btn-danger" onclick="event.stopPropagation();deleteMessagePrompt('${matchId}','${msgId}');closeReactionPicker();">
       <svg width="15" height="15" viewBox="0 0 24 24" fill="#FF2E70"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
       <span style="color:#FF2E70">Delete</span>
     </button>
@@ -4319,46 +4416,39 @@ function showReactionPicker(event, matchId, msgId) {
   actionsList.innerHTML = actionsHtml;
   picker.appendChild(actionsList);
 
-  const x = event.touches?.[0]?.clientX ?? event.clientX ?? window.innerWidth / 2;
-  const y = event.touches?.[0]?.clientY ?? event.clientY ?? window.innerHeight / 2;
+  const x = event.touches?.[0]?.clientX ?? event.clientX ?? (window.innerWidth / 2);
+  const y = event.touches?.[0]?.clientY ?? event.clientY ?? (window.innerHeight / 2);
   const pickerW = 240;
   const left = Math.min(Math.max(x - pickerW / 2, 10), window.innerWidth - pickerW - 10);
-  const top = Math.min(Math.max(y - 120, 20), window.innerHeight - 250);
+  const top = Math.min(Math.max(y - 120, 20), window.innerHeight - 260);
   picker.style.left = left + 'px';
   picker.style.top = top + 'px';
 
   document.body.appendChild(picker);
   _reactionPickerOpen = true;
-
-  setTimeout(() => {
-    document.addEventListener('click', closeReactionPicker, { once: true });
-    document.addEventListener('touchstart', closeReactionPicker, { once: true });
-  }, 60);
 }
 
 function closeReactionPicker() {
   document.getElementById('reactionPickerPopup')?.remove();
+  document.getElementById('reactionPickerBackdrop')?.remove();
   _reactionPickerOpen = false;
 }
 
 function startEditMessage(matchId, msgId) {
-  const isLocal = msgId.startsWith('local_');
-  const msgIdx = isLocal ? parseInt(msgId.replace('local_', ''), 10) : null;
-  const hist = conversations[appState.currentChatId]?.messages;
-  if (!hist || msgIdx === null || !hist[msgIdx]) return;
+  const { msg, idx } = getMessageInfo(msgId);
+  if (!msg || idx === -1) return;
 
-  const originalMsg = hist[msgIdx];
-  _editingState = { matchId, msgId, originalText: originalMsg.text, msgIdx };
+  _editingState = { matchId, msgId, originalText: msg.text, msgIdx: idx };
 
   const editBar = document.getElementById('chatEditBar');
   const editPreview = document.getElementById('chatEditPreview');
   const input = document.getElementById('chatInput');
   const sendBtn = document.getElementById('chatSendBtn');
 
-  if (editPreview) editPreview.textContent = `Editing: "${originalMsg.text}"`;
+  if (editPreview) editPreview.textContent = `Editing: "${msg.text}"`;
   if (editBar) editBar.style.display = 'flex';
   if (input) {
-    input.value = originalMsg.text;
+    input.value = msg.text;
     input.focus();
     input.setSelectionRange(input.value.length, input.value.length);
   }
@@ -4377,20 +4467,18 @@ function cancelEditMessage() {
 async function deleteMessagePrompt(matchId, msgId) {
   if (!confirm('Delete this message?')) return;
 
-  const isLocal = msgId.startsWith('local_');
-  const msgIdx = isLocal ? parseInt(msgId.replace('local_', ''), 10) : null;
-  const hist = conversations[appState.currentChatId]?.messages;
+  const { idx, hist } = getMessageInfo(msgId);
 
-  if (hist && msgIdx !== null && hist[msgIdx]) {
-    hist.splice(msgIdx, 1);
+  if (hist && idx !== -1 && hist[idx]) {
+    hist.splice(idx, 1);
   }
 
   // Delete from Firestore if synced
-  if (typeof fbDb !== 'undefined' && fbDb && matchId && !isLocal) {
-    try {
-      await fbDb.collection('matches').doc(matchId).collection('messages').doc(msgId).delete();
-    } catch (e) {
-      console.warn('Firestore delete error:', e);
+  if (!msgId.startsWith('local_') && matchId && matchId !== 'null') {
+    if (typeof deleteRealtimeMessage === 'function') {
+      deleteRealtimeMessage(matchId, msgId);
+    } else if (typeof fbDb !== 'undefined' && fbDb) {
+      fbDb.collection('matches').doc(matchId).collection('messages').doc(msgId).delete().catch(() => {});
     }
   }
 
@@ -4400,13 +4488,9 @@ async function deleteMessagePrompt(matchId, msgId) {
   showToast('Message deleted 🗑️', 'info');
 }
 
-function copyOrShareMessage(msgId) {
-  const isLocal = msgId.startsWith('local_');
-  const msgIdx = isLocal ? parseInt(msgId.replace('local_', ''), 10) : null;
-  const hist = conversations[appState.currentChatId]?.messages;
-  if (!hist || msgIdx === null || !hist[msgIdx]) return;
-
-  const msg = hist[msgIdx];
+function copyMessageText(msgId) {
+  const { msg } = getMessageInfo(msgId);
+  if (!msg) return;
   const shareText = msg.text || msg.imageUrl || 'Message from HookMeBySam';
 
   if (navigator.clipboard) {
@@ -4418,20 +4502,15 @@ function copyOrShareMessage(msgId) {
   } else {
     showToast('Copied! 📋', 'info');
   }
-
-  if (navigator.share && window.innerWidth < 768) {
-    navigator.share({
-      title: 'HookMeBySam',
-      text: shareText
-    }).catch(() => {});
-  }
 }
 
-function forwardMessagePrompt(msgId) {
-  _pendingForwardMsgId = msgId;
-  const modal = document.getElementById('forwardModal');
+function copyOrShareMessage(msgId) {
+  shareMessageToUserPrompt(msgId);
+}
+
+function populateForwardModalList(actionLabel = 'Forward') {
   const list = document.getElementById('forwardMatchesList');
-  if (!modal || !list) return;
+  if (!list) return;
 
   const currentId = appState.currentChatId;
   const candidates = [...matchedUsers, ...PROFILES_DATA]
@@ -4439,7 +4518,7 @@ function forwardMessagePrompt(msgId) {
     .filter((u, index, self) => index === self.findIndex(t => t.id === u.id));
 
   if (candidates.length === 0) {
-    list.innerHTML = `<div style="text-align:center;padding:24px;color:rgba(255,255,255,0.5)">No other contacts to forward to.</div>`;
+    list.innerHTML = `<div style="text-align:center;padding:24px;color:rgba(255,255,255,0.5)">No other contacts available.</div>`;
   } else {
     list.innerHTML = candidates.map(c => `
       <div onclick="forwardMessageToUser('${c.id}')" style="
@@ -4454,12 +4533,28 @@ function forwardMessagePrompt(msgId) {
           <div style="font-weight:700;font-size:0.92rem;color:#FFF">${escHtml(c.name)}${c.age ? `, ${c.age}` : ''}</div>
           <div style="font-size:0.78rem;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(c.bio || '')}</div>
         </div>
-        <button style="background:var(--flame-grad,#ff2d78);border:none;color:#FFF;border-radius:14px;padding:6px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">Send ➡️</button>
+        <button style="background:var(--flame-grad,#ff2d78);border:none;color:#FFF;border-radius:14px;padding:6px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">${actionLabel} ➡️</button>
       </div>
     `).join('');
   }
+}
 
-  modal.style.display = 'flex';
+function forwardMessagePrompt(msgId) {
+  _pendingForwardMsgId = msgId;
+  const modal = document.getElementById('forwardModal');
+  const title = modal?.querySelector('h3') || modal?.querySelector('.modal-title');
+  if (title) title.textContent = 'Forward to Contact';
+  populateForwardModalList('Forward');
+  if (modal) modal.style.display = 'flex';
+}
+
+function shareMessageToUserPrompt(msgId) {
+  _pendingForwardMsgId = msgId;
+  const modal = document.getElementById('forwardModal');
+  const title = modal?.querySelector('h3') || modal?.querySelector('.modal-title');
+  if (title) title.textContent = 'Share to User';
+  populateForwardModalList('Share');
+  if (modal) modal.style.display = 'flex';
 }
 
 function closeForwardModal() {
@@ -4471,15 +4566,14 @@ function closeForwardModal() {
 async function forwardMessageToUser(targetUserId) {
   if (!_pendingForwardMsgId) return;
 
-  const currentId = appState.currentChatId;
-  const isLocal = _pendingForwardMsgId.startsWith('local_');
-  const msgIdx = isLocal ? parseInt(_pendingForwardMsgId.replace('local_', ''), 10) : null;
-  const hist = conversations[currentId]?.messages;
-  if (!hist || msgIdx === null || !hist[msgIdx]) return;
+  const { msg: sourceMsg } = getMessageInfo(_pendingForwardMsgId);
+  if (!sourceMsg) {
+    closeForwardModal();
+    return;
+  }
 
-  const sourceMsg = hist[msgIdx];
   const targetUser = matchedUsers.find(u => u.id === targetUserId) || PROFILES_DATA.find(u => u.id === targetUserId);
-  const targetName = targetUser ? targetUser.name : 'match';
+  const targetName = targetUser ? targetUser.name : 'contact';
 
   if (!conversations[targetUserId]) {
     conversations[targetUserId] = { messages: [] };
@@ -4504,36 +4598,41 @@ async function forwardMessageToUser(targetUserId) {
   // Send to Firestore if target is online
   if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     const matchId = [fbAuth.currentUser.uid, targetUserId].sort().join('_');
-    sendRealtimeMessage(matchId, forwardedMsg.text || 'Forwarded message');
+    sendRealtimeMessage(matchId, forwardedMsg.text || 'Forwarded message', forwardedMsg.isVoice, forwardedMsg.audioUrl, forwardedMsg.imageUrl);
   }
 
   closeForwardModal();
-  showToast(`Message forwarded to ${targetName} ➡️`, 'gold');
+  renderConversationList();
+  if (appState.currentChatId === targetUserId) {
+    renderChatThread();
+  }
+  showToast(`Sent to ${targetName} ➡️`, 'gold');
 }
 
 async function toggleMsgReaction(matchId, msgId, emoji) {
-  if (!matchId || matchId === 'null' || !msgId) return;
+  if (!msgId || !emoji) return;
 
-  if (typeof reactToMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    await reactToMessage(matchId, msgId, emoji);
-    return;
+  const { msg } = getMessageInfo(msgId);
+  const myId = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : 'local_me';
+
+  if (msg) {
+    if (!msg.reactions) msg.reactions = {};
+    const reactors = Array.isArray(msg.reactions[emoji]) ? msg.reactions[emoji] : [];
+    if (reactors.includes(myId)) {
+      msg.reactions[emoji] = reactors.filter(id => id !== myId);
+    } else {
+      msg.reactions[emoji] = [...reactors, myId];
+    }
+    saveToStorage();
+    renderChatThread();
   }
 
-  const hist = conversations[appState.currentChatId]?.messages;
-  if (!hist) return;
-  const msgIdx = parseInt(msgId.replace('local_', ''), 10);
-  if (isNaN(msgIdx) || !hist[msgIdx]) return;
-
-  if (!hist[msgIdx].reactions) hist[msgIdx].reactions = {};
-  const reactors = hist[msgIdx].reactions[emoji] || [];
-  const myId = 'local_me';
-  if (reactors.includes(myId)) {
-    hist[msgIdx].reactions[emoji] = reactors.filter(id => id !== myId);
-  } else {
-    hist[msgIdx].reactions[emoji] = [...reactors, myId];
+  // Update in Firestore
+  if (!msgId.startsWith('local_') && matchId && matchId !== 'null') {
+    if (typeof reactRealtimeMessage === 'function') {
+      reactRealtimeMessage(matchId, msgId, emoji);
+    }
   }
-  saveToStorage();
-  renderChatThread();
 }
 
 // ==========================================================
@@ -4784,10 +4883,57 @@ function selectLanguage(code, label) {
 // STORY UPLOADS — user can post their own photo story
 // ==========================================================
 
-let userStories = JSON.parse(localStorage.getItem('hmbs_user_stories') || '[]');
+// ==========================================================
+// STORY UPLOADS — Fast canvas compression & multiple stories
+// ==========================================================
+
+let userStories = (() => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('hmbs_user_stories') || '[]');
+    const now = Date.now();
+    return Array.isArray(parsed) ? parsed.filter(s => !s.createdAt || (now - s.createdAt < 24 * 60 * 60 * 1000)) : [];
+  } catch (e) {
+    return [];
+  }
+})();
+
+function compressStoryImage(file, maxDim = 1080, quality = 0.78) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxDim || height > maxDim) {
+          if (width > height) {
+            height = Math.round((height * maxDim) / width);
+            width = maxDim;
+          } else {
+            width = Math.round((width * maxDim) / height);
+            height = maxDim;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, width, height);
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+        resolve(compressedDataUrl);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
 
 function openYourStoryUpload(event) {
-  if (event) event.stopPropagation();
+  if (event && event.stopPropagation) event.stopPropagation();
   let fileInput = document.getElementById('storyFileInput');
   if (!fileInput) {
     fileInput = document.createElement('input');
@@ -4802,26 +4948,31 @@ function openYourStoryUpload(event) {
   fileInput.click();
 }
 
-function handleStoryPhotoSelected(event) {
-  const file = event.target.files[0];
+async function handleStoryPhotoSelected(event) {
+  const file = event.target.files && event.target.files[0];
   if (!file) return;
   if (!file.type.startsWith('image/')) {
     showToast('Please select an image file.', 'error');
     return;
   }
 
-  showToast('Uploading your story... 📸', 'info');
+  showToast('Compressing & posting story... 📸', 'info');
 
-  const reader = new FileReader();
-  reader.onload = async function(e) {
-    const dataUrl = e.target.result;
-    let finalUrl = dataUrl;
+  try {
+    // 1. Fast canvas compression (< 150ms)
+    const compressedDataUrl = await compressStoryImage(file, 1080, 0.78);
+    let finalUrl = compressedDataUrl;
 
+    // 2. Upload lightweight file if storage is active
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
       try {
-        const uploaded = await uploadFileToBackend(file, 'stories');
+        const blob = await (await fetch(compressedDataUrl)).blob();
+        blob.name = `story_${Date.now()}.jpg`;
+        const uploaded = await uploadFileToBackend(blob, 'stories');
         if (uploaded) finalUrl = uploaded;
-      } catch (err) { /* fallback to dataUrl */ }
+      } catch (err) {
+        // Fallback to compressed DataURL
+      }
     }
 
     const story = {
@@ -4833,26 +4984,30 @@ function handleStoryPhotoSelected(event) {
       bio: 'My latest story ✨',
       tags: currentUser.interests || [],
       isUserStory: true,
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 24 * 60 * 60 * 1000
     };
 
-    // Save to Firestore
+    // 3. Save to Firestore
     if (typeof uploadStoryToFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       uploadStoryToFirestore(story).catch(() => {});
     }
 
-    // Also save locally (for offline/demo)
-    userStories.unshift(story);
-    if (userStories.length > 5) userStories = userStories.slice(0, 5);
+    // 4. Save to local multi-story array
+    if (!Array.isArray(userStories)) userStories = [];
+    userStories.push(story);
+    if (userStories.length > 10) userStories = userStories.slice(userStories.length - 10);
     localStorage.setItem('hmbs_user_stories', JSON.stringify(userStories));
 
     renderStoriesRow();
-    showToast('Story posted! Your story is now live. ✨', 'gold');
+    showToast('Story posted! Your status is now live. ✨', 'gold');
 
-    // Auto-view the uploaded story immediately
+    // 5. Instantly open newly posted story slice
     setTimeout(() => {
-      viewYourStory();
-    }, 350);
-  };
-  reader.readAsDataURL(file);
+      viewYourStory(userStories.length - 1);
+    }, 200);
+  } catch (err) {
+    console.error('Story upload failed:', err);
+    showToast('Could not process photo. Please try again.', 'error');
+  }
 }

@@ -41,29 +41,41 @@ service cloud.firestore {
     // ── matches ─────────────────────────────────────────────────────────────
     // A match doc is: { users: [uid1, uid2], createdAt }
     // matchId is deterministic: [uid1, uid2].sort().join('_')
-    // • Only participants may read their match document.
+    // • Only participants may read/update their match document.
     // • Any signed-in user may create a match document (triggered after a
     //   mutual swipe is confirmed client-side). The creator must be in users[].
-    // • No update/delete of the top-level match doc after creation.
     match /matches/{matchId} {
-      allow read:   if isSignedIn()
-                    && request.auth.uid in resource.data.users;
-      allow create: if isSignedIn()
-                    && request.auth.uid in request.resource.data.users
-                    && request.resource.data.users.size() == 2;
+      allow read, update: if isSignedIn()
+                          && request.auth.uid in resource.data.users;
+      allow create:       if isSignedIn()
+                          && request.auth.uid in request.resource.data.users
+                          && request.resource.data.users.size() == 2;
 
       // ── matches/{matchId}/messages ───────────────────────────────────────
-      // A message doc is: { sender, text, isVoice, audioUrl, imageUrl, timestamp }
-      // • Only the two match participants may read the message thread.
-      // • Only the sender (who must also be a participant) may create a message.
-      // • Messages are immutable — no update or delete.
+      // A message doc is: { sender, text, isVoice, audioUrl, imageUrl, timestamp, reactions, edited, deleted }
+      // • Only the two match participants may read, update, or delete in the thread.
+      // • Only a participant may create a message with sender == auth.uid.
       match /messages/{messageId} {
-        allow read:   if isSignedIn()
-                      && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
-        allow create: if isSignedIn()
-                      && request.resource.data.sender == request.auth.uid
-                      && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+        allow read:           if isSignedIn()
+                              && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+        allow create:         if isSignedIn()
+                              && request.resource.data.sender == request.auth.uid
+                              && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+        allow update, delete: if isSignedIn()
+                              && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
       }
+    }
+
+    // ── stories ─────────────────────────────────────────────────────────────
+    // Stories are 24-hour status posts visible to all signed-in users.
+    // • Any signed-in user may read active stories.
+    // • Story creators may create, update, and delete their own stories.
+    match /stories/{storyId} {
+      allow read:           if isSignedIn();
+      allow create:         if isSignedIn()
+                            && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isSignedIn()
+                            && resource.data.ownerId == request.auth.uid;
     }
 
     // ── reports ─────────────────────────────────────────────────────────────
