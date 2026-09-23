@@ -19,14 +19,45 @@ const fetch    = require('node-fetch');
 const app = express();
 
 /* ----------------------------------------------------------
-   Firebase Admin SDK — initialize with your service account
-   Download from: Firebase Console → Project Settings → Service Accounts
+   Firebase Admin SDK — initialize with service account
+   Supports:
+   1. FIREBASE_SERVICE_ACCOUNT_JSON (raw JSON in env)
+   2. FIREBASE_SERVICE_ACCOUNT_BASE64 (base64 string in env)
+   3. Local ./serviceAccountKey.json file
    ---------------------------------------------------------- */
-const serviceAccount = require('./serviceAccountKey.json'); // download from Firebase
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`
-});
+let serviceAccount = null;
+try {
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+    const raw = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
+    serviceAccount = JSON.parse(raw);
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+  } else {
+    try {
+      serviceAccount = require('./serviceAccountKey.json');
+    } catch (_) {
+      // file not present
+    }
+  }
+} catch (e) {
+  console.warn('⚠️  Could not parse Firebase service account credentials:', e.message);
+}
+
+if (serviceAccount) {
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount),
+    databaseURL: process.env.FIREBASE_PROJECT_ID ? `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com` : undefined
+  });
+} else {
+  try {
+    admin.initializeApp();
+    console.log('ℹ️  Firebase Admin initialized with default application credentials.');
+  } catch (e) {
+    console.warn('⚠️  Firebase Admin initialized without credentials (database write operations will require service credentials).');
+  }
+}
 const db = admin.firestore();
 
 /* ----------------------------------------------------------

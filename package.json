@@ -2,12 +2,15 @@
   "name": "hookmebysam",
   "version": "1.0.0",
   "description": "Nigeria's #1 Premium Dating & Matchmaking App",
-  "main": "firebase-config.js",
+  "main": "webhook-server/index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "npx http-server . -p 5500 -o",
+    "build": "cd webhook-server && npm install",
+    "start": "node webhook-server/index.js",
+    "postinstall": "cd webhook-server && npm install",
+    "client": "npx http-server . -p 5500 -o",
     "server": "cd webhook-server && npm run start",
-    "both": "npm-run-all -p start server"
+    "both": "npm-run-all -p client server"
   },
   "repository": {
     "type": "git",
