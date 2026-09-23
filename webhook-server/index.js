@@ -229,6 +229,7 @@ app.post('/auth/send-otp', async (req, res) => {
   const normalizedPhone = normalizeNigerianPhone(phone);
 
   try {
+    const senderId = process.env.TERMII_SENDER_ID || 'N-Alert';
     const response = await fetch('https://api.ng.termii.com/api/sms/otp/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -236,7 +237,7 @@ app.post('/auth/send-otp', async (req, res) => {
         api_key: process.env.TERMII_API_KEY,
         message_type: 'NUMERIC',
         to: normalizedPhone,
-        from: 'hookmebysam', // Your registered Sender ID on Termii
+        from: senderId,
         channel: 'generic',
         pin_attempts: 3,
         pin_time_to_live: 5,    // OTP expires in 5 minutes
@@ -261,8 +262,8 @@ app.post('/auth/send-otp', async (req, res) => {
       console.log(`📱 OTP sent to ${normalizedPhone}`);
       res.json({ success: true, message: 'OTP sent successfully' });
     } else {
-      console.error('Termii error:', data);
-      res.status(500).json({ error: 'Failed to send OTP. Try again.' });
+      console.error('Termii error response:', data);
+      res.status(400).json({ error: data.message || 'Failed to send OTP via SMS gateway.' });
     }
   } catch (err) {
     console.error('Termii network error:', err);

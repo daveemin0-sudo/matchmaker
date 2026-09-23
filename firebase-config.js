@@ -19,9 +19,8 @@ const firebaseConfig = {
 // Replace with your key from https://dashboard.paystack.com (e.g. pk_test_xxxx or pk_live_xxxx)
 const PAYSTACK_PUBLIC_KEY = "pk_test_64c0226b47c23fcdf84f6354d3cc1868e699e62b";
 
-// 3. YOUR WEBHOOK SERVER URL
-// After deploying your webhook-server/ folder to Render, Railway, or VPS:
-const BACKEND_URL = "http://localhost:3001"; // Change to https://api.hookmebysam.com in production
+// 3. YOUR WEBHOOK SERVER URL (Live Render Production Backend)
+const BACKEND_URL = "https://matchmaker-viwb.onrender.com";
 
 /* ==========================================================
    FIREBASE ADAPTER FUNCTIONS
