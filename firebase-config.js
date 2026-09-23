@@ -560,3 +560,287 @@ async function checkAndSyncVipStatus() {
 window.addEventListener("load", () => {
   initBackend();
 });
+
+/* ==========================================================
+   PUSH NOTIFICATIONS — Firebase Cloud Messaging (FCM)
+   ========================================================== */
+
+let _fcmMessaging = null;
+
+// Call this once after login to register the device for push
+async function initPushNotifications() {
+  // Only works in production (HTTPS) or with a real Firebase project
+  if (!fbApp || typeof firebase === 'undefined' || !firebase.messaging) return;
+
+  try {
+    _fcmMessaging = firebase.messaging();
+
+    // Request permission (browser will show the OS permission dialog)
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      console.info('Push notification permission denied.');
+      return;
+    }
+
+    // Your VAPID key — Firebase Console → Project Settings → Cloud Messaging → Web configuration
+    const VAPID_KEY = 'BLp3qjWUxvFZkjtXaP7Xs4o4Oidsgz2segUhkRBeJWCWnYS283ds9P0c2Ao86eqxSjSZvGphASeN5Y6Ty7bC3h8';
+
+    const token = await _fcmMessaging.getToken({ vapidKey: VAPID_KEY });
+    if (!token) return;
+
+    console.log('📱 FCM token registered:', token.substring(0, 20) + '...');
+    await saveFcmToken(token);
+
+    // Handle foreground messages (app is open)
+    _fcmMessaging.onMessage((payload) => {
+      console.log('📬 Foreground push received:', payload);
+      const { title, body } = payload.notification || {};
+      if (title || body) {
+        showToast(`🔔 ${body || title}`, 'info');
+      }
+    });
+
+    // Listen for push-click messages from the service worker
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data?.type === 'PUSH_NOTIFICATION_CLICK' && event.data.matchId) {
+          if (typeof openChat === 'function') openChat(event.data.matchId);
+        }
+      });
+    }
+  } catch (err) {
+    console.warn('Push notification setup error:', err);
+  }
+}
+
+async function saveFcmToken(token) {
+  if (!fbAuth?.currentUser || !fbDb) return;
+  const uid = fbAuth.currentUser.uid;
+  try {
+    await fbDb
+      .collection('fcm_tokens')
+      .doc(uid)
+      .collection('tokens')
+      .doc(token.substring(0, 20)) // use prefix as doc ID (stable per device)
+      .set({
+        token,
+        platform: 'web',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+  } catch (e) {
+    console.warn('Could not save FCM token:', e);
+  }
+}
+
+/* ==========================================================
+   TYPING INDICATORS
+   ========================================================== */
+
+let _typingDebounceTimer = null;
+let _typingListener = null;
+
+// Call when the user starts/stops typing
+function setTypingStatus(matchId, isTyping) {
+  if (!fbDb || !fbAuth?.currentUser) return;
+  const uid = fbAuth.currentUser.uid;
+  fbDb
+    .collection('matches')
+    .doc(matchId)
+    .collection('meta')
+    .doc('typing')
+    .set({ [uid]: isTyping }, { merge: true })
+    .catch(() => {});
+}
+
+// Debounced version — call this on every keypress
+function onUserTyping(matchId) {
+  setTypingStatus(matchId, true);
+  clearTimeout(_typingDebounceTimer);
+  _typingDebounceTimer = setTimeout(() => setTypingStatus(matchId, false), 2500);
+}
+
+// Subscribe to partner typing status — callback(isTyping: boolean)
+function listenToTyping(matchId, partnerUid, callback) {
+  if (_typingListener) { _typingListener(); _typingListener = null; }
+  if (!fbDb) return;
+
+  _typingListener = fbDb
+    .collection('matches')
+    .doc(matchId)
+    .collection('meta')
+    .doc('typing')
+    .onSnapshot((snap) => {
+      if (!snap.exists) { callback(false); return; }
+      const data = snap.data();
+      callback(!!data[partnerUid]);
+    }, () => {});
+
+  return _typingListener;
+}
+
+function stopTypingListener() {
+  if (_typingListener) { _typingListener(); _typingListener = null; }
+}
+
+/* ==========================================================
+   READ RECEIPTS
+   ========================================================== */
+
+// Mark all messages in a match as read by the current user
+async function markMessagesReadInFirestore(matchId) {
+  if (!fbDb || !fbAuth?.currentUser) return;
+  const uid = fbAuth.currentUser.uid;
+  try {
+    const snap = await fbDb
+      .collection('matches')
+      .doc(matchId)
+      .collection('messages')
+      .where('sender', '!=', uid)
+      .where('read', '==', false)
+      .limit(50)
+      .get();
+
+    if (snap.empty) return;
+    const batch = fbDb.batch();
+    snap.docs.forEach(doc => batch.update(doc.ref, { read: true }));
+    await batch.commit();
+  } catch (e) {
+    // Non-critical
+  }
+}
+
+/* ==========================================================
+   STORIES BACKEND — Firestore-backed with 24hr expiry
+   ========================================================== */
+
+// Upload a story to Firestore
+async function uploadStoryToFirestore(storyData) {
+  if (!fbDb || !fbAuth?.currentUser) return null;
+  const uid = fbAuth.currentUser.uid;
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+
+  try {
+    const docRef = await fbDb.collection('stories').add({
+      ownerId: uid,
+      ownerName: storyData.name || currentUser?.name || 'You',
+      ownerAvatar: storyData.thumb || currentUser?.avatar || '',
+      mediaUrl: storyData.image,
+      mediaType: 'image',
+      location: storyData.location || currentUser?.location || 'Lagos',
+      bio: storyData.bio || '',
+      tags: storyData.tags || [],
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
+      viewCount: 0
+    });
+    console.log('✅ Story uploaded to Firestore:', docRef.id);
+    return docRef.id;
+  } catch (e) {
+    console.warn('Story upload error:', e);
+    return null;
+  }
+}
+
+// Fetch all active (non-expired) stories from Firestore
+async function fetchActiveStoriesFromFirestore() {
+  if (!fbDb) return [];
+  try {
+    const now = firebase.firestore.Timestamp.now();
+    const snap = await fbDb
+      .collection('stories')
+      .where('expiresAt', '>', now)
+      .orderBy('expiresAt', 'desc')
+      .limit(40)
+      .get();
+
+    return snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      // Normalize fields for the existing story UI
+      name: doc.data().ownerName,
+      image: doc.data().mediaUrl,
+      thumb: doc.data().ownerAvatar || doc.data().mediaUrl,
+      location: doc.data().location || 'Lagos',
+    }));
+  } catch (e) {
+    console.warn('fetchActiveStories error:', e);
+    return [];
+  }
+}
+
+// Record that the current user viewed a story
+async function recordStoryView(storyId) {
+  if (!fbDb || !fbAuth?.currentUser) return;
+  const uid = fbAuth.currentUser.uid;
+  try {
+    // Record the viewer
+    await fbDb
+      .collection('story_views')
+      .doc(storyId)
+      .collection('viewers')
+      .doc(uid)
+      .set({ viewedAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+    // Increment view count on the story doc
+    await fbDb.collection('stories').doc(storyId).update({
+      viewCount: firebase.firestore.FieldValue.increment(1)
+    });
+  } catch (e) {
+    // Non-critical
+  }
+}
+
+// Get viewers list for a story (for "Seen by X people")
+async function fetchStoryViewers(storyId) {
+  if (!fbDb) return [];
+  try {
+    const snap = await fbDb
+      .collection('story_views')
+      .doc(storyId)
+      .collection('viewers')
+      .orderBy('viewedAt', 'desc')
+      .limit(50)
+      .get();
+    return snap.docs.map(d => ({ uid: d.id, ...d.data() }));
+  } catch (e) {
+    return [];
+  }
+}
+
+/* ==========================================================
+   MESSAGE REACTIONS
+   ========================================================== */
+
+// Add/toggle a reaction emoji on a message
+async function reactToMessage(matchId, messageId, emoji) {
+  if (!fbDb || !fbAuth?.currentUser) return;
+  const uid = fbAuth.currentUser.uid;
+  try {
+    const msgRef = fbDb
+      .collection('matches')
+      .doc(matchId)
+      .collection('messages')
+      .doc(messageId);
+
+    const doc = await msgRef.get();
+    if (!doc.exists) return;
+
+    const reactions = doc.data().reactions || {};
+    const existingReactors = reactions[emoji] || [];
+
+    let updated;
+    if (existingReactors.includes(uid)) {
+      // Toggle off
+      updated = existingReactors.filter(id => id !== uid);
+    } else {
+      // Add reaction
+      updated = [...existingReactors, uid];
+    }
+
+    reactions[emoji] = updated;
+    await msgRef.update({ reactions });
+  } catch (e) {
+    console.warn('reactToMessage error:', e);
+  }
+}

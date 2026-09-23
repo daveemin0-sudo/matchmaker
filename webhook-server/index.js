@@ -306,15 +306,163 @@ function normalizeNigerianPhone(phone) {
 }
 
 /* ==========================================================
+   FCM PUSH NOTIFICATIONS — Send push via Firebase Admin
+   ========================================================== */
+
+// Internal helper — send a push to a single user
+async function sendPushToUser(userId, { title, body, data = {} }) {
+  if (!userId) return;
+  try {
+    // Get all FCM tokens for this user
+    const tokensSnap = await db
+      .collection('fcm_tokens')
+      .doc(userId)
+      .collection('tokens')
+      .get();
+
+    if (tokensSnap.empty) return;
+
+    const tokens = tokensSnap.docs.map(d => d.data().token).filter(Boolean);
+    if (tokens.length === 0) return;
+
+    const message = {
+      notification: { title, body },
+      data: { ...data },
+      tokens,
+    };
+
+    const response = await admin.messaging().sendEachForMulticast(message);
+    console.log(`🔔 Push sent to ${userId}: ${response.successCount} success, ${response.failureCount} fail`);
+
+    // Clean up stale/invalid tokens
+    const staleTokens = [];
+    response.responses.forEach((resp, idx) => {
+      if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
+        staleTokens.push(tokens[idx]);
+      }
+    });
+    for (const stale of staleTokens) {
+      const tokenDocs = await db
+        .collection('fcm_tokens')
+        .doc(userId)
+        .collection('tokens')
+        .where('token', '==', stale)
+        .get();
+      tokenDocs.docs.forEach(d => d.ref.delete());
+    }
+  } catch (err) {
+    console.error('sendPushToUser error:', err);
+  }
+}
+
+// Endpoint — send a push notification (called internally or from a Cloud Function trigger)
+// Body: { toUserId, title, body, data }
+app.post('/fcm/send', async (req, res) => {
+  const { toUserId, title, body, data } = req.body;
+  if (!toUserId || !title) {
+    return res.status(400).json({ error: 'toUserId and title are required.' });
+  }
+  await sendPushToUser(toUserId, { title, body: body || '', data: data || {} });
+  res.json({ success: true });
+});
+
+// Trigger: new match — called from client after mutual like detected
+// Body: { userId, matchedUserId, matchedUserName }
+app.post('/fcm/new-match', async (req, res) => {
+  const { userId, matchedUserId, matchedUserName } = req.body;
+  if (!userId || !matchedUserId) {
+    return res.status(400).json({ error: 'userId and matchedUserId required.' });
+  }
+  // Notify BOTH users
+  await Promise.all([
+    sendPushToUser(userId, {
+      title: '💕 New Match!',
+      body: `You matched with ${matchedUserName || 'someone'}! Say hello.`,
+      data: { type: 'new_match', matchId: matchedUserId }
+    }),
+    sendPushToUser(matchedUserId, {
+      title: '💕 New Match!',
+      body: 'Someone liked you back! You have a new match.',
+      data: { type: 'new_match', matchId: userId }
+    })
+  ]);
+  res.json({ success: true });
+});
+
+// Trigger: new chat message — call this from your realtime message listener
+// Body: { toUserId, fromUserName, messageText, matchId }
+app.post('/fcm/new-message', async (req, res) => {
+  const { toUserId, fromUserName, messageText, matchId } = req.body;
+  if (!toUserId) return res.status(400).json({ error: 'toUserId required.' });
+
+  const preview = messageText
+    ? messageText.substring(0, 60) + (messageText.length > 60 ? '…' : '')
+    : '📷 Photo';
+
+  await sendPushToUser(toUserId, {
+    title: `💬 ${fromUserName || 'Your match'}`,
+    body: preview,
+    data: { type: 'new_message', matchId: matchId || '' }
+  });
+  res.json({ success: true });
+});
+
+/* ==========================================================
+   STORIES CLEANUP — Delete expired stories (run via cron)
+   ========================================================== */
+
+app.post('/stories/cleanup', async (req, res) => {
+  // Simple auth guard — only accept calls with the server secret
+  const secret = req.headers['x-cleanup-secret'];
+  if (secret !== process.env.CLEANUP_SECRET && process.env.CLEANUP_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const now = admin.firestore.Timestamp.now();
+    const snap = await db
+      .collection('stories')
+      .where('expiresAt', '<', now)
+      .limit(100)
+      .get();
+
+    if (snap.empty) {
+      return res.json({ success: true, deleted: 0 });
+    }
+
+    const batch = db.batch();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+
+    console.log(`🗑️  Cleaned up ${snap.size} expired stories`);
+    res.json({ success: true, deleted: snap.size });
+  } catch (err) {
+    console.error('Story cleanup error:', err);
+    res.status(500).json({ error: 'Cleanup failed.' });
+  }
+});
+
+/* ==========================================================
    HEALTH CHECK
    ========================================================== */
+
 app.get('/', (req, res) => {
   res.json({
     service: 'hookmebysam Backend',
     status: 'online',
-    endpoints: ['/webhook/paystack', '/auth/send-otp', '/auth/verify-otp']
+    endpoints: [
+      '/webhook/paystack',
+      '/paystack/verify',
+      '/auth/send-otp',
+      '/auth/verify-otp',
+      '/fcm/send',
+      '/fcm/new-match',
+      '/fcm/new-message',
+      '/stories/cleanup'
+    ]
   });
 });
+
 
 /* ==========================================================
    START SERVER
@@ -322,7 +470,13 @@ app.get('/', (req, res) => {
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`\n🚀 hookmebysam backend running on port ${PORT}`);
-  console.log(`📌 Paystack webhook: POST http://localhost:${PORT}/webhook/paystack`);
-  console.log(`📌 Send OTP:         POST http://localhost:${PORT}/auth/send-otp`);
-  console.log(`📌 Verify OTP:       POST http://localhost:${PORT}/auth/verify-otp\n`);
+  console.log(`📌 Paystack webhook:   POST http://localhost:${PORT}/webhook/paystack`);
+  console.log(`📌 Paystack verify:    POST http://localhost:${PORT}/paystack/verify`);
+  console.log(`📌 Send OTP:           POST http://localhost:${PORT}/auth/send-otp`);
+  console.log(`📌 Verify OTP:         POST http://localhost:${PORT}/auth/verify-otp`);
+  console.log(`📌 FCM send:           POST http://localhost:${PORT}/fcm/send`);
+  console.log(`📌 FCM new match:      POST http://localhost:${PORT}/fcm/new-match`);
+  console.log(`📌 FCM new message:    POST http://localhost:${PORT}/fcm/new-message`);
+  console.log(`📌 Stories cleanup:    POST http://localhost:${PORT}/stories/cleanup\n`);
 });
+

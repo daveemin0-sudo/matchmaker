@@ -5352,3 +5352,159 @@ label, .form-field label, .auth-form-group label {
 [data-theme="light"] .simple-avatar-pencil-badge {
   border-color: #FFFFFF !important;
 }
+
+/* ==========================================================
+   CHAT MESSAGE ROWS & TWO-SIDED BUBBLES
+   ========================================================== */
+
+.msg-row {
+  display: flex;
+  flex-direction: column;
+  max-width: 78%;
+  gap: 3px;
+}
+
+.msg-row.sent {
+  align-self: flex-end !important;
+  align-items: flex-end !important;
+}
+
+.msg-row.received {
+  align-self: flex-start !important;
+  align-items: flex-start !important;
+}
+
+.msg-row .msg-bubble {
+  max-width: 100% !important;
+}
+
+.msg-row.sent .msg-reaction-bar {
+  justify-content: flex-end;
+}
+
+.msg-row.received .msg-reaction-bar {
+  justify-content: flex-start;
+}
+
+/* ==========================================================
+   MESSAGE REACTIONS
+   ========================================================== */
+
+.msg-reaction-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.msg-reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+  user-select: none;
+}
+.msg-reaction-pill:hover {
+  background: rgba(255,255,255,0.18);
+  transform: scale(1.08);
+}
+.msg-reaction-pill span {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: rgba(255,255,255,0.8);
+}
+
+@keyframes reactionPickerIn {
+  from { opacity: 0; transform: scale(0.7) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.msg-menu-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  color: rgba(255,255,255,0.85);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  width: 100%;
+}
+.msg-menu-btn:hover {
+  background: rgba(255,255,255,0.08);
+}
+.msg-menu-btn svg {
+  flex-shrink: 0;
+  opacity: 0.85;
+}
+.msg-menu-btn-danger:hover {
+  background: rgba(255,46,112,0.15);
+}
+
+.msg-edited {
+  font-size: 0.68rem;
+  color: rgba(255,255,255,0.5);
+  font-style: italic;
+  margin-left: 5px;
+}
+
+.msg-forwarded-tag {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.6);
+  font-style: italic;
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.your-story-active-ring {
+  background: linear-gradient(135deg, #FF2D78, #F4C550) !important;
+  box-shadow: 0 0 12px rgba(255,45,120,0.5) !important;
+}
+
+/* ==========================================================
+   FCM PUSH — Notification nudge banner
+   ========================================================== */
+
+.notif-nudge-banner {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(135deg, #1E1530 0%, #2C1845 100%);
+  border: 1px solid rgba(209,58,99,0.4);
+  border-radius: 16px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 9000;
+  max-width: 340px;
+  width: 92%;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  animation: slideUpFadeIn 0.35s ease;
+}
+.notif-nudge-banner button {
+  background: var(--flame-grad, #ff2d78);
+  border: none;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border-radius: 12px;
+  padding: 7px 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}

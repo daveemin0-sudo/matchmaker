@@ -121,7 +121,7 @@
             </div>
           </div>
 
-          <span class="auth-forgot" onclick="showToast('Password reset email sent! Check your inbox.')">Forgot Password?</span>
+          <span class="auth-forgot" onclick="handleForgotPassword()">Forgot Password?</span>
 
           <div class="auth-error" id="loginError"></div>
 
@@ -632,6 +632,15 @@
           <div class="emoji-grid" id="emojiGrid"></div>
         </div>
 
+        <!-- Message Edit Banner (shows when editing a message) -->
+        <div id="chatEditBar" style="display:none;background:rgba(209,58,99,0.18);border-top:1px solid rgba(209,58,99,0.4);padding:8px 16px;align-items:center;justify-content:space-between;gap:10px">
+          <div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">
+            <span style="font-size:0.9rem">✏️</span>
+            <div style="font-size:0.8rem;color:rgba(255,255,255,0.8);white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="chatEditPreview">Editing message...</div>
+          </div>
+          <button onclick="cancelEditMessage()" style="background:none;border:none;color:rgba(255,255,255,0.6);font-size:1.1rem;cursor:pointer">✕</button>
+        </div>
+
         <!-- Chat Input Bar -->
         <div class="chat-input-bar">
           <button class="chat-icon-btn" id="emojiToggleBtn" onclick="toggleEmojiPicker()" aria-label="Emoji" title="Emoji">
@@ -978,13 +987,13 @@
                 <div class="settings-badge-chip">Verified</div>
               </div>
 
-              <div class="settings-row" onclick="showToast('Phone verification coming soon!')">
+              <div class="settings-row" onclick="openPhoneVerificationModal()">
                 <div class="settings-row-icon-wrap" style="--icon-bg: rgba(33,176,107,0.1); --icon-color: #21B06B">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
                 </div>
                 <div class="settings-row-body">
                   <div class="settings-row-label">Phone Number</div>
-                  <div class="settings-row-sub">+234 812 345 6789</div>
+                  <div class="settings-row-sub" id="settingsPhoneSub">Tap to verify your number</div>
                 </div>
                 <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
               </div>
@@ -1011,13 +1020,13 @@
             </div>
             <div class="settings-card">
 
-              <div class="settings-row" onclick="showToast('Language settings coming soon!')">
+              <div class="settings-row" onclick="openLanguageModal()">
                 <div class="settings-row-icon-wrap" style="--icon-bg: rgba(75,176,255,0.12); --icon-color: #4BB0FF">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
                 </div>
                 <div class="settings-row-body">
                   <div class="settings-row-label">Language</div>
-                  <div class="settings-row-sub">English (UK)</div>
+                  <div class="settings-row-sub" id="settingsLanguageSub">English (UK)</div>
                 </div>
                 <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
               </div>
@@ -1299,9 +1308,17 @@
               <span class="story-user-loc" id="storyUserLoc">📍 Lagos, 18 km away</span>
             </div>
           </div>
-          <button class="story-close-btn" onclick="closeStoryViewer()" aria-label="Close story">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+          <div style="display:flex;align-items:center;gap:6px">
+            <button class="story-close-btn" id="storyDeleteBtn" style="display:none;background:rgba(255,46,112,0.2)" onclick="deleteCurrentUserStory()" title="Delete Story" aria-label="Delete Story">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#FF2E70"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+            </button>
+            <button class="story-close-btn" id="storyAddMoreBtn" style="display:none;background:rgba(255,255,255,0.15)" onclick="openYourStoryUpload()" title="Add another photo" aria-label="Add photo">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            </button>
+            <button class="story-close-btn" onclick="closeStoryViewer()" aria-label="Close story">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1321,8 +1338,8 @@
           </div>
         </div>
 
-        <!-- Action Row -->
-        <div class="story-action-row">
+        <!-- Action Row (for other users' stories) -->
+        <div class="story-action-row" id="storyCommunityActionRow">
           <div class="story-reply-wrap">
             <input type="text" class="story-reply-input" id="storyMsgInput" placeholder="Send a message..." onkeydown="handleStoryKeydown(event)">
             <button class="story-send-btn" onclick="sendStoryReply()" aria-label="Send message">
@@ -1333,10 +1350,108 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
           </button>
         </div>
+
+        <!-- Action Row (for own stories) -->
+        <div id="storyOwnActionBar" style="display:none;width:100%;align-items:center;justify-content:space-between;padding:12px 18px;background:rgba(18,10,28,0.75);border-radius:24px;border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(10px)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:1rem">📸</span>
+            <span style="font-size:0.84rem;font-weight:600;color:rgba(255,255,255,0.85)">Your Story • Visible to matches</span>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button onclick="openYourStoryUpload()" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:16px;padding:6px 14px;font-size:0.8rem;font-weight:700;cursor:pointer">➕ Add</button>
+            <button onclick="deleteCurrentUserStory()" style="background:#FF2E70;color:#fff;border:none;border-radius:16px;padding:6px 14px;font-size:0.8rem;font-weight:700;cursor:pointer">🗑️ Delete</button>
+          </div>
+        </div>
       </div>
     </div>
 
   </div><!-- end .app-shell -->
+
+  <!-- =========================================================
+       MODAL: FORGOT PASSWORD
+       ========================================================= -->
+  <div class="modal-overlay" id="forgotPasswordModal" style="display:none;align-items:center;justify-content:center;z-index:10000;background:rgba(8,5,14,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:fixed;inset:0">
+    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:420px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.85);position:relative">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <h2 style="font-family:'Fraunces',serif;font-size:1.35rem;color:#FFF;margin:0">Reset Password</h2>
+        <button onclick="closeForgotPasswordModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+      <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin:0 0 20px">Enter your email address and we'll send you a link to reset your password.</p>
+      <div class="auth-input-wrap" style="margin-bottom:16px">
+        <span class="auth-input-icon">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+        </span>
+        <input class="auth-input" id="forgotPasswordEmail" type="email" placeholder="your@email.com" autocomplete="email" inputmode="email">
+      </div>
+      <div id="forgotPasswordError" style="color:#FF2E70;font-size:0.83rem;margin-bottom:12px;min-height:18px"></div>
+      <button class="accent-btn" id="forgotPasswordBtn" onclick="submitForgotPassword()" style="width:100%">Send Reset Email</button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: FORWARD MESSAGE
+       ========================================================= -->
+  <div class="modal-overlay" id="forwardModal" style="display:none;align-items:center;justify-content:center;z-index:10000;background:rgba(8,5,14,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:fixed;inset:0">
+    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:400px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.85);max-height:80vh;display:flex;flex-direction:column">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <h2 style="font-family:'Fraunces',serif;font-size:1.3rem;color:#FFF;margin:0">Forward Message</h2>
+        <button onclick="closeForwardModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+      <p style="color:rgba(255,255,255,0.6);font-size:0.85rem;margin:0 0 16px">Select a match to forward this message to:</p>
+      <div id="forwardMatchesList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;max-height:360px">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: PHONE VERIFICATION
+       ========================================================= -->
+  <div class="modal-overlay" id="phoneVerifyModal" style="display:none;align-items:center;justify-content:center;z-index:10000;background:rgba(8,5,14,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:fixed;inset:0">
+    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:420px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.85);position:relative">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <h2 style="font-family:'Fraunces',serif;font-size:1.35rem;color:#FFF;margin:0" id="phoneVerifyTitle">Verify Phone Number</h2>
+        <button onclick="closePhoneVerificationModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+
+      <!-- Step 1: Enter phone -->
+      <div id="phoneStep1">
+        <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin:0 0 20px">Enter your Nigerian phone number to receive a verification SMS.</p>
+        <div class="auth-input-wrap" style="margin-bottom:16px">
+          <span class="auth-input-icon" style="font-size:0.9rem;font-weight:700;color:rgba(255,255,255,0.5)">+234</span>
+          <input class="auth-input" id="phoneNumberInput" type="tel" placeholder="812 345 6789" inputmode="numeric" maxlength="11" style="padding-left:56px">
+        </div>
+        <div id="phoneStep1Error" style="color:#FF2E70;font-size:0.83rem;margin-bottom:12px;min-height:18px"></div>
+        <button class="accent-btn" id="phoneSendOtpBtn" onclick="sendPhoneOtp()" style="width:100%">Send Verification Code</button>
+      </div>
+
+      <!-- Step 2: Enter OTP -->
+      <div id="phoneStep2" style="display:none">
+        <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin:0 0 6px">Enter the 6-digit code sent to your phone.</p>
+        <p id="phoneOtpSentTo" style="color:#21B06B;font-size:0.85rem;font-weight:700;margin:0 0 20px"></p>
+        <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
+          <input class="auth-input" id="otpInput" type="tel" placeholder="000000" inputmode="numeric" maxlength="6" style="text-align:center;letter-spacing:8px;font-size:1.4rem;font-weight:700;padding:14px 12px">
+        </div>
+        <div id="phoneStep2Error" style="color:#FF2E70;font-size:0.83rem;margin-bottom:12px;min-height:18px"></div>
+        <button class="accent-btn" id="phoneVerifyOtpBtn" onclick="verifyPhoneOtp()" style="width:100%">Verify Code</button>
+        <button onclick="showPhoneStep1()" style="width:100%;background:none;border:none;color:rgba(255,255,255,0.4);font-size:0.83rem;margin-top:10px;cursor:pointer">← Change number</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       MODAL: LANGUAGE SELECTOR
+       ========================================================= -->
+  <div class="modal-overlay" id="languageModal" style="display:none;align-items:center;justify-content:center;z-index:10000;background:rgba(8,5,14,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:fixed;inset:0">
+    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:420px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.85);position:relative">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <h2 style="font-family:'Fraunces',serif;font-size:1.35rem;color:#FFF;margin:0">Choose Language</h2>
+        <button onclick="closeLanguageModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+      </div>
+      <p style="color:rgba(255,255,255,0.55);font-size:0.85rem;margin:0 0 18px">Select your preferred display language.</p>
+      <div id="languageOptionsList" style="display:flex;flex-direction:column;gap:10px"></div>
+    </div>
+  </div>
 
   <!-- Paystack Inline Payment Gateway SDK -->
   <script src="https://js.paystack.co/v1/inline.js"></script>

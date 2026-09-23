@@ -232,6 +232,11 @@ function initMainApp() {
 
   // Ask for notification permission after a short delay
   setTimeout(requestNotificationPermission, 3500);
+
+  // Register service worker for FCM push notifications
+  if (typeof initPushNotifications === 'function' && isRealUserLoggedIn()) {
+    setTimeout(() => initPushNotifications(), 4000);
+  }
   // Register service worker for PWA — but never on localhost/local dev
   // servers. The SW exists to help real users go offline and get fast
   // repeat loads; while you're actively editing and reloading via Live
@@ -399,7 +404,7 @@ function updateHeader(screenId) {
       break;
     case 'matches':
       backBtn.style.display = 'flex';
-      setHeaderTitle('My Matches');
+      setHeaderTitle('Matches');
       break;
     case 'chatsList':
       backBtn.style.display = 'none';
@@ -413,7 +418,7 @@ function updateHeader(screenId) {
     }
     case 'profile':
       backBtn.style.display = 'flex';
-      setHeaderTitle('My Profile');
+      setHeaderTitle('Profile');
       break;
     case 'settings':
       backBtn.style.display = 'flex';
@@ -1543,11 +1548,17 @@ function openChat(profileId) {
               audioUrl: m.audioUrl || '',
               imageUrl: m.imageUrl || '',
               duration: m.duration || '0:05',
-              read: true, // chat is open!
-              timestamp: m.timestamp?.toMillis ? m.timestamp.toMillis() : (typeof m.timestamp === 'number' ? m.timestamp : Date.now())
+              read: true,
+              timestamp: m.timestamp?.toMillis ? m.timestamp.toMillis() : (typeof m.timestamp === 'number' ? m.timestamp : Date.now()),
+              reactions: m.reactions || {},
+              firestoreId: m.id || null
             };
           })
         };
+        // Mark newly received messages as read
+        if (typeof markMessagesReadInFirestore === 'function') {
+          markMessagesReadInFirestore(matchId);
+        }
         movePartnerToTop(profileId);
         renderChatThread();
         renderConversationList();
@@ -1762,6 +1773,10 @@ function renderChatThread() {
   if (!container) return;
 
   const hist = conversations[appState.currentChatId]?.messages || [];
+  const partnerId = appState.currentChatId;
+  const matchId = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser && partnerId)
+    ? [fbAuth.currentUser.uid, partnerId].sort().join('_')
+    : null;
 
   if (hist.length === 0) {
     container.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--text-muted);font-size:0.88rem">Start the conversation! 👋</div>`;
@@ -1770,19 +1785,36 @@ function renderChatThread() {
 
   container.innerHTML = hist.map((msg, idx) => {
     const isLast = idx === hist.length - 1;
+    const isSent = msg.sender === 'me';
+    const msgId = msg.firestoreId || `local_${idx}`;
+
+    // Build reaction bar
+    const reactions = msg.reactions || {};
+    const reactionKeys = Object.keys(reactions).filter(k => reactions[k]?.length > 0);
+    const reactionBar = reactionKeys.length > 0
+      ? `<div class="msg-reaction-bar">${reactionKeys.map(emoji =>
+          `<span class="msg-reaction-pill" onclick="toggleMsgReaction('${matchId}','${msgId}','${emoji}')">${emoji} <span>${reactions[emoji].length}</span></span>`
+        ).join('')}</div>`
+      : '';
+
+    const pressEvents = `onmousedown="startLongPress(event,'${matchId}','${msgId}')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchstart="startLongPress(event,'${matchId}','${msgId}')" ontouchend="cancelLongPress()" oncontextmenu="event.preventDefault();showReactionPicker(event,'${matchId}','${msgId}')"`;
+
+    let bubbleHtml = '';
+    const receiptHtml = isSent ? `<span class="msg-receipt ${isLast ? 'read' : ''}">✓✓</span>` : '';
+    const editedHtml = msg.edited ? `<span class="msg-edited">(edited)</span>` : '';
+    const forwardedHtml = msg.forwarded
+      ? `<div class="msg-forwarded-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg> Forwarded</div>`
+      : '';
+
     if (msg.imageUrl) {
-      const receiptHtml = msg.sender === 'me' ? `<span class="msg-receipt ${isLast ? 'read' : ''}">✓✓</span>` : '';
-      return `
-        <div class="msg-bubble ${msg.sender === 'me' ? 'sent' : 'received'}" style="padding:4px;max-width:220px;overflow:hidden">
+      bubbleHtml = `
+        <div class="msg-bubble ${isSent ? 'sent' : 'received'}" style="padding:4px;max-width:240px;overflow:hidden;cursor:pointer" ${pressEvents}>
           <img src="${msg.imageUrl}" style="width:100%;border-radius:14px;display:block">
           ${receiptHtml}
         </div>`;
-    }
-    if (msg.isVoice) {
-      const receiptHtml = msg.sender === 'me'
-        ? `<span class="msg-receipt ${isLast ? 'read' : ''}">✓✓</span>` : '';
-      return `
-        <div class="msg-bubble audio-bubble ${msg.sender === 'me' ? 'sent' : 'received'}">
+    } else if (msg.isVoice) {
+      bubbleHtml = `
+        <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" ${pressEvents}>
           <div style="display:flex;align-items:center;gap:10px;width:170px">
             <span style="cursor:pointer;font-size:14px">▶️</span>
             <div style="flex:1;height:4px;background:rgba(255,255,255,0.3);border-radius:2px;position:relative">
@@ -1792,10 +1824,19 @@ function renderChatThread() {
           </div>
           ${receiptHtml}
         </div>`;
+    } else {
+      bubbleHtml = `
+        <div class="msg-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" ${pressEvents}>
+          ${escHtml(msg.text)}${editedHtml}${receiptHtml}
+        </div>`;
     }
-    const receiptHtml = msg.sender === 'me'
-      ? `<span class="msg-receipt ${isLast ? 'read' : ''}">✓✓</span>` : '';
-    return `<div class="msg-bubble ${msg.sender === 'me' ? 'sent' : 'received'}">${escHtml(msg.text)}${receiptHtml}</div>`;
+
+    return `
+      <div class="msg-row ${isSent ? 'sent' : 'received'}" style="display:flex;flex-direction:column;align-self:${isSent ? 'flex-end' : 'flex-start'};align-items:${isSent ? 'flex-end' : 'flex-start'};max-width:78%;gap:3px">
+        ${forwardedHtml}
+        ${bubbleHtml}
+        ${reactionBar}
+      </div>`;
   }).join('');
 
   container.scrollTop = container.scrollHeight;
@@ -2095,6 +2136,31 @@ function sendMessage() {
   const text = input.value.trim();
   if (!text || !appState.currentChatId) return;
 
+  // Handle edit message mode
+  if (_editingState) {
+    const { matchId, msgId } = _editingState;
+    const isLocal = msgId.startsWith('local_');
+    const msgIdx = isLocal ? parseInt(msgId.replace('local_', ''), 10) : null;
+    const hist = conversations[appState.currentChatId]?.messages;
+
+    if (hist && msgIdx !== null && hist[msgIdx]) {
+      hist[msgIdx].text = text;
+      hist[msgIdx].edited = true;
+    }
+
+    if (typeof fbDb !== 'undefined' && fbDb && matchId && !isLocal) {
+      fbDb.collection('matches').doc(matchId).collection('messages').doc(msgId)
+        .update({ text, edited: true }).catch(() => {});
+    }
+
+    saveToStorage();
+    renderChatThread();
+    renderConversationList();
+    cancelEditMessage();
+    showToast('Message edited ✏️', 'info');
+    return;
+  }
+
   if (!conversations[appState.currentChatId]) {
     conversations[appState.currentChatId] = { messages: [] };
   }
@@ -2117,6 +2183,19 @@ function sendMessage() {
   if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
     sendRealtimeMessage(matchId, text);
+
+    // Trigger push notification to partner (fire-and-forget)
+    const myName = currentUser.name || 'Your match';
+    fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : 'http://localhost:3001'}/fcm/new-message`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        toUserId: appState.currentChatId,
+        fromUserName: myName,
+        messageText: text,
+        matchId: fbAuth.currentUser.uid
+      })
+    }).catch(() => {}); // Non-blocking, never fail the send
   } else {
     triggerAutoReply();
   }
@@ -3260,25 +3339,25 @@ let seenStories = new Set();
 let currentStoryIndex = 0;
 let storyTimer = null;
 
+let _viewingUserStory = false;
+
 function renderStoriesRow() {
   const scroll = document.getElementById('storiesScroll');
   if (!scroll) return;
 
-  if (isRealUserLoggedIn()) {
-    // Show user's own story bubble (+ icon / add status like WhatsApp/Instagram)
-    const userAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
-    scroll.innerHTML = `
-      <div class="story-bubble your-story" onclick="showToast('Story uploads coming soon! 📸', 'info')">
-        <div class="story-avatar-ring your-story-ring">
-          <div class="story-avatar-img" style="background-image:url('${userAvatar}')"></div>
-          <span class="story-add-badge">+</span>
-        </div>
-        <span class="story-name">Your Story</span>
-      </div>`;
-    return;
-  }
+  const hasStory = (typeof userStories !== 'undefined' && userStories.length > 0);
+  const userAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
 
-  scroll.innerHTML = STORY_DATA.map((s, idx) => {
+  let html = `
+    <div class="story-bubble your-story" onclick="${hasStory ? 'viewYourStory()' : 'openYourStoryUpload()'}">
+      <div class="story-avatar-ring ${hasStory ? 'your-story-active-ring' : 'your-story-ring'}">
+        <div class="story-avatar-img" style="background-image:url('${userAvatar}')"></div>
+        <span class="story-add-badge" onclick="event.stopPropagation();openYourStoryUpload(event);" title="${hasStory ? 'Add photo' : 'Upload story'}">+</span>
+      </div>
+      <span class="story-name">${hasStory ? 'Your Story' : 'Add Story'}</span>
+    </div>`;
+
+  html += STORY_DATA.map((s, idx) => {
     const seen = seenStories.has(s.id);
     return `
       <div class="story-bubble ${seen ? 'seen' : ''}" onclick="viewStory('${s.id}')">
@@ -3288,9 +3367,22 @@ function renderStoriesRow() {
         <span class="story-name">${s.name}</span>
       </div>`;
   }).join('');
+
+  scroll.innerHTML = html;
+}
+
+function viewYourStory() {
+  if (!userStories || userStories.length === 0) {
+    openYourStoryUpload();
+    return;
+  }
+  _viewingUserStory = true;
+  currentStoryIndex = 0;
+  showStoryAtIndex(0);
 }
 
 function viewStory(storyId) {
+  _viewingUserStory = false;
   const idx = STORY_DATA.findIndex(s => s.id === storyId);
   if (idx === -1) return;
   currentStoryIndex = idx;
@@ -3298,14 +3390,17 @@ function viewStory(storyId) {
 }
 
 function showStoryAtIndex(idx) {
-  if (idx < 0 || idx >= STORY_DATA.length) {
+  const isOwn = _viewingUserStory;
+  const activeList = isOwn ? userStories : STORY_DATA;
+
+  if (idx < 0 || idx >= activeList.length) {
     closeStoryViewer();
     return;
   }
 
   currentStoryIndex = idx;
-  const story = STORY_DATA[currentStoryIndex];
-  seenStories.add(story.id);
+  const story = activeList[currentStoryIndex];
+  if (!isOwn) seenStories.add(story.id);
   renderStoriesRow();
 
   const overlay = document.getElementById('storyViewerOverlay');
@@ -3317,23 +3412,35 @@ function showStoryAtIndex(idx) {
   const bioEl = document.getElementById('storyBioText');
   const tagsRow = document.getElementById('storyTagsRow');
   const inputEl = document.getElementById('storyMsgInput');
+  const topPickBadge = document.querySelector('.story-top-pick-badge');
+  const deleteBtn = document.getElementById('storyDeleteBtn');
+  const addMoreBtn = document.getElementById('storyAddMoreBtn');
+  const ownActionBar = document.getElementById('storyOwnActionBar');
+  const commActionRow = document.getElementById('storyCommunityActionRow');
 
   if (bgImg) bgImg.style.backgroundImage = `url('${story.image}')`;
-  if (avatar) avatar.style.backgroundImage = `url('${story.thumb || story.image}')`;
-  if (nameEl) nameEl.textContent = story.name;
-  if (ageEl) ageEl.textContent = `, ${story.age}`;
-  if (locEl) locEl.textContent = `📍 ${story.location}`;
-  if (bioEl) bioEl.textContent = story.bio;
+  if (avatar) avatar.style.backgroundImage = `url('${isOwn ? (currentUser.avatar || story.thumb || story.image) : (story.thumb || story.image)}')`;
+  if (nameEl) nameEl.textContent = isOwn ? 'Your Story' : story.name;
+  if (ageEl) ageEl.textContent = isOwn ? '' : (story.age ? `, ${story.age}` : '');
+  if (locEl) locEl.textContent = `📍 ${story.location || 'Lagos'}${isOwn ? ' • Active for 24h' : ''}`;
+  if (bioEl) bioEl.textContent = story.bio || (isOwn ? 'My latest story ✨' : '');
+
+  if (topPickBadge) topPickBadge.style.display = isOwn ? 'none' : 'inline';
+  if (deleteBtn) deleteBtn.style.display = isOwn ? 'flex' : 'none';
+  if (addMoreBtn) addMoreBtn.style.display = isOwn ? 'flex' : 'none';
+  if (ownActionBar) ownActionBar.style.display = isOwn ? 'flex' : 'none';
+  if (commActionRow) commActionRow.style.display = isOwn ? 'none' : 'flex';
+
   if (inputEl) inputEl.placeholder = `Send a compliment to ${story.name}...`;
 
   if (tagsRow) {
-    tagsRow.innerHTML = story.tags.map(t => `<span class="story-tag-chip">${t}</span>`).join('');
+    tagsRow.innerHTML = (story.tags || []).map(t => `<span class="story-tag-chip">${t}</span>`).join('');
   }
 
   // Render Story Progress Indicators
   const progressBars = document.getElementById('storyProgressBars');
   if (progressBars) {
-    progressBars.innerHTML = STORY_DATA.map((_, i) => {
+    progressBars.innerHTML = activeList.map((_, i) => {
       let cls = 'story-progress-bar';
       if (i < currentStoryIndex) cls += ' completed';
       else if (i === currentStoryIndex) cls += ' active';
@@ -3355,7 +3462,8 @@ function showStoryAtIndex(idx) {
 function nextStory(e) {
   if (e) e.stopPropagation();
   clearTimeout(storyTimer);
-  if (currentStoryIndex < STORY_DATA.length - 1) {
+  const activeList = _viewingUserStory ? userStories : STORY_DATA;
+  if (currentStoryIndex < activeList.length - 1) {
     showStoryAtIndex(currentStoryIndex + 1);
   } else {
     closeStoryViewer();
@@ -3376,6 +3484,23 @@ function closeStoryViewer() {
   clearTimeout(storyTimer);
   const overlay = document.getElementById('storyViewerOverlay');
   if (overlay) overlay.style.display = 'none';
+  _viewingUserStory = false;
+}
+
+function deleteCurrentUserStory() {
+  if (!confirm('Are you sure you want to delete this story?')) return;
+  if (!userStories || userStories.length === 0) return;
+
+  const removed = userStories.splice(currentStoryIndex, 1)[0];
+  localStorage.setItem('hmbs_user_stories', JSON.stringify(userStories));
+
+  if (removed && removed.id && typeof fbDb !== 'undefined' && fbDb) {
+    fbDb.collection('stories').doc(removed.id).delete().catch(() => {});
+  }
+
+  closeStoryViewer();
+  renderStoriesRow();
+  showToast('Story deleted 🗑️', 'info');
 }
 
 function likeStoryProfile() {
@@ -4103,4 +4228,631 @@ function clearModalSearch() {
   const input = document.getElementById('searchModalInput');
   if (input) input.value = '';
   handleModalSearchInput({ target: { value: '' } });
+}
+
+// ==========================================================
+// MESSAGE REACTIONS — Long press picker
+// ==========================================================
+
+let _longPressTimer = null;
+let _reactionPickerOpen = false;
+
+const REACTION_EMOJIS_SET = ['\u2764\uFE0F', '\uD83D\uDE02', '\uD83D\uDE2E', '\uD83D\uDE22', '\uD83D\uDC4D', '\uD83D\uDD25'];
+
+function startLongPress(event, matchId, msgId) {
+  _longPressTimer = setTimeout(() => {
+    showReactionPicker(event, matchId, msgId);
+  }, 500);
+}
+
+function cancelLongPress() {
+  clearTimeout(_longPressTimer);
+}
+
+let _editingState = null;
+let _pendingForwardMsgId = null;
+
+function showReactionPicker(event, matchId, msgId) {
+  if (!matchId || matchId === 'null') return;
+  clearTimeout(_longPressTimer);
+
+  document.getElementById('reactionPickerPopup')?.remove();
+
+  const isLocal = msgId.startsWith('local_');
+  const msgIdx = isLocal ? parseInt(msgId.replace('local_', ''), 10) : null;
+  const hist = conversations[appState.currentChatId]?.messages || [];
+  const msg = (msgIdx !== null && hist[msgIdx]) ? hist[msgIdx] : null;
+  const isSent = msg ? (msg.sender === 'me') : false;
+  const isText = msg ? (!msg.imageUrl && !msg.isVoice && msg.text) : true;
+
+  const picker = document.createElement('div');
+  picker.id = 'reactionPickerPopup';
+  picker.style.cssText = `
+    position:fixed;z-index:99999;
+    background:#1E1530;border:1px solid rgba(255,255,255,0.18);
+    border-radius:20px;padding:8px;
+    display:flex;flex-direction:column;gap:6px;
+    box-shadow:0 18px 50px rgba(0,0,0,0.85);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    width:240px;max-width:85vw;
+    animation:reactionPickerIn 0.18s cubic-bezier(0.175,0.885,0.32,1.275);
+  `;
+
+  // Top: Emojis
+  const emojiRow = document.createElement('div');
+  emojiRow.style.cssText = 'display:flex;justify-content:space-around;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);';
+  emojiRow.innerHTML = REACTION_EMOJIS_SET.map(emoji =>
+    `<button onclick="toggleMsgReaction('${matchId}','${msgId}','${emoji}');closeReactionPicker();"
+      style="background:none;border:none;font-size:1.45rem;cursor:pointer;transition:transform 0.15s;padding:2px"
+      onmouseenter="this.style.transform='scale(1.3)'" onmouseleave="this.style.transform='scale(1)'">${emoji}</button>`
+  ).join('');
+  picker.appendChild(emojiRow);
+
+  // Bottom: Actions list (Edit, Forward, Copy/Share, Delete)
+  const actionsList = document.createElement('div');
+  actionsList.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding-top:2px;';
+
+  let actionsHtml = '';
+
+  if (isSent && isText) {
+    actionsHtml += `
+      <button class="msg-menu-btn" onclick="startEditMessage('${matchId}','${msgId}');closeReactionPicker();">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+        <span>Edit Message</span>
+      </button>`;
+  }
+
+  actionsHtml += `
+    <button class="msg-menu-btn" onclick="forwardMessagePrompt('${msgId}');closeReactionPicker();">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+      <span>Forward</span>
+    </button>
+    <button class="msg-menu-btn" onclick="copyOrShareMessage('${msgId}');closeReactionPicker();">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+      <span>Copy / Share</span>
+    </button>
+    <button class="msg-menu-btn msg-menu-btn-danger" onclick="deleteMessagePrompt('${matchId}','${msgId}');closeReactionPicker();">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="#FF2E70"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+      <span style="color:#FF2E70">Delete</span>
+    </button>
+  `;
+  actionsList.innerHTML = actionsHtml;
+  picker.appendChild(actionsList);
+
+  const x = event.touches?.[0]?.clientX ?? event.clientX ?? window.innerWidth / 2;
+  const y = event.touches?.[0]?.clientY ?? event.clientY ?? window.innerHeight / 2;
+  const pickerW = 240;
+  const left = Math.min(Math.max(x - pickerW / 2, 10), window.innerWidth - pickerW - 10);
+  const top = Math.min(Math.max(y - 120, 20), window.innerHeight - 250);
+  picker.style.left = left + 'px';
+  picker.style.top = top + 'px';
+
+  document.body.appendChild(picker);
+  _reactionPickerOpen = true;
+
+  setTimeout(() => {
+    document.addEventListener('click', closeReactionPicker, { once: true });
+    document.addEventListener('touchstart', closeReactionPicker, { once: true });
+  }, 60);
+}
+
+function closeReactionPicker() {
+  document.getElementById('reactionPickerPopup')?.remove();
+  _reactionPickerOpen = false;
+}
+
+function startEditMessage(matchId, msgId) {
+  const isLocal = msgId.startsWith('local_');
+  const msgIdx = isLocal ? parseInt(msgId.replace('local_', ''), 10) : null;
+  const hist = conversations[appState.currentChatId]?.messages;
+  if (!hist || msgIdx === null || !hist[msgIdx]) return;
+
+  const originalMsg = hist[msgIdx];
+  _editingState = { matchId, msgId, originalText: originalMsg.text, msgIdx };
+
+  const editBar = document.getElementById('chatEditBar');
+  const editPreview = document.getElementById('chatEditPreview');
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+
+  if (editPreview) editPreview.textContent = `Editing: "${originalMsg.text}"`;
+  if (editBar) editBar.style.display = 'flex';
+  if (input) {
+    input.value = originalMsg.text;
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+  if (sendBtn) sendBtn.style.display = 'flex';
+}
+
+function cancelEditMessage() {
+  _editingState = null;
+  const editBar = document.getElementById('chatEditBar');
+  const input = document.getElementById('chatInput');
+  if (editBar) editBar.style.display = 'none';
+  if (input) input.value = '';
+  onChatInputChange();
+}
+
+async function deleteMessagePrompt(matchId, msgId) {
+  if (!confirm('Delete this message?')) return;
+
+  const isLocal = msgId.startsWith('local_');
+  const msgIdx = isLocal ? parseInt(msgId.replace('local_', ''), 10) : null;
+  const hist = conversations[appState.currentChatId]?.messages;
+
+  if (hist && msgIdx !== null && hist[msgIdx]) {
+    hist.splice(msgIdx, 1);
+  }
+
+  // Delete from Firestore if synced
+  if (typeof fbDb !== 'undefined' && fbDb && matchId && !isLocal) {
+    try {
+      await fbDb.collection('matches').doc(matchId).collection('messages').doc(msgId).delete();
+    } catch (e) {
+      console.warn('Firestore delete error:', e);
+    }
+  }
+
+  saveToStorage();
+  renderChatThread();
+  renderConversationList();
+  showToast('Message deleted 🗑️', 'info');
+}
+
+function copyOrShareMessage(msgId) {
+  const isLocal = msgId.startsWith('local_');
+  const msgIdx = isLocal ? parseInt(msgId.replace('local_', ''), 10) : null;
+  const hist = conversations[appState.currentChatId]?.messages;
+  if (!hist || msgIdx === null || !hist[msgIdx]) return;
+
+  const msg = hist[msgIdx];
+  const shareText = msg.text || msg.imageUrl || 'Message from HookMeBySam';
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(shareText).then(() => {
+      showToast('Copied to clipboard! 📋', 'info');
+    }).catch(() => {
+      showToast('Copied! 📋', 'info');
+    });
+  } else {
+    showToast('Copied! 📋', 'info');
+  }
+
+  if (navigator.share && window.innerWidth < 768) {
+    navigator.share({
+      title: 'HookMeBySam',
+      text: shareText
+    }).catch(() => {});
+  }
+}
+
+function forwardMessagePrompt(msgId) {
+  _pendingForwardMsgId = msgId;
+  const modal = document.getElementById('forwardModal');
+  const list = document.getElementById('forwardMatchesList');
+  if (!modal || !list) return;
+
+  const currentId = appState.currentChatId;
+  const candidates = [...matchedUsers, ...PROFILES_DATA]
+    .filter(u => u.id !== currentId)
+    .filter((u, index, self) => index === self.findIndex(t => t.id === u.id));
+
+  if (candidates.length === 0) {
+    list.innerHTML = `<div style="text-align:center;padding:24px;color:rgba(255,255,255,0.5)">No other contacts to forward to.</div>`;
+  } else {
+    list.innerHTML = candidates.map(c => `
+      <div onclick="forwardMessageToUser('${c.id}')" style="
+        display:flex;align-items:center;gap:12px;padding:10px 14px;
+        background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
+        border-radius:14px;cursor:pointer;transition:background 0.15s"
+        onmouseenter="this.style.background='rgba(255,255,255,0.1)'"
+        onmouseleave="this.style.background='rgba(255,255,255,0.05)'"
+      >
+        <div style="width:42px;height:42px;border-radius:50%;background-image:url('${c.image || c.avatar}');background-size:cover;background-position:center;border:2px solid #FF2D78;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:0.92rem;color:#FFF">${escHtml(c.name)}${c.age ? `, ${c.age}` : ''}</div>
+          <div style="font-size:0.78rem;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(c.bio || '')}</div>
+        </div>
+        <button style="background:var(--flame-grad,#ff2d78);border:none;color:#FFF;border-radius:14px;padding:6px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">Send ➡️</button>
+      </div>
+    `).join('');
+  }
+
+  modal.style.display = 'flex';
+}
+
+function closeForwardModal() {
+  const modal = document.getElementById('forwardModal');
+  if (modal) modal.style.display = 'none';
+  _pendingForwardMsgId = null;
+}
+
+async function forwardMessageToUser(targetUserId) {
+  if (!_pendingForwardMsgId) return;
+
+  const currentId = appState.currentChatId;
+  const isLocal = _pendingForwardMsgId.startsWith('local_');
+  const msgIdx = isLocal ? parseInt(_pendingForwardMsgId.replace('local_', ''), 10) : null;
+  const hist = conversations[currentId]?.messages;
+  if (!hist || msgIdx === null || !hist[msgIdx]) return;
+
+  const sourceMsg = hist[msgIdx];
+  const targetUser = matchedUsers.find(u => u.id === targetUserId) || PROFILES_DATA.find(u => u.id === targetUserId);
+  const targetName = targetUser ? targetUser.name : 'match';
+
+  if (!conversations[targetUserId]) {
+    conversations[targetUserId] = { messages: [] };
+  }
+
+  const forwardedMsg = {
+    sender: 'me',
+    text: sourceMsg.text || '',
+    imageUrl: sourceMsg.imageUrl || '',
+    isVoice: sourceMsg.isVoice || false,
+    audioUrl: sourceMsg.audioUrl || '',
+    duration: sourceMsg.duration || '',
+    forwarded: true,
+    read: true,
+    timestamp: Date.now()
+  };
+
+  conversations[targetUserId].messages.push(forwardedMsg);
+  movePartnerToTop(targetUserId);
+  saveToStorage();
+
+  // Send to Firestore if target is online
+  if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    const matchId = [fbAuth.currentUser.uid, targetUserId].sort().join('_');
+    sendRealtimeMessage(matchId, forwardedMsg.text || 'Forwarded message');
+  }
+
+  closeForwardModal();
+  showToast(`Message forwarded to ${targetName} ➡️`, 'gold');
+}
+
+async function toggleMsgReaction(matchId, msgId, emoji) {
+  if (!matchId || matchId === 'null' || !msgId) return;
+
+  if (typeof reactToMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    await reactToMessage(matchId, msgId, emoji);
+    return;
+  }
+
+  const hist = conversations[appState.currentChatId]?.messages;
+  if (!hist) return;
+  const msgIdx = parseInt(msgId.replace('local_', ''), 10);
+  if (isNaN(msgIdx) || !hist[msgIdx]) return;
+
+  if (!hist[msgIdx].reactions) hist[msgIdx].reactions = {};
+  const reactors = hist[msgIdx].reactions[emoji] || [];
+  const myId = 'local_me';
+  if (reactors.includes(myId)) {
+    hist[msgIdx].reactions[emoji] = reactors.filter(id => id !== myId);
+  } else {
+    hist[msgIdx].reactions[emoji] = [...reactors, myId];
+  }
+  saveToStorage();
+  renderChatThread();
+}
+
+// ==========================================================
+// FORGOT PASSWORD — Real Firebase password reset
+// ==========================================================
+
+function handleForgotPassword() {
+  const modal = document.getElementById('forgotPasswordModal');
+  if (!modal) return;
+  const loginEmail = document.getElementById('loginEmail');
+  const fpEmail = document.getElementById('forgotPasswordEmail');
+  if (fpEmail && loginEmail && loginEmail.value) fpEmail.value = loginEmail.value;
+  const err = document.getElementById('forgotPasswordError');
+  if (err) err.textContent = '';
+  modal.style.display = 'flex';
+  if (fpEmail) setTimeout(() => fpEmail.focus(), 150);
+}
+
+function closeForgotPasswordModal() {
+  const modal = document.getElementById('forgotPasswordModal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function submitForgotPassword() {
+  const emailEl = document.getElementById('forgotPasswordEmail');
+  const errEl = document.getElementById('forgotPasswordError');
+  const btn = document.getElementById('forgotPasswordBtn');
+  const email = emailEl ? emailEl.value.trim() : '';
+
+  if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
+    if (errEl) errEl.textContent = 'Please enter a valid email address.';
+    return;
+  }
+
+  if (errEl) errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  if (typeof fbAuth !== 'undefined' && fbAuth) {
+    try {
+      await fbAuth.sendPasswordResetEmail(email);
+      showToast('\u2709\uFE0F Reset email sent! Check your inbox.', 'info');
+      closeForgotPasswordModal();
+    } catch (err) {
+      let msg = 'Could not send reset email. Try again.';
+      if (err.code === 'auth/user-not-found') msg = 'No account found with this email.';
+      if (err.code === 'auth/invalid-email') msg = 'Invalid email address.';
+      if (errEl) errEl.textContent = msg;
+    }
+  } else {
+    setTimeout(() => {
+      showToast('\u2709\uFE0F Password reset link sent to ' + email, 'info');
+      closeForgotPasswordModal();
+    }, 1000);
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Send Reset Email';
+}
+
+// ==========================================================
+// PHONE VERIFICATION MODAL
+// ==========================================================
+
+let _pendingPhoneNumber = '';
+
+function openPhoneVerificationModal() {
+  const modal = document.getElementById('phoneVerifyModal');
+  if (!modal) return;
+  showPhoneStep1();
+  const saved = currentUser.phone || '';
+  const sub = document.getElementById('settingsPhoneSub');
+  if (saved && sub) sub.textContent = '+234 ' + saved;
+  modal.style.display = 'flex';
+  const inp = document.getElementById('phoneNumberInput');
+  if (inp) { inp.value = saved; setTimeout(() => inp.focus(), 150); }
+}
+
+function closePhoneVerificationModal() {
+  const modal = document.getElementById('phoneVerifyModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function showPhoneStep1() {
+  const s1 = document.getElementById('phoneStep1');
+  const s2 = document.getElementById('phoneStep2');
+  if (s1) s1.style.display = 'block';
+  if (s2) s2.style.display = 'none';
+  const err = document.getElementById('phoneStep1Error');
+  if (err) err.textContent = '';
+}
+
+async function sendPhoneOtp() {
+  const phoneEl = document.getElementById('phoneNumberInput');
+  const errEl = document.getElementById('phoneStep1Error');
+  const btn = document.getElementById('phoneSendOtpBtn');
+  let phone = phoneEl ? phoneEl.value.replace(/\D/g, '').trim() : '';
+
+  if (phone.startsWith('0')) phone = phone.slice(1);
+  if (phone.length < 10) {
+    if (errEl) errEl.textContent = 'Enter a valid 10-digit Nigerian phone number.';
+    return;
+  }
+
+  const fullPhone = '+234' + phone;
+  _pendingPhoneNumber = phone;
+
+  if (errEl) errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Sending code...';
+
+  let sent = false;
+  if (typeof sendOtpToPhone === 'function') {
+    try { sent = await sendOtpToPhone(fullPhone); } catch (e) { sent = false; }
+  }
+
+  if (!sent) {
+    window._demoOtp = String(Math.floor(100000 + Math.random() * 900000));
+    console.info(`\uD83D\uDCF1 Demo OTP for ${fullPhone}: ${window._demoOtp}`);
+    showToast(`\uD83D\uDCF1 Demo: your OTP is ${window._demoOtp} (shown in console)`, 'info');
+    sent = true;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Send Verification Code';
+
+  if (sent) {
+    const s1 = document.getElementById('phoneStep1');
+    const s2 = document.getElementById('phoneStep2');
+    if (s1) s1.style.display = 'none';
+    if (s2) s2.style.display = 'block';
+    const sentTo = document.getElementById('phoneOtpSentTo');
+    if (sentTo) sentTo.textContent = 'Code sent to +234 ' + _pendingPhoneNumber;
+    const otpInp = document.getElementById('otpInput');
+    if (otpInp) { otpInp.value = ''; setTimeout(() => otpInp.focus(), 150); }
+  }
+}
+
+async function verifyPhoneOtp() {
+  const otpEl = document.getElementById('otpInput');
+  const errEl = document.getElementById('phoneStep2Error');
+  const btn = document.getElementById('phoneVerifyOtpBtn');
+  const otp = otpEl ? otpEl.value.trim() : '';
+
+  if (!/^\d{6}$/.test(otp)) {
+    if (errEl) errEl.textContent = 'Enter the 6-digit code.';
+    return;
+  }
+
+  if (errEl) errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Verifying...';
+
+  const fullPhone = '+234' + _pendingPhoneNumber;
+  let verified = false;
+
+  if (typeof verifyPhoneOwnershipOnly === 'function') {
+    try {
+      const result = await verifyPhoneOwnershipOnly(fullPhone, otp);
+      verified = result && result.success;
+    } catch (e) { verified = false; }
+  }
+
+  if (!verified && window._demoOtp && otp === window._demoOtp) {
+    verified = true;
+    window._demoOtp = null;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Verify Code';
+
+  if (verified) {
+    currentUser.phone = _pendingPhoneNumber;
+    saveToStorage();
+    if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) {
+      try {
+        await fbDb.collection('users').doc(fbAuth.currentUser.uid).update({ phone: _pendingPhoneNumber, phoneVerified: true });
+      } catch (e) { /* non-critical */ }
+    }
+    const sub = document.getElementById('settingsPhoneSub');
+    if (sub) sub.textContent = '+234 ' + _pendingPhoneNumber + ' \u2713';
+    showToast('\u2705 Phone number verified!', 'gold');
+    closePhoneVerificationModal();
+  } else {
+    if (errEl) errEl.textContent = 'Incorrect code. Please try again.';
+  }
+}
+
+// ==========================================================
+// LANGUAGE SELECTOR MODAL
+// ==========================================================
+
+const LANGUAGES = [
+  { code: 'en-UK', label: 'English (UK)',        flag: '\uD83C\uDDEC\uD83C\uDDE7' }, // 🇬🇧
+  { code: 'en-NG', label: 'English (Nigerian)',  flag: '\uD83C\uDDF3\uD83C\uDDEC' }, // 🇳🇬
+  { code: 'pcm',   label: 'Nigerian Pidgin',     flag: '\uD83C\uDDF3\uD83C\uDDEC' }, // 🇳🇬
+  { code: 'yo',    label: 'Yoruba',              flag: '\uD83C\uDF0D' },               // 🌍
+  { code: 'ig',    label: 'Igbo',                flag: '\uD83C\uDF0D' },               // 🌍
+  { code: 'ha',    label: 'Hausa',               flag: '\uD83C\uDF0D' },               // 🌍
+  { code: 'fr',    label: 'Fran\u00E7ais',      flag: '\uD83C\uDDEB\uD83C\uDDF7' }, // 🇫🇷
+];
+
+let currentLanguage = localStorage.getItem('hmbs_language') || 'en-UK';
+
+function openLanguageModal() {
+  const modal = document.getElementById('languageModal');
+  const list = document.getElementById('languageOptionsList');
+  if (!modal || !list) return;
+
+  list.innerHTML = LANGUAGES.map(lang => {
+    const isSelected = currentLanguage === lang.code;
+    return `
+      <div onclick="selectLanguage('${lang.code}', '${escHtml(lang.label)}')" style="
+        display:flex;align-items:center;gap:14px;padding:14px 16px;
+        background:${isSelected ? 'rgba(209,58,99,0.15)' : 'rgba(255,255,255,0.04)'};
+        border:1px solid ${isSelected ? 'rgba(209,58,99,0.5)' : 'rgba(255,255,255,0.08)'};
+        border-radius:14px;cursor:pointer;transition:all 0.2s"
+        onmouseenter="this.style.background='rgba(209,58,99,0.1)'" 
+        onmouseleave="this.style.background='${isSelected ? 'rgba(209,58,99,0.15)' : 'rgba(255,255,255,0.04)'}'"
+      >
+        <span style="font-size:1.5rem">${lang.flag}</span>
+        <span style="flex:1;font-size:0.95rem;font-weight:${isSelected ? '700' : '500'};color:#FFF">${lang.label}</span>
+        ${isSelected ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="#D13A63"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' : ''}
+      </div>`;
+  }).join('');
+
+  modal.style.display = 'flex';
+}
+
+function closeLanguageModal() {
+  const modal = document.getElementById('languageModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function selectLanguage(code, label) {
+  currentLanguage = code;
+  localStorage.setItem('hmbs_language', code);
+  const sub = document.getElementById('settingsLanguageSub');
+  if (sub) sub.textContent = label;
+  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) {
+    fbDb.collection('users').doc(fbAuth.currentUser.uid).update({ language: code }).catch(() => {});
+  }
+  showToast(`\uD83C\uDF10 Language set to ${label}`, 'info');
+  closeLanguageModal();
+}
+
+// ==========================================================
+// STORY UPLOADS — user can post their own photo story
+// ==========================================================
+
+let userStories = JSON.parse(localStorage.getItem('hmbs_user_stories') || '[]');
+
+function openYourStoryUpload(event) {
+  if (event) event.stopPropagation();
+  let fileInput = document.getElementById('storyFileInput');
+  if (!fileInput) {
+    fileInput = document.createElement('input');
+    fileInput.type = 'file';
+    fileInput.id = 'storyFileInput';
+    fileInput.accept = 'image/*';
+    fileInput.style.display = 'none';
+    fileInput.addEventListener('change', handleStoryPhotoSelected);
+    document.body.appendChild(fileInput);
+  }
+  fileInput.value = '';
+  fileInput.click();
+}
+
+function handleStoryPhotoSelected(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select an image file.', 'error');
+    return;
+  }
+
+  showToast('Uploading your story... 📸', 'info');
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const dataUrl = e.target.result;
+    let finalUrl = dataUrl;
+
+    if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
+      try {
+        const uploaded = await uploadFileToBackend(file, 'stories');
+        if (uploaded) finalUrl = uploaded;
+      } catch (err) { /* fallback to dataUrl */ }
+    }
+
+    const story = {
+      id: 'user_story_' + Date.now(),
+      name: currentUser.name || 'You',
+      image: finalUrl,
+      thumb: finalUrl,
+      location: currentUser.location || 'Lagos',
+      bio: 'My latest story ✨',
+      tags: currentUser.interests || [],
+      isUserStory: true,
+      createdAt: Date.now()
+    };
+
+    // Save to Firestore
+    if (typeof uploadStoryToFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+      uploadStoryToFirestore(story).catch(() => {});
+    }
+
+    // Also save locally (for offline/demo)
+    userStories.unshift(story);
+    if (userStories.length > 5) userStories = userStories.slice(0, 5);
+    localStorage.setItem('hmbs_user_stories', JSON.stringify(userStories));
+
+    renderStoriesRow();
+    showToast('Story posted! Your story is now live. ✨', 'gold');
+
+    // Auto-view the uploaded story immediately
+    setTimeout(() => {
+      viewYourStory();
+    }, 350);
+  };
+  reader.readAsDataURL(file);
 }
