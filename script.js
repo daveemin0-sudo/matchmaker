@@ -2973,21 +2973,48 @@ async function handleLogout() {
 }
 
 async function handleDeleteAccount() {
-  if (!confirm('⚠️ Delete your account? This cannot be undone.')) return;
+  if (!confirm('⚠️ Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.')) return;
 
-  if (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) {
-    try {
-      const uid = fbAuth.currentUser.uid;
-      if (typeof fbDb !== 'undefined' && fbDb) {
-        await fbDb.collection('users').doc(uid).delete();
+  showToast('Deleting account & data...', 'info');
+
+  if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    const user = fbAuth.currentUser;
+    const uid = user.uid;
+
+    if (typeof fbDb !== 'undefined' && fbDb) {
+      try {
+        // 1. Delete user stories
+        const storiesSnap = await fbDb.collection('stories').where('ownerId', '==', uid).get();
+        const batch = fbDb.batch();
+        storiesSnap.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+      } catch (e) {
+        console.warn('Stories cleanup error on delete:', e);
       }
-      await fbAuth.currentUser.delete();
+
+      try {
+        // 2. Delete user profile document
+        await fbDb.collection('users').doc(uid).delete();
+      } catch (e) {
+        console.warn('User doc cleanup error on delete:', e);
+      }
+    }
+
+    try {
+      // 3. Delete Firebase Auth record
+      await user.delete();
     } catch (e) {
-      console.warn("Firebase delete account warning:", e);
+      console.warn('Firebase delete auth error:', e);
+      if (e.code === 'auth/requires-recent-login') {
+        alert('For your security, please sign out and sign in again before deleting your account.');
+        return;
+      }
     }
   }
 
+  // 4. Wipe local storage and cache
   localStorage.clear();
+  sessionStorage.clear();
   location.reload();
 }
 

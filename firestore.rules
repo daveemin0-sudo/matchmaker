@@ -20,9 +20,15 @@ service cloud.firestore {
     // ── users ───────────────────────────────────────────────────────────────
     // Any signed-in user can read profiles (needed for discovery + match card).
     // Only the owner may write their own document.
+    // SENSITIVE FIELDS: isVip, vipExpiresAt, and role cannot be set or modified
+    // by the client — they can only be provisioned by the Admin SDK / Webhook server!
     match /users/{userId} {
       allow read:             if isSignedIn();
-      allow create, update:   if isOwner(userId);
+      allow create:           if isOwner(userId)
+                              && (!('isVip' in request.resource.data) || request.resource.data.isVip == false)
+                              && (!('role' in request.resource.data) || request.resource.data.role == 'user');
+      allow update:           if isOwner(userId)
+                              && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isVip', 'vipExpiresAt', 'role', 'emailVerified']));
       allow delete:           if isOwner(userId);
     }
 
@@ -79,10 +85,14 @@ service cloud.firestore {
     }
 
     // ── reports ─────────────────────────────────────────────────────────────
-    // Signed-in users may file a report; admins read via the console.
+    // Signed-in users may file an abuse/safety report.
+    // READ ACCESS IS STRICTLY BLOCKED for normal users — reports can only be
+    // inspected by administrators via the Firebase Console or Admin SDK!
     match /reports/{reportId} {
-      allow create: if isSignedIn();
-      allow read:   if isSignedIn();
+      allow create:         if isSignedIn()
+                            && request.resource.data.reportedBy == request.auth.uid;
+      allow read:           false;
+      allow update, delete: false;
     }
 
     // NOTE: /chats/{chatId} is intentionally absent — the app does NOT use
