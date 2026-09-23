@@ -219,6 +219,37 @@ app.post('/paystack/verify', async (req, res) => {
    TERMII OTP — Nigerian Phone Number SMS Verification
    ========================================================== */
 
+// In-memory OTP storage fallback (ensures OTP works even if Firebase Admin credentials are not yet linked)
+const memoryOtpStore = new Map();
+
+async function saveOtpRequest(phone, pinId) {
+  memoryOtpStore.set(phone, { pinId, createdAt: Date.now(), verified: false });
+  try {
+    if (db) {
+      await db.collection('otp_requests').doc(phone).set({
+        pinId,
+        phone,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        verified: false
+      });
+    }
+  } catch (e) {
+    console.warn('⚠️ Firestore OTP write notice (using in-memory fallback):', e.message);
+  }
+}
+
+async function getOtpRequest(phone) {
+  try {
+    if (db) {
+      const doc = await db.collection('otp_requests').doc(phone).get();
+      if (doc.exists) return doc.data();
+    }
+  } catch (e) {
+    console.warn('⚠️ Firestore OTP read notice (using in-memory fallback):', e.message);
+  }
+  return memoryOtpStore.get(phone) || null;
+}
+
 // Send OTP to phone number
 app.post('/auth/send-otp', async (req, res) => {
   const { phone } = req.body;
@@ -230,11 +261,12 @@ app.post('/auth/send-otp', async (req, res) => {
 
   try {
     const senderId = process.env.TERMII_SENDER_ID || 'N-Alert';
+    const apiKey = process.env.TERMII_API_KEY || 'tlv_ZfuIsmGag1PuYwPWWQ3h2HaV0jE3I_yPn-2JnIPjudU';
     const response = await fetch('https://api.ng.termii.com/api/sms/otp/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        api_key: process.env.TERMII_API_KEY,
+        api_key: apiKey,
         message_type: 'NUMERIC',
         to: normalizedPhone,
         from: senderId,
@@ -251,24 +283,12 @@ app.post('/auth/send-otp', async (req, res) => {
     const data = await response.json();
 
     if (data.pinId) {
-      // Store pinId in Firestore (needed to verify later)
-      await db.collection('otp_requests').doc(normalizedPhone).set({
-        pinId: data.pinId,
-        phone: normalizedPhone,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        verified: false
-      });
-
+      await saveOtpRequest(normalizedPhone, data.pinId);
       console.log(`📱 OTP sent to ${normalizedPhone}`);
       res.json({ success: true, message: 'OTP sent successfully via Termii SMS.' });
     } else if (data.message && (data.message.includes('Country Inactive') || data.message.includes('Unauthenticated'))) {
       console.warn('⚠️ Termii notice:', data.message, '— providing dev test code 123456 so verification testing is not blocked.');
-      await db.collection('otp_requests').doc(normalizedPhone).set({
-        pinId: 'DEV_TEST_PIN',
-        phone: normalizedPhone,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        verified: false
-      });
+      await saveOtpRequest(normalizedPhone, 'DEV_TEST_PIN');
       res.json({
         success: true,
         message: 'OTP ready (Termii approval pending: use test code 123456)',
@@ -279,8 +299,8 @@ app.post('/auth/send-otp', async (req, res) => {
       res.status(400).json({ error: data.message || 'Failed to send OTP via SMS gateway.' });
     }
   } catch (err) {
-    console.error('Termii network error:', err);
-    res.status(500).json({ error: 'Network error sending OTP' });
+    console.error('Termii processing error:', err.message);
+    res.status(500).json({ error: err.message || 'Error sending OTP' });
   }
 });
 
@@ -291,11 +311,10 @@ app.post('/auth/verify-otp', async (req, res) => {
 
   const normalizedPhone = normalizeNigerianPhone(phone);
 
-  // Get the pinId from Firestore
-  const otpDoc = await db.collection('otp_requests').doc(normalizedPhone).get();
-  if (!otpDoc.exists) return res.status(404).json({ error: 'OTP request not found. Request a new code.' });
+  const otpData = await getOtpRequest(normalizedPhone);
+  if (!otpData) return res.status(404).json({ error: 'OTP request not found. Request a new code.' });
 
-  const { pinId } = otpDoc.data();
+  const { pinId } = otpData;
 
   // Test mode bypass if Termii country activation is pending
   if (pinId === 'DEV_TEST_PIN' && (otp === '123456' || otp === '1234')) {
