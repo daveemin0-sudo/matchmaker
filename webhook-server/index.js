@@ -474,6 +474,25 @@ app.post('/stories/cleanup', async (req, res) => {
 });
 
 /* ==========================================================
+   TURN CREDENTIALS (WebRTC Calling Relay)
+   ========================================================== */
+app.get('/turn/credentials', async (req, res) => {
+  try {
+    const apiKey = process.env.METERED_API_KEY || '06edf4b6db269eaf1cad2bf8ed0fd268ad9f';
+    const domain = process.env.METERED_DOMAIN || 'hookmebysam.metered.live';
+    const response = await fetch(`https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`);
+    if (!response.ok) {
+      throw new Error(`Metered API returned ${response.status}`);
+    }
+    const iceServers = await response.json();
+    res.json(iceServers);
+  } catch (err) {
+    console.error('TURN credentials fetch error:', err.message);
+    res.status(500).json({ error: 'Failed to fetch TURN credentials' });
+  }
+});
+
+/* ==========================================================
    HEALTH CHECK
    ========================================================== */
 

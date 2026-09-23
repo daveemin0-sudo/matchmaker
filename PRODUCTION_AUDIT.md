@@ -166,7 +166,7 @@ Legend:
 |---|---|---|
 | Audio & Video Calling Overlays | 🟢 VERIFIED | [`index.html`](file:///c:/Users/User/OneDrive/Desktop/Match%20making/index.html) and [`style.css`](file:///c:/Users/User/OneDrive/Desktop/Match%20making/style.css) (Call overlays, PiP video, camera flip). |
 | Microphone Mute & Camera Toggle | 🟢 VERIFIED | Interactive control bar with pulse animation. |
-| Production TURN Server | 🔴 OWNER ACTION | Currently uses Google public STUN server (`stun:stun.l.google.com:19302`). For 100% reliable mobile calls across restrictive Nigerian mobile carriers (MTN, Airtel, Glo, 9mobile), provision a TURN server (e.g. Twilio Network Traversal or Xirsys). |
+| Production TURN Server | 🟢 VERIFIED | Configured with Metered.ca Global TURN & STUN relay cluster (`hookmebysam.metered.live`), including TLS over port 443 in [`script.js`](file:///c:/Users/User/OneDrive/Desktop/Match%20making/script.js#L1956) and backend proxy in [`webhook-server/index.js`](file:///c:/Users/User/OneDrive/Desktop/Match%20making/webhook-server/index.js#L475). |
 
 ---
 

@@ -1952,9 +1952,55 @@ function sendImageMessage(event) {
 }
 
 // ==========================================================
-// REAL LIVE VOICE & VIDEO CALLING (getUserMedia + MediaStream)
+// REAL LIVE VOICE & VIDEO CALLING (WebRTC + Metered TURN/STUN)
 // ==========================================================
+const METERED_ICE_SERVERS = [
+  { urls: "stun:stun.relay.metered.ca:80" },
+  {
+    urls: "turn:global.relay.metered.ca:80",
+    username: "73728b7e530599273f071f39",
+    credential: "P2/M1eJj54opo4/R"
+  },
+  {
+    urls: "turn:global.relay.metered.ca:80?transport=tcp",
+    username: "73728b7e530599273f071f39",
+    credential: "P2/M1eJj54opo4/R"
+  },
+  {
+    urls: "turn:global.relay.metered.ca:443",
+    username: "73728b7e530599273f071f39",
+    credential: "P2/M1eJj54opo4/R"
+  },
+  {
+    urls: "turns:global.relay.metered.ca:443?transport=tcp",
+    username: "73728b7e530599273f071f39",
+    credential: "P2/M1eJj54opo4/R"
+  }
+];
+
+let peerConnectionConfig = {
+  iceServers: METERED_ICE_SERVERS
+};
+
+// Asynchronously refresh dynamic TURN credentials from Metered if available
+async function refreshTurnCredentials() {
+  try {
+    const res = await fetch("https://hookmebysam.metered.live/api/v1/turn/credentials?apiKey=06edf4b6db269eaf1cad2bf8ed0fd268ad9f");
+    if (res.ok) {
+      const liveServers = await res.json();
+      if (Array.isArray(liveServers) && liveServers.length > 0) {
+        peerConnectionConfig.iceServers = liveServers;
+        console.log("✅ Live Metered TURN servers loaded:", liveServers.length, "relays active");
+      }
+    }
+  } catch (e) {
+    console.log("Using static Metered TURN credentials fallback.");
+  }
+}
+refreshTurnCredentials();
+
 let activeMediaStream = null;
+let activePeerConnection = null;
 let activeCallTimerInterval = null;
 let activeCallSeconds = 0;
 let isAudioMuted = false;
