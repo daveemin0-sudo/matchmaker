@@ -4624,17 +4624,20 @@ async function executeReportAndBlock(userId, name) {
     return;
   }
 
-  const reporterId = fbAuth.currentUser.uid;
-
   try {
-    await fbDb.collection('reports').add({
-      reportedBy: reporterId,
-      reportedUserId: userId,
-      reportedUserName: String(name || 'User').slice(0, 120),
-      reason,
-      status: 'open',
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    const token = await fbAuth.currentUser.getIdToken();
+    const reportRes = await fetch(BACKEND_URL + '/reports', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token
+      },
+      body: JSON.stringify({ reportedUserId: userId, reason })
     });
+    const reportData = await reportRes.json().catch(() => ({}));
+    if (!reportRes.ok || !reportData.success) {
+      throw new Error(reportData.error || 'Could not submit the report.');
+    }
 
     await persistBlockToFirestore(userId);
 
