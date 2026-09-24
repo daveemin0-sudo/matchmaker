@@ -2466,7 +2466,9 @@ function sendImageMessage(event) {
 // REAL LIVE VOICE & VIDEO CALLING (WebRTC + Metered TURN/STUN)
 // ==========================================================
 const METERED_ICE_SERVERS = [
-  { urls: "stun:stun.relay.metered.ca:80" }
+  { urls: "stun:stun.relay.metered.ca:80" },
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" }
 ];
 
 let peerConnectionConfig = { iceServers: METERED_ICE_SERVERS };
@@ -2481,6 +2483,8 @@ let activeCallTimerInterval = null;
 let activeCallSeconds = 0;
 let isAudioMuted = false;
 let isVideoMuted = false;
+let currentFacingMode = 'user';
+let isSpeakerOn = false;
 let pendingRemoteCandidates = [];
 
 async function refreshTurnCredentials() {
@@ -2493,7 +2497,7 @@ async function refreshTurnCredentials() {
     if (!res.ok) return;
     const liveServers = await res.json();
     if (Array.isArray(liveServers) && liveServers.length > 0) {
-      peerConnectionConfig = { iceServers: liveServers };
+      peerConnectionConfig = { iceServers: liveServers.concat(METERED_ICE_SERVERS) };
       console.log('✅ Live TURN servers loaded:', liveServers.length);
     }
   } catch (_) {
@@ -2526,16 +2530,18 @@ function ensureRemoteAudioElement() {
 
 function ensureRemoteVideoElement() {
   let video = document.getElementById('remoteVideoStream');
+  if (video) {
+    video.style.pointerEvents = 'none';
+    video.style.zIndex = '0';
+    return video;
+  }
   const overlay = document.getElementById('videoCallOverlay');
+  const bg = document.getElementById('videoRemoteBg');
   if (!overlay) return null;
 
-  if (!video) {
-    video = document.createElement('video');
-    video.id = 'remoteVideoStream';
-    video.setAttribute('aria-label', 'Remote video');
-    overlay.appendChild(video);
-  }
-
+  video = document.createElement('video');
+  video.id = 'remoteVideoStream';
+  video.setAttribute('aria-label', 'Remote video');
   video.autoplay = true;
   video.playsInline = true;
   video.style.position = 'absolute';
@@ -2543,18 +2549,34 @@ function ensureRemoteVideoElement() {
   video.style.width = '100%';
   video.style.height = '100%';
   video.style.objectFit = 'cover';
-  video.style.zIndex = '1';
+  video.style.zIndex = '0';
+  video.style.pointerEvents = 'none';
+  if (bg) {
+    bg.appendChild(video);
+  } else {
+    overlay.prepend(video);
+  }
   return video;
 }
 
 function setCallMediaStream(stream, type) {
   if (type === 'video') {
     const video = ensureRemoteVideoElement();
-    if (video) video.srcObject = stream;
+    if (video) {
+      video.srcObject = stream;
+      video.play?.().catch(() => {});
+    }
+    const audio = ensureRemoteAudioElement();
+    if (audio) {
+      audio.srcObject = stream;
+      audio.play?.().catch(() => {});
+    }
   } else {
     const audio = ensureRemoteAudioElement();
-    audio.srcObject = stream;
-    audio.play?.().catch(() => {});
+    if (audio) {
+      audio.srcObject = stream;
+      audio.play?.().catch(() => {});
+    }
   }
 }
 
@@ -2859,7 +2881,9 @@ function endCall(showToastMessage = true) {
     activePeerConnection = null;
   }
   if (activeMediaStream) {
-    activeMediaStream.getTracks().forEach(track => track.stop());
+    activeMediaStream.getTracks().forEach(track => {
+      try { track.stop(); } catch (_) {}
+    });
     activeMediaStream = null;
   }
   activeCallDocRef = null;
@@ -2872,18 +2896,56 @@ function endCall(showToastMessage = true) {
   if (voice) voice.style.display = 'none';
   if (video) video.style.display = 'none';
   const localVideo = document.getElementById('myVideoStream');
-  if (localVideo) localVideo.srcObject = null;
+  if (localVideo) {
+    localVideo.srcObject = null;
+    try { localVideo.pause(); } catch (_) {}
+  }
   const remoteVideo = document.getElementById('remoteVideoStream');
-  if (remoteVideo) remoteVideo.srcObject = null;
+  if (remoteVideo) {
+    remoteVideo.srcObject = null;
+    try { remoteVideo.pause(); } catch (_) {}
+  }
   const remoteAudio = document.getElementById('remoteCallAudio');
-  if (remoteAudio) remoteAudio.srcObject = null;
+  if (remoteAudio) {
+    remoteAudio.srcObject = null;
+    try { remoteAudio.pause(); } catch (_) {}
+  }
+
+  isAudioMuted = false;
+  isVideoMuted = false;
+  currentFacingMode = 'user';
+
+  const callMuteBtn = document.getElementById('callMuteBtn');
+  if (callMuteBtn) {
+    callMuteBtn.classList.remove('muted');
+    callMuteBtn.style.background = '';
+    callMuteBtn.style.color = '';
+    const label = callMuteBtn.parentElement?.querySelector('span');
+    if (label) label.textContent = 'Mute';
+  }
+  const videoMuteBtn = document.getElementById('videoMuteBtn');
+  if (videoMuteBtn) {
+    videoMuteBtn.classList.remove('muted');
+    videoMuteBtn.style.background = '';
+    videoMuteBtn.style.color = '';
+    const label = document.getElementById('videoMuteLabel') || videoMuteBtn.parentElement?.querySelector('span');
+    if (label) label.textContent = 'Mute';
+  }
+  const camBtn = document.getElementById('videoCamBtn');
+  if (camBtn) {
+    camBtn.classList.remove('muted');
+    camBtn.style.background = '';
+    camBtn.style.color = '';
+    const label = document.getElementById('videoCamLabel') || camBtn.parentElement?.querySelector('span');
+    if (label) label.textContent = 'Camera';
+  }
+  const pipCamOff = document.getElementById('pipCamOff');
+  if (pipCamOff) pipCamOff.style.display = 'none';
 
   if (showToastMessage) {
     showToast(seconds > 0 ? `Call ended (${Math.floor(seconds / 60)}m ${seconds % 60}s)` : 'Call ended', 'info');
   }
   activeCallSeconds = 0;
-  isAudioMuted = false;
-  isVideoMuted = false;
 }
 
 function endVideoCall() {
@@ -2892,12 +2954,43 @@ function endVideoCall() {
 
 function toggleCallMute() {
   isAudioMuted = !isAudioMuted;
-  if (activeMediaStream) activeMediaStream.getAudioTracks().forEach(track => { track.enabled = !isAudioMuted; });
-  const muteBtn = document.getElementById('callMuteBtn');
-  if (muteBtn) {
-    muteBtn.style.background = isAudioMuted ? 'rgba(255, 61, 0, 0.25)' : '';
-    muteBtn.style.color = isAudioMuted ? '#FF3D00' : '';
+
+  // 1. Mute local media stream audio tracks
+  if (activeMediaStream) {
+    activeMediaStream.getAudioTracks().forEach(track => {
+      track.enabled = !isAudioMuted;
+    });
   }
+
+  // 2. Mute RTCRtpSender audio tracks
+  if (activePeerConnection) {
+    activePeerConnection.getSenders().forEach(sender => {
+      if (sender.track && sender.track.kind === 'audio') {
+        sender.track.enabled = !isAudioMuted;
+      }
+    });
+  }
+
+  // 3. Update voice call button UI
+  const callMuteBtn = document.getElementById('callMuteBtn');
+  if (callMuteBtn) {
+    callMuteBtn.classList.toggle('muted', isAudioMuted);
+    callMuteBtn.style.background = isAudioMuted ? 'rgba(255, 61, 0, 0.35)' : '';
+    callMuteBtn.style.color = isAudioMuted ? '#FF3D00' : '#fff';
+    const label = callMuteBtn.parentElement?.querySelector('span');
+    if (label) label.textContent = isAudioMuted ? 'Unmute' : 'Mute';
+  }
+
+  // 4. Update video call button UI
+  const videoMuteBtn = document.getElementById('videoMuteBtn');
+  if (videoMuteBtn) {
+    videoMuteBtn.classList.toggle('muted', isAudioMuted);
+    videoMuteBtn.style.background = isAudioMuted ? 'rgba(255, 61, 0, 0.35)' : '';
+    videoMuteBtn.style.color = isAudioMuted ? '#FF3D00' : '#fff';
+    const label = document.getElementById('videoMuteLabel') || videoMuteBtn.parentElement?.querySelector('span');
+    if (label) label.textContent = isAudioMuted ? 'Unmute' : 'Mute';
+  }
+
   showToast(isAudioMuted ? 'Microphone muted 🔇' : 'Microphone unmuted 🎙️', 'info');
 }
 
@@ -2907,20 +3000,97 @@ function toggleVideoMute() {
 
 function toggleCamera() {
   isVideoMuted = !isVideoMuted;
-  if (activeMediaStream) activeMediaStream.getVideoTracks().forEach(track => { track.enabled = !isVideoMuted; });
+  if (activeMediaStream) {
+    activeMediaStream.getVideoTracks().forEach(track => {
+      track.enabled = !isVideoMuted;
+    });
+  }
+  if (activePeerConnection) {
+    activePeerConnection.getSenders().forEach(sender => {
+      if (sender.track && sender.track.kind === 'video') {
+        sender.track.enabled = !isVideoMuted;
+      }
+    });
+  }
   const pipCamOff = document.getElementById('pipCamOff');
   if (pipCamOff) pipCamOff.style.display = isVideoMuted ? 'flex' : 'none';
+
   const camBtn = document.getElementById('videoCamBtn');
   if (camBtn) {
-    camBtn.style.background = isVideoMuted ? 'rgba(255, 61, 0, 0.25)' : '';
-    camBtn.style.color = isVideoMuted ? '#FF3D00' : '';
+    camBtn.classList.toggle('muted', isVideoMuted);
+    camBtn.style.background = isVideoMuted ? 'rgba(255, 61, 0, 0.35)' : '';
+    camBtn.style.color = isVideoMuted ? '#FF3D00' : '#fff';
+    const label = document.getElementById('videoCamLabel') || camBtn.parentElement?.querySelector('span');
+    if (label) label.textContent = isVideoMuted ? 'Turn on' : 'Camera';
   }
-  showToast(isVideoMuted ? 'Camera paused' : 'Camera active', 'info');
+  showToast(isVideoMuted ? 'Camera paused 📷' : 'Camera resumed 📹', 'info');
 }
 
-function toggleSpeaker() {
-  showToast('Speaker output toggled 🔊', 'info');
+async function flipCamera() {
+  if (!activeMediaStream || !activePeerConnection) return;
+  const currentTrack = activeMediaStream.getVideoTracks()[0];
+  if (!currentTrack) return;
+
+  currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+  try {
+    const newStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: currentFacingMode },
+      audio: false
+    });
+    const newTrack = newStream.getVideoTracks()[0];
+    if (newTrack) {
+      const sender = activePeerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+      if (sender) {
+        await sender.replaceTrack(newTrack);
+      }
+      activeMediaStream.removeTrack(currentTrack);
+      try { currentTrack.stop(); } catch (_) {}
+      activeMediaStream.addTrack(newTrack);
+      const localVideo = document.getElementById('myVideoStream');
+      if (localVideo) localVideo.srcObject = activeMediaStream;
+      showToast(currentFacingMode === 'user' ? 'Front camera 🤳' : 'Back camera 📸', 'info');
+    }
+  } catch (err) {
+    console.warn('Flip camera failed:', err.message);
+    showToast('Could not flip camera', 'warning');
+  }
 }
+
+async function toggleSpeaker() {
+  isSpeakerOn = !isSpeakerOn;
+  const audio = document.getElementById('remoteCallAudio');
+  if (audio && typeof audio.setSinkId === 'function') {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const speakers = devices.filter(d => d.kind === 'audiooutput');
+      if (speakers.length > 1) {
+        await audio.setSinkId(isSpeakerOn ? speakers[1].deviceId : speakers[0].deviceId);
+      }
+    } catch (_) {}
+  }
+  const btn = document.getElementById('callSpeakerBtn');
+  if (btn) {
+    btn.classList.toggle('muted', isSpeakerOn);
+    btn.style.background = isSpeakerOn ? 'rgba(255, 45, 120, 0.3)' : '';
+    btn.style.color = isSpeakerOn ? '#FF2D78' : '';
+  }
+  showToast(isSpeakerOn ? 'Speakerphone on 🔊' : 'Ear speaker on 🔈', 'info');
+}
+
+// Window bindings for seamless inline onclick handlers
+window.endCall = endCall;
+window.endVideoCall = endVideoCall;
+window.toggleCallMute = toggleCallMute;
+window.toggleVideoMute = toggleVideoMute;
+window.toggleCamera = toggleCamera;
+window.flipCamera = flipCamera;
+window.toggleSpeaker = toggleSpeaker;
+
+window.addEventListener('beforeunload', () => {
+  if (activePeerConnection) {
+    endCall(false);
+  }
+});
 
 function sendMessage() {
   const input = document.getElementById('chatInput');
