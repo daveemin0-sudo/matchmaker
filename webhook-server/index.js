@@ -87,29 +87,35 @@ app.use((req, res, next) => {
 const rateBuckets = new Map();
 
 async function persistentRateLimit(key, max, windowMs) {
-  const id = crypto.createHash('sha256').update(String(key)).digest('hex');
-  const ref = db.collection('rate_limits').doc(id);
-  const now = Date.now();
-  let allowed = false;
+  try {
+    const id = crypto.createHash('sha256').update(String(key)).digest('hex');
+    const ref = db.collection('rate_limits').doc(id);
+    const now = Date.now();
+    let allowed = false;
 
-  await db.runTransaction(async tx => {
-    const snap = await tx.get(ref);
-    const previous = snap.exists && Array.isArray(snap.data()?.hits) ? snap.data().hits : [];
-    const hits = previous
-      .map(value => typeof value === 'number' ? value : value?.toMillis?.())
-      .filter(value => Number.isFinite(value) && now - value < windowMs);
+    await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      const previous = snap.exists && Array.isArray(snap.data()?.hits) ? snap.data().hits : [];
+      const hits = previous
+        .map(value => typeof value === 'number' ? value : value?.toMillis?.())
+        .filter(value => Number.isFinite(value) && now - value < windowMs);
 
-    allowed = hits.length < max;
-    if (allowed) hits.push(now);
+      allowed = hits.length < max;
+      if (allowed) hits.push(now);
 
-    tx.set(ref, {
-      hits,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-  });
+      tx.set(ref, {
+        hits,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    });
 
-  return allowed;
+    return allowed;
+  } catch (err) {
+    console.error('Persistent rate-limit error:', err.message);
+    return false;
+  }
 }
+
 function rateLimit(key, max, windowMs) {
   const now = Date.now();
   const old = (rateBuckets.get(key) || []).filter(t => now - t < windowMs);
