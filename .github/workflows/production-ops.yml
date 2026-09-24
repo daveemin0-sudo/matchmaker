@@ -1,0 +1,31 @@
+name: Production Ops
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17,47 * * * *'
+
+jobs:
+  story-cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete expired stories and media
+        env:
+          CLEANUP_URL: ${{ secrets.CLEANUP_URL }}
+          CLEANUP_SECRET: ${{ secrets.CLEANUP_SECRET }}
+        run: |
+          test -n "$CLEANUP_URL"
+          test -n "$CLEANUP_SECRET"
+          curl --fail --silent --show-error --max-time 30             -X POST "$CLEANUP_URL"             -H "x-cleanup-secret: $CLEANUP_SECRET"
+
+  backend-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check backend health
+        env:
+          BACKEND_HEALTH_URL: ${{ secrets.BACKEND_HEALTH_URL }}
+        run: |
+          test -n "$BACKEND_HEALTH_URL"
+          curl --fail --silent --show-error --max-time 20 "$BACKEND_HEALTH_URL"
