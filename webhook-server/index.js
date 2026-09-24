@@ -110,9 +110,17 @@ async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   if (!header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authentication required.' });
   try {
-    req.user = await admin.auth().verifyIdToken(header.slice(7));
+    const decoded = await admin.auth().verifyIdToken(header.slice(7));
+    const userRecord = await admin.auth().getUser(decoded.uid);
+    if (userRecord.disabled) {
+      return res.status(403).json({ error: 'This account has been suspended.' });
+    }
+    req.user = decoded;
     next();
-  } catch (_) {
+  } catch (err) {
+    if (err?.code === 'auth/user-disabled') {
+      return res.status(403).json({ error: 'This account has been suspended.' });
+    }
     return res.status(401).json({ error: 'Invalid or expired authentication token.' });
   }
 }
@@ -671,6 +679,57 @@ app.get('/turn/credentials', requireAuth, async (_req, res) => {
   } catch (err) {
     console.error('TURN credentials error:', err.message);
     res.status(502).json({ error: 'Failed to obtain TURN credentials.' });
+  }
+});
+
+/* Public profile migration — safe fields only */
+app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req, res) => {
+  if (!rateLimit(`admin-migrate-profiles:${req.user.uid}`, 2, 10 * 60 * 1000)) {
+    return res.status(429).json({ error: 'Migration already requested recently.' });
+  }
+
+  try {
+    const snap = await db.collection('users').get();
+    let batch = db.batch();
+    let writes = 0;
+    let migrated = 0;
+
+    const commit = async () => {
+      if (writes) {
+        await batch.commit();
+        batch = db.batch();
+        writes = 0;
+      }
+    };
+
+    for (const doc of snap.docs) {
+      const d = doc.data() || {};
+      if (!d.name && !d.displayName) continue;
+
+      const publicRef = db.collection('public_profiles').doc(doc.id);
+      batch.set(publicRef, {
+        id: doc.id,
+        name: d.name || d.displayName || 'User',
+        displayName: d.displayName || d.name || 'User',
+        age: Number(d.age || 24),
+        bio: String(d.bio || '').slice(0, 2000),
+        gender: d.gender || 'Female',
+        interests: Array.isArray(d.interests) ? d.interests.slice(0, 30) : [],
+        location: String(d.location || '').slice(0, 200),
+        image: d.image || d.avatar || '',
+        avatar: d.avatar || d.image || '',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      writes++;
+      migrated++;
+      if (writes >= 450) await commit();
+    }
+    await commit();
+
+    return res.json({ success: true, migrated });
+  } catch (err) {
+    console.error('Public profile migration error:', err.message);
+    return res.status(500).json({ error: 'Could not migrate public profiles.' });
   }
 });
 
