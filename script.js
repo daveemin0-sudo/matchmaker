@@ -5309,13 +5309,6 @@ async function sendPhoneOtp() {
     try { sent = await sendOtpToPhone(fullPhone); } catch (e) { sent = false; }
   }
 
-  if (!sent && !window._demoOtp) {
-    window._demoOtp = String(Math.floor(100000 + Math.random() * 900000));
-    console.info(`📱 Verification code for ${fullPhone}: ${window._demoOtp}`);
-    showToast(`📱 Verification code: ${window._demoOtp}`, 'gold');
-    sent = true;
-  }
-
   btn.disabled = false;
   btn.textContent = 'Send Verification Code';
 
@@ -5328,18 +5321,11 @@ async function sendPhoneOtp() {
     if (sentTo) sentTo.textContent = 'Code sent to +234 ' + _pendingPhoneNumber;
 
     const helper = document.getElementById('phoneOtpHelper');
-    if (helper) {
-      if (window._demoOtp) {
-        helper.innerHTML = `🔑 Verification Code: <strong style="font-size:1.15rem;letter-spacing:3px;display:inline-block;margin:4px 0">${window._demoOtp}</strong><div style="font-size:0.75rem;opacity:0.8;margin-top:2px">Termii SMS route pending approval — enter this code to verify</div>`;
-        helper.style.display = 'block';
-      } else {
-        helper.style.display = 'none';
-      }
-    }
+    if (helper) helper.style.display = 'none';
 
     const otpInp = document.getElementById('otpInput');
     if (otpInp) {
-      otpInp.value = window._demoOtp || '';
+      otpInp.value = '';
       setTimeout(() => otpInp.focus(), 150);
     }
   }
@@ -5368,11 +5354,6 @@ async function verifyPhoneOtp() {
       const result = await verifyPhoneOwnershipOnly(fullPhone, otp);
       verified = result && result.success;
     } catch (e) { verified = false; }
-  }
-
-  if (!verified && window._demoOtp && otp === window._demoOtp) {
-    verified = true;
-    window._demoOtp = null;
   }
 
   btn.disabled = false;
