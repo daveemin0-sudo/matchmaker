@@ -3223,12 +3223,21 @@ function renderProfileScreen() {
   }
 
   if (nameEl) {
-    nameEl.innerHTML = `${displayName}, ${displayAge} <span class="header-vip-badge" id="profileVipBadge" style="display:${appState.isVip ? 'inline-flex' : 'none'};margin-left:6px">VIP</span>`;
+    nameEl.textContent = String(displayName) + ', ' + String(displayAge);
+    const existingBadge = document.getElementById('profileVipBadge');
+    if (existingBadge) existingBadge.remove();
+    const badge = document.createElement('span');
+    badge.className = 'header-vip-badge';
+    badge.id = 'profileVipBadge';
+    badge.textContent = 'VIP';
+    badge.style.display = appState.isVip ? 'inline-flex' : 'none';
+    badge.style.marginLeft = '6px';
+    nameEl.appendChild(badge);
   }
   if (locEl) locEl.textContent = displayLoc;
   if (bioEl) bioEl.textContent = displayBio;
   if (interestsEl) {
-    interestsEl.innerHTML = displayInterests.map(tag => `<span class="simple-interest-pill">${tag}</span>`).join('');
+    interestsEl.innerHTML = displayInterests.map(tag => `<span class="simple-interest-pill">${escHtml(tag)}</span>`).join('');
   }
 
   // Pre-fill form inputs in edit modal
@@ -4280,7 +4289,7 @@ function showStoryAtIndex(idx) {
   if (inputEl) inputEl.placeholder = `Send a compliment to ${story.name}...`;
 
   if (tagsRow) {
-    tagsRow.innerHTML = (story.tags || []).map(t => `<span class="story-tag-chip">${t}</span>`).join('');
+    tagsRow.innerHTML = (story.tags || []).map(t => `<span class="story-tag-chip">${escHtml(t)}</span>`).join('');
   }
 
   // Render Story Progress Indicators
