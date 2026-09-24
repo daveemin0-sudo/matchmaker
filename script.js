@@ -250,6 +250,13 @@ function applyMatchesUpdate(realMatches) {
       const existingIndex = matchedUsers.findIndex(u => u.id === m.id);
       if (existingIndex === -1) {
         matchedUsers.unshift(m);
+        if (window._initialMatchesLoaded) {
+          showToast(`🎉 New Match with ${m.name || 'someone special'}!`, 'gold');
+          triggerSystemNotification(`🎉 New Match with ${m.name || 'someone special'}!`, {
+            body: 'You both liked each other! Tap to chat 💕',
+            data: { matchId: m.id }
+          });
+        }
       } else {
         matchedUsers[existingIndex] = { ...matchedUsers[existingIndex], ...m };
       }
@@ -272,11 +279,16 @@ function applyMatchesUpdate(realMatches) {
           if (!isViewing) {
             hasNewIncomingMessage = true;
             showToast(`💬 ${m.name}: ${m.lastMessage.substring(0, 36)}...`, 'info');
+            triggerSystemNotification(`💬 ${m.name}`, {
+              body: m.lastMessage,
+              data: { matchId: m.id }
+            });
           }
         }
       }
     }
   });
+  window._initialMatchesLoaded = true;
   sortMatchedUsersByLatest();
   renderMatchesView();
   if (typeof renderChatsInbox === 'function') {
@@ -4580,7 +4592,15 @@ function allowNotifications() {
   dismissNotifBanner();
   if (!('Notification' in window)) return;
   Notification.requestPermission().then(perm => {
-    if (perm === 'granted') showToast('🔔 Notifications enabled!');
+    if (perm === 'granted') {
+      showToast('🔔 Notifications enabled!', 'gold');
+      if (typeof initPushNotifications === 'function') {
+        initPushNotifications();
+      }
+      triggerSystemNotification('hookmebysam 💕', {
+        body: 'Notifications active! You will be alerted for matches and messages.'
+      });
+    }
   });
 }
 
@@ -4590,6 +4610,46 @@ function dismissNotifBanner() {
     banner.style.animation = 'slideDown 0.25s ease reverse both';
     setTimeout(() => banner.remove(), 250);
   }
+}
+
+// OS / Browser Native System Notification Dispatcher
+function triggerSystemNotification(title, options = {}) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+  const defaultOptions = {
+    icon: '/icons/icon-192.png',
+    badge: '/icons/icon-72.png',
+    vibrate: [200, 100, 200],
+    tag: options.data?.matchId || 'hmbs-msg',
+    renotify: true,
+    data: options.data || {}
+  };
+  const finalOptions = Object.assign({}, defaultOptions, options);
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.ready.then(reg => {
+      reg.showNotification(title, finalOptions).catch(() => {
+        try { new Notification(title, finalOptions); } catch (_) {}
+      });
+    }).catch(() => {
+      try { new Notification(title, finalOptions); } catch (_) {}
+    });
+  } else {
+    try {
+      new Notification(title, finalOptions);
+    } catch (_) {}
+  }
+}
+
+// Handle notification tap messages sent from Service Worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', (event) => {
+    if (event.data?.type === 'PUSH_NOTIFICATION_CLICK' && event.data.matchId) {
+      if (typeof openChat === 'function') {
+        openChat(event.data.matchId);
+      }
+    }
+  });
 }
 
 // ==========================================================

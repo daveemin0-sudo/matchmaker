@@ -1,4 +1,4 @@
-/* hookmebysam Service Worker v6
+/* hookmebysam Service Worker v7
    ------------------------------------------------------------------
    Strategy:
    - App shell (HTML/CSS/JS): NETWORK-FIRST. Always tries the network
@@ -8,7 +8,7 @@
    - Static assets (images/fonts/icons): CACHE-FIRST. These are rarely
      edited, so serving from cache first saves bandwidth and is safe.
    ------------------------------------------------------------------ */
-const SW_VERSION = "v6";
+const SW_VERSION = "v7";
 const CACHE_NAME = `hmbs-${SW_VERSION}`;
 
 const APP_SHELL = [
@@ -31,8 +31,6 @@ self.addEventListener("install", (e) => {
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
-    // Bumping SW_VERSION above makes this actually purge old caches —
-    // v1 never changed its cache name, so this cleanup step never ran.
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
     )
@@ -43,8 +41,6 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   if (req.method !== "GET") return;
-  // Let cross-origin requests (Firebase, Paystack, Google Fonts) pass through
-  // untouched — caching those here risks storing broken opaque responses.
   if (!req.url.startsWith(self.location.origin)) return;
 
   const isStaticAsset = CACHE_FIRST_EXT.test(new URL(req.url).pathname);
@@ -77,3 +73,56 @@ function fetchAndCache(req) {
     return response;
   });
 }
+
+// ── Native Push & Notification Handlers ─────────────────────────
+self.addEventListener("push", (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { body: event.data.text() };
+    }
+  }
+
+  const title = data.title || data.notification?.title || "hookmebysam 💕";
+  const options = {
+    body: data.body || data.notification?.body || "You have a new message or match!",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-72.png",
+    vibrate: [200, 100, 200],
+    tag: data.tag || data.data?.matchId || "hmbs-notif",
+    renotify: true,
+    data: data.data || {},
+    actions: [
+      { action: "open", title: "Open 💬" },
+      { action: "dismiss", title: "Dismiss" }
+    ]
+  };
+
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  if (event.action === "dismiss") return;
+
+  const matchId = event.notification.data?.matchId;
+  const targetUrl = matchId ? `${self.location.origin}/#chat/${matchId}` : self.location.origin;
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      // If the app is already open in a tab or PWA window, focus it and switch to the chat
+      for (const client of windowClients) {
+        if (client.url.startsWith(self.location.origin) && "focus" in client) {
+          if (matchId) client.postMessage({ type: "PUSH_NOTIFICATION_CLICK", matchId });
+          return client.focus();
+        }
+      }
+      // If closed, launch a new window
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
