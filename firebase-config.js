@@ -527,20 +527,34 @@ async function uploadFileToBackend(file, path, returnMetadata = false) {
 // ----------------------------------------------------------
 
 function triggerPaystackPayment(planName, amountInNaira, onSuccessCallback) {
+  if (!fbAuth?.currentUser) {
+    showToast("Please sign in before purchasing VIP.", "error");
+    return;
+  }
+  if (!PAYSTACK_PUBLIC_KEY || PAYSTACK_PUBLIC_KEY.includes("REPLACE_WITH_YOUR_LIVE_PAYSTACK_PUBLIC_KEY")) {
+    showToast("VIP payments are not configured for production yet.", "error");
+    return;
+  }
+  const customerEmail = fbAuth.currentUser.email || window.currentUser?.email || '';
+  if (!customerEmail) {
+    showToast("Add an email address to your account before purchasing VIP.", "error");
+    return;
+  }
   if (typeof PaystackPop === "undefined") {
     showToast("Paystack SDK loading...", "info");
     return;
   }
+
   const handler = PaystackPop.setup({
     key: PAYSTACK_PUBLIC_KEY,
-    email: window.currentUser?.email || "customer@example.com",
-    amount: amountInNaira * 100, // Amount in kobo
+    email: customerEmail,
+    amount: amountInNaira * 100,
     currency: "NGN",
     ref: 'HMBS_' + Math.floor((Math.random() * 1000000000) + 1),
     metadata: {
       custom_fields: [
         { display_name: "Plan Name", variable_name: "plan_name", value: planName },
-        { display_name: "User ID", variable_name: "user_id", value: window.currentUser?.id || "demo" }
+        { display_name: "User ID", variable_name: "user_id", value: fbAuth.currentUser.uid }
       ]
     },
     callback: function(response) {
