@@ -29,10 +29,8 @@ service cloud.firestore {
     }
 
     match /swipes/{swipeId} {
-      allow create: if signedIn()
-        && request.resource.data.fromUserId == request.auth.uid
-        && request.resource.data.toUserId is string
-        && request.resource.data.action in ['like','pass','superlike'];
+      // Swipe writes are performed by the authenticated backend only.
+      allow create: if false;
       allow read: if signedIn() && resource.data.fromUserId == request.auth.uid;
       allow update, delete: if false;
     }
