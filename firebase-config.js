@@ -505,13 +505,13 @@ async function reactRealtimeMessage(matchId, messageId, emoji) {
 // CLOUD FILE UPLOADS (Profile Photo, Voice Note, Chat Image)
 // ----------------------------------------------------------
 
-async function uploadFileToBackend(file, path) {
+async function uploadFileToBackend(file, path, returnMetadata = false) {
   if (!fbStorage) return null;
   try {
     const storageRef = fbStorage.ref(`${path}/${Date.now()}_${file.name || 'file'}`);
     const snapshot = await storageRef.put(file);
     const downloadUrl = await snapshot.ref.getDownloadURL();
-    return downloadUrl;
+    return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
   } catch (err) {
     console.warn("uploadFileToBackend warning:", err.message);
     return null;
@@ -856,6 +856,7 @@ async function uploadStoryToFirestore(storyData) {
       ownerAvatar: storyData.thumb || currentUser?.avatar || '',
       mediaUrl: storyData.image,
       mediaType: 'image',
+       storagePath: storyData.storagePath || '',
       location: storyData.location || currentUser?.location || 'Lagos',
       bio: storyData.bio || '',
       tags: storyData.tags || [],
