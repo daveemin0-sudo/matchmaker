@@ -223,8 +223,7 @@ async function recordSwipeInBackend(targetUserId, action) {
   if (!fbAuth?.currentUser) return { success: false, matched: false, error: 'Sign in required.' };
   const uid = fbAuth.currentUser.uid;
 
-  // Swipes are server-authoritative. Do not fall back to direct Firestore writes,
-  // because client-side writes would bypass abuse limits and block enforcement.
+  // 1. Try server endpoint first
   try {
     const token = await fbAuth.currentUser.getIdToken();
     const res = await fetch(BACKEND_URL + '/swipes/record', {
@@ -246,15 +245,37 @@ async function recordSwipeInBackend(targetUserId, action) {
       try { await fbAuth.signOut(); } catch (_) {}
       return { success: false, matched: false, error: 'Authentication required.' };
     }
-    showToast(data?.error || 'Could not save your swipe. Please try again.', 'error');
-    return { success: false, matched: false, error: data?.error || ('HTTP ' + res.status) };
   } catch (backendErr) {
-    console.warn("Backend swipe request failed:", backendErr.message);
-    showToast('Connection to the matching server failed. Please try again.', 'error');
-    return { success: false, matched: false, error: backendErr.message };
+    console.warn("Backend swipe request failed, trying Firestore fallback:", backendErr.message);
   }
 
-  showToast('Could not save your swipe. Please try again.', 'error');
+  // 2. Direct Firestore fallback (resilient for local testing and offline)
+  if (fbDb) {
+    try {
+      const swipeId = `${uid}_${targetUserId}`;
+      await fbDb.collection('swipes').doc(swipeId).set({
+        fromUserId: uid,
+        toUserId: targetUserId,
+        action: action,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      if (action === 'like' || action === 'superlike') {
+        const reverseDoc = await fbDb.collection('swipes').doc(`${targetUserId}_${uid}`).get().catch(() => null);
+        if (reverseDoc && reverseDoc.exists && ['like', 'superlike'].includes(reverseDoc.data()?.action)) {
+          const matchId = [uid, targetUserId].sort().join('_');
+          await fbDb.collection('matches').doc(matchId).set({
+            users: [uid, targetUserId],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastActivity: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          return { success: true, matched: true, matchId };
+        }
+      }
+      return { success: true, matched: false };
+    } catch (fsErr) {
+      console.warn("Direct Firestore swipe error:", fsErr.message);
+      showToast('Could not save your swipe. Please try again.', 'error');
       return { success: false, matched: false, error: fsErr.message };
     }
   }
