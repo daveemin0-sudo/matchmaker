@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>hookmebysam — Admin Moderation</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <style>
+    :root{color-scheme:dark;--bg:#0b0710;--card:#17101c;--line:#2b2032;--txt:#f6eef8;--muted:#aaa0b0;--accent:#ff2e70;--gold:#f4c15d;--danger:#ff5a64}
+    *{box-sizing:border-box}body{margin:0;background:linear-gradient(180deg,#0b0710,#110912);color:var(--txt);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+    .wrap{max-width:1200px;margin:0 auto;padding:24px}.top{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:22px}
+    h1{font-size:1.35rem;margin:0}.sub{color:var(--muted);font-size:.9rem;margin-top:4px}.card{background:rgba(23,16,28,.96);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 18px 50px rgba(0,0,0,.2)}
+    input,select,textarea{width:100%;background:#0f0a14;color:var(--txt);border:1px solid var(--line);border-radius:10px;padding:11px 12px;font:inherit}
+    button{border:0;border-radius:10px;padding:10px 14px;font:inherit;font-weight:700;cursor:pointer}
+    .primary{background:var(--accent);color:white}.secondary{background:#251a2c;color:var(--txt)}.danger{background:var(--danger);color:white}.gold{background:var(--gold);color:#1a1000}
+    .grid{display:grid;grid-template-columns:320px 1fr;gap:18px}.stack{display:grid;gap:12px}.hidden{display:none}.status{padding:9px 12px;border-radius:10px;background:#100b15;color:var(--muted);font-size:.88rem}
+    table{width:100%;border-collapse:collapse}.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:14px}th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;font-size:.86rem}th{color:var(--muted);font-weight:700;position:sticky;top:0;background:#17101c}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#241a2a;color:#d8cddd;font-size:.76rem}.actions{display:flex;flex-wrap:wrap;gap:7px}.empty{padding:30px;text-align:center;color:var(--muted)}
+    .row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.dangerText{color:#ff8a90}.ok{color:#8de5aa}
+    @media(max-width:860px){.grid{grid-template-columns:1fr}.wrap{padding:14px}.top{align-items:flex-start;flex-direction:column}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <div class="top">
+      <div><h1>hookmebysam Admin Moderation</h1><div class="sub">Restricted to users with <b>role: admin</b> in Firestore.</div></div>
+      <button id="signOutBtn" class="secondary hidden">Sign out</button>
+    </div>
+
+    <section id="loginCard" class="card">
+      <div class="stack">
+        <input id="email" type="email" autocomplete="username" placeholder="Admin email">
+        <input id="password" type="password" autocomplete="current-password" placeholder="Password">
+        <button id="loginBtn" class="primary">Sign in</button>
+        <div id="loginStatus" class="status">Use an existing Firebase Auth account. The backend will verify the admin role.</div>
+      </div>
+    </section>
+
+    <section id="app" class="hidden">
+      <div class="grid">
+        <aside class="card stack">
+          <div class="status" id="adminStatus">Signed out</div>
+          <label>Status
+            <select id="statusFilter">
+              <option value="">All</option>
+              <option value="open" selected>Open</option>
+              <option value="reviewing">Reviewing</option>
+              <option value="resolved">Resolved</option>
+              <option value="dismissed">Dismissed</option>
+            </select>
+          </label>
+          <button id="refreshBtn" class="primary">Refresh reports</button>
+          <div class="status">Moderation actions are recorded server-side. Do not expose service-account credentials in this page.</div>
+        </aside>
+
+        <section class="card">
+          <div class="row" style="margin-bottom:12px"><div><b>Reports</b><div id="count" class="sub">0</div></div><div style="text-align:right"><span id="loadStatus" class="status">Ready</span></div></div>
+          <div class="tableWrap">
+            <table>
+              <thead><tr><th>Reported user</th><th>Reason</th><th>Reporter</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
+              <tbody id="reportsBody"><tr><td colspan="6" class="empty">No reports loaded.</td></tr></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCCjBefT39USp6JslywXA-ZCUOK_t9gmUk",
+  authDomain: "hookmebysam.firebaseapp.com",
+  databaseURL: "https://hookmebysam-default-rtdb.firebaseio.com",
+  projectId: "hookmebysam",
+  storageBucket: "hookmebysam.firebasestorage.app",
+  messagingSenderId: "512221711818",
+  appId: "1:512221711818:web:d0c40fcb9f934c4e249333",
+  measurementId: "G-XYWLF7VS28"
+};
+const BACKEND_URL = "https://matchmaker-viwb.onrender.com";
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+
+const loginCard = document.getElementById("loginCard");
+const app = document.getElementById("app");
+const signOutBtn = document.getElementById("signOutBtn");
+const loginStatus = document.getElementById("loginStatus");
+const adminStatus = document.getElementById("adminStatus");
+const loadStatus = document.getElementById("loadStatus");
+const reportsBody = document.getElementById("reportsBody");
+const count = document.getElementById("count");
+const statusFilter = document.getElementById("statusFilter");
+
+async function api(path, options = {}) {
+  if (!auth.currentUser) throw new Error("Not signed in.");
+  const token = await auth.currentUser.getIdToken();
+  const headers = Object.assign({
+    "Content-Type": "application/json",
+    "Authorization": "Bearer " + token
+  }, options.headers || {});
+  const res = await fetch(BACKEND_URL + path, Object.assign({}, options, { headers }));
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || "Request failed.");
+  return data;
+}
+
+async function loadReports() {
+  loadStatus.textContent = "Loading…";
+  try {
+    const filter = encodeURIComponent(statusFilter.value);
+    const data = await api("/admin/reports?status=" + filter);
+    const reports = data.reports || [];
+    count.textContent = reports.length + " report" + (reports.length === 1 ? "" : "s");
+    if (!reports.length) {
+      reportsBody.innerHTML = '<tr><td colspan="6" class="empty">No reports match this filter.</td></tr>';
+      loadStatus.textContent = "Up to date";
+      return;
+    }
+    reportsBody.innerHTML = reports.map(r => {
+      const created = r.createdAt ? new Date(r.createdAt).toLocaleString() : "—";
+      const status = String(r.status || "open");
+      return '<tr>' +
+        '<td><b>' + escapeHtml(r.reportedUserName || "User") + '</b><div class="sub">' + escapeHtml(r.reportedUserId) + '</div></td>' +
+        '<td><span class="pill">' + escapeHtml(r.reason) + '</span></td>' +
+        '<td><div class="sub">' + escapeHtml(r.reportedBy) + '</div></td>' +
+        '<td><span class="pill">' + escapeHtml(status) + '</span></td>' +
+        '<td>' + escapeHtml(created) + '</td>' +
+        '<td><div class="actions">' +
+          '<button class="secondary" onclick="updateReport(\\'' + r.id + '\\',\\'reviewing\\')">Review</button>' +
+          '<button class="gold" onclick="updateReport(\\'' + r.id + '\\',\\'resolved\\')">Resolve</button>' +
+          '<button class="secondary" onclick="updateReport(\\'' + r.id + '\\',\\'dismissed\\')">Dismiss</button>' +
+          '<button class="danger" onclick="suspendUser(\\'' + r.reportedUserId + '\\')">Suspend</button>' +
+        '</div></td>' +
+      '</tr>';
+    }).join("");
+    loadStatus.textContent = "Up to date";
+  } catch (err) {
+    loadStatus.textContent = err.message;
+  }
+}
+
+async function updateReport(reportId, status) {
+  const note = window.prompt("Optional moderation note:", "") ?? "";
+  try {
+    await api("/admin/reports/update", {
+      method: "POST",
+      body: JSON.stringify({ reportId, status, adminNote: note })
+    });
+    await loadReports();
+  } catch (err) {
+    window.alert(err.message);
+  }
+}
+
+async function suspendUser(userId) {
+  const reason = window.prompt("Suspension reason:", "Policy violation");
+  if (reason === null) return;
+  try {
+    await api("/admin/users/suspend", {
+      method: "POST",
+      body: JSON.stringify({ userId, reason })
+    });
+    await updateReportFromCurrent("resolved", "User suspended");
+  } catch (err) {
+    window.alert(err.message);
+  }
+}
+
+async function updateReportFromCurrent(status, note) {
+  const openRows = Array.from(reportsBody.querySelectorAll("tr"));
+  if (!openRows.length) return loadReports();
+  return loadReports();
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({
+    "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
+  }[ch]));
+}
+
+document.getElementById("loginBtn").addEventListener("click", async () => {
+  loginStatus.textContent = "Signing in…";
+  try {
+    await auth.signInWithEmailAndPassword(
+      document.getElementById("email").value.trim(),
+      document.getElementById("password").value
+    );
+  } catch (err) {
+    loginStatus.textContent = err.message;
+  }
+});
+
+signOutBtn.addEventListener("click", () => auth.signOut());
+statusFilter.addEventListener("change", loadReports);
+document.getElementById("refreshBtn").addEventListener("click", loadReports);
+
+auth.onAuthStateChanged(async user => {
+  if (!user) {
+    loginCard.classList.remove("hidden");
+    app.classList.add("hidden");
+    signOutBtn.classList.add("hidden");
+    return;
+  }
+  try {
+    const me = await api("/admin/reports?status=open");
+    loginCard.classList.add("hidden");
+    app.classList.remove("hidden");
+    signOutBtn.classList.remove("hidden");
+    adminStatus.textContent = "Authenticated admin: " + user.email;
+    count.textContent = (me.reports || []).length + " open reports";
+    await loadReports();
+  } catch (err) {
+    await auth.signOut();
+    loginStatus.textContent = err.message;
+  }
+});
+</script>
+</body>
+</html>
