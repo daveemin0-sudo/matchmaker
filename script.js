@@ -4373,13 +4373,13 @@ async function blockUser(userId, name) {
 }
 
 async function executeReportAndBlock(userId, name) {
+  const reason = document.querySelector('input[name="reportReason"]:checked')?.value || 'other';
   closeReportModal();
   if (!userId || !fbDb || !fbAuth?.currentUser) {
     showToast('Please sign in to report an account.', 'error');
     return;
   }
 
-  const reason = document.querySelector('input[name="reportReason"]:checked')?.value || 'other';
   const reporterId = fbAuth.currentUser.uid;
 
   try {
