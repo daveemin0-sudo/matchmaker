@@ -5655,14 +5655,7 @@ async function verifyPhoneOtp() {
     currentUser.phoneVerified = true;
     currentUser.isPhoneVerified = true;
     saveToStorage();
-    if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) {
-      try {
-        await fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
-          phone: _pendingPhoneNumber,
-          phoneVerified: true
-        }, { merge: true });
-      } catch (e) { console.warn('Firestore phone update notice:', e); }
-    }
+    // Backend already marks the authenticated account as phoneVerified.
     renderSettingsScreen();
     showToast('✅ Phone number verified!', 'gold');
     closePhoneVerificationModal();
