@@ -978,6 +978,37 @@ app.post('/admin/users/unsuspend', requireAuth, requireAdmin, async (req, res) =
   }
 });
 
+app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req, res) => {
+  try {
+    const snap = await db.collection('users').get();
+    let count = 0;
+    const batch = db.batch();
+    snap.forEach(doc => {
+      const u = doc.data();
+      const pRef = db.collection('public_profiles').doc(doc.id);
+      batch.set(pRef, {
+        id: doc.id,
+        name: u.displayName || u.name || 'User',
+        displayName: u.displayName || u.name || 'User',
+        age: u.age || 24,
+        bio: u.bio || '',
+        gender: u.gender || '',
+        interests: u.interests || [],
+        location: u.location || '',
+        image: u.image || u.avatar || '',
+        avatar: u.avatar || u.image || '',
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+      count++;
+    });
+    await batch.commit();
+    return res.json({ success: true, migrated: count });
+  } catch (err) {
+    console.error('Migrate public profiles error:', err.message);
+    return res.status(500).json({ error: 'Migration failed: ' + err.message });
+  }
+});
+
 app.get('/health', async (_req, res) => {
   try {
     await db.collection('users').limit(1).get();

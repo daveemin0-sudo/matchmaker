@@ -79,7 +79,11 @@ const firebaseConfig = {
   appId: "1:512221711818:web:d0c40fcb9f934c4e249333",
   measurementId: "G-XYWLF7VS28"
 };
-const BACKEND_URL = "https://matchmaker-viwb.onrender.com";
+const BACKEND_URL = (
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+)
+  ? 'http://127.0.0.1:3001'
+  : 'https://matchmaker-viwb.onrender.com';
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();

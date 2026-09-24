@@ -19,8 +19,13 @@ const firebaseConfig = {
 // Replace with your key from https://dashboard.paystack.com (e.g. pk_test_xxxx or pk_live_xxxx)
 const PAYSTACK_PUBLIC_KEY = "pk_live_REPLACE_WITH_YOUR_LIVE_PAYSTACK_PUBLIC_KEY";
 
-// 3. YOUR WEBHOOK SERVER URL (Live Render Production Backend)
-const BACKEND_URL = "https://matchmaker-viwb.onrender.com";
+// 3. YOUR WEBHOOK SERVER URL (Auto-switches to local server when testing locally)
+const BACKEND_URL = (
+  typeof window !== 'undefined' &&
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+)
+  ? 'http://127.0.0.1:3001'
+  : 'https://matchmaker-viwb.onrender.com';
 
 async function getBackendAuthHeaders() {
   if (!fbAuth?.currentUser) throw new Error('Sign in required.');

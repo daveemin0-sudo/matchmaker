@@ -10,6 +10,8 @@ package-lock.json
 *.pem
 service-account*.json
 firebase-service-account*.json
+serviceAccountKey*.json
+*adminsdk*.json
 *.key
 
 # Logs
