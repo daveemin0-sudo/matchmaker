@@ -3763,49 +3763,38 @@ async function handleLogout() {
 async function handleDeleteAccount() {
   if (!confirm('⚠️ Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.')) return;
 
-  showToast('Deleting account & data...', 'info');
-
-  if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    const user = fbAuth.currentUser;
-    const uid = user.uid;
-
-    if (typeof fbDb !== 'undefined' && fbDb) {
-      try {
-        // 1. Delete user stories
-        const storiesSnap = await fbDb.collection('stories').where('ownerId', '==', uid).get();
-        const batch = fbDb.batch();
-        storiesSnap.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-      } catch (e) {
-        console.warn('Stories cleanup error on delete:', e);
-      }
-
-      try {
-        // 2. Delete user profile document
-        await fbDb.collection('users').doc(uid).delete();
-         await fbDb.collection('public_profiles').doc(uid).delete();
-      } catch (e) {
-        console.warn('User doc cleanup error on delete:', e);
-      }
-    }
-
-    try {
-      // 3. Delete Firebase Auth record
-      await user.delete();
-    } catch (e) {
-      console.warn('Firebase delete auth error:', e);
-      if (e.code === 'auth/requires-recent-login') {
-        alert('For your security, please sign out and sign in again before deleting your account.');
-        return;
-      }
-    }
+  if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
+    showToast('Please sign in before deleting your account.', 'error');
+    return;
   }
 
-  // 4. Wipe local storage and cache
-  localStorage.clear();
-  sessionStorage.clear();
-  location.reload();
+  showToast('Deleting account & data securely...', 'info');
+
+  try {
+    const token = await fbAuth.currentUser.getIdToken(true);
+    const response = await fetch(BACKEND_URL + '/account/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token
+      }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Account deletion failed.');
+    }
+
+    localStorage.clear();
+    sessionStorage.clear();
+    await fbAuth.signOut().catch(() => {});
+    showToast('Your account and associated app data were deleted.', 'success');
+    setTimeout(() => location.reload(), 500);
+  } catch (err) {
+    console.error('Account deletion error:', err);
+    showToast(err.message || 'Could not delete the account.', 'error');
+  }
 }
+
 
 // ==========================================================
 // VIP / PAYWALL
