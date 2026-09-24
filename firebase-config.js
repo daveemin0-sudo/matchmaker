@@ -508,14 +508,6 @@ function triggerPaystackPayment(planName, amountInNaira, onSuccessCallback) {
     showToast("Paystack SDK loading...", "info");
     return;
   }
-
-  if (PAYSTACK_PUBLIC_KEY.includes("replace_with_yours")) {
-    // Simulated VIP upgrade in demo mode
-    showToast(`⚡ Demo Mode: ${planName} unlocked!`, "gold");
-    if (onSuccessCallback) onSuccessCallback({ reference: 'DEMO_' + Date.now() });
-    return;
-  }
-
   const handler = PaystackPop.setup({
     key: PAYSTACK_PUBLIC_KEY,
     email: window.currentUser?.email || "customer@example.com",
@@ -545,11 +537,6 @@ function triggerPaystackPayment(planName, amountInNaira, onSuccessCallback) {
 // hasn't been redeemed before. The client-side "success" callback above
 // proves nothing on its own; this is the step that actually matters.
 async function verifyPaymentOnBackend(reference, tier) {
-  // If in demo mode or reference is a simulated DEMO reference, grant VIP directly!
-  if (reference && reference.startsWith('DEMO_')) {
-    return { success: true };
-  }
-
   try {
     const headers = await getBackendAuthHeaders();
     const res = await fetch(`${BACKEND_URL}/payment/verify`, {
@@ -562,10 +549,9 @@ async function verifyPaymentOnBackend(reference, tier) {
     showToast(data.error || 'Could not confirm payment.', 'error');
     return { success: false };
   } catch (err) {
-    // If backend server (e.g. port 3001) is not running locally during development/demo,
-    // allow seamless upgrade in demo mode so user can test all VIP features without blocking!
-    console.warn('Backend payment verification offline; granting VIP in demo mode:', err);
-    return { success: true, demoFallback: true };
+    console.error('Backend payment verification failed:', err);
+    showToast('Payment could not be confirmed. Please try again.', 'error');
+    return { success: false };
   }
 }
 
