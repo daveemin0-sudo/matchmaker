@@ -17,6 +17,7 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const CLEANUP_SECRET = process.env.CLEANUP_SECRET;
 const METERED_API_KEY = process.env.METERED_API_KEY;
 const METERED_DOMAIN = process.env.METERED_DOMAIN || 'hookmebysam.metered.live';
+const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || serviceAccount?.storage_bucket || '';
 const DAILY_FREE_SWIPES = Math.max(1, Number(process.env.DAILY_FREE_SWIPES || 100));
 
 if (!TERMII_API_KEY || !PAYSTACK_SECRET_KEY || !CLEANUP_SECRET) {
@@ -48,7 +49,8 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
   databaseURL: process.env.FIREBASE_PROJECT_ID
     ? `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`
-    : undefined
+    : undefined,
+  ...(FIREBASE_STORAGE_BUCKET ? { storageBucket: FIREBASE_STORAGE_BUCKET } : {})
 });
 const db = admin.firestore();
 
@@ -636,6 +638,16 @@ app.post('/stories/cleanup', async (req, res) => {
     const now = admin.firestore.Timestamp.now();
     const snap = await db.collection('stories').where('expiresAt', '<=', now).limit(100).get();
     if (snap.empty) return res.json({ success: true, deleted: 0 });
+    const bucket = admin.storage().bucket();
+    await Promise.all(snap.docs.map(async doc => {
+      const storagePath = String(doc.data()?.storagePath || '');
+      if (storagePath) {
+        await bucket.file(storagePath).delete({ ignoreNotFound: true }).catch(err => {
+          console.warn('Story media cleanup warning:', err.message);
+        });
+      }
+    }));
+
     const batch = db.batch();
     snap.docs.forEach(doc => batch.delete(doc.ref));
     await batch.commit();
