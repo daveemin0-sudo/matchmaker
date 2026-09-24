@@ -17,10 +17,16 @@ const firebaseConfig = {
 
 // 2. YOUR PAYSTACK PUBLIC KEY
 // Replace with your key from https://dashboard.paystack.com (e.g. pk_test_xxxx or pk_live_xxxx)
-const PAYSTACK_PUBLIC_KEY = "pk_test_64c0226b47c23fcdf84f6354d3cc1868e699e62b";
+const PAYSTACK_PUBLIC_KEY = "pk_live_REPLACE_WITH_YOUR_LIVE_PAYSTACK_PUBLIC_KEY";
 
 // 3. YOUR WEBHOOK SERVER URL (Live Render Production Backend)
 const BACKEND_URL = "https://matchmaker-viwb.onrender.com";
+
+async function getBackendAuthHeaders() {
+  if (!fbAuth?.currentUser) throw new Error('Sign in required.');
+  const token = await fbAuth.currentUser.getIdToken();
+  return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+}
 
 /* ==========================================================
    FIREBASE ADAPTER FUNCTIONS
@@ -103,28 +109,60 @@ async function backendLogIn(email, password) {
   }
 }
 
+async function loadBlockedUsersFromFirestore() {
+  if (!fbDb || !fbAuth?.currentUser) return;
+  const uid = fbAuth.currentUser.uid;
+  try {
+    const snap = await fbDb.collection('blocks').where('blockedBy', '==', uid).get();
+    const existing = new Map(
+      (typeof blockedUsers !== 'undefined' && Array.isArray(blockedUsers) ? blockedUsers : [])
+        .map(item => [item.id, item])
+    );
+    const ids = [];
+    snap.forEach(doc => {
+      const data = doc.data() || {};
+      if (data.blockedUserId && data.blockedUserId !== uid) ids.push(data.blockedUserId);
+    });
+    window.__blockedUserIds = new Set(ids);
+    if (typeof blockedUsers !== 'undefined') {
+      blockedUsers = ids.map(id => existing.get(id) || {
+        id,
+        name: 'Blocked contact',
+        image: '',
+        blockedAt: Date.now()
+      });
+    }
+  } catch (err) {
+    console.warn('Could not load blocked contacts:', err.message);
+  }
+}
+
 function listenToAuthChanges() {
   if (!fbAuth) return;
   fbAuth.onAuthStateChanged(async (user) => {
     if (user) {
       // Safely access or create currentUser object
       let targetUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : (window.currentUser || {});
-      
-      try {
-        if (fbDb) {
-          const doc = await fbDb.collection('users').doc(user.uid).get();
-          if (doc && doc.exists) {
-            const docData = doc.data();
-            targetUser = Object.assign({}, targetUser, docData);
-            if (docData.isVip) {
-              if (typeof appState !== 'undefined') appState.isVip = true;
-              if (window.appState) window.appState.isVip = true;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Firestore profile read fallback:", err.message);
-      }
+       // The server/Firestore account record is the source of truth for VIP.
+       if (typeof appState !== 'undefined') appState.isVip = false;
+       if (window.appState) window.appState.isVip = false;
+
+       try {
+         if (fbDb) {
+           const doc = await fbDb.collection('users').doc(user.uid).get();
+           if (doc && doc.exists) {
+             const docData = doc.data();
+             targetUser = Object.assign({}, targetUser, docData);
+             const expiryMs = docData.vipExpiry?.toMillis ? docData.vipExpiry.toMillis() : 0;
+             const vipActive = Boolean(docData.isVip && (!expiryMs || expiryMs > Date.now()));
+             if (typeof appState !== 'undefined') appState.isVip = vipActive;
+             if (window.appState) window.appState.isVip = vipActive;
+           }
+         }
+       } catch (err) {
+         // Fail closed when the authoritative profile cannot be read.
+         console.warn("Firestore profile read fallback:", err.message);
+       }
       
       // Ensure targetUser has at least auth email and uid
       if (user.email) targetUser.email = user.email;
@@ -139,11 +177,12 @@ function listenToAuthChanges() {
       }
       window.currentUser = targetUser;
       if (typeof saveToStorage === 'function') saveToStorage();
-      
-      if (typeof appState !== 'undefined') appState.isLoggedIn = true;
+       await loadBlockedUsersFromFirestore();
+       if (typeof appState !== 'undefined') appState.isLoggedIn = true;
       if (window.appState) window.appState.isLoggedIn = true;
       if (typeof showScreen === 'function') showScreen('discovery');
       if (typeof initMainApp === 'function') initMainApp();
+       if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
       
       // Wire up live real-time matches & messages listener immediately upon auth
       if (typeof listenToUserMatches === 'function' && typeof applyMatchesUpdate === 'function') {
@@ -157,8 +196,14 @@ function listenToAuthChanges() {
         try { window._activeMatchesListener(); } catch (_) {}
         window._activeMatchesListener = null;
       }
-      if (typeof appState !== 'undefined') appState.isLoggedIn = false;
-      if (window.appState) window.appState.isLoggedIn = false;
+       if (typeof appState !== 'undefined') {
+         appState.isLoggedIn = false;
+         appState.isVip = false;
+       }
+       if (window.appState) {
+         window.appState.isLoggedIn = false;
+         window.appState.isVip = false;
+       }
       if (typeof showScreen === 'function') showScreen('login');
       if (typeof updateHeader === 'function') updateHeader('login');
     }
@@ -170,41 +215,26 @@ function listenToAuthChanges() {
 // ----------------------------------------------------------
 
 async function recordSwipeInBackend(targetUserId, action) {
-  if (!fbDb || !fbAuth?.currentUser) return false;
-  const currentUserId = fbAuth.currentUser.uid;
+  if (!fbAuth?.currentUser) return { success: false, matched: false, error: 'Sign in required.' };
 
   try {
-    // Record swipe action in Firestore
-    await fbDb.collection('swipes').add({
-      fromUserId: currentUserId,
-      toUserId: targetUserId,
-      action: action, // "like", "pass", "superlike"
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    const token = await fbAuth.currentUser.getIdToken();
+    const res = await fetch(BACKEND_URL + '/swipes/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ targetUserId, action })
     });
-
-    // If action is like, check for mutual match
-    if (action === 'like' || action === 'superlike') {
-      const matchQuery = await fbDb.collection('swipes')
-        .where('fromUserId', '==', targetUserId)
-        .where('toUserId', '==', currentUserId)
-        .where('action', 'in', ['like', 'superlike'])
-        .get();
-
-      if (!matchQuery.empty) {
-        // Mutual match found! Create match document
-        const matchId = [currentUserId, targetUserId].sort().join('_');
-        await fbDb.collection('matches').doc(matchId).set({
-          users: [currentUserId, targetUserId],
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        console.log("🎉 Realtime Match Created in Firestore:", matchId);
-        return true; // Indicates mutual match!
-      }
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      if (data?.error) showToast(data.error, data.limited ? 'gold' : 'error');
+      return { success: false, matched: false, limited: Boolean(data?.limited), error: data?.error || 'Could not record swipe.' };
     }
+    return { success: true, matched: Boolean(data.matched), matchId: data.matchId || null };
   } catch (err) {
     console.warn("recordSwipeInBackend warning:", err.message);
+    showToast('Could not save your swipe. Please try again.', 'error');
+    return { success: false, matched: false, error: 'Network error.' };
   }
-  return false;
 }
 
 // Fetch all registered users from Firestore for the swipe card stack
@@ -213,10 +243,10 @@ async function fetchRealUsersFromFirestore() {
   const currentUserId = fbAuth.currentUser.uid;
 
   try {
-    const snapshot = await fbDb.collection('users').get();
+    const snapshot = await fbDb.collection('public_profiles').get();
     const users = [];
     snapshot.forEach(doc => {
-      if (doc.id !== currentUserId) {
+      if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
         const data = doc.data();
         const userPhoto = data.image || data.avatar || '';
         // Only show users who have uploaded their own real profile picture
@@ -251,21 +281,19 @@ async function searchUsersInFirestore(queryText) {
   if (!q) return [];
 
   try {
-    const snapshot = await fbDb.collection('users').get();
+    const snapshot = await fbDb.collection('public_profiles').get();
     const results = [];
     snapshot.forEach(doc => {
-      if (doc.id !== currentUserId) {
+      if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
         const data = doc.data();
         const name = (data.displayName || data.name || '').toLowerCase();
-        const email = (data.email || '').toLowerCase();
         const bio = (data.bio || '').toLowerCase();
 
-        if (name.includes(q) || email.includes(q) || bio.includes(q)) {
+        if (name.includes(q) || bio.includes(q)) {
           const userPhoto = data.image || data.avatar || '';
           results.push({
             id: doc.id,
             name: data.displayName || data.name || 'User',
-            email: data.email || '',
             age: data.age || 24,
             bio: data.bio || 'Registered user on hookmebysam.',
             gender: data.gender || 'Female',
@@ -296,9 +324,9 @@ function listenToUserMatches(callback) {
         for (const doc of snapshot.docs) {
           const matchData = doc.data();
           const partnerId = matchData.users.find(id => id !== currentUserId);
-          if (partnerId) {
+          if (partnerId && !(window.__blockedUserIds || new Set()).has(partnerId)) {
             try {
-              const userDoc = await fbDb.collection('users').doc(partnerId).get();
+              const userDoc = await fbDb.collection('public_profiles').doc(partnerId).get();
               if (userDoc.exists) {
                 const data = userDoc.data();
                 matchedProfiles.push({
@@ -346,7 +374,7 @@ async function fetchUserMatchesDirectly() {
       const partnerId = matchData.users.find(id => id !== currentUserId);
       if (partnerId) {
         try {
-          const userDoc = await fbDb.collection('users').doc(partnerId).get();
+          const userDoc = await fbDb.collection('public_profiles').doc(partnerId).get();
           if (userDoc.exists) {
             const data = userDoc.data();
             matchedProfiles.push({
@@ -485,13 +513,17 @@ async function reactRealtimeMessage(matchId, messageId, emoji) {
 // CLOUD FILE UPLOADS (Profile Photo, Voice Note, Chat Image)
 // ----------------------------------------------------------
 
-async function uploadFileToBackend(file, path) {
+async function uploadFileToBackend(file, path, returnMetadata = false) {
   if (!fbStorage) return null;
   try {
-    const storageRef = fbStorage.ref(`${path}/${Date.now()}_${file.name || 'file'}`);
+    const allowedRoots = new Set(['stories', 'voicenotes']);
+    if (!allowedRoots.has(path) || !fbAuth?.currentUser) return null;
+    const uid = fbAuth.currentUser.uid;
+    const safeName = String(file.name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+    const storageRef = fbStorage.ref(`${path}/${uid}/${Date.now()}_${safeName}`);
     const snapshot = await storageRef.put(file);
     const downloadUrl = await snapshot.ref.getDownloadURL();
-    return downloadUrl;
+    return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
   } catch (err) {
     console.warn("uploadFileToBackend warning:", err.message);
     return null;
@@ -503,28 +535,34 @@ async function uploadFileToBackend(file, path) {
 // ----------------------------------------------------------
 
 function triggerPaystackPayment(planName, amountInNaira, onSuccessCallback) {
+  if (!fbAuth?.currentUser) {
+    showToast("Please sign in before purchasing VIP.", "error");
+    return;
+  }
+  if (!PAYSTACK_PUBLIC_KEY || PAYSTACK_PUBLIC_KEY.includes("REPLACE_WITH_YOUR_LIVE_PAYSTACK_PUBLIC_KEY")) {
+    showToast("VIP payments are not configured for production yet.", "error");
+    return;
+  }
+  const customerEmail = fbAuth.currentUser.email || window.currentUser?.email || '';
+  if (!customerEmail) {
+    showToast("Add an email address to your account before purchasing VIP.", "error");
+    return;
+  }
   if (typeof PaystackPop === "undefined") {
     showToast("Paystack SDK loading...", "info");
     return;
   }
 
-  if (PAYSTACK_PUBLIC_KEY.includes("replace_with_yours")) {
-    // Simulated VIP upgrade in demo mode
-    showToast(`⚡ Demo Mode: ${planName} unlocked!`, "gold");
-    if (onSuccessCallback) onSuccessCallback({ reference: 'DEMO_' + Date.now() });
-    return;
-  }
-
   const handler = PaystackPop.setup({
     key: PAYSTACK_PUBLIC_KEY,
-    email: window.currentUser?.email || "customer@example.com",
-    amount: amountInNaira * 100, // Amount in kobo
+    email: customerEmail,
+    amount: amountInNaira * 100,
     currency: "NGN",
     ref: 'HMBS_' + Math.floor((Math.random() * 1000000000) + 1),
     metadata: {
       custom_fields: [
         { display_name: "Plan Name", variable_name: "plan_name", value: planName },
-        { display_name: "User ID", variable_name: "user_id", value: window.currentUser?.id || "demo" }
+        { display_name: "User ID", variable_name: "user_id", value: fbAuth.currentUser.uid }
       ]
     },
     callback: function(response) {
@@ -544,30 +582,21 @@ function triggerPaystackPayment(planName, amountInNaira, onSuccessCallback) {
 // hasn't been redeemed before. The client-side "success" callback above
 // proves nothing on its own; this is the step that actually matters.
 async function verifyPaymentOnBackend(reference, tier) {
-  // If in demo mode or reference is a simulated DEMO reference, grant VIP directly!
-  if (reference && reference.startsWith('DEMO_')) {
-    return { success: true };
-  }
-
-  const uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser)
-    ? fbAuth.currentUser.uid
-    : (window.currentUser?.id || 'demo_user');
-
   try {
+    const headers = await getBackendAuthHeaders();
     const res = await fetch(`${BACKEND_URL}/payment/verify`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reference, uid, tier }),
+      headers,
+      body: JSON.stringify({ reference, tier }),
     });
     const data = await res.json();
     if (data.success) return { success: true };
     showToast(data.error || 'Could not confirm payment.', 'error');
     return { success: false };
   } catch (err) {
-    // If backend server (e.g. port 3001) is not running locally during development/demo,
-    // allow seamless upgrade in demo mode so user can test all VIP features without blocking!
-    console.warn('Backend payment verification offline; granting VIP in demo mode:', err);
-    return { success: true, demoFallback: true };
+    console.error('Backend payment verification failed:', err);
+    showToast('Payment could not be confirmed. Please try again.', 'error');
+    return { success: false };
   }
 }
 
@@ -585,12 +614,7 @@ async function sendOtpToPhone(phoneNumber) {
     });
     const data = await res.json();
     if (data.success) {
-      if (data.testCode) {
-        window._demoOtp = String(data.testCode);
-        showToast(`📱 Verification code: ${data.testCode}`, 'gold');
-      } else {
-        showToast('📱 OTP sent! Check your SMS.', 'info');
-      }
+      showToast('📱 OTP sent! Check your SMS.', 'info');
       return true;
     } else {
       showToast(data.error || 'Failed to send OTP.', 'error');
@@ -636,9 +660,10 @@ async function verifyOtp(phoneNumber, otpCode) {
 // to do with that confirmation (here: save the number to their profile).
 async function verifyPhoneOwnershipOnly(phoneNumber, otpCode) {
   try {
-    const res = await fetch(`${BACKEND_URL}/auth/verify-otp`, {
+    const headers = await getBackendAuthHeaders();
+    const res = await fetch(BACKEND_URL + '/auth/verify-phone', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ phone: phoneNumber, otp: otpCode })
     });
     const data = await res.json();
@@ -659,14 +684,18 @@ async function verifyPhoneOwnershipOnly(phoneNumber, otpCode) {
 // ----------------------------------------------------------
 async function checkAndSyncVipStatus() {
   if (!fbDb || !fbAuth?.currentUser) return;
+  if (typeof appState !== 'undefined') appState.isVip = false;
+  if (window.appState) window.appState.isVip = false;
+
   try {
     const doc = await fbDb.collection('users').doc(fbAuth.currentUser.uid).get();
     if (!doc.exists) return;
     const data = doc.data();
-    const isVip = data.isVip && data.vipExpiry && data.vipExpiry.toDate() > new Date();
+    const expiryMs = data.vipExpiry?.toMillis ? data.vipExpiry.toMillis() : 0;
+    const isVip = Boolean(data.isVip && (!expiryMs || expiryMs > Date.now()));
     if (typeof appState !== 'undefined') appState.isVip = isVip;
     if (window.appState) window.appState.isVip = isVip;
-    if (isVip && typeof applyVipUI === 'function') applyVipUI();
+    if (typeof renderSettingsScreen === 'function') renderSettingsScreen();
     console.log(`👑 VIP Status: ${isVip ? 'ACTIVE' : 'INACTIVE'} | Expires: ${data.vipExpiry?.toDate?.()?.toDateString?.() || 'N/A'}`);
   } catch (e) {
     console.warn('Could not sync VIP status:', e);
@@ -702,7 +731,14 @@ async function initPushNotifications() {
     // Your VAPID key — Firebase Console → Project Settings → Cloud Messaging → Web configuration
     const VAPID_KEY = 'BLp3qjWUxvFZkjtXaP7Xs4o4Oidsgz2segUhkRBeJWCWnYS283ds9P0c2Ao86eqxSjSZvGphASeN5Y6Ty7bC3h8';
 
-    const token = await _fcmMessaging.getToken({ vapidKey: VAPID_KEY });
+    let serviceWorkerRegistration;
+    if ('serviceWorker' in navigator) {
+      serviceWorkerRegistration = await navigator.serviceWorker.ready;
+    }
+    const token = await _fcmMessaging.getToken({
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration
+    });
     if (!token) return;
 
     console.log('📱 FCM token registered:', token.substring(0, 20) + '...');
@@ -730,6 +766,12 @@ async function initPushNotifications() {
   }
 }
 
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(String(value));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function saveFcmToken(token) {
   if (!fbAuth?.currentUser || !fbDb) return;
   const uid = fbAuth.currentUser.uid;
@@ -738,7 +780,7 @@ async function saveFcmToken(token) {
       .collection('fcm_tokens')
       .doc(uid)
       .collection('tokens')
-      .doc(token.substring(0, 20)) // use prefix as doc ID (stable per device)
+      .doc(await sha256Hex(token))
       .set({
         token,
         platform: 'web',
@@ -844,6 +886,7 @@ async function uploadStoryToFirestore(storyData) {
       ownerAvatar: storyData.thumb || currentUser?.avatar || '',
       mediaUrl: storyData.image,
       mediaType: 'image',
+       storagePath: storyData.storagePath || '',
       location: storyData.location || currentUser?.location || 'Lagos',
       bio: storyData.bio || '',
       tags: storyData.tags || [],

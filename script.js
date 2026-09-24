@@ -992,9 +992,8 @@ function handleLogin() {
                 currentUser.image = uData.image || uData.avatar;
                 currentUser.avatar = currentUser.image;
               }
-              if (uData.isVip) {
-                appState.isVip = true;
-              }
+               const vipExpiryMs = uData.vipExpiry?.toMillis ? uData.vipExpiry.toMillis() : 0;
+               appState.isVip = Boolean(uData.isVip && (!vipExpiryMs || vipExpiryMs > Date.now()));
             }
           } catch (e) {
             console.warn("Could not fetch user profile from Firestore:", e);
@@ -1207,6 +1206,24 @@ function prevSignupStep() {
   }
 }
 
+async function syncPublicProfileToFirestore(fields = {}) {
+  if (!fbDb || !fbAuth?.currentUser) return;
+  const uid = fbAuth.currentUser.uid;
+  await fbDb.collection('public_profiles').doc(uid).set({
+    id: uid,
+    name: fields.name ?? currentUser?.name ?? '',
+    displayName: fields.displayName ?? fields.name ?? currentUser?.name ?? '',
+    age: Number(fields.age ?? currentUser?.age ?? 24),
+    bio: fields.bio ?? currentUser?.bio ?? '',
+    gender: fields.gender ?? currentUser?.gender ?? '',
+    interests: Array.isArray(fields.interests) ? fields.interests : (currentUser?.interests || []),
+    location: fields.location ?? currentUser?.location ?? '',
+    image: fields.image ?? currentUser?.image ?? currentUser?.avatar ?? '',
+    avatar: fields.avatar ?? fields.image ?? currentUser?.avatar ?? currentUser?.image ?? '',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
 function completeSignup() {
   const email = document.getElementById('signupEmail').value.trim();
   const password = document.getElementById('signupPassword').value;
@@ -1257,6 +1274,17 @@ function completeSignup() {
             isVip: false,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
+           await syncPublicProfileToFirestore({
+             name: userName,
+             displayName: userName,
+             age: currentUser.age || 24,
+             bio: currentUser.bio || 'Looking for real connections on hookmebysam!',
+             gender: currentUser.gender || 'Female',
+             interests: currentUser.interests || ['Music 🎵', 'Vibes ✨'],
+             location: currentUser.location || '',
+             image: userPhoto,
+             avatar: userPhoto
+           });
         }
 
         if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
@@ -1331,10 +1359,10 @@ function buildProfileCard(p, idx) {
   card.className = 'profile-card';
   card.id = `card_${p.id}`;
 
-  const tagsHTML = p.tags.map(t => `<span class="tag-chip">${t}</span>`).join('');
+  const tagsHTML = (Array.isArray(p.tags) ? p.tags : []).map(t => `<span class="tag-chip">${escHtml(t)}</span>`).join('');
 
   card.innerHTML = `
-    <div class="card-photo-area" style="background-image: url('${p.image}')">
+    <div class="card-photo-area">
       <div class="card-photo-dots">
         <div class="photo-dot active"></div>
         <div class="photo-dot"></div>
@@ -1342,22 +1370,29 @@ function buildProfileCard(p, idx) {
       </div>
       <div class="card-distance-badge">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-        ${p.distance}
+        ${escHtml(p.distance || '')}
       </div>
       <div class="stamp stamp-like">LIKE</div>
       <div class="stamp stamp-nope">NOPE</div>
     </div>
     <div class="card-info">
       <div class="card-name-row">
-        <h2>${p.name}, ${p.age}</h2>
+        <h2>${escHtml(p.name || 'User')}, ${escHtml(p.age ?? '')}</h2>
         <span class="verified-icon" title="Verified">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="#1DA1F2"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
         </span>
       </div>
       <div class="card-tags">${tagsHTML}</div>
-      <p class="card-bio">${p.bio}</p>
+      <p class="card-bio">${escHtml(p.bio || '')}</p>
     </div>
   `;
+
+  const photoArea = card.querySelector('.card-photo-area');
+  if (photoArea && p.image) {
+    photoArea.style.backgroundImage = `url("${safeCssUrl(p.image)}")`;
+    photoArea.style.backgroundSize = 'cover';
+    photoArea.style.backgroundPosition = 'center';
+  }
 
   return card;
 }
@@ -1457,11 +1492,31 @@ async function doSwipe(dir) {
   profileStack.shift();
   renderCardStack();
 
-  // Record swipe in Firestore if logged in with Firebase
+  // Record swipe through the authenticated backend so limits and blocks are enforced server-side.
   if (typeof recordSwipeInBackend === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    const isMutual = await recordSwipeInBackend(profile.id, dir === 'right' ? 'like' : 'pass');
-    if (isMutual && dir === 'right') {
+    const result = await recordSwipeInBackend(profile.id, dir === 'right' ? 'like' : 'pass');
+    if (!result.success) {
+      profileStack.unshift(profile);
+      renderCardStack();
+      return;
+    }
+    if (result.matched && dir === 'right') {
       triggerMatchPopup(profile);
+
+      // Notify both matched users through authenticated backend FCM.
+      fbAuth.currentUser.getIdToken().then(token => {
+        fetch(BACKEND_URL + '/fcm/new-match', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            matchedUserId: profile.id,
+            matchedUserName: profile.name || 'your new match'
+          })
+        }).catch(() => {});
+      }).catch(() => {});
     }
   } else {
     // Local prototype mode
@@ -2393,167 +2448,398 @@ function sendImageMessage(event) {
 // REAL LIVE VOICE & VIDEO CALLING (WebRTC + Metered TURN/STUN)
 // ==========================================================
 const METERED_ICE_SERVERS = [
-  { urls: "stun:stun.relay.metered.ca:80" },
-  {
-    urls: "turn:global.relay.metered.ca:80",
-    username: "73728b7e530599273f071f39",
-    credential: "P2/M1eJj54opo4/R"
-  },
-  {
-    urls: "turn:global.relay.metered.ca:80?transport=tcp",
-    username: "73728b7e530599273f071f39",
-    credential: "P2/M1eJj54opo4/R"
-  },
-  {
-    urls: "turn:global.relay.metered.ca:443",
-    username: "73728b7e530599273f071f39",
-    credential: "P2/M1eJj54opo4/R"
-  },
-  {
-    urls: "turns:global.relay.metered.ca:443?transport=tcp",
-    username: "73728b7e530599273f071f39",
-    credential: "P2/M1eJj54opo4/R"
-  }
+  { urls: "stun:stun.relay.metered.ca:80" }
 ];
 
-let peerConnectionConfig = {
-  iceServers: METERED_ICE_SERVERS
-};
-
-// Asynchronously refresh dynamic TURN credentials from Metered if available
-async function refreshTurnCredentials() {
-  try {
-    const res = await fetch("https://hookmebysam.metered.live/api/v1/turn/credentials?apiKey=06edf4b6db269eaf1cad2bf8ed0fd268ad9f");
-    if (res.ok) {
-      const liveServers = await res.json();
-      if (Array.isArray(liveServers) && liveServers.length > 0) {
-        peerConnectionConfig.iceServers = liveServers;
-        console.log("✅ Live Metered TURN servers loaded:", liveServers.length, "relays active");
-      }
-    }
-  } catch (e) {
-    console.log("Using static Metered TURN credentials fallback.");
-  }
-}
-refreshTurnCredentials();
-
+let peerConnectionConfig = { iceServers: METERED_ICE_SERVERS };
 let activeMediaStream = null;
 let activePeerConnection = null;
+let activeCallDocRef = null;
+let activeCallListener = null;
+let activeCandidateListener = null;
+let incomingCallListener = null;
+let pendingIncomingCall = null;
 let activeCallTimerInterval = null;
 let activeCallSeconds = 0;
 let isAudioMuted = false;
 let isVideoMuted = false;
+let pendingRemoteCandidates = [];
 
-async function startVoiceCall() {
-  const partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
-  const name = partner ? partner.name : 'Match';
-  const photo = partner?.image || partner?.photoUrl || '';
-
-  const overlay = document.getElementById('voiceCallOverlay');
-  const avatarImg = document.getElementById('callAvatarImg');
-  const nameEl = document.getElementById('callName');
-  const statusEl = document.getElementById('callStatusText');
-  const timerEl = document.getElementById('callLiveTimer');
-
-  if (avatarImg) {
-    if (photo) avatarImg.style.backgroundImage = `url('${photo}')`;
-    else avatarImg.style.backgroundImage = 'none';
+async function refreshTurnCredentials() {
+  if (!fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') return;
+  try {
+    const token = await fbAuth.currentUser.getIdToken();
+    const res = await fetch(BACKEND_URL + '/turn/credentials', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!res.ok) return;
+    const liveServers = await res.json();
+    if (Array.isArray(liveServers) && liveServers.length > 0) {
+      peerConnectionConfig = { iceServers: liveServers };
+      console.log('✅ Live TURN servers loaded:', liveServers.length);
+    }
+  } catch (_) {
+    console.warn('TURN credential refresh failed; using STUN only.');
   }
-  if (nameEl) nameEl.textContent = name;
-  if (statusEl) statusEl.textContent = 'Calling... 📞';
-  if (timerEl) { timerEl.textContent = '0:00'; timerEl.style.display = 'none'; }
-  if (overlay) overlay.style.display = 'flex';
+}
 
-  activeCallSeconds = 0;
+function currentCallPartner() {
+  const partnerId = appState.currentChatId;
+  return matchedUsers.find(u => u.id === partnerId) || PROFILES_DATA.find(u => u.id === partnerId) || null;
+}
+
+function closeCallListeners() {
+  if (activeCallListener) { try { activeCallListener(); } catch (_) {} activeCallListener = null; }
+  if (activeCandidateListener) { try { activeCandidateListener(); } catch (_) {} activeCandidateListener = null; }
+}
+
+function ensureRemoteAudioElement() {
+  let audio = document.getElementById('remoteCallAudio');
+  if (!audio) {
+    audio = document.createElement('audio');
+    audio.id = 'remoteCallAudio';
+    audio.autoplay = true;
+    audio.playsInline = true;
+    audio.style.display = 'none';
+    document.body.appendChild(audio);
+  }
+  return audio;
+}
+
+function ensureRemoteVideoElement() {
+  let video = document.getElementById('remoteVideoStream');
+  const overlay = document.getElementById('videoCallOverlay');
+  if (!overlay) return null;
+
+  if (!video) {
+    video = document.createElement('video');
+    video.id = 'remoteVideoStream';
+    video.setAttribute('aria-label', 'Remote video');
+    overlay.appendChild(video);
+  }
+
+  video.autoplay = true;
+  video.playsInline = true;
+  video.style.position = 'absolute';
+  video.style.inset = '0';
+  video.style.width = '100%';
+  video.style.height = '100%';
+  video.style.objectFit = 'cover';
+  video.style.zIndex = '1';
+  return video;
+}
+
+function setCallMediaStream(stream, type) {
+  if (type === 'video') {
+    const video = ensureRemoteVideoElement();
+    if (video) video.srcObject = stream;
+  } else {
+    const audio = ensureRemoteAudioElement();
+    audio.srcObject = stream;
+    audio.play?.().catch(() => {});
+  }
+}
+
+function updateCallUi(type, status) {
+  if (type === 'video') {
+    const timerEl = document.getElementById('videoCallTimer');
+    if (timerEl) timerEl.textContent = status;
+  } else {
+    const statusEl = document.getElementById('callStatusText');
+    const timerEl = document.getElementById('callLiveTimer');
+    if (statusEl) statusEl.textContent = status;
+    if (timerEl && status === 'Connected') timerEl.style.display = 'block';
+  }
+}
+
+function startCallTimer(type) {
   clearInterval(activeCallTimerInterval);
+  activeCallSeconds = 0;
+  activeCallTimerInterval = setInterval(() => {
+    activeCallSeconds++;
+    const mins = Math.floor(activeCallSeconds / 60);
+    const secs = activeCallSeconds % 60;
+    const timeStr = mins + ':' + String(secs).padStart(2, '0');
+    if (type === 'video') {
+      const el = document.getElementById('videoCallTimer');
+      if (el) el.textContent = timeStr;
+    } else {
+      const el = document.getElementById('callLiveTimer');
+      if (el) el.textContent = timeStr;
+    }
+  }, 1000);
+}
+
+async function wireCallPeerConnection(type, pc, callRef) {
+  const constraints = type === 'video'
+    ? { video: { facingMode: 'user' }, audio: true }
+    : { audio: true };
+
+  activeMediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+  activeMediaStream.getTracks().forEach(track => pc.addTrack(track, activeMediaStream));
+
+  const localVideo = document.getElementById('myVideoStream');
+  if (type === 'video' && localVideo) {
+    localVideo.srcObject = activeMediaStream;
+    localVideo.autoplay = true;
+    localVideo.playsInline = true;
+    localVideo.muted = true;
+    localVideo.play?.().catch(() => {});
+  }
+
+  pc.onicecandidate = event => {
+    if (!event.candidate || !fbAuth?.currentUser) return;
+    callRef.collection('candidates').add({
+      fromUserId: fbAuth.currentUser.uid,
+      candidate: event.candidate.toJSON()
+    }).catch(err => console.warn('ICE candidate write failed:', err.message));
+  };
+
+  pc.ontrack = event => {
+    const stream = event.streams?.[0];
+    if (stream) setCallMediaStream(stream, type);
+  };
+
+  activeCandidateListener = callRef.collection('candidates').onSnapshot(snapshot => {
+    snapshot.docChanges().forEach(change => {
+      if (change.type !== 'added') return;
+      const data = change.doc.data() || {};
+      if (!data.candidate || data.fromUserId === fbAuth?.currentUser?.uid) return;
+      const candidate = new RTCIceCandidate(data.candidate);
+      if (pc.remoteDescription?.type) {
+        pc.addIceCandidate(candidate).catch(err => console.warn('ICE candidate error:', err.message));
+      } else {
+        pendingRemoteCandidates.push(candidate);
+      }
+    });
+  }, err => console.warn('ICE listener error:', err.message));
+}
+
+async function flushPendingRemoteCandidates(pc) {
+  if (!pc.remoteDescription?.type) return;
+  const pending = pendingRemoteCandidates.splice(0);
+  for (const candidate of pending) {
+    try { await pc.addIceCandidate(candidate); } catch (_) {}
+  }
+}
+
+async function startPeerCall(type) {
+  const partner = currentCallPartner();
+  if (!fbAuth?.currentUser || !fbDb || !partner || partner.id === fbAuth.currentUser.uid) {
+    showToast('Calls are available only between signed-in matches.', 'error');
+    return;
+  }
+  if ((window.__blockedUserIds || new Set()).has(partner.id)) {
+    showToast('You cannot call a blocked contact.', 'error');
+    return;
+  }
+  if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+    showToast('This device/browser does not support secure calling.', 'error');
+    return;
+  }
+
+  if (activePeerConnection) endCall(false);
+
+  const uid = fbAuth.currentUser.uid;
+  const matchId = [uid, partner.id].sort().join('_');
 
   try {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      activeMediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    await refreshTurnCredentials();
+    const matchDoc = await fbDb.collection('matches').doc(matchId).get();
+    const matchUsers = matchDoc.data()?.users;
+    if (!matchDoc.exists || !Array.isArray(matchUsers) || !matchUsers.includes(uid) || !matchUsers.includes(partner.id)) {
+      showToast('Calls are available only for mutual matches.', 'error');
+      return;
     }
+
+    const callRef = fbDb.collection('matches').doc(matchId).collection('calls').doc(uid + '_' + Date.now());
+    const pc = new RTCPeerConnection(peerConnectionConfig);
+    activePeerConnection = pc;
+    activeCallDocRef = callRef;
+    pendingRemoteCandidates = [];
+
+    const overlay = document.getElementById(type === 'video' ? 'videoCallOverlay' : 'voiceCallOverlay');
+    const nameEl = document.getElementById(type === 'video' ? 'videoCallName' : 'callName');
+    if (nameEl) nameEl.textContent = partner.name || 'Match';
+    if (overlay) overlay.style.display = 'flex';
+    updateCallUi(type, 'Calling... 📞');
+
+    await wireCallPeerConnection(type, pc, callRef);
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await callRef.set({
+      users: [uid, partner.id].sort(),
+      callerId: uid,
+      calleeId: partner.id,
+      type,
+      offer: { type: offer.type, sdp: offer.sdp },
+      status: 'ringing',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    activeCallListener = callRef.onSnapshot(async snap => {
+      if (!snap.exists || !activePeerConnection) return;
+      const data = snap.data() || {};
+      if (data.answer && !pc.currentRemoteDescription) {
+        try {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+          await flushPendingRemoteCandidates(pc);
+          updateCallUi(type, 'Connected');
+          startCallTimer(type);
+        } catch (err) {
+          console.warn('Remote answer error:', err.message);
+          endCall(false);
+        }
+      }
+      if (data.status === 'ended') endCall(false);
+    }, err => console.warn('Call listener error:', err.message));
+
+    showToast('Calling ' + (partner.name || 'your match') + '... 📞', 'info');
   } catch (err) {
-    console.warn('Microphone permission not granted or device not available:', err);
+    console.warn('Start call failed:', err);
+    showToast('Could not start the call. Please try again.', 'error');
+    endCall(false);
   }
+}
 
-  setTimeout(() => {
-    if (overlay && overlay.style.display === 'flex') {
-      if (statusEl) statusEl.textContent = 'Connected';
-      if (timerEl) timerEl.style.display = 'block';
-      activeCallTimerInterval = setInterval(() => {
-        activeCallSeconds++;
-        const mins = Math.floor(activeCallSeconds / 60);
-        const secs = activeCallSeconds % 60;
-        const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-        if (timerEl) timerEl.textContent = timeStr;
-      }, 1000);
-    }
-  }, 1600);
+function showIncomingCallPrompt(callId, data) {
+  if (pendingIncomingCall || activePeerConnection) return;
+  pendingIncomingCall = { callId, ...data };
+  const partner = matchedUsers.find(u => u.id === data.callerId) || PROFILES_DATA.find(u => u.id === data.callerId);
+  const name = partner?.name || 'Someone';
+  const overlay = document.createElement('div');
+  overlay.id = 'incomingCallPrompt';
+  overlay.className = 'whatsapp-dialog-overlay';
+  overlay.innerHTML = `
+    <div class="whatsapp-dialog-card" style="text-align:center;max-width:360px;">
+      <div style="font-size:2.5rem;margin-bottom:8px;">${data.type === 'video' ? '📹' : '📞'}</div>
+      <h3 class="wa-dialog-title">${escHtml(name)} is calling</h3>
+      <p class="wa-dialog-desc">${data.type === 'video' ? 'Incoming video call' : 'Incoming voice call'}</p>
+      <div class="wa-dialog-actions">
+        <button class="wa-dialog-btn wa-dialog-btn-danger" onclick="acceptIncomingCall()">Accept</button>
+        <button class="wa-dialog-btn wa-dialog-btn-secondary" onclick="declineIncomingCall()">Decline</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
 
-  showToast(`Calling ${name}... 📞`, 'info');
+async function acceptIncomingCall() {
+  const incoming = pendingIncomingCall;
+  if (!incoming || !fbAuth?.currentUser || !fbDb) return;
+  document.getElementById('incomingCallPrompt')?.remove();
+  pendingIncomingCall = null;
+
+  const uid = fbAuth.currentUser.uid;
+  const partner = matchedUsers.find(u => u.id === incoming.callerId) || PROFILES_DATA.find(u => u.id === incoming.callerId);
+  const type = incoming.type === 'video' ? 'video' : 'audio';
+  if (!partner) return declineIncomingCall(incoming);
+
+  try {
+    await refreshTurnCredentials();
+    const callRef = fbDb.collection('matches').doc(incoming.matchId).collection('calls').doc(incoming.callId);
+    const pc = new RTCPeerConnection(peerConnectionConfig);
+    activePeerConnection = pc;
+    activeCallDocRef = callRef;
+    pendingRemoteCandidates = [];
+
+    const overlay = document.getElementById(type === 'video' ? 'videoCallOverlay' : 'voiceCallOverlay');
+    const nameEl = document.getElementById(type === 'video' ? 'videoCallName' : 'callName');
+    if (nameEl) nameEl.textContent = partner.name || 'Match';
+    if (overlay) overlay.style.display = 'flex';
+    updateCallUi(type, 'Connecting...');
+
+    await wireCallPeerConnection(type, pc, callRef);
+    await pc.setRemoteDescription(new RTCSessionDescription(incoming.offer));
+    await flushPendingRemoteCandidates(pc);
+
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await callRef.update({
+      answer: { type: answer.type, sdp: answer.sdp },
+      status: 'active'
+    });
+
+    activeCallListener = callRef.onSnapshot(snap => {
+      if (snap.exists && snap.data()?.status === 'ended') endCall(false);
+    }, err => console.warn('Call listener error:', err.message));
+
+    updateCallUi(type, 'Connected');
+    startCallTimer(type);
+  } catch (err) {
+    console.warn('Accept call failed:', err);
+    showToast('Could not accept the call. Please try again.', 'error');
+    endCall(false);
+  }
+}
+
+async function declineIncomingCall(incomingOverride) {
+  const incoming = incomingOverride || pendingIncomingCall;
+  document.getElementById('incomingCallPrompt')?.remove();
+  pendingIncomingCall = null;
+  if (!incoming || !fbDb) return;
+  try {
+    await fbDb.collection('matches').doc(incoming.matchId).collection('calls').doc(incoming.callId).update({
+      status: 'ended',
+      endedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (_) {}
+}
+
+async function listenForIncomingCalls() {
+  if (!fbDb || !fbAuth?.currentUser) return;
+  if (incomingCallListener) { try { incomingCallListener(); } catch (_) {} }
+  const uid = fbAuth.currentUser.uid;
+  incomingCallListener = fbDb.collectionGroup('calls')
+    .where('calleeId', '==', uid)
+    .limit(20)
+    .onSnapshot(snapshot => {
+      const now = Date.now();
+      snapshot.docChanges().forEach(change => {
+        if (change.type !== 'added' && change.type !== 'modified') return;
+        const data = change.doc.data() || {};
+        if (data.status !== 'ringing' || !data.callerId || !data.offer) return;
+        const created = data.createdAt?.toMillis ? data.createdAt.toMillis() : now;
+        if (now - created > 2 * 60 * 1000) return;
+        const parts = change.doc.ref.path.split('/');
+        const m = parts.indexOf('matches');
+        const cIdx = parts.indexOf('calls');
+        const matchId = m >= 0 ? parts[m + 1] : null;
+        const callId = cIdx >= 0 ? parts[cIdx + 1] : null;
+        if (!matchId || !callId || (window.__blockedUserIds || new Set()).has(data.callerId)) return;
+        showIncomingCallPrompt(callId, { ...data, matchId });
+      });
+    }, err => console.warn('Incoming call listener error:', err.message));
+}
+
+async function startVoiceCall() {
+  await startPeerCall('audio');
 }
 
 async function startVideoCall() {
-  const partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
-  const name = partner ? partner.name : 'Match';
-  const photo = partner?.image || partner?.photoUrl || '';
-
-  const overlay = document.getElementById('videoCallOverlay');
-  const remoteBg = document.getElementById('videoRemoteBg');
-  const nameEl = document.getElementById('videoCallName');
-  const timerEl = document.getElementById('videoCallTimer');
-  const videoEl = document.getElementById('myVideoStream');
-
-  if (remoteBg) {
-    if (photo) {
-      remoteBg.style.backgroundImage = `url('${photo}')`;
-      remoteBg.style.backgroundSize = 'cover';
-      remoteBg.style.backgroundPosition = 'center';
-    } else {
-      remoteBg.style.background = 'radial-gradient(circle at center, #2e1026 0%, #0A0710 100%)';
-    }
-  }
-  if (nameEl) nameEl.textContent = name;
-  if (timerEl) timerEl.textContent = 'Connecting...';
-  if (overlay) overlay.style.display = 'flex';
-
-  activeCallSeconds = 0;
-  clearInterval(activeCallTimerInterval);
-
-  try {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      activeMediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'user' },
-        audio: true
-      });
-      if (videoEl) {
-        videoEl.srcObject = activeMediaStream;
-        videoEl.play().catch(e => console.log('Video play caught:', e));
-      }
-    }
-  } catch (err) {
-    console.warn('Camera/Mic permission not granted or device not available:', err);
-  }
-
-  setTimeout(() => {
-    if (overlay && overlay.style.display === 'flex') {
-      activeCallTimerInterval = setInterval(() => {
-        activeCallSeconds++;
-        const mins = Math.floor(activeCallSeconds / 60);
-        const secs = activeCallSeconds % 60;
-        const timeStr = `${mins}:${secs < 10 ? '0' : ''}${secs}`;
-        if (timerEl) timerEl.textContent = timeStr;
-      }, 1000);
-    }
-  }, 1200);
-
-  showToast(`Starting video call with ${name}... 📹`, 'info');
+  await startPeerCall('video');
 }
 
-function endCall() {
+function endCall(showToastMessage = true) {
+  const seconds = activeCallSeconds;
+  if (activeCallDocRef && fbAuth?.currentUser) {
+    activeCallDocRef.update({
+      status: 'ended',
+      endedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {});
+  }
+  closeCallListeners();
+  if (activePeerConnection) {
+    try { activePeerConnection.close(); } catch (_) {}
+    activePeerConnection = null;
+  }
   if (activeMediaStream) {
     activeMediaStream.getTracks().forEach(track => track.stop());
     activeMediaStream = null;
   }
+  activeCallDocRef = null;
+  pendingRemoteCandidates = [];
   clearInterval(activeCallTimerInterval);
   activeCallTimerInterval = null;
 
@@ -2561,12 +2847,19 @@ function endCall() {
   const video = document.getElementById('videoCallOverlay');
   if (voice) voice.style.display = 'none';
   if (video) video.style.display = 'none';
+  const localVideo = document.getElementById('myVideoStream');
+  if (localVideo) localVideo.srcObject = null;
+  const remoteVideo = document.getElementById('remoteVideoStream');
+  if (remoteVideo) remoteVideo.srcObject = null;
+  const remoteAudio = document.getElementById('remoteCallAudio');
+  if (remoteAudio) remoteAudio.srcObject = null;
 
-  const videoEl = document.getElementById('myVideoStream');
-  if (videoEl) videoEl.srcObject = null;
-
-  showToast(activeCallSeconds > 0 ? `Call ended (${Math.floor(activeCallSeconds/60)}m ${activeCallSeconds%60}s)` : 'Call ended', 'info');
+  if (showToastMessage) {
+    showToast(seconds > 0 ? `Call ended (${Math.floor(seconds / 60)}m ${seconds % 60}s)` : 'Call ended', 'info');
+  }
   activeCallSeconds = 0;
+  isAudioMuted = false;
+  isVideoMuted = false;
 }
 
 function endVideoCall() {
@@ -2575,11 +2868,7 @@ function endVideoCall() {
 
 function toggleCallMute() {
   isAudioMuted = !isAudioMuted;
-  if (activeMediaStream) {
-    activeMediaStream.getAudioTracks().forEach(track => {
-      track.enabled = !isAudioMuted;
-    });
-  }
+  if (activeMediaStream) activeMediaStream.getAudioTracks().forEach(track => { track.enabled = !isAudioMuted; });
   const muteBtn = document.getElementById('callMuteBtn');
   if (muteBtn) {
     muteBtn.style.background = isAudioMuted ? 'rgba(255, 61, 0, 0.25)' : '';
@@ -2594,15 +2883,9 @@ function toggleVideoMute() {
 
 function toggleCamera() {
   isVideoMuted = !isVideoMuted;
-  if (activeMediaStream) {
-    activeMediaStream.getVideoTracks().forEach(track => {
-      track.enabled = !isVideoMuted;
-    });
-  }
+  if (activeMediaStream) activeMediaStream.getVideoTracks().forEach(track => { track.enabled = !isVideoMuted; });
   const pipCamOff = document.getElementById('pipCamOff');
-  if (pipCamOff) {
-    pipCamOff.style.display = isVideoMuted ? 'flex' : 'none';
-  }
+  if (pipCamOff) pipCamOff.style.display = isVideoMuted ? 'flex' : 'none';
   const camBtn = document.getElementById('videoCamBtn');
   if (camBtn) {
     camBtn.style.background = isVideoMuted ? 'rgba(255, 61, 0, 0.25)' : '';
@@ -2678,16 +2961,21 @@ function sendMessage() {
 
     // Trigger push notification to partner (fire-and-forget)
     const myName = currentUser.name || 'Your match';
-    fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : 'http://localhost:3001'}/fcm/new-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        toUserId: appState.currentChatId,
-        fromUserName: myName,
-        messageText: text,
-        matchId: fbAuth.currentUser.uid
-      })
-    }).catch(() => {}); // Non-blocking, never fail the send
+    fbAuth.currentUser.getIdToken().then(token => {
+      fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : 'http://localhost:3001'}/fcm/new-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          toUserId: appState.currentChatId,
+          fromUserName: myName,
+          messageText: text,
+          matchId
+        })
+      }).catch(() => {});
+    }).catch(() => {});
   } else {
     triggerAutoReply();
   }
@@ -2935,12 +3223,21 @@ function renderProfileScreen() {
   }
 
   if (nameEl) {
-    nameEl.innerHTML = `${displayName}, ${displayAge} <span class="header-vip-badge" id="profileVipBadge" style="display:${appState.isVip ? 'inline-flex' : 'none'};margin-left:6px">VIP</span>`;
+    nameEl.textContent = String(displayName) + ', ' + String(displayAge);
+    const existingBadge = document.getElementById('profileVipBadge');
+    if (existingBadge) existingBadge.remove();
+    const badge = document.createElement('span');
+    badge.className = 'header-vip-badge';
+    badge.id = 'profileVipBadge';
+    badge.textContent = 'VIP';
+    badge.style.display = appState.isVip ? 'inline-flex' : 'none';
+    badge.style.marginLeft = '6px';
+    nameEl.appendChild(badge);
   }
   if (locEl) locEl.textContent = displayLoc;
   if (bioEl) bioEl.textContent = displayBio;
   if (interestsEl) {
-    interestsEl.innerHTML = displayInterests.map(tag => `<span class="simple-interest-pill">${tag}</span>`).join('');
+    interestsEl.innerHTML = displayInterests.map(tag => `<span class="simple-interest-pill">${escHtml(tag)}</span>`).join('');
   }
 
   // Pre-fill form inputs in edit modal
@@ -3001,6 +3298,7 @@ async function handleProfilePhotoUpload(event) {
         avatar: dataUrl,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true }).catch(err => console.warn('Could not sync photo to Firestore:', err));
+       syncPublicProfileToFirestore({ image: dataUrl, avatar: dataUrl }).catch(err => console.warn('Could not sync public photo:', err));
     }
     showToast('✓ Photo updated successfully! ✨', 'success');
   } catch (err) {
@@ -3080,6 +3378,7 @@ async function handleProfilePhotoUpload(event) {
         avatar: dataUrl,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true }).catch(err => console.warn('Could not sync photo to Firestore:', err));
+       syncPublicProfileToFirestore({ image: dataUrl, avatar: dataUrl }).catch(err => console.warn('Could not sync public photo:', err));
     }
 
     showToast('✓ Real profile photo updated! ✨', 'success');
@@ -3156,6 +3455,7 @@ function saveProfile() {
       avatar: currentUser.image || currentUser.avatar || '',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true }).catch(err => console.warn('Could not sync profile to Firestore:', err));
+     syncPublicProfileToFirestore().catch(err => console.warn('Could not sync public profile:', err));
   }
 
   const settingsName = document.getElementById('settingsProfileName');
@@ -3471,48 +3771,38 @@ async function handleLogout() {
 async function handleDeleteAccount() {
   if (!confirm('⚠️ Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.')) return;
 
-  showToast('Deleting account & data...', 'info');
-
-  if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    const user = fbAuth.currentUser;
-    const uid = user.uid;
-
-    if (typeof fbDb !== 'undefined' && fbDb) {
-      try {
-        // 1. Delete user stories
-        const storiesSnap = await fbDb.collection('stories').where('ownerId', '==', uid).get();
-        const batch = fbDb.batch();
-        storiesSnap.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-      } catch (e) {
-        console.warn('Stories cleanup error on delete:', e);
-      }
-
-      try {
-        // 2. Delete user profile document
-        await fbDb.collection('users').doc(uid).delete();
-      } catch (e) {
-        console.warn('User doc cleanup error on delete:', e);
-      }
-    }
-
-    try {
-      // 3. Delete Firebase Auth record
-      await user.delete();
-    } catch (e) {
-      console.warn('Firebase delete auth error:', e);
-      if (e.code === 'auth/requires-recent-login') {
-        alert('For your security, please sign out and sign in again before deleting your account.');
-        return;
-      }
-    }
+  if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
+    showToast('Please sign in before deleting your account.', 'error');
+    return;
   }
 
-  // 4. Wipe local storage and cache
-  localStorage.clear();
-  sessionStorage.clear();
-  location.reload();
+  showToast('Deleting account & data securely...', 'info');
+
+  try {
+    const token = await fbAuth.currentUser.getIdToken(true);
+    const response = await fetch(BACKEND_URL + '/account/delete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token
+      }
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || 'Account deletion failed.');
+    }
+
+    localStorage.clear();
+    sessionStorage.clear();
+    await fbAuth.signOut().catch(() => {});
+    showToast('Your account and associated app data were deleted.', 'success');
+    setTimeout(() => location.reload(), 500);
+  } catch (err) {
+    console.error('Account deletion error:', err);
+    showToast(err.message || 'Could not delete the account.', 'error');
+  }
 }
+
 
 // ==========================================================
 // VIP / PAYWALL
@@ -3605,13 +3895,9 @@ function simulatePurchase() {
       }
     });
   } else {
-    if (btn) { btn.disabled = true; }
-    if (label) { label.textContent = 'Processing...'; }
-    setTimeout(() => {
-      completeVipUpgrade();
-      if (btn) { btn.disabled = false; }
-      if (label) { label.textContent = 'Subscribe Now — Unlock VIP Gold'; }
-    }, 1200);
+    if (btn) { btn.disabled = false; }
+    if (label) { label.textContent = 'Subscribe Now — Unlock VIP Gold'; }
+    showToast('Payment service is unavailable. Please try again.', 'error');
   }
 }
 
@@ -3623,27 +3909,7 @@ function completeVipUpgrade() {
 
   showToast('👑 VIP GOLD ACTIVATED!', 'gold');
 
-  // Sync VIP status to Firestore for real registered accounts
-  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
-      isVip: true,
-      subscriptionStatus: 'active',
-      vipTier: appState.selectedPricingTier || 2,
-      vipSince: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true }).catch(err => console.warn('Could not sync VIP to Firestore:', err));
-  }
-
-  // Reveal premium matches (guest demo mode only)
-  if (!isRealUserLoggedIn()) {
-    PREMIUM_MATCHES.forEach(pm => {
-      if (!matchedUsers.find(u => u.id === pm.id)) {
-        matchedUsers.unshift(pm);
-        conversations[pm.id] = {
-          messages: [{ sender: 'them', text: 'You unlocked matching with me! Say hi 💛', read: false, timestamp: Date.now() }]
-        };
-      }
-    });
-  }
+  // Persistent VIP state is granted by the backend after verified payment.
 
   updateMatchesNotificationBadge();
   renderMatchesView();
@@ -3816,6 +4082,10 @@ function escHtml(str) {
   const div = document.createElement('div');
   div.appendChild(document.createTextNode(str));
   return div.innerHTML;
+}
+
+function safeCssUrl(value) {
+  return String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r|\n/g, '');
 }
 
 // ==========================================================
@@ -4019,7 +4289,7 @@ function showStoryAtIndex(idx) {
   if (inputEl) inputEl.placeholder = `Send a compliment to ${story.name}...`;
 
   if (tagsRow) {
-    tagsRow.innerHTML = (story.tags || []).map(t => `<span class="story-tag-chip">${t}</span>`).join('');
+    tagsRow.innerHTML = (story.tags || []).map(t => `<span class="story-tag-chip">${escHtml(t)}</span>`).join('');
   }
 
   // Render Story Progress Indicators
@@ -4337,45 +4607,93 @@ function submitReport(reason, name) {
   showToast(`✅ Report submitted. We'll review ${name}'s account.`, 'info');
 }
 
-function blockUser(userId, name) {
+async function persistBlockToFirestore(userId) {
+  if (!fbDb || !fbAuth?.currentUser || !userId) return true;
+  const uid = fbAuth.currentUser.uid;
+  if (uid === userId) return false;
+  await fbDb.collection('blocks').doc(uid + '_' + userId).set({
+    blockedBy: uid,
+    blockedUserId: userId,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  return true;
+}
+
+async function deleteBlockFromFirestore(userId) {
+  if (!fbDb || !fbAuth?.currentUser || !userId) return true;
+  const uid = fbAuth.currentUser.uid;
+  await fbDb.collection('blocks').doc(uid + '_' + userId).delete();
+  return true;
+}
+
+async function blockUser(userId, name) {
   closeReportModal();
-  if (userId) {
-    const existing = matchedUsers.find(u => u.id === userId);
-    const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
-    const userObj = existing || fallback || { id: userId, name: name };
+  if (!userId) return;
 
-    if (!blockedUsers.some(b => b.id === userId)) {
-      blockedUsers.unshift({
-        id: userId,
-        name: userObj.name || name || 'User',
-        image: userObj.image || userObj.photoUrl || '',
-        bio: userObj.bio || '',
-        age: userObj.age || 24,
-        blockedAt: Date.now()
-      });
-    }
+  const existing = matchedUsers.find(u => u.id === userId);
+  const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
+  const userObj = existing || fallback || { id: userId, name: name };
 
-    matchedUsers = matchedUsers.filter(u => u.id !== userId);
-    profileStack = profileStack.filter(p => p.id !== userId);
-    delete conversations[userId];
-
-    saveToStorage();
-    renderMatchesView();
-    renderSettingsScreen();
-    updateMatchesNotificationBadge();
+  try {
+    await persistBlockToFirestore(userId);
+  } catch (err) {
+    console.warn('Block persistence failed:', err);
+    showToast('Could not block this contact right now. Please try again.', 'error');
+    return;
   }
-  showToast(`${name} has been blocked.`, 'info');
+
+  if (!blockedUsers.some(b => b.id === userId)) {
+    blockedUsers.unshift({
+      id: userId,
+      name: userObj.name || name || 'User',
+      image: userObj.image || userObj.photoUrl || '',
+      bio: userObj.bio || '',
+      age: userObj.age || 24,
+      blockedAt: Date.now()
+    });
+  }
+
+  matchedUsers = matchedUsers.filter(u => u.id !== userId);
+  profileStack = profileStack.filter(p => p.id !== userId);
+  delete conversations[userId];
+
+  saveToStorage();
+  renderMatchesView();
+  renderSettingsScreen();
+  updateMatchesNotificationBadge();
+  showToast(`${name || 'User'} has been blocked.`, 'info');
   showScreen('matches');
 }
 
-function executeReportAndBlock(userId, name) {
+async function executeReportAndBlock(userId, name) {
+  const reason = document.querySelector('input[name="reportReason"]:checked')?.value || 'other';
   closeReportModal();
-  if (userId) {
-    const existing = matchedUsers.find(u => u.id === userId);
-    const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
-    const userObj = existing || fallback || { id: userId, name: name };
+  if (!userId || !fbDb || !fbAuth?.currentUser) {
+    showToast('Please sign in to report an account.', 'error');
+    return;
+  }
+
+  try {
+    const token = await fbAuth.currentUser.getIdToken();
+    const reportRes = await fetch(BACKEND_URL + '/reports', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token
+      },
+      body: JSON.stringify({ reportedUserId: userId, reason })
+    });
+    const reportData = await reportRes.json().catch(() => ({}));
+    if (!reportRes.ok || !reportData.success) {
+      throw new Error(reportData.error || 'Could not submit the report.');
+    }
+
+    await persistBlockToFirestore(userId);
 
     if (!blockedUsers.some(b => b.id === userId)) {
+      const existing = matchedUsers.find(u => u.id === userId);
+      const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
+      const userObj = existing || fallback || { id: userId, name: name };
       blockedUsers.unshift({
         id: userId,
         name: userObj.name || name || 'User',
@@ -4389,14 +4707,16 @@ function executeReportAndBlock(userId, name) {
     matchedUsers = matchedUsers.filter(u => u.id !== userId);
     profileStack = profileStack.filter(p => p.id !== userId);
     delete conversations[userId];
-
     saveToStorage();
     renderMatchesView();
     renderSettingsScreen();
     updateMatchesNotificationBadge();
+    showToast(`🛡️ ${name || 'User'} was reported and blocked.`, 'gold');
+    showScreen('matches');
+  } catch (err) {
+    console.warn('Report/block failed:', err);
+    showToast('Could not submit the report. Please try again.', 'error');
   }
-  showToast(`🛡️ ${name} was reported and blocked.`, 'gold');
-  showScreen('matches');
 }
 
 // ==========================================================
@@ -4494,7 +4814,7 @@ function renderBlockedUsersListInModal() {
   }).join('');
 }
 
-function unblockUser(userId, name) {
+async function unblockUser(userId, name) {
   const idx = blockedUsers.findIndex(b => b.id === userId);
   let userName = name || 'User';
   let userObj = null;
@@ -4502,35 +4822,35 @@ function unblockUser(userId, name) {
   if (idx !== -1) {
     userObj = blockedUsers[idx];
     userName = userObj.name || userName;
-    blockedUsers.splice(idx, 1);
   }
 
-  // Restore the user back to matches and conversations so user can chat with them again!
+  try {
+    await deleteBlockFromFirestore(userId);
+  } catch (err) {
+    console.warn('Unblock persistence failed:', err);
+    showToast('Could not unblock this contact right now. Please try again.', 'error');
+    return;
+  }
+
+  if (idx !== -1) blockedUsers.splice(idx, 1);
+
   const restoredProfile = userObj || PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
-  if (restoredProfile) {
-    if (!matchedUsers.some(u => u.id === userId)) {
-      matchedUsers.unshift({
-        id: restoredProfile.id,
-        name: restoredProfile.name || userName,
-        age: restoredProfile.age || 24,
-        image: restoredProfile.image || '',
-        bio: restoredProfile.bio || '',
-        tags: restoredProfile.tags || ['Music 🎵', 'Positive vibes ✨'],
-        distance: restoredProfile.distance || '2 km'
-      });
-    }
-    if (!conversations[userId]) {
-      conversations[userId] = {
-        messages: [{ sender: 'them', text: 'You unblocked this contact. Say hi! 👋', read: true, timestamp: Date.now() }]
-      };
-    }
+  if (restoredProfile && !matchedUsers.some(u => u.id === userId)) {
+    matchedUsers.unshift({
+      id: restoredProfile.id,
+      name: restoredProfile.name || userName,
+      age: restoredProfile.age || 24,
+      image: restoredProfile.image || '',
+      bio: restoredProfile.bio || '',
+      tags: restoredProfile.tags || ['Music 🎵', 'Positive vibes ✨'],
+      distance: restoredProfile.distance || '2 km'
+    });
   }
 
   saveToStorage();
   renderMatchesView();
   renderSettingsScreen();
   updateMatchesNotificationBadge();
-
   showToast(`✨ ${userName} has been unblocked!`, 'gold');
   renderBlockedUsersListInModal();
 }
@@ -5332,13 +5652,6 @@ async function sendPhoneOtp() {
     try { sent = await sendOtpToPhone(fullPhone); } catch (e) { sent = false; }
   }
 
-  if (!sent && !window._demoOtp) {
-    window._demoOtp = String(Math.floor(100000 + Math.random() * 900000));
-    console.info(`📱 Verification code for ${fullPhone}: ${window._demoOtp}`);
-    showToast(`📱 Verification code: ${window._demoOtp}`, 'gold');
-    sent = true;
-  }
-
   btn.disabled = false;
   btn.textContent = 'Send Verification Code';
 
@@ -5351,18 +5664,11 @@ async function sendPhoneOtp() {
     if (sentTo) sentTo.textContent = 'Code sent to +234 ' + _pendingPhoneNumber;
 
     const helper = document.getElementById('phoneOtpHelper');
-    if (helper) {
-      if (window._demoOtp) {
-        helper.innerHTML = `🔑 Verification Code: <strong style="font-size:1.15rem;letter-spacing:3px;display:inline-block;margin:4px 0">${window._demoOtp}</strong><div style="font-size:0.75rem;opacity:0.8;margin-top:2px">Termii SMS route pending approval — enter this code to verify</div>`;
-        helper.style.display = 'block';
-      } else {
-        helper.style.display = 'none';
-      }
-    }
+    if (helper) helper.style.display = 'none';
 
     const otpInp = document.getElementById('otpInput');
     if (otpInp) {
-      otpInp.value = window._demoOtp || '';
+      otpInp.value = '';
       setTimeout(() => otpInp.focus(), 150);
     }
   }
@@ -5393,11 +5699,6 @@ async function verifyPhoneOtp() {
     } catch (e) { verified = false; }
   }
 
-  if (!verified && window._demoOtp && otp === window._demoOtp) {
-    verified = true;
-    window._demoOtp = null;
-  }
-
   btn.disabled = false;
   btn.textContent = 'Verify Code';
 
@@ -5406,14 +5707,7 @@ async function verifyPhoneOtp() {
     currentUser.phoneVerified = true;
     currentUser.isPhoneVerified = true;
     saveToStorage();
-    if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) {
-      try {
-        await fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
-          phone: _pendingPhoneNumber,
-          phoneVerified: true
-        }, { merge: true });
-      } catch (e) { console.warn('Firestore phone update notice:', e); }
-    }
+    // Backend already marks the authenticated account as phoneVerified.
     renderSettingsScreen();
     showToast('✅ Phone number verified!', 'gold');
     closePhoneVerificationModal();
@@ -5563,16 +5857,20 @@ async function handleStoryPhotoSelected(event) {
     // 1. Fast canvas compression (< 150ms)
     const compressedDataUrl = await compressStoryImage(file, 1080, 0.78);
     let finalUrl = compressedDataUrl;
+    let storagePath = '';
 
-    // 2. Upload lightweight file if storage is active
+    // 2. Upload lightweight file if storage is active.
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
       try {
         const blob = await (await fetch(compressedDataUrl)).blob();
         blob.name = `story_${Date.now()}.jpg`;
-        const uploaded = await uploadFileToBackend(blob, 'stories');
-        if (uploaded) finalUrl = uploaded;
+        const uploaded = await uploadFileToBackend(blob, 'stories', true);
+        if (uploaded?.url) {
+          finalUrl = uploaded.url;
+          storagePath = uploaded.storagePath || '';
+        }
       } catch (err) {
-        // Fallback to compressed DataURL
+        console.warn('Story media upload warning:', err.message);
       }
     }
 
@@ -5581,6 +5879,7 @@ async function handleStoryPhotoSelected(event) {
       name: currentUser.name || 'You',
       image: finalUrl,
       thumb: finalUrl,
+      storagePath,
       location: currentUser.location || 'Lagos',
       bio: 'My latest story ✨',
       tags: currentUser.interests || [],

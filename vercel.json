@@ -1,5 +1,22 @@
 {
   "version": 2,
   "name": "hookmebysam",
-  "cleanUrls": true
+  "cleanUrls": true,
+  "buildCommand": "echo \"Static frontend: no build step required\"",
+  "outputDirectory": ".",
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        }
+      ]
+    }
+  ]
 }
