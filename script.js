@@ -1207,6 +1207,24 @@ function prevSignupStep() {
   }
 }
 
+async function syncPublicProfileToFirestore(fields = {}) {
+  if (!fbDb || !fbAuth?.currentUser) return;
+  const uid = fbAuth.currentUser.uid;
+  await fbDb.collection('public_profiles').doc(uid).set({
+    id: uid,
+    name: fields.name ?? currentUser?.name ?? '',
+    displayName: fields.displayName ?? fields.name ?? currentUser?.name ?? '',
+    age: Number(fields.age ?? currentUser?.age ?? 24),
+    bio: fields.bio ?? currentUser?.bio ?? '',
+    gender: fields.gender ?? currentUser?.gender ?? 'Female',
+    interests: Array.isArray(fields.interests) ? fields.interests : (currentUser?.interests || []),
+    location: fields.location ?? currentUser?.location ?? '',
+    image: fields.image ?? currentUser?.image ?? currentUser?.avatar ?? '',
+    avatar: fields.avatar ?? fields.image ?? currentUser?.avatar ?? currentUser?.image ?? '',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
 function completeSignup() {
   const email = document.getElementById('signupEmail').value.trim();
   const password = document.getElementById('signupPassword').value;
@@ -1257,6 +1275,17 @@ function completeSignup() {
             isVip: false,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
           });
+           await syncPublicProfileToFirestore({
+             name: userName,
+             displayName: userName,
+             age: currentUser.age || 24,
+             bio: currentUser.bio || 'Looking for real connections on hookmebysam!',
+             gender: currentUser.gender || 'Female',
+             interests: currentUser.interests || ['Music 🎵', 'Vibes ✨'],
+             location: currentUser.location || '',
+             image: userPhoto,
+             avatar: userPhoto
+           });
         }
 
         if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
@@ -3254,6 +3283,7 @@ async function handleProfilePhotoUpload(event) {
         avatar: dataUrl,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true }).catch(err => console.warn('Could not sync photo to Firestore:', err));
+       syncPublicProfileToFirestore({ image: dataUrl, avatar: dataUrl }).catch(err => console.warn('Could not sync public photo:', err));
     }
     showToast('✓ Photo updated successfully! ✨', 'success');
   } catch (err) {
@@ -3333,6 +3363,7 @@ async function handleProfilePhotoUpload(event) {
         avatar: dataUrl,
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       }, { merge: true }).catch(err => console.warn('Could not sync photo to Firestore:', err));
+       syncPublicProfileToFirestore({ image: dataUrl, avatar: dataUrl }).catch(err => console.warn('Could not sync public photo:', err));
     }
 
     showToast('✓ Real profile photo updated! ✨', 'success');
@@ -3409,6 +3440,7 @@ function saveProfile() {
       avatar: currentUser.image || currentUser.avatar || '',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true }).catch(err => console.warn('Could not sync profile to Firestore:', err));
+     syncPublicProfileToFirestore().catch(err => console.warn('Could not sync public profile:', err));
   }
 
   const settingsName = document.getElementById('settingsProfileName');
@@ -3744,6 +3776,7 @@ async function handleDeleteAccount() {
       try {
         // 2. Delete user profile document
         await fbDb.collection('users').doc(uid).delete();
+         await fbDb.collection('public_profiles').doc(uid).delete();
       } catch (e) {
         console.warn('User doc cleanup error on delete:', e);
       }
