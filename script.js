@@ -992,9 +992,8 @@ function handleLogin() {
                 currentUser.image = uData.image || uData.avatar;
                 currentUser.avatar = currentUser.image;
               }
-              if (uData.isVip) {
-                appState.isVip = true;
-              }
+               const vipExpiryMs = uData.vipExpiry?.toMillis ? uData.vipExpiry.toMillis() : 0;
+               appState.isVip = Boolean(uData.isVip && (!vipExpiryMs || vipExpiryMs > Date.now()));
             }
           } catch (e) {
             console.warn("Could not fetch user profile from Firestore:", e);
