@@ -51,6 +51,7 @@
             </select>
           </label>
           <button id="refreshBtn" class="primary">Refresh reports</button>
+          <button id="migrateBtn" class="secondary">Migrate existing profiles</button>
           <div class="status">Moderation actions are recorded server-side. Do not expose service-account credentials in this page.</div>
         </aside>
 
@@ -201,6 +202,16 @@ reportsBody.addEventListener("click", event => {
 signOutBtn.addEventListener("click", () => auth.signOut());
 statusFilter.addEventListener("change", loadReports);
 document.getElementById("refreshBtn").addEventListener("click", loadReports);
+document.getElementById("migrateBtn").addEventListener("click", async () => {
+  if (!window.confirm("Create/update public matchmaking profiles from existing user accounts?")) return;
+  loadStatus.textContent = "Migrating…";
+  try {
+    const data = await api("/admin/migrate-public-profiles", { method: "POST" });
+    loadStatus.textContent = "Migrated " + (data.migrated || 0) + " profiles";
+  } catch (err) {
+    loadStatus.textContent = err.message;
+  }
+});
 
 auth.onAuthStateChanged(async user => {
   if (!user) {
