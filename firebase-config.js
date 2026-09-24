@@ -620,9 +620,10 @@ async function verifyOtp(phoneNumber, otpCode) {
 // to do with that confirmation (here: save the number to their profile).
 async function verifyPhoneOwnershipOnly(phoneNumber, otpCode) {
   try {
-    const res = await fetch(`${BACKEND_URL}/auth/verify-otp`, {
+    const headers = await getBackendAuthHeaders();
+    const res = await fetch(BACKEND_URL + '/auth/verify-phone', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ phone: phoneNumber, otp: otpCode })
     });
     const data = await res.json();
