@@ -5805,16 +5805,20 @@ async function handleStoryPhotoSelected(event) {
     // 1. Fast canvas compression (< 150ms)
     const compressedDataUrl = await compressStoryImage(file, 1080, 0.78);
     let finalUrl = compressedDataUrl;
+    let storagePath = '';
 
-    // 2. Upload lightweight file if storage is active
+    // 2. Upload lightweight file if storage is active.
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
       try {
         const blob = await (await fetch(compressedDataUrl)).blob();
         blob.name = `story_${Date.now()}.jpg`;
-        const uploaded = await uploadFileToBackend(blob, 'stories');
-        if (uploaded) finalUrl = uploaded;
+        const uploaded = await uploadFileToBackend(blob, 'stories', true);
+        if (uploaded?.url) {
+          finalUrl = uploaded.url;
+          storagePath = uploaded.storagePath || '';
+        }
       } catch (err) {
-        // Fallback to compressed DataURL
+        console.warn('Story media upload warning:', err.message);
       }
     }
 
@@ -5823,6 +5827,7 @@ async function handleStoryPhotoSelected(event) {
       name: currentUser.name || 'You',
       image: finalUrl,
       thumb: finalUrl,
+      storagePath,
       location: currentUser.location || 'Lagos',
       bio: 'My latest story ✨',
       tags: currentUser.interests || [],
