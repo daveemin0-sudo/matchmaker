@@ -43,19 +43,67 @@ service cloud.firestore {
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
+         allow read: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+           && notBlockedWith(get(/databases/$(database)/documents/matches/$(matchId)).data);
         allow create: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && notBlockedWith(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && request.resource.data.sender == request.auth.uid;
-        allow update: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
-          && resource.data.sender == request.auth.uid;
-        allow delete: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
-          && resource.data.sender == request.auth.uid;
+         allow update: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+           && notBlockedWith(get(/databases/$(database)/documents/matches/$(matchId)).data)
+           && resource.data.sender == request.auth.uid;
+         allow delete: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+           && notBlockedWith(get(/databases/$(database)/documents/matches/$(matchId)).data)
+           && resource.data.sender == request.auth.uid;
       }
 
       match /meta/{docId} {
-        allow read, write: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
-      }
+         allow read, write: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+           && notBlockedWith(get(/databases/$(database)/documents/matches/$(matchId)).data);
+       }
+
+       match /calls/{callId} {
+         allow read: if signedIn()
+           && (resource.data.callerId == request.auth.uid || resource.data.calleeId == request.auth.uid);
+
+         allow create: if signedIn()
+           && request.resource.data.callerId == request.auth.uid
+           && request.resource.data.calleeId is string
+           && request.resource.data.calleeId != request.auth.uid
+           && request.resource.data.calleeId in get(/databases/$(database)/documents/matches/$(matchId)).data.users
+           && request.resource.data.status == 'ringing'
+           && notBlockedWith(get(/databases/$(database)/documents/matches/$(matchId)).data);
+
+         allow update: if signedIn()
+           && (resource.data.callerId == request.auth.uid || resource.data.calleeId == request.auth.uid)
+           && (
+             (
+               resource.data.calleeId == request.auth.uid
+               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer','status'])
+             )
+             ||
+             (
+               resource.data.callerId == request.auth.uid
+               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status','endedAt'])
+             )
+           );
+
+         allow delete: if false;
+
+         match /candidates/{candidateId} {
+           allow read: if signedIn()
+             && (
+               get(/databases/$(database)/documents/matches/$(matchId)/calls/$(callId)).data.callerId == request.auth.uid
+               || get(/databases/$(database)/documents/matches/$(matchId)/calls/$(callId)).data.calleeId == request.auth.uid
+             );
+           allow create: if signedIn()
+             && request.resource.data.fromUserId == request.auth.uid
+             && (
+               get(/databases/$(database)/documents/matches/$(matchId)/calls/$(callId)).data.callerId == request.auth.uid
+               || get(/databases/$(database)/documents/matches/$(matchId)/calls/$(callId)).data.calleeId == request.auth.uid
+             );
+           allow update, delete: if false;
+         }
+       }
     }
 
     match /stories/{storyId} {
