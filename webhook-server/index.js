@@ -577,33 +577,6 @@ app.post('/swipes/record', requireAuth, async (req, res) => {
   }
 });
 
-/* Match creation is server-verified so clients cannot forge matches. */
-app.post('/matches/create', requireAuth, async (req, res) => {
-  const targetUserId = String(req.body?.targetUserId || '');
-  if (!targetUserId || targetUserId === req.user.uid) return res.status(400).json({ success: false, error: 'Valid target user is required.' });
-  try {
-    const blockA = await db.collection('blocks').doc(req.user.uid + '_' + targetUserId).get();
-    const blockB = await db.collection('blocks').doc(targetUserId + '_' + req.user.uid).get();
-    if (blockA.exists || blockB.exists) {
-      return res.status(403).json({ success: false, error: 'You cannot match with a blocked user.' });
-    }
-
-    const reciprocal = await db.collection('swipes')
-      .where('fromUserId', '==', targetUserId)
-      .where('toUserId', '==', req.user.uid)
-      .where('action', 'in', ['like', 'superlike']).limit(1).get();
-    if (reciprocal.empty) return res.status(403).json({ success: false, error: 'No mutual like exists.' });
-    const matchId = [req.user.uid, targetUserId].sort().join('_');
-    await db.collection('matches').doc(matchId).create({ users: [req.user.uid, targetUserId], createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(err => {
-      if (err.code !== 6) throw err;
-    });
-    return res.json({ success: true, matchId });
-  } catch (err) {
-    console.error('Match creation error:', err.message);
-    return res.status(500).json({ success: false, error: 'Could not create match.' });
-  }
-});
-
 /* FCM: all public trigger endpoints require a Firebase ID token. */
 async function sendPushToUser(userId, { title, body, data = {} }) {
   const snap = await db.collection('fcm_tokens').doc(userId).collection('tokens').get();
@@ -673,18 +646,25 @@ app.post('/fcm/new-message', requireAuth, async (req, res) => {
   if (!rateLimit(`fcm-message:${req.user.uid}`, 60, 60 * 1000)) {
     return res.status(429).json({ error: 'Too many notification requests.' });
   }
-  const partnerId = String(toUserId);
-  const matchDoc = await db.collection('matches').doc(String(matchId)).get();
-  if (!matchDoc.exists || !Array.isArray(matchDoc.data().users) || !matchDoc.data().users.includes(req.user.uid) || !matchDoc.data().users.includes(partnerId)) {
-    return res.status(403).json({ error: 'You are not a participant in this match.' });
+  try {
+    const partnerId = String(toUserId);
+    const matchDoc = await db.collection('matches').doc(String(matchId)).get();
+    if (!matchDoc.exists || !Array.isArray(matchDoc.data().users) || !matchDoc.data().users.includes(req.user.uid) || !matchDoc.data().users.includes(partnerId)) {
+      return res.status(403).json({ error: 'You are not a participant in this match.' });
+    }
+    const senderDoc = await db.collection('users').doc(req.user.uid).get();
+    const senderName = senderDoc.data()?.displayName || senderDoc.data()?.name || 'Your match';
+    const preview = req.body?.messageText ? String(messageText).slice(0, 60) : '📷 Photo';
+    await sendPushToUser(partnerId, {
+      title: `💬 ${String(senderName).slice(0, 80)}`,
+      body: preview,
+      data: { type: 'new_message', matchId: String(matchId) }
+    });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Message push error:', err.message);
+    return res.status(500).json({ error: 'Could not send message notification.' });
   }
-  const preview = req.body?.messageText ? String(messageText).slice(0, 60) : '📷 Photo';
-  await sendPushToUser(partnerId, {
-    title: `💬 ${String(fromUserName || 'Your match').slice(0, 80)}`,
-    body: preview,
-    data: { type: 'new_message', matchId: String(matchId) }
-  });
-  res.json({ success: true });
 });
 
 app.post('/stories/cleanup', async (req, res) => {
