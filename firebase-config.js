@@ -287,15 +287,13 @@ async function searchUsersInFirestore(queryText) {
       if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
         const data = doc.data();
         const name = (data.displayName || data.name || '').toLowerCase();
-        const email = (data.email || '').toLowerCase();
         const bio = (data.bio || '').toLowerCase();
 
-        if (name.includes(q) || email.includes(q) || bio.includes(q)) {
+        if (name.includes(q) || bio.includes(q)) {
           const userPhoto = data.image || data.avatar || '';
           results.push({
             id: doc.id,
             name: data.displayName || data.name || 'User',
-            email: data.email || '',
             age: data.age || 24,
             bio: data.bio || 'Registered user on hookmebysam.',
             gender: data.gender || 'Female',
