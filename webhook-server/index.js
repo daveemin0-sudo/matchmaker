@@ -557,18 +557,51 @@ async function sendPushToUser(userId, { title, body, data = {} }) {
 }
 
 app.post('/fcm/new-match', requireAuth, async (req, res) => {
-  const { matchedUserId, matchedUserName } = req.body || {};
-  if (!matchedUserId) return res.status(400).json({ error: 'matchedUserId is required.' });
-  await Promise.all([
-    sendPushToUser(req.user.uid, { title: '💕 New Match!', body: `You matched with ${String(matchedUserName || 'someone').slice(0, 80)}! Say hello.`, data: { type: 'new_match', matchId: String(matchedUserId) } }),
-    sendPushToUser(String(matchedUserId), { title: '💕 New Match!', body: 'Someone liked you back! You have a new match.', data: { type: 'new_match', matchId: req.user.uid } })
-  ]);
-  res.json({ success: true });
+  const matchedUserId = String(req.body?.matchedUserId || '');
+  if (!matchedUserId || matchedUserId === req.user.uid) {
+    return res.status(400).json({ error: 'A valid matchedUserId is required.' });
+  }
+  if (!rateLimit(`fcm-match:${req.user.uid}`, 20, 60 * 1000)) {
+    return res.status(429).json({ error: 'Too many notification requests.' });
+  }
+
+  try {
+    const matchId = [req.user.uid, matchedUserId].sort().join('_');
+    const [matchDoc, matchedUserDoc] = await Promise.all([
+      db.collection('matches').doc(matchId).get(),
+      db.collection('users').doc(matchedUserId).get()
+    ]);
+    const users = matchDoc.data()?.users;
+    if (!matchDoc.exists || !Array.isArray(users) || !users.includes(req.user.uid) || !users.includes(matchedUserId)) {
+      return res.status(403).json({ error: 'You are not part of this match.' });
+    }
+
+    const matchedUserName = matchedUserDoc.data()?.displayName || matchedUserDoc.data()?.name || 'someone';
+    await Promise.all([
+      sendPushToUser(req.user.uid, {
+        title: '💕 New Match!',
+        body: `You matched with ${String(matchedUserName).slice(0, 80)}! Say hello.`,
+        data: { type: 'new_match', matchId: matchedUserId }
+      }),
+      sendPushToUser(matchedUserId, {
+        title: '💕 New Match!',
+        body: 'Someone liked you back! You have a new match.',
+        data: { type: 'new_match', matchId: req.user.uid }
+      })
+    ]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('New-match push error:', err.message);
+    res.status(500).json({ error: 'Could not send match notification.' });
+  }
 });
 
 app.post('/fcm/new-message', requireAuth, async (req, res) => {
   const { toUserId, fromUserName, messageText, matchId } = req.body || {};
   if (!toUserId || !matchId) return res.status(400).json({ error: 'toUserId and matchId are required.' });
+  if (!rateLimit(`fcm-message:${req.user.uid}`, 60, 60 * 1000)) {
+    return res.status(429).json({ error: 'Too many notification requests.' });
+  }
   const partnerId = String(toUserId);
   const matchDoc = await db.collection('matches').doc(String(matchId)).get();
   if (!matchDoc.exists || !Array.isArray(matchDoc.data().users) || !matchDoc.data().users.includes(req.user.uid) || !matchDoc.data().users.includes(partnerId)) {
