@@ -1,603 +1,406 @@
-/* ==========================================================
-   hookmebysam — Production Webhook Server
-   Stack: Node.js + Express + Firebase Admin SDK
-   Handles: Paystack payment webhooks + Termii OTP
-   ==========================================================
-   SETUP:
-     1. cd webhook-server
-     2. npm install
-     3. Add your keys to .env (see .env.example)
-     4. node index.js
-   ========================================================== */
-
+/* hookmebysam production backend: Paystack, Termii OTP, FCM and TURN. */
 require('dotenv').config();
-const express  = require('express');
-const crypto   = require('crypto');
-const admin    = require('firebase-admin');
-const fetch    = require('node-fetch');
+const express = require('express');
+const crypto = require('crypto');
+const admin = require('firebase-admin');
+const fetch = require('node-fetch');
 
 const app = express();
+const PORT = Number(process.env.PORT || 3001);
+const FRONTEND_URL = process.env.FRONTEND_URL || '';
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || FRONTEND_URL)
+  .split(',').map(v => v.trim()).filter(Boolean);
 
-/* ----------------------------------------------------------
-   Firebase Admin SDK — initialize with service account
-   Supports:
-   1. FIREBASE_SERVICE_ACCOUNT_JSON (raw JSON in env)
-   2. FIREBASE_SERVICE_ACCOUNT_BASE64 (base64 string in env)
-   3. Local ./serviceAccountKey.json file
-   ---------------------------------------------------------- */
-let serviceAccount = null;
+const TERMII_API_KEY = process.env.TERMII_API_KEY;
+const TERMII_SENDER_ID = process.env.TERMII_SENDER_ID || 'N-Alert';
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+const CLEANUP_SECRET = process.env.CLEANUP_SECRET;
+const METERED_API_KEY = process.env.METERED_API_KEY;
+const METERED_DOMAIN = process.env.METERED_DOMAIN || 'hookmebysam.metered.live';
+
+if (!TERMII_API_KEY || !PAYSTACK_SECRET_KEY || !CLEANUP_SECRET) {
+  throw new Error('Missing required production secrets: TERMII_API_KEY, PAYSTACK_SECRET_KEY and CLEANUP_SECRET');
+}
+if (!METERED_API_KEY || !METERED_DOMAIN) {
+  console.warn('METERED_API_KEY/METERED_DOMAIN not configured; /turn/credentials will return 503.');
+}
+
+let serviceAccount;
 try {
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
   } else if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
-    const raw = Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8');
-    serviceAccount = JSON.parse(raw);
+    serviceAccount = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf8'));
   } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
   } else {
-    try {
-      serviceAccount = require('./serviceAccountKey.json');
-    } catch (_) {
-      // file not present
-    }
+    try { serviceAccount = require('./serviceAccountKey.json'); } catch (_) {}
   }
-} catch (e) {
-  console.warn('⚠️  Could not parse Firebase service account credentials:', e.message);
+} catch (err) {
+  throw new Error('Invalid Firebase service account credentials: ' + err.message);
+}
+if (!serviceAccount) {
+  throw new Error('Firebase Admin credentials are required in production.');
 }
 
-if (serviceAccount) {
-  admin.initializeApp({
-    credential: admin.credential.cert(serviceAccount),
-    databaseURL: process.env.FIREBASE_PROJECT_ID ? `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com` : undefined
-  });
-} else {
-  try {
-    admin.initializeApp();
-    console.log('ℹ️  Firebase Admin initialized with default application credentials.');
-  } catch (e) {
-    console.warn('⚠️  Firebase Admin initialized without credentials (database write operations will require service credentials).');
-  }
-}
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: process.env.FIREBASE_PROJECT_ID
+    ? `https://${process.env.FIREBASE_PROJECT_ID}.firebaseio.com`
+    : undefined
+});
 const db = admin.firestore();
 
-/* ----------------------------------------------------------
-   Middleware
-   ---------------------------------------------------------- */
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// CORS — allow all origins including OPTIONS preflight
+app.disable('x-powered-by');
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, _res, buf) => { req.rawBody = Buffer.from(buf); }
+}));
+app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 app.use((req, res, next) => {
-  const allowedOrigin = process.env.FRONTEND_URL || '*';
-  res.header('Access-Control-Allow-Origin', allowedOrigin);
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-  res.header('Access-Control-Max-Age', '86400'); // Cache preflight 24h
-  // Respond immediately to all OPTIONS preflight requests
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
+  const origin = req.headers.origin;
+  if (origin && ALLOWED_ORIGINS.length && !ALLOWED_ORIGINS.includes(origin)) {
+    return res.status(403).json({ error: 'Origin not allowed.' });
   }
+  if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Cleanup-Secret');
+  res.setHeader('Access-Control-Max-Age', '86400');
+  if (req.method === 'OPTIONS') return res.status(204).end();
   next();
 });
 
-/* ==========================================================
-   PAYSTACK WEBHOOK — Auto-unlock VIP on payment confirmation
-   ========================================================== */
-app.post('/webhook/paystack', async (req, res) => {
-  // 1. Verify webhook signature (security: only accept from Paystack)
-  const hash = crypto
-    .createHmac('sha512', process.env.PAYSTACK_SECRET_KEY)
-    .update(JSON.stringify(req.body))
-    .digest('hex');
+const rateBuckets = new Map();
+function rateLimit(key, max, windowMs) {
+  const now = Date.now();
+  const old = (rateBuckets.get(key) || []).filter(t => now - t < windowMs);
+  old.push(now);
+  rateBuckets.set(key, old);
+  return old.length <= max;
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, values] of rateBuckets) {
+    const kept = values.filter(t => now - t < 15 * 60 * 1000);
+    if (kept.length) rateBuckets.set(key, kept); else rateBuckets.delete(key);
+  }
+}, 5 * 60 * 1000).unref();
 
-  if (hash !== req.headers['x-paystack-signature']) {
-    console.warn('⚠️  Invalid Paystack signature — rejected');
-    return res.status(401).json({ error: 'Invalid signature' });
+async function requireAuth(req, res, next) {
+  const header = req.headers.authorization || '';
+  if (!header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authentication required.' });
+  try {
+    req.user = await admin.auth().verifyIdToken(header.slice(7));
+    next();
+  } catch (_) {
+    return res.status(401).json({ error: 'Invalid or expired authentication token.' });
+  }
+}
+
+function normalizeNigerianPhone(phone) {
+  let p = String(phone || '').trim().replace(/[\s()-]/g, '');
+  if (p.startsWith('00')) p = '+' + p.slice(2);
+  if (p.startsWith('0')) p = '+234' + p.slice(1);
+  else if (p.startsWith('234')) p = '+' + p;
+  else if (!p.startsWith('+')) p = '+234' + p;
+  if (!/^\+234\d{10}$/.test(p)) throw new Error('Invalid Nigerian phone number.');
+  return p;
+}
+
+const VIP_PLANS = {
+  1: { name: '1 Week VIP Gold', amount: 2500, days: 7 },
+  2: { name: '1 Month VIP Gold', amount: 7500, months: 1 },
+  3: { name: 'Lifetime VIP Gold', amount: 25000, lifetime: true }
+};
+
+function expiryForTier(tier) {
+  const plan = VIP_PLANS[Number(tier)];
+  if (!plan) throw new Error('Invalid VIP tier.');
+  if (plan.lifetime) return new Date('2099-12-31T23:59:59.999Z');
+  const date = new Date();
+  if (plan.days) date.setUTCDate(date.getUTCDate() + plan.days);
+  if (plan.months) date.setUTCMonth(date.getUTCMonth() + plan.months);
+  return date;
+}
+
+async function verifyPaystackReference(reference) {
+  const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+    headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` }
+  });
+  const data = await response.json();
+  if (!response.ok || !data.status || data.data?.status !== 'success') {
+    throw new Error(data.message || 'Payment not verified.');
+  }
+  return data.data;
+}
+
+async function grantVip({ reference, uid, tier, payment }) {
+  const plan = VIP_PLANS[Number(tier)];
+  if (!plan) throw new Error('Invalid VIP tier.');
+  if (Number(payment.amount) !== plan.amount * 100) {
+    throw new Error('Payment amount does not match the selected VIP plan.');
   }
 
-  const event = req.body;
-  console.log('📦 Paystack event:', event.event, event.data?.reference);
-
-  // 2. Handle successful charge
-  if (event.event === 'charge.success') {
-    const { reference, customer, metadata, amount } = event.data;
-
-    const userId  = metadata?.custom_fields?.find(f => f.variable_name === 'user_id')?.value;
-    const planName = metadata?.custom_fields?.find(f => f.variable_name === 'plan_name')?.value || '1 Month VIP Gold';
-
-    if (!userId) {
-      console.warn('⚠️  No userId in metadata, skipping VIP unlock');
-      return res.status(200).json({ received: true });
-    }
-
-    // 3. Calculate VIP expiry date
-    const expiryDate = getVipExpiry(planName);
-
-    // 4. Update Firestore — unlock VIP for the user
-    await db.collection('users').doc(userId).update({
-      isVip: true,
-      vipPlan: planName,
-      vipExpiry: expiryDate,
-      vipActivatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      paystackReference: reference,
-      paystackEmail: customer.email,
-      paystackAmount: amount / 100, // Convert from kobo to Naira
+  const ref = db.collection('paystack_transactions').doc(String(reference));
+  const result = await db.runTransaction(async tx => {
+    const existing = await tx.get(ref);
+    if (existing.exists) return false;
+    const userRef = db.collection('users').doc(uid);
+    const userSnap = await tx.get(userRef);
+    if (!userSnap.exists) throw new Error('User account not found.');
+    tx.set(ref, {
+      reference: String(reference),
+      uid,
+      tier: Number(tier),
+      amount: Number(payment.amount),
+      currency: payment.currency || 'NGN',
+      processedAt: admin.firestore.FieldValue.serverTimestamp()
     });
-
-    console.log(`✅ VIP unlocked for user: ${userId} | Plan: ${planName} | Expires: ${expiryDate.toDateString()}`);
-  }
-
-  // 5. Handle subscription creation (for recurring plans)
-  if (event.event === 'subscription.create') {
-    console.log('🔄 Subscription created:', event.data?.subscription_code);
-    // Store subscription code for future cancellations
-  }
-
-  res.status(200).json({ received: true });
-});
-
-function getVipExpiry(planName) {
-  const now = new Date();
-  if (planName.includes('Week')) {
-    return new Date(now.setDate(now.getDate() + 7));
-  } else if (planName.includes('Month') && planName.includes('3')) {
-    return new Date(now.setMonth(now.getMonth() + 3));
-  } else if (planName.includes('Lifetime')) {
-    return new Date('2099-12-31'); // Effectively permanent
-  } else {
-    // Default: 1 Month
-    return new Date(now.setMonth(now.getMonth() + 1));
-  }
+    tx.set(userRef, {
+      isVip: true,
+      vipTier: Number(tier),
+      vipPlan: plan.name,
+      vipExpiry: admin.firestore.Timestamp.fromDate(expiryForTier(tier)),
+      vipActivatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      paystackReference: String(reference),
+      paystackEmail: payment.customer?.email || ''
+    }, { merge: true });
+    return true;
+  });
+  return result;
 }
 
-/* ==========================================================
-   PAYSTACK DIRECT VERIFICATION — Server-side transaction check
-   ========================================================== */
-app.post('/paystack/verify', async (req, res) => {
-  const { reference, planName, userId } = req.body;
-
-  if (!reference || !userId) {
-    return res.status(400).json({ success: false, error: 'Reference and userId are required.' });
-  }
-
+/* Paystack webhook: verify raw signature, then verify transaction server-to-server. */
+app.post('/webhook/paystack', async (req, res) => {
   try {
-    const paystackSecret = process.env.PAYSTACK_SECRET_KEY;
-    if (!paystackSecret) {
-      // In dev mode without secret key, log warning and allow fallback if needed
-      console.warn('⚠️  PAYSTACK_SECRET_KEY not set in .env — skipping remote API call');
+    const signature = String(req.headers['x-paystack-signature'] || '');
+    const expected = crypto.createHmac('sha512', PAYSTACK_SECRET_KEY)
+      .update(req.rawBody || Buffer.from(''))
+      .digest('hex');
+    if (!signature || signature.length !== expected.length ||
+        !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+      return res.status(401).json({ error: 'Invalid signature' });
     }
 
-    let verified = false;
-    let customerEmail = '';
-    let paidAmount = 0;
+    if (req.body?.event !== 'charge.success') return res.status(200).json({ received: true });
 
-    if (paystackSecret) {
-      const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${paystackSecret}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      const data = await response.json();
-      if (response.ok && data.status && data.data?.status === 'success') {
-        verified = true;
-        customerEmail = data.data.customer?.email || '';
-        paidAmount = (data.data.amount || 0) / 100;
-      } else {
-        console.error('Paystack verification returned failure:', data);
-        return res.status(400).json({ success: false, error: data.message || 'Transaction not verified.' });
-      }
-    } else {
-      // Dev mode fallback
-      verified = true;
-    }
+    const reference = req.body.data?.reference;
+    const metadata = req.body.data?.metadata?.custom_fields || [];
+    const userId = metadata.find(f => f.variable_name === 'user_id')?.value;
+    const planName = metadata.find(f => f.variable_name === 'plan_name')?.value;
+    const tier = Object.entries(VIP_PLANS).find(([, p]) => p.name === planName)?.[0];
 
-    if (verified) {
-      const plan = planName || 'VIP Gold';
-      const expiryDate = getVipExpiry(plan);
+    if (!reference || !userId || !tier) return res.status(200).json({ received: true });
 
-      await db.collection('users').doc(userId).update({
-        isVip: true,
-        vipPlan: plan,
-        vipExpiry: expiryDate,
-        vipActivatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        paystackReference: reference,
-        paystackEmail: customerEmail,
-        paystackAmount: paidAmount
-      });
-
-      console.log(`✅ VIP unlocked via backend verification for user ${userId} | Ref: ${reference}`);
-      return res.json({
-        success: true,
-        isVip: true,
-        vipPlan: plan,
-        vipExpiry: expiryDate.toISOString(),
-        reference
-      });
-    }
+    const payment = await verifyPaystackReference(reference);
+    await grantVip({ reference, uid: String(userId), tier: Number(tier), payment });
+    return res.status(200).json({ received: true });
   } catch (err) {
-    console.error('Paystack verify endpoint error:', err);
-    return res.status(500).json({ success: false, error: 'Server verification error.' });
+    console.error('Paystack webhook error:', err.message);
+    return res.status(500).json({ error: 'Webhook processing failed.' });
   }
 });
 
-/* ==========================================================
-   TERMII OTP — Nigerian Phone Number SMS Verification
-   ========================================================== */
-
-// In-memory OTP storage fallback (ensures OTP works even if Firebase Admin credentials are not yet linked)
-const memoryOtpStore = new Map();
-
-async function saveOtpRequest(phone, pinId) {
-  memoryOtpStore.set(phone, { pinId, createdAt: Date.now(), verified: false });
-  try {
-    if (db) {
-      await db.collection('otp_requests').doc(phone).set({
-        pinId,
-        phone,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        verified: false
-      });
-    }
-  } catch (e) {
-    console.warn('⚠️ Firestore OTP write notice (using in-memory fallback):', e.message);
+/* Authenticated direct payment verification. Never trusts uid/amount from the browser. */
+app.post('/payment/verify', requireAuth, async (req, res) => {
+  const { reference, tier } = req.body || {};
+  if (!reference || !VIP_PLANS[Number(tier)]) {
+    return res.status(400).json({ success: false, error: 'Reference and valid tier are required.' });
   }
-}
-
-async function getOtpRequest(phone) {
-  try {
-    if (db) {
-      const doc = await db.collection('otp_requests').doc(phone).get();
-      if (doc.exists) return doc.data();
-    }
-  } catch (e) {
-    console.warn('⚠️ Firestore OTP read notice (using in-memory fallback):', e.message);
+  if (!rateLimit(`payment:${req.user.uid}`, 10, 10 * 60 * 1000)) {
+    return res.status(429).json({ success: false, error: 'Too many payment verification attempts.' });
   }
-  return memoryOtpStore.get(phone) || null;
-}
+  try {
+    const payment = await verifyPaystackReference(reference);
+    const granted = await grantVip({
+      reference,
+      uid: req.user.uid,
+      tier: Number(tier),
+      payment
+    });
+    return res.json({ success: true, alreadyProcessed: !granted });
+  } catch (err) {
+    console.error('Payment verification error:', err.message);
+    return res.status(400).json({ success: false, error: err.message || 'Payment could not be verified.' });
+  }
+});
 
-// Send OTP to phone number
+/* Termii OTP */
+const otpCache = new Map();
+
 app.post('/auth/send-otp', async (req, res) => {
-  const { phone } = req.body;
+  let phone;
+  try { phone = normalizeNigerianPhone(req.body?.phone); }
+  catch (_) { return res.status(400).json({ success: false, error: 'Enter a valid Nigerian phone number.' }); }
 
-  if (!phone) return res.status(400).json({ error: 'Phone number required' });
-
-  // Normalize Nigerian phone numbers (080... → +234...)
-  const normalizedPhone = normalizeNigerianPhone(phone);
+  if (!rateLimit(`otp-send:${phone}`, 3, 10 * 60 * 1000)) {
+    return res.status(429).json({ success: false, error: 'Too many OTP requests. Try again later.' });
+  }
 
   try {
-    const senderId = process.env.TERMII_SENDER_ID || 'N-Alert';
-    const apiKey = process.env.TERMII_API_KEY || 'tlv_ZfuIsmGag1PuYwPWWQ3h2HaV0jE3I_yPn-2JnIPjudU';
-    // Termii OTP send — correct pin_placeholder that matches message_text
     const response = await fetch('https://api.ng.termii.com/api/sms/otp/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        api_key: apiKey,
+        api_key: TERMII_API_KEY,
         message_type: 'NUMERIC',
-        to: normalizedPhone,
-        from: senderId,
+        to: phone,
+        from: TERMII_SENDER_ID,
         channel: 'generic',
         pin_attempts: 3,
-        pin_time_to_live: 5,
+        pin_time_to_live: 10,
         pin_length: 6,
-        pin_placeholder: '< 1234 >',
-        message_text: 'Your hookmebysam verification code is < 1234 >. Valid for 5 minutes. Do not share.',
+        pin_placeholder: '< 123456 >',
+        message_text: 'Your hookmebysam verification code is < 123456 >. It expires in 10 minutes. Do not share it.',
         pin_type: 'NUMERIC'
       })
     });
-
     const data = await response.json();
-    console.log('Termii send-otp response:', JSON.stringify(data));
-
-    if (data.pinId) {
-      await saveOtpRequest(normalizedPhone, data.pinId);
-      console.log(`📱 OTP sent to ${normalizedPhone} via Termii SMS`);
-      res.json({ success: true, message: 'OTP sent successfully via SMS.' });
-    } else {
-      // Termii account route or sender ID pending activation — issue verification code cleanly so user flow is not broken
-      const demoOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      await saveOtpRequest(normalizedPhone, 'DEV_TEST_PIN_' + demoOtp);
-      console.warn(`⚠️ Termii notice: ${data.message || JSON.stringify(data)} — using verification code: ${demoOtp}`);
-      res.json({
-        success: true,
-        message: 'Verification code ready.',
-        testCode: demoOtp,
-        termiiNotice: data.message || 'Gateway route pending'
-      });
+    if (!response.ok || !data.pinId) {
+      return res.status(502).json({ success: false, error: 'Could not send SMS right now. Try again shortly.' });
     }
+    otpCache.set(phone, { pinId: data.pinId, expiresAt: Date.now() + 10 * 60 * 1000 });
+    return res.json({ success: true, message: 'OTP sent. Check your SMS.' });
   } catch (err) {
-    console.error('Termii processing error:', err.message);
-    const demoOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    await saveOtpRequest(normalizedPhone, 'DEV_TEST_PIN_' + demoOtp);
-    res.json({
-      success: true,
-      message: 'Verification code ready.',
-      testCode: demoOtp
-    });
+    console.error('OTP send error:', err.message);
+    return res.status(502).json({ success: false, error: 'SMS service is temporarily unavailable.' });
   }
 });
 
-// Verify OTP
 app.post('/auth/verify-otp', async (req, res) => {
-  const { phone, otp } = req.body;
-  if (!phone || !otp) return res.status(400).json({ error: 'Phone and OTP required' });
+  let phone;
+  try { phone = normalizeNigerianPhone(req.body?.phone); }
+  catch (_) { return res.status(400).json({ success: false, error: 'Invalid phone number.' }); }
+  const otp = String(req.body?.otp || '').trim();
+  if (!/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, error: 'Enter the 6-digit code.' });
+  if (!rateLimit(`otp-verify:${phone}`, 5, 10 * 60 * 1000)) {
+    return res.status(429).json({ success: false, error: 'Too many verification attempts.' });
+  }
 
-  const normalizedPhone = normalizeNigerianPhone(phone);
-
-  const otpData = await getOtpRequest(normalizedPhone);
-  if (!otpData) return res.status(404).json({ error: 'OTP request not found. Request a new code.' });
-
-  const { pinId } = otpData;
-
-  // Dev/test mode: pinId starts with DEV_TEST_PIN_<actual_code>
-  if (pinId && pinId.startsWith('DEV_TEST_PIN')) {
-    const expectedCode = pinId.replace('DEV_TEST_PIN_', '');
-    // Accept the embedded code OR legacy '123456'
-    if (otp === expectedCode || otp === '123456') {
-      try {
-        await db.collection('otp_requests').doc(normalizedPhone).set({ verified: true }, { merge: true });
-      } catch (_) {
-        memoryOtpStore.set(normalizedPhone, { ...otpData, verified: true });
-      }
-      let uid = 'user_' + Buffer.from(normalizedPhone).toString('hex').slice(0, 16);
-      let token = null;
-      try { token = await admin.auth().createCustomToken(uid); } catch (_) {}
-      console.log(`✅ Dev-mode OTP verified for ${normalizedPhone}`);
-      return res.json({ success: true, token, uid });
-    } else {
-      return res.status(400).json({ error: 'Incorrect code. Please try again.' });
-    }
+  const pending = otpCache.get(phone);
+  if (!pending || Date.now() > pending.expiresAt) {
+    otpCache.delete(phone);
+    return res.status(400).json({ success: false, error: 'Code expired. Request a new one.' });
   }
 
   try {
     const response = await fetch('https://api.ng.termii.com/api/sms/otp/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        api_key: process.env.TERMII_API_KEY,
-        pin_id: pinId,
-        pin: otp
-      })
+      body: { api_key: TERMII_API_KEY, pin_id: pending.pinId, pin: otp }
     });
-
     const data = await response.json();
-
-    if (data.verified === 'True' || data.verified === true) {
-      // Mark as verified in Firestore
-      await db.collection('otp_requests').doc(normalizedPhone).update({ verified: true });
-
-      // Create or sign in user with Firebase Custom Token
-      let userRecord;
-      try {
-        userRecord = await admin.auth().getUserByPhoneNumber(normalizedPhone);
-      } catch (_) {
-        // User doesn't exist yet — create them
-        userRecord = await admin.auth().createUser({ phoneNumber: normalizedPhone });
-        await db.collection('users').doc(userRecord.uid).set({
-          id: userRecord.uid,
-          phone: normalizedPhone,
-          isVip: false,
-          createdAt: admin.firestore.FieldValue.serverTimestamp()
-        });
-      }
-
-      let customToken = null;
-      try {
-        customToken = await admin.auth().createCustomToken(userRecord.uid);
-      } catch (_) {}
-      console.log(`✅ OTP verified for ${normalizedPhone}`);
-      res.json({ success: true, token: customToken, uid: userRecord?.uid });
-    } else {
-      res.status(400).json({ error: 'Incorrect OTP. Please try again.' });
+    if (!response.ok || !(data.verified === true || data.verified === 'True' || data.verified === 'true')) {
+      return res.status(400).json({ success: false, error: 'Incorrect verification code.' });
     }
+    otpCache.delete(phone);
+
+    let userRecord;
+    try {
+      userRecord = await admin.auth().getUserByPhoneNumber(phone);
+    } catch (err) {
+      if (err.code !== 'auth/user-not-found') throw err;
+      userRecord = await admin.auth().createUser({ phoneNumber: phone });
+      await db.collection('users').doc(userRecord.uid).set({
+        id: userRecord.uid,
+        phone,
+        isVip: false,
+        role: 'user',
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
+    const token = await admin.auth().createCustomToken(userRecord.uid);
+    return res.json({ success: true, token, uid: userRecord.uid });
   } catch (err) {
-    console.error('OTP verify error:', err);
-    res.status(500).json({ error: 'Verification failed. Try again.' });
+    console.error('OTP verify error:', err.message);
+    return res.status(502).json({ success: false, error: 'Verification service is temporarily unavailable.' });
   }
 });
 
-// Normalize Nigerian phone numbers to E.164 format (+234...)
-function normalizeNigerianPhone(phone) {
-  let p = phone.replace(/\s+/g, '').replace(/-/g, '');
-  if (p.startsWith('0')) p = '+234' + p.slice(1);
-  if (p.startsWith('234')) p = '+' + p;
-  if (!p.startsWith('+')) p = '+234' + p;
-  return p;
-}
-
-/* ==========================================================
-   FCM PUSH NOTIFICATIONS — Send push via Firebase Admin
-   ========================================================== */
-
-// Internal helper — send a push to a single user
+/* FCM: all public trigger endpoints require a Firebase ID token. */
 async function sendPushToUser(userId, { title, body, data = {} }) {
-  if (!userId) return;
-  try {
-    // Get all FCM tokens for this user
-    const tokensSnap = await db
-      .collection('fcm_tokens')
-      .doc(userId)
-      .collection('tokens')
-      .get();
-
-    if (tokensSnap.empty) return;
-
-    const tokens = tokensSnap.docs.map(d => d.data().token).filter(Boolean);
-    if (tokens.length === 0) return;
-
-    const message = {
-      notification: { title, body },
-      data: { ...data },
-      tokens,
-    };
-
-    const response = await admin.messaging().sendEachForMulticast(message);
-    console.log(`🔔 Push sent to ${userId}: ${response.successCount} success, ${response.failureCount} fail`);
-
-    // Clean up stale/invalid tokens
-    const staleTokens = [];
-    response.responses.forEach((resp, idx) => {
-      if (!resp.success && resp.error?.code === 'messaging/registration-token-not-registered') {
-        staleTokens.push(tokens[idx]);
-      }
-    });
-    for (const stale of staleTokens) {
-      const tokenDocs = await db
-        .collection('fcm_tokens')
-        .doc(userId)
-        .collection('tokens')
-        .where('token', '==', stale)
-        .get();
-      tokenDocs.docs.forEach(d => d.ref.delete());
+  const snap = await db.collection('fcm_tokens').doc(userId).collection('tokens').get();
+  const tokens = snap.docs.map(d => d.data().token).filter(Boolean);
+  if (!tokens.length) return;
+  const response = await admin.messaging().sendEachForMulticast({
+    notification: { title: String(title).slice(0, 120), body: String(body || '').slice(0, 500) },
+    data: Object.fromEntries(Object.entries(data || {}).map(([k, v]) => [String(k), String(v)])),
+    tokens
+  });
+  for (let i = 0; i < response.responses.length; i++) {
+    const err = response.responses[i].error;
+    if (err?.code === 'messaging/registration-token-not-registered' ||
+        err?.code === 'messaging/invalid-registration-token') {
+      await db.collection('fcm_tokens').doc(userId).collection('tokens').doc(tokens[i]).delete().catch(() => {});
     }
-  } catch (err) {
-    console.error('sendPushToUser error:', err);
   }
 }
 
-// Endpoint — send a push notification (called internally or from a Cloud Function trigger)
-// Body: { toUserId, title, body, data }
-app.post('/fcm/send', async (req, res) => {
-  const { toUserId, title, body, data } = req.body;
-  if (!toUserId || !title) {
-    return res.status(400).json({ error: 'toUserId and title are required.' });
-  }
-  await sendPushToUser(toUserId, { title, body: body || '', data: data || {} });
+app.post('/fcm/send', requireAuth, async (req, res) => {
+  if (!rateLimit(`fcm:${req.user.uid}`, 30, 60 * 1000)) return res.status(429).json({ error: 'Too many notification requests.' });
+  const { toUserId, title, body, data } = req.body || {};
+  if (!toUserId || !title) return res.status(400).json({ error: 'toUserId and title are required.' });
+  await sendPushToUser(String(toUserId), { title, body, data });
   res.json({ success: true });
 });
 
-// Trigger: new match — called from client after mutual like detected
-// Body: { userId, matchedUserId, matchedUserName }
-app.post('/fcm/new-match', async (req, res) => {
-  const { userId, matchedUserId, matchedUserName } = req.body;
-  if (!userId || !matchedUserId) {
-    return res.status(400).json({ error: 'userId and matchedUserId required.' });
-  }
-  // Notify BOTH users
+app.post('/fcm/new-match', requireAuth, async (req, res) => {
+  const { matchedUserId, matchedUserName } = req.body || {};
+  if (!matchedUserId) return res.status(400).json({ error: 'matchedUserId is required.' });
   await Promise.all([
-    sendPushToUser(userId, {
-      title: '💕 New Match!',
-      body: `You matched with ${matchedUserName || 'someone'}! Say hello.`,
-      data: { type: 'new_match', matchId: matchedUserId }
-    }),
-    sendPushToUser(matchedUserId, {
-      title: '💕 New Match!',
-      body: 'Someone liked you back! You have a new match.',
-      data: { type: 'new_match', matchId: userId }
-    })
+    sendPushToUser(req.user.uid, { title: '💕 New Match!', body: `You matched with ${String(matchedUserName || 'someone').slice(0, 80)}! Say hello.`, data: { type: 'new_match', matchId: String(matchedUserId) } }),
+    sendPushToUser(String(matchedUserId), { title: '💕 New Match!', body: 'Someone liked you back! You have a new match.', data: { type: 'new_match', matchId: req.user.uid } })
   ]);
   res.json({ success: true });
 });
 
-// Trigger: new chat message — call this from your realtime message listener
-// Body: { toUserId, fromUserName, messageText, matchId }
-app.post('/fcm/new-message', async (req, res) => {
-  const { toUserId, fromUserName, messageText, matchId } = req.body;
-  if (!toUserId) return res.status(400).json({ error: 'toUserId required.' });
-
-  const preview = messageText
-    ? messageText.substring(0, 60) + (messageText.length > 60 ? '…' : '')
-    : '📷 Photo';
-
-  await sendPushToUser(toUserId, {
-    title: `💬 ${fromUserName || 'Your match'}`,
+app.post('/fcm/new-message', requireAuth, async (req, res) => {
+  const { toUserId, fromUserName, messageText, matchId } = req.body || {};
+  if (!toUserId || !matchId) return res.status(400).json({ error: 'toUserId and matchId are required.' });
+  const partnerId = String(toUserId);
+  const matchDoc = await db.collection('matches').doc(String(matchId)).get();
+  if (!matchDoc.exists || !Array.isArray(matchDoc.data().users) || !matchDoc.data().users.includes(req.user.uid) || !matchDoc.data().users.includes(partnerId)) {
+    return res.status(403).json({ error: 'You are not a participant in this match.' });
+  }
+  const preview = req.body?.messageText ? String(messageText).slice(0, 60) : '📷 Photo';
+  await sendPushToUser(partnerId, {
+    title: `💬 ${String(fromUserName || 'Your match').slice(0, 80)}`,
     body: preview,
-    data: { type: 'new_message', matchId: matchId || '' }
+    data: { type: 'new_message', matchId: String(matchId) }
   });
   res.json({ success: true });
 });
 
-/* ==========================================================
-   STORIES CLEANUP — Delete expired stories (run via cron)
-   ========================================================== */
-
 app.post('/stories/cleanup', async (req, res) => {
-  // Simple auth guard — only accept calls with the server secret
-  const secret = req.headers['x-cleanup-secret'];
-  if (secret !== process.env.CLEANUP_SECRET && process.env.CLEANUP_SECRET) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
+  if (req.headers['x-cleanup-secret'] !== CLEANUP_SECRET) return res.status(401).json({ error: 'Unauthorized' });
   try {
     const now = admin.firestore.Timestamp.now();
-    const snap = await db
-      .collection('stories')
-      .where('expiresAt', '<', now)
-      .limit(100)
-      .get();
-
-    if (snap.empty) {
-      return res.json({ success: true, deleted: 0 });
-    }
-
+    const snap = await db.collection('stories').where('expiresAt', '<=', now).limit(100).get();
+    if (snap.empty) return res.json({ success: true, deleted: 0 });
     const batch = db.batch();
     snap.docs.forEach(doc => batch.delete(doc.ref));
     await batch.commit();
-
-    console.log(`🗑️  Cleaned up ${snap.size} expired stories`);
-    res.json({ success: true, deleted: snap.size });
+    return res.json({ success: true, deleted: snap.size });
   } catch (err) {
-    console.error('Story cleanup error:', err);
-    res.status(500).json({ error: 'Cleanup failed.' });
+    console.error('Story cleanup error:', err.message);
+    return res.status(500).json({ error: 'Cleanup failed.' });
   }
 });
 
-/* ==========================================================
-   TURN CREDENTIALS (WebRTC Calling Relay)
-   ========================================================== */
-app.get('/turn/credentials', async (req, res) => {
+app.get('/turn/credentials', requireAuth, async (_req, res) => {
+  if (!METERED_API_KEY) return res.status(503).json({ error: 'TURN service is not configured.' });
   try {
-    const apiKey = process.env.METERED_API_KEY || '06edf4b6db269eaf1cad2bf8ed0fd268ad9f';
-    const domain = process.env.METERED_DOMAIN || 'hookmebysam.metered.live';
-    const response = await fetch(`https://${domain}/api/v1/turn/credentials?apiKey=${apiKey}`);
-    if (!response.ok) {
-      throw new Error(`Metered API returned ${response.status}`);
-    }
-    const iceServers = await response.json();
-    res.json(iceServers);
+    const response = await fetch(`https://${METERED_DOMAIN}/api/v1/turn/credentials?apiKey=${encodeURIComponent(METERED_API_KEY)}`);
+    if (!response.ok) throw new Error(`Metered returned ${response.status}`);
+    res.json(await response.json());
   } catch (err) {
-    console.error('TURN credentials fetch error:', err.message);
-    res.status(500).json({ error: 'Failed to fetch TURN credentials' });
+    console.error('TURN credentials error:', err.message);
+    res.status(502).json({ error: 'Failed to obtain TURN credentials.' });
   }
 });
 
-/* ==========================================================
-   HEALTH CHECK
-   ========================================================== */
+app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/', (_req, res) => res.json({ service: 'hookmebysam backend', status: 'online' }));
 
-app.get('/', (req, res) => {
-  res.json({
-    service: 'hookmebysam Backend',
-    status: 'online',
-    endpoints: [
-      '/webhook/paystack',
-      '/paystack/verify',
-      '/auth/send-otp',
-      '/auth/verify-otp',
-      '/fcm/send',
-      '/fcm/new-match',
-      '/fcm/new-message',
-      '/stories/cleanup'
-    ]
-  });
-});
-
-
-/* ==========================================================
-   START SERVER
-   ========================================================== */
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`\n🚀 hookmebysam backend running on port ${PORT}`);
-  console.log(`📌 Paystack webhook:   POST http://localhost:${PORT}/webhook/paystack`);
-  console.log(`📌 Paystack verify:    POST http://localhost:${PORT}/paystack/verify`);
-  console.log(`📌 Send OTP:           POST http://localhost:${PORT}/auth/send-otp`);
-  console.log(`📌 Verify OTP:         POST http://localhost:${PORT}/auth/verify-otp`);
-  console.log(`📌 FCM send:           POST http://localhost:${PORT}/fcm/send`);
-  console.log(`📌 FCM new match:      POST http://localhost:${PORT}/fcm/new-match`);
-  console.log(`📌 FCM new message:    POST http://localhost:${PORT}/fcm/new-message`);
-  console.log(`📌 Stories cleanup:    POST http://localhost:${PORT}/stories/cleanup\n`);
-});
-
+app.listen(PORT, () => console.log(`hookmebysam backend listening on port ${PORT}`));
