@@ -4122,10 +4122,15 @@ label, .form-field label, .auth-form-group label {
 .call-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9000;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 99999;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   overflow: hidden;
+  background: #0A0710;
 }
 .call-overlay-bg {
   position: absolute;
@@ -4233,9 +4238,11 @@ label, .form-field label, .auth-form-group label {
   z-index: 30;
   display: flex;
   justify-content: center;
-  gap: 24px;
-  padding: 24px 20px calc(env(safe-area-inset-bottom, 24px) + 24px);
-  background: linear-gradient(to top, rgba(0,0,0,0.7), transparent);
+  align-items: center;
+  gap: 20px;
+  padding: 16px 16px max(env(safe-area-inset-bottom, 24px), 24px);
+  background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.4) 60%, transparent 100%);
+  flex-shrink: 0;
   pointer-events: auto;
 }
 .call-ctrl-item {
@@ -4251,7 +4258,7 @@ label, .form-field label, .auth-form-group label {
   letter-spacing: 0.2px;
 }
 .call-ctrl-btn {
-  width: 60px; height: 60px;
+  width: 58px; height: 58px;
   border-radius: 50%;
   border: none;
   background: rgba(255,255,255,0.15);
@@ -4306,12 +4313,13 @@ label, .form-field label, .auth-form-group label {
 }
 .video-pip {
   position: absolute;
-  bottom: 130px; right: 16px;
-  width: 105px; height: 145px;
+  bottom: calc(max(env(safe-area-inset-bottom, 24px), 24px) + 95px);
+  right: 16px;
+  width: 96px; height: 136px;
   border-radius: 14px;
   overflow: hidden;
   z-index: 25;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.7);
   border: 2px solid rgba(255,255,255,0.25);
   background: #111;
   pointer-events: auto;
@@ -4319,24 +4327,23 @@ label, .form-field label, .auth-form-group label {
 .pip-cam-off {
   position: absolute;
   inset: 0;
-  display: flex;
+  display: none; /* hidden by default, shown only when camera is disabled */
   align-items: center;
   justify-content: center;
   font-size: 2rem;
   background: #1a1a2e;
+  z-index: 5;
 }
 .video-call-name {
   position: relative;
   z-index: 15;
-  font-size: 1.4rem;
+  font-size: 1.25rem;
   font-weight: 800;
   color: #fff;
-  padding: 0 24px;
-  text-shadow: 0 2px 12px rgba(0,0,0,0.8);
-  flex: 1;
-  display: flex;
-  align-items: flex-end;
-  padding-bottom: 8px;
+  padding: 0 20px;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.85);
+  margin-top: auto;
+  margin-bottom: 8px;
 }
 
 /* Light mode call overlay adjustments */

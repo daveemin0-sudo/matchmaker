@@ -2619,11 +2619,18 @@ async function wireCallPeerConnection(type, pc, callRef) {
   activeMediaStream.getTracks().forEach(track => pc.addTrack(track, activeMediaStream));
 
   const localVideo = document.getElementById('myVideoStream');
+  const pipCamOff = document.getElementById('pipCamOff');
+  if (pipCamOff) pipCamOff.style.display = 'none';
+
   if (type === 'video' && localVideo) {
     localVideo.srcObject = activeMediaStream;
     localVideo.autoplay = true;
     localVideo.playsInline = true;
     localVideo.muted = true;
+    localVideo.setAttribute('playsinline', '');
+    localVideo.setAttribute('webkit-playsinline', '');
+    localVideo.setAttribute('muted', '');
+    localVideo.setAttribute('autoplay', '');
     localVideo.play?.().catch(() => {});
   }
 
