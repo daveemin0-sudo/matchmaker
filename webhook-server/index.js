@@ -11,12 +11,12 @@ const FRONTEND_URL = process.env.FRONTEND_URL || '';
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || FRONTEND_URL)
   .split(',').map(v => v.trim()).filter(Boolean);
 
-const TERMII_API_KEY = process.env.TERMII_API_KEY || 'tlv_ZfuIsmGag1PuYwPWWQ3h2HaV0jE3I_yPn-2JnIPjudU';
+const TERMII_API_KEY = process.env.TERMII_API_KEY || '';
 const TERMII_SENDER_ID = process.env.TERMII_SENDER_ID || 'N-Alert';
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
-const CLEANUP_SECRET = process.env.CLEANUP_SECRET || 'hmbs_cleanup_secret_2026';
-const METERED_API_KEY = process.env.METERED_API_KEY || '06edf4b6db269eaf1cad2bf8ed0fd268ad9f';
-const METERED_DOMAIN = process.env.METERED_DOMAIN || 'hookmebysam.metered.live';
+const CLEANUP_SECRET = process.env.CLEANUP_SECRET || '';
+const METERED_API_KEY = process.env.METERED_API_KEY || '';
+const METERED_DOMAIN = process.env.METERED_DOMAIN || '';
 const DAILY_FREE_SWIPES = Math.max(1, Number(process.env.DAILY_FREE_SWIPES || 100));
 
 function nigeriaDateKey(date = new Date()) {
@@ -32,7 +32,13 @@ if (!process.env.PAYSTACK_SECRET_KEY) {
   console.warn('⚠️  PAYSTACK_SECRET_KEY not set in environment. Webhook verification requires PAYSTACK_SECRET_KEY.');
 }
 if (!process.env.TERMII_API_KEY) {
-  console.info('ℹ️  Using default TERMII_API_KEY.');
+  console.warn('⚠️  TERMII_API_KEY is not configured. OTP endpoints will be unavailable until it is set.');
+}
+if (!process.env.CLEANUP_SECRET) {
+  console.warn('⚠️  CLEANUP_SECRET is not configured. Scheduled story cleanup will be unavailable until it is set.');
+}
+if (!process.env.METERED_API_KEY || !process.env.METERED_DOMAIN) {
+  console.warn('⚠️  Metered TURN credentials are not configured. Calls will need STUN only until configured.');
 }
 
 let serviceAccount = null;
@@ -86,7 +92,8 @@ app.set('trust proxy', 1);
 app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  if (origin && ALLOWED_ORIGINS.length && !ALLOWED_ORIGINS.includes(origin)) {
+  const originAllowed = !origin || !ALLOWED_ORIGINS.length || ALLOWED_ORIGINS.includes(origin);
+  if (origin && !originAllowed) {
     return res.status(403).json({ error: 'Origin not allowed.' });
   }
   if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
