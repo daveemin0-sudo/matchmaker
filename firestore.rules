@@ -125,12 +125,8 @@ service cloud.firestore {
     }
 
     match /reports/{reportId} {
-      allow create: if signedIn()
-        && request.resource.data.reportedBy == request.auth.uid
-        && request.resource.data.reportedUserId is string
-        && request.resource.data.reportedUserId != request.auth.uid
-        && request.resource.data.reason in ['inappropriate','spam','fake','harassment','other'];
-      allow read, update, delete: if false;
+      // Report writes go through the authenticated backend so abuse limits can be enforced.
+      allow read, write: if false;
     }
 
     match /blocks/{blockId} {
