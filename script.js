@@ -3607,13 +3607,9 @@ function simulatePurchase() {
       }
     });
   } else {
-    if (btn) { btn.disabled = true; }
-    if (label) { label.textContent = 'Processing...'; }
-    setTimeout(() => {
-      completeVipUpgrade();
-      if (btn) { btn.disabled = false; }
-      if (label) { label.textContent = 'Subscribe Now — Unlock VIP Gold'; }
-    }, 1200);
+    if (btn) { btn.disabled = false; }
+    if (label) { label.textContent = 'Subscribe Now — Unlock VIP Gold'; }
+    showToast('Payment service is unavailable. Please try again.', 'error');
   }
 }
 
@@ -3625,28 +3621,7 @@ function completeVipUpgrade() {
 
   showToast('👑 VIP GOLD ACTIVATED!', 'gold');
 
-  // Sync VIP status to Firestore for real registered accounts
-  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
-      isVip: true,
-      subscriptionStatus: 'active',
-      vipTier: appState.selectedPricingTier || 2,
-      vipSince: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true }).catch(err => console.warn('Could not sync VIP to Firestore:', err));
-  }
-
-  // Reveal premium matches (guest demo mode only)
-  if (!isRealUserLoggedIn()) {
-    PREMIUM_MATCHES.forEach(pm => {
-      if (!matchedUsers.find(u => u.id === pm.id)) {
-        matchedUsers.unshift(pm);
-        conversations[pm.id] = {
-          messages: [{ sender: 'them', text: 'You unlocked matching with me! Say hi 💛', read: false, timestamp: Date.now() }]
-        };
-      }
-    });
-  }
-
+  // Persistent VIP state is granted by the backend after Paystack verification.
   updateMatchesNotificationBadge();
   renderMatchesView();
   revealBlurredMatches();
