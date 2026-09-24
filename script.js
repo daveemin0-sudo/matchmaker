@@ -912,7 +912,7 @@ function initNavigationHistory() {
     // 3. Reached bottom of history stack
     if (appState.currentScreen === 'chat') {
       showScreen('chatsList', { fromHistory: true });
-    } else if (appState.currentScreen && appState.currentScreen !== 'discovery' && isRealUserLoggedIn()) {
+    } else if (appState.currentScreen && appState.currentScreen !== 'discovery' && (isRealUserLoggedIn() || appState.isLoggedIn)) {
       showScreen('discovery', { fromHistory: true });
     } else {
       handleAppExitAttempt();
@@ -922,7 +922,7 @@ function initNavigationHistory() {
   // Handle deep-link hash on page load if applicable
   try {
     const hash = window.location.hash.replace('#', '');
-    if (hash && isRealUserLoggedIn()) {
+    if (hash && (isRealUserLoggedIn() || appState.isLoggedIn)) {
       const parts = hash.split('/');
       const screen = parts[0];
       const param = parts[1];
