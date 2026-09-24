@@ -33,6 +33,16 @@
   <link rel="manifest" href="manifest.json">
   <link rel="stylesheet" href="style.css?v=9.2">
   <link rel="stylesheet" href="premium.css?v=9.2">
+  <script>
+    window.confirmAgeGate = function() {
+      try { localStorage.setItem('ageGateConfirmed', 'true'); } catch(e){}
+      var g = document.getElementById('ageGateOverlay');
+      if (g) { g.style.opacity = '0'; setTimeout(function(){ g.style.display = 'none'; }, 200); }
+    };
+    window.rejectAgeGate = function() {
+      window.location.href = 'https://www.google.com';
+    };
+  </script>
 </head>
 <body>
 

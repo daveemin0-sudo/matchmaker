@@ -22,7 +22,9 @@ const PAYSTACK_PUBLIC_KEY = "pk_live_REPLACE_WITH_YOUR_LIVE_PAYSTACK_PUBLIC_KEY"
 // 3. YOUR WEBHOOK SERVER URL (Auto-switches to local server when testing locally)
 const BACKEND_URL = (
   typeof window !== 'undefined' &&
-  new URLSearchParams(window.location.search).get('localBackend') === '1'
+  (window.location.hostname === 'localhost' ||
+   window.location.hostname === '127.0.0.1' ||
+   new URLSearchParams(window.location.search).get('localBackend') === '1')
 )
   ? 'http://127.0.0.1:3001'
   : 'https://matchmaker-viwb.onrender.com';
@@ -184,8 +186,15 @@ function listenToAuthChanges() {
       if (typeof saveToStorage === 'function') saveToStorage();
        await loadBlockedUsersFromFirestore();
        if (typeof appState !== 'undefined') appState.isLoggedIn = true;
-      if (window.appState) window.appState.isLoggedIn = true;
-      if (typeof showScreen === 'function') showScreen('discovery');
+      const currentHash = window.location.hash || '';
+      const isChatHash = currentHash.startsWith('#chat/');
+      const chatPartnerId = isChatHash ? currentHash.replace('#chat/', '').trim() : (window.appState?.currentChatId || null);
+
+      if (isChatHash && chatPartnerId && typeof openChat === 'function') {
+        openChat(chatPartnerId);
+      } else if (typeof showScreen === 'function' && window.appState?.currentScreen !== 'chat') {
+        showScreen(window.appState?.currentScreen || 'discovery');
+      }
       if (typeof initMainApp === 'function') initMainApp();
        if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
       
@@ -507,7 +516,9 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
 
     // Update parent match doc so partner gets instant real-time notification & re-ordering to top
     const previewText = text || (isVoice ? '🎤 Voice note' : (imageUrl ? '📷 Photo' : 'New message'));
+    const uids = matchId.split('_');
     await fbDb.collection('matches').doc(matchId).set({
+      users: uids,
       lastMessage: previewText,
       lastSender: currentUserId,
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()

@@ -2027,14 +2027,19 @@ function openChat(profileId, { fromHistory = false } = {}) {
     activeRealtimeListener = null;
   }
 
-  // Subscribe to real-time Firebase chat if logged in
-  if (typeof listenToRealtimeMessages === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    const matchId = [fbAuth.currentUser.uid, profileId].sort().join('_');
-    activeRealtimeListener = listenToRealtimeMessages(matchId, (msgs) => {
-      if (msgs && msgs.length > 0) {
+  // Subscribe to real-time Firebase chat if logged in (or as soon as auth restores)
+  const setupRealtimeChat = (uid) => {
+    if (!uid || appState.currentChatId !== profileId) return;
+    const matchId = [uid, profileId].sort().join('_');
+    if (typeof activeRealtimeListener === 'function') {
+      try { activeRealtimeListener(); } catch (_) {}
+      activeRealtimeListener = null;
+    }
+    if (typeof listenToRealtimeMessages === 'function') {
+      activeRealtimeListener = listenToRealtimeMessages(matchId, (msgs) => {
         conversations[profileId] = {
-          messages: msgs.map(m => {
-            const isMe = m.sender === fbAuth.currentUser.uid;
+          messages: (msgs || []).map(m => {
+            const isMe = m.sender === uid;
             return {
               sender: isMe ? 'me' : 'them',
               text: m.text || '',
@@ -2059,8 +2064,21 @@ function openChat(profileId, { fromHistory = false } = {}) {
         renderChatsInbox();
         updateMatchesNotificationBadge();
         saveToStorage();
-      }
-    });
+      });
+    }
+  };
+
+  if (typeof fbAuth !== 'undefined' && fbAuth) {
+    if (fbAuth.currentUser) {
+      setupRealtimeChat(fbAuth.currentUser.uid);
+    } else {
+      const unsub = fbAuth.onAuthStateChanged(user => {
+        unsub();
+        if (user && appState.currentChatId === profileId) {
+          setupRealtimeChat(user.uid);
+        }
+      });
+    }
   }
 }
 
