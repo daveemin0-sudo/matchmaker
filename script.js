@@ -2810,7 +2810,13 @@ async function listenForIncomingCalls() {
         if (!matchId || !callId || (window.__blockedUserIds || new Set()).has(data.callerId)) return;
         showIncomingCallPrompt(callId, { ...data, matchId });
       });
-    }, err => console.warn('Incoming call listener error:', err.message));
+    }, err => {
+      if (err?.message?.includes('COLLECTION_GROUP_ASC')) {
+        console.info('ℹ️ Incoming call index: Collection group index on "calls.calleeId" is building/pending in Firebase Console.');
+      } else {
+        console.warn('Incoming call listener:', err.message);
+      }
+    });
 }
 
 async function startVoiceCall() {
