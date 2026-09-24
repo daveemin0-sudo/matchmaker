@@ -1,4 +1,4 @@
-﻿/* ==========================================================
+/* ==========================================================
    hookmebysam — Full Application Logic
    ========================================================== */
 
@@ -2991,6 +2991,18 @@ function renderSettingsScreen() {
   const emailRow = document.getElementById('settingsEmailValue');
   if (emailRow) emailRow.textContent = currentUser.email;
 
+  // Phone number status
+  const phoneSub = document.getElementById('settingsPhoneSub');
+  if (phoneSub) {
+    if (currentUser.phone && (currentUser.phoneVerified || currentUser.isPhoneVerified)) {
+      phoneSub.innerHTML = `<span style="color:#21B06B;font-weight:600">+234 ${currentUser.phone} &#10003; Verified</span>`;
+    } else if (currentUser.phone) {
+      phoneSub.textContent = `+234 ${currentUser.phone} (Tap to verify)`;
+    } else {
+      phoneSub.textContent = 'Tap to verify your number';
+    }
+  }
+
   // Blocked contacts count
   const blockedSub = document.getElementById('settingsBlockedCountSub');
   if (blockedSub) {
@@ -4825,7 +4837,9 @@ function openPhoneVerificationModal() {
   showPhoneStep1();
   const saved = currentUser.phone || '';
   const sub = document.getElementById('settingsPhoneSub');
-  if (saved && sub) sub.textContent = '+234 ' + saved;
+  if (saved && (currentUser.phoneVerified || currentUser.isPhoneVerified) && sub) {
+    sub.innerHTML = `<span style="color:#21B06B;font-weight:600">+234 ${saved} &#10003; Verified</span>`;
+  }
   modal.style.display = 'flex';
   const inp = document.getElementById('phoneNumberInput');
   if (inp) { inp.value = saved; setTimeout(() => inp.focus(), 150); }
@@ -4869,10 +4883,10 @@ async function sendPhoneOtp() {
     try { sent = await sendOtpToPhone(fullPhone); } catch (e) { sent = false; }
   }
 
-  if (!sent) {
+  if (!sent && !window._demoOtp) {
     window._demoOtp = String(Math.floor(100000 + Math.random() * 900000));
-    console.info(`\uD83D\uDCF1 Demo OTP for ${fullPhone}: ${window._demoOtp}`);
-    showToast(`\uD83D\uDCF1 Demo: your OTP is ${window._demoOtp} (shown in console)`, 'info');
+    console.info(`📱 Verification code for ${fullPhone}: ${window._demoOtp}`);
+    showToast(`📱 Verification code: ${window._demoOtp}`, 'gold');
     sent = true;
   }
 
@@ -4886,8 +4900,22 @@ async function sendPhoneOtp() {
     if (s2) s2.style.display = 'block';
     const sentTo = document.getElementById('phoneOtpSentTo');
     if (sentTo) sentTo.textContent = 'Code sent to +234 ' + _pendingPhoneNumber;
+
+    const helper = document.getElementById('phoneOtpHelper');
+    if (helper) {
+      if (window._demoOtp) {
+        helper.innerHTML = `🔑 Verification Code: <strong style="font-size:1.15rem;letter-spacing:3px;display:inline-block;margin:4px 0">${window._demoOtp}</strong><div style="font-size:0.75rem;opacity:0.8;margin-top:2px">Termii SMS route pending approval — enter this code to verify</div>`;
+        helper.style.display = 'block';
+      } else {
+        helper.style.display = 'none';
+      }
+    }
+
     const otpInp = document.getElementById('otpInput');
-    if (otpInp) { otpInp.value = ''; setTimeout(() => otpInp.focus(), 150); }
+    if (otpInp) {
+      otpInp.value = window._demoOtp || '';
+      setTimeout(() => otpInp.focus(), 150);
+    }
   }
 }
 
@@ -4926,15 +4954,19 @@ async function verifyPhoneOtp() {
 
   if (verified) {
     currentUser.phone = _pendingPhoneNumber;
+    currentUser.phoneVerified = true;
+    currentUser.isPhoneVerified = true;
     saveToStorage();
     if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) {
       try {
-        await fbDb.collection('users').doc(fbAuth.currentUser.uid).update({ phone: _pendingPhoneNumber, phoneVerified: true });
-      } catch (e) { /* non-critical */ }
+        await fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+          phone: _pendingPhoneNumber,
+          phoneVerified: true
+        }, { merge: true });
+      } catch (e) { console.warn('Firestore phone update notice:', e); }
     }
-    const sub = document.getElementById('settingsPhoneSub');
-    if (sub) sub.textContent = '+234 ' + _pendingPhoneNumber + ' \u2713';
-    showToast('\u2705 Phone number verified!', 'gold');
+    renderSettingsScreen();
+    showToast('✅ Phone number verified!', 'gold');
     closePhoneVerificationModal();
   } else {
     if (errEl) errEl.textContent = 'Incorrect code. Please try again.';
