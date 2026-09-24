@@ -109,6 +109,34 @@ async function backendLogIn(email, password) {
   }
 }
 
+async function loadBlockedUsersFromFirestore() {
+  if (!fbDb || !fbAuth?.currentUser) return;
+  const uid = fbAuth.currentUser.uid;
+  try {
+    const snap = await fbDb.collection('blocks').where('blockedBy', '==', uid).get();
+    const existing = new Map(
+      (typeof blockedUsers !== 'undefined' && Array.isArray(blockedUsers) ? blockedUsers : [])
+        .map(item => [item.id, item])
+    );
+    const ids = [];
+    snap.forEach(doc => {
+      const data = doc.data() || {};
+      if (data.blockedUserId && data.blockedUserId !== uid) ids.push(data.blockedUserId);
+    });
+    window.__blockedUserIds = new Set(ids);
+    if (typeof blockedUsers !== 'undefined') {
+      blockedUsers = ids.map(id => existing.get(id) || {
+        id,
+        name: 'Blocked contact',
+        image: '',
+        blockedAt: Date.now()
+      });
+    }
+  } catch (err) {
+    console.warn('Could not load blocked contacts:', err.message);
+  }
+}
+
 function listenToAuthChanges() {
   if (!fbAuth) return;
   fbAuth.onAuthStateChanged(async (user) => {
@@ -145,8 +173,8 @@ function listenToAuthChanges() {
       }
       window.currentUser = targetUser;
       if (typeof saveToStorage === 'function') saveToStorage();
-      
-      if (typeof appState !== 'undefined') appState.isLoggedIn = true;
+       await loadBlockedUsersFromFirestore();
+       if (typeof appState !== 'undefined') appState.isLoggedIn = true;
       if (window.appState) window.appState.isLoggedIn = true;
       if (typeof showScreen === 'function') showScreen('discovery');
       if (typeof initMainApp === 'function') initMainApp();
@@ -207,7 +235,7 @@ async function fetchRealUsersFromFirestore() {
     const snapshot = await fbDb.collection('users').get();
     const users = [];
     snapshot.forEach(doc => {
-      if (doc.id !== currentUserId) {
+      if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
         const data = doc.data();
         const userPhoto = data.image || data.avatar || '';
         // Only show users who have uploaded their own real profile picture
@@ -245,7 +273,7 @@ async function searchUsersInFirestore(queryText) {
     const snapshot = await fbDb.collection('users').get();
     const results = [];
     snapshot.forEach(doc => {
-      if (doc.id !== currentUserId) {
+      if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
         const data = doc.data();
         const name = (data.displayName || data.name || '').toLowerCase();
         const email = (data.email || '').toLowerCase();
@@ -287,7 +315,7 @@ function listenToUserMatches(callback) {
         for (const doc of snapshot.docs) {
           const matchData = doc.data();
           const partnerId = matchData.users.find(id => id !== currentUserId);
-          if (partnerId) {
+          if (partnerId && !(window.__blockedUserIds || new Set()).has(partnerId)) {
             try {
               const userDoc = await fbDb.collection('users').doc(partnerId).get();
               if (userDoc.exists) {
@@ -677,7 +705,14 @@ async function initPushNotifications() {
     // Your VAPID key — Firebase Console → Project Settings → Cloud Messaging → Web configuration
     const VAPID_KEY = 'BLp3qjWUxvFZkjtXaP7Xs4o4Oidsgz2segUhkRBeJWCWnYS283ds9P0c2Ao86eqxSjSZvGphASeN5Y6Ty7bC3h8';
 
-    const token = await _fcmMessaging.getToken({ vapidKey: VAPID_KEY });
+    let serviceWorkerRegistration;
+    if ('serviceWorker' in navigator) {
+      serviceWorkerRegistration = await navigator.serviceWorker.ready;
+    }
+    const token = await _fcmMessaging.getToken({
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration
+    });
     if (!token) return;
 
     console.log('📱 FCM token registered:', token.substring(0, 20) + '...');
@@ -705,6 +740,12 @@ async function initPushNotifications() {
   }
 }
 
+async function sha256Hex(value) {
+  const bytes = new TextEncoder().encode(String(value));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 async function saveFcmToken(token) {
   if (!fbAuth?.currentUser || !fbDb) return;
   const uid = fbAuth.currentUser.uid;
@@ -713,7 +754,7 @@ async function saveFcmToken(token) {
       .collection('fcm_tokens')
       .doc(uid)
       .collection('tokens')
-      .doc(token.substring(0, 20)) // use prefix as doc ID (stable per device)
+      .doc(await sha256Hex(token))
       .set({
         token,
         platform: 'web',
