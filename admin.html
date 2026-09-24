@@ -128,10 +128,10 @@ async function loadReports() {
         '<td><span class="pill">' + escapeHtml(status) + '</span></td>' +
         '<td>' + escapeHtml(created) + '</td>' +
         '<td><div class="actions">' +
-          '<button class="secondary" onclick="updateReport(\\'' + r.id + '\\',\\'reviewing\\')">Review</button>' +
-          '<button class="gold" onclick="updateReport(\\'' + r.id + '\\',\\'resolved\\')">Resolve</button>' +
-          '<button class="secondary" onclick="updateReport(\\'' + r.id + '\\',\\'dismissed\\')">Dismiss</button>' +
-          '<button class="danger" onclick="suspendUser(\\'' + r.reportedUserId + '\\')">Suspend</button>' +
+          '<button class="secondary" data-action="reviewing" data-report-id="' + escapeHtml(r.id) + '">Review</button>' +
+          '<button class="gold" data-action="resolved" data-report-id="' + escapeHtml(r.id) + '">Resolve</button>' +
+          '<button class="secondary" data-action="dismissed" data-report-id="' + escapeHtml(r.id) + '">Dismiss</button>' +
+          '<button class="danger" data-action="suspend" data-report-id="' + escapeHtml(r.id) + '" data-user-id="' + escapeHtml(r.reportedUserId) + '">Suspend</button>' +
         '</div></td>' +
       '</tr>';
     }).join("");
@@ -141,8 +141,8 @@ async function loadReports() {
   }
 }
 
-async function updateReport(reportId, status) {
-  const note = window.prompt("Optional moderation note:", "") ?? "";
+async function updateReport(reportId, status, noteOverride) {
+  const note = noteOverride !== undefined ? noteOverride : (window.prompt("Optional moderation note:", "") ?? "");
   try {
     await api("/admin/reports/update", {
       method: "POST",
@@ -154,7 +154,7 @@ async function updateReport(reportId, status) {
   }
 }
 
-async function suspendUser(userId) {
+async function suspendUser(userId, reportId) {
   const reason = window.prompt("Suspension reason:", "Policy violation");
   if (reason === null) return;
   try {
@@ -162,16 +162,10 @@ async function suspendUser(userId) {
       method: "POST",
       body: JSON.stringify({ userId, reason })
     });
-    await updateReportFromCurrent("resolved", "User suspended");
+    await updateReport(reportId, "resolved", "User suspended: " + reason);
   } catch (err) {
     window.alert(err.message);
   }
-}
-
-async function updateReportFromCurrent(status, note) {
-  const openRows = Array.from(reportsBody.querySelectorAll("tr"));
-  if (!openRows.length) return loadReports();
-  return loadReports();
 }
 
 function escapeHtml(value) {
@@ -189,6 +183,18 @@ document.getElementById("loginBtn").addEventListener("click", async () => {
     );
   } catch (err) {
     loginStatus.textContent = err.message;
+  }
+});
+
+reportsBody.addEventListener("click", event => {
+  const button = event.target.closest("button[data-action]");
+  if (!button) return;
+  const action = button.dataset.action;
+  const reportId = button.dataset.reportId;
+  if (action === "suspend") {
+    suspendUser(button.dataset.userId, reportId);
+  } else {
+    updateReport(reportId, action);
   }
 });
 
