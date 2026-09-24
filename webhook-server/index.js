@@ -612,11 +612,55 @@ async function sendPushToUser(userId, { title, body, data = {} }) {
     .filter(item => item.token);
   if (!tokenEntries.length) return;
 
-  const response = await admin.messaging().sendEachForMulticast({
-    notification: { title: String(title).slice(0, 120), body: String(body || '').slice(0, 500) },
+  const isIncomingCall = data?.type === 'incoming_call';
+  const isCallEnded = data?.type === 'call_ended';
+
+  const payload = {
+    tokens: tokenEntries.map(item => item.token),
     data: Object.fromEntries(Object.entries(data || {}).map(([k, v]) => [String(k), String(v)])),
-    tokens: tokenEntries.map(item => item.token)
-  });
+    webpush: {
+      headers: {
+        Urgency: isIncomingCall ? 'high' : 'normal'
+      },
+      notification: isCallEnded ? undefined : {
+        title: String(title).slice(0, 120),
+        body: String(body || '').slice(0, 500),
+        icon: '/icons/icon-192.png',
+        badge: '/icons/icon-72.png',
+        tag: isIncomingCall ? `call_${data.callId}` : (data?.matchId || 'hmbs-notif'),
+        renotify: true,
+        requireInteraction: isIncomingCall,
+        vibrate: isIncomingCall ? [600, 300, 600, 300, 600, 300, 600] : [200, 100, 200],
+        actions: isIncomingCall ? [
+          { action: 'answer', title: 'Answer 📞' },
+          { action: 'decline', title: 'Decline ✕' }
+        ] : [
+          { action: 'open', title: 'Open 💬' }
+        ]
+      },
+      fcmOptions: {
+        link: isIncomingCall ? `/#chat/${data.callerId || data.matchId}` : (data?.matchId ? `/#chat/${data.matchId}` : '/')
+      }
+    },
+    android: {
+      priority: isIncomingCall ? 'high' : 'normal',
+      notification: isCallEnded ? undefined : {
+        channelId: isIncomingCall ? 'calls' : 'messages',
+        priority: isIncomingCall ? 'max' : 'default',
+        defaultVibrateTimings: !isIncomingCall,
+        vibrateTimingsMillis: isIncomingCall ? [0, 600, 300, 600, 300, 600] : undefined
+      }
+    }
+  };
+
+  if (!isCallEnded && title) {
+    payload.notification = {
+      title: String(title).slice(0, 120),
+      body: String(body || '').slice(0, 500)
+    };
+  }
+
+  const response = await admin.messaging().sendEachForMulticast(payload);
 
   for (let i = 0; i < response.responses.length; i++) {
     const err = response.responses[i].error;
@@ -691,6 +735,55 @@ app.post('/fcm/new-message', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('Message push error:', err.message);
     return res.status(500).json({ error: 'Could not send message notification.' });
+  }
+});
+
+app.post('/fcm/incoming-call', requireAuth, async (req, res) => {
+  const { toUserId, callType, callId, matchId } = req.body || {};
+  if (!toUserId || !matchId) return res.status(400).json({ error: 'toUserId and matchId are required.' });
+  try {
+    const partnerId = String(toUserId);
+    const callerDoc = await db.collection('users').doc(req.user.uid).get();
+    const callerName = callerDoc.data()?.displayName || callerDoc.data()?.name || 'Your match';
+    const isVideo = callType === 'video';
+    const title = `${isVideo ? '📹 Incoming Video Call' : '📞 Incoming Voice Call'}`;
+    const body = `${callerName} is calling you... Tap to answer!`;
+
+    await sendPushToUser(partnerId, {
+      title,
+      body,
+      data: {
+        type: 'incoming_call',
+        callType: String(callType || 'audio'),
+        callId: String(callId || ''),
+        matchId: String(matchId),
+        callerId: req.user.uid,
+        callerName: String(callerName)
+      }
+    });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Call push error:', err.message);
+    return res.status(500).json({ error: 'Could not send call notification.' });
+  }
+});
+
+app.post('/fcm/call-ended', requireAuth, async (req, res) => {
+  const { toUserId, callId } = req.body || {};
+  if (!toUserId) return res.status(400).json({ error: 'toUserId is required.' });
+  try {
+    const partnerId = String(toUserId);
+    await sendPushToUser(partnerId, {
+      title: 'Call Ended',
+      body: 'The call was ended or missed.',
+      data: {
+        type: 'call_ended',
+        callId: String(callId || '')
+      }
+    });
+    return res.json({ success: true });
+  } catch (err) {
+    return res.json({ success: false });
   }
 });
 

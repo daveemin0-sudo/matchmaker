@@ -8,7 +8,7 @@
    - Static assets (images/fonts/icons): CACHE-FIRST. These are rarely
      edited, so serving from cache first saves bandwidth and is safe.
    ------------------------------------------------------------------ */
-const SW_VERSION = "v8";
+const SW_VERSION = "v9";
 const CACHE_NAME = `hmbs-${SW_VERSION}`;
 
 const APP_SHELL = [
@@ -85,16 +85,34 @@ self.addEventListener("push", (event) => {
     }
   }
 
-  const title = data.title || data.notification?.title || "hookmebysam 💕";
+  const payloadData = data.data || data;
+  const isIncomingCall = payloadData.type === 'incoming_call';
+  const isCallEnded = payloadData.type === 'call_ended';
+
+  // If caller hung up, dismiss the ringing call notification immediately
+  if (isCallEnded && payloadData.callId) {
+    event.waitUntil(
+      self.registration.getNotifications({ tag: `call_${payloadData.callId}` }).then(notifications => {
+        notifications.forEach(n => n.close());
+      })
+    );
+    return;
+  }
+
+  const title = data.title || data.notification?.title || (isIncomingCall ? "📞 Incoming Call" : "hookmebysam 💕");
   const options = {
-    body: data.body || data.notification?.body || "You have a new message or match!",
+    body: data.body || data.notification?.body || (isIncomingCall ? "Someone is calling you... Tap to answer!" : "You have a new message or match!"),
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-72.png",
-    vibrate: [200, 100, 200],
-    tag: data.tag || data.data?.matchId || "hmbs-notif",
+    vibrate: isIncomingCall ? [600, 300, 600, 300, 600, 300, 600, 300, 600] : [200, 100, 200],
+    tag: isIncomingCall ? `call_${payloadData.callId || Date.now()}` : (data.tag || payloadData.matchId || "hmbs-notif"),
     renotify: true,
-    data: data.data || {},
-    actions: [
+    requireInteraction: isIncomingCall, // Stays persistent on lock screen until answered
+    data: payloadData,
+    actions: isIncomingCall ? [
+      { action: "answer", title: "Answer 📞" },
+      { action: "decline", title: "Decline ✕" }
+    ] : [
       { action: "open", title: "Open 💬" },
       { action: "dismiss", title: "Dismiss" }
     ]
@@ -105,21 +123,32 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  if (event.action === "dismiss") return;
+  if (event.action === "decline" || event.action === "dismiss") return;
 
-  const matchId = event.notification.data?.matchId;
-  const targetUrl = matchId ? `${self.location.origin}/#chat/${matchId}` : self.location.origin;
+  const notifData = event.notification.data || {};
+  const partnerId = notifData.callerId || notifData.matchId;
+  const isAnswer = event.action === "answer";
+  const queryParams = isAnswer
+    ? `?autoAnswer=1&callId=${encodeURIComponent(notifData.callId || '')}&callType=${encodeURIComponent(notifData.callType || 'audio')}`
+    : '';
+  const targetUrl = partnerId ? `${self.location.origin}/#chat/${partnerId}${queryParams}` : self.location.origin;
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
-      // If the app is already open in a tab or PWA window, focus it and switch to the chat
       for (const client of windowClients) {
         if (client.url.startsWith(self.location.origin) && "focus" in client) {
-          if (matchId) client.postMessage({ type: "PUSH_NOTIFICATION_CLICK", matchId });
+          if (partnerId) {
+            client.postMessage({
+              type: notifData.type === 'incoming_call' ? "INCOMING_CALL_CLICK" : "PUSH_NOTIFICATION_CLICK",
+              matchId: partnerId,
+              callId: notifData.callId,
+              callType: notifData.callType,
+              autoAnswer: isAnswer
+            });
+          }
           return client.focus();
         }
       }
-      // If closed, launch a new window
       if (clients.openWindow) {
         return clients.openWindow(targetUrl);
       }

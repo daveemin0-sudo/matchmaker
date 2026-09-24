@@ -225,9 +225,8 @@ function initMainApp() {
     setTimeout(() => initPushNotifications(), 4000);
   }
 
-  // Register service worker for PWA
-  const isLocalDev = ['localhost', '127.0.0.1', '', '::1'].includes(location.hostname);
-  if ('serviceWorker' in navigator && !isLocalDev) {
+  // Register service worker for PWA & Push
+  if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
       // Periodically check for SW updates
       setInterval(() => { reg.update().catch(() => {}); }, 10 * 60 * 1000);
@@ -2486,6 +2485,61 @@ let isVideoMuted = false;
 let currentFacingMode = 'user';
 let isSpeakerOn = false;
 let pendingRemoteCandidates = [];
+let activeCallPartnerId = null;
+let activeCallId = null;
+let activeCallMatchId = null;
+let activeCallIsRinging = false;
+let isFlippingCamera = false;
+let currentCameraDeviceId = null;
+let callRingtoneInterval = null;
+let ringtoneAudioContext = null;
+
+function playRingtone() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!ringtoneAudioContext) ringtoneAudioContext = new AudioCtx();
+    if (ringtoneAudioContext.state === 'suspended') ringtoneAudioContext.resume().catch(() => {});
+
+    function playChime() {
+      if (!pendingIncomingCall || !ringtoneAudioContext) return;
+      try {
+        const osc1 = ringtoneAudioContext.createOscillator();
+        const osc2 = ringtoneAudioContext.createOscillator();
+        const gain = ringtoneAudioContext.createGain();
+        osc1.type = 'sine';
+        osc2.type = 'sine';
+        osc1.frequency.value = 440;
+        osc2.frequency.value = 480;
+        const now = ringtoneAudioContext.currentTime;
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 1.6);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ringtoneAudioContext.destination);
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 1.6);
+        osc2.stop(now + 1.6);
+      } catch (_) {}
+    }
+
+    playChime();
+    clearInterval(callRingtoneInterval);
+    callRingtoneInterval = setInterval(playChime, 2500);
+    if ('vibrate' in navigator) {
+      try { navigator.vibrate([600, 300, 600, 300, 600]); } catch (_) {}
+    }
+  } catch (_) {}
+}
+
+function stopRingtone() {
+  clearInterval(callRingtoneInterval);
+  callRingtoneInterval = null;
+  if ('vibrate' in navigator) {
+    try { navigator.vibrate(0); } catch (_) {}
+  }
+}
 
 async function refreshTurnCredentials() {
   if (!fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') return;
@@ -2627,6 +2681,7 @@ async function wireCallPeerConnection(type, pc, callRef) {
     localVideo.autoplay = true;
     localVideo.playsInline = true;
     localVideo.muted = true;
+    localVideo.style.transform = currentFacingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
     localVideo.setAttribute('playsinline', '');
     localVideo.setAttribute('webkit-playsinline', '');
     localVideo.setAttribute('muted', '');
@@ -2703,6 +2758,10 @@ async function startPeerCall(type) {
     const pc = new RTCPeerConnection(peerConnectionConfig);
     activePeerConnection = pc;
     activeCallDocRef = callRef;
+    activeCallPartnerId = partner.id;
+    activeCallId = callRef.id;
+    activeCallMatchId = matchId;
+    activeCallIsRinging = true;
     pendingRemoteCandidates = [];
 
     const overlay = document.getElementById(type === 'video' ? 'videoCallOverlay' : 'voiceCallOverlay');
@@ -2725,10 +2784,28 @@ async function startPeerCall(type) {
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
 
+    // Dispatch high-urgency FCM push notification to callee's device
+    fbAuth.currentUser.getIdToken().then(token => {
+      fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : ''}/fcm/incoming-call`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          toUserId: partner.id,
+          callType: type,
+          callId: callRef.id,
+          matchId: matchId
+        })
+      }).catch(e => console.warn('Incoming call push notification failed:', e.message));
+    }).catch(() => {});
+
     activeCallListener = callRef.onSnapshot(async snap => {
       if (!snap.exists || !activePeerConnection) return;
       const data = snap.data() || {};
       if (data.answer && !pc.currentRemoteDescription) {
+        activeCallIsRinging = false;
         try {
           await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
           await flushPendingRemoteCandidates(pc);
@@ -2753,6 +2830,7 @@ async function startPeerCall(type) {
 function showIncomingCallPrompt(callId, data) {
   if (pendingIncomingCall || activePeerConnection) return;
   pendingIncomingCall = { callId, ...data };
+  playRingtone();
   const partner = matchedUsers.find(u => u.id === data.callerId) || PROFILES_DATA.find(u => u.id === data.callerId);
   const name = partner?.name || 'Someone';
   const overlay = document.createElement('div');
@@ -2772,8 +2850,9 @@ function showIncomingCallPrompt(callId, data) {
   document.body.appendChild(overlay);
 }
 
-async function acceptIncomingCall() {
-  const incoming = pendingIncomingCall;
+async function acceptIncomingCall(incomingOverride) {
+  const incoming = incomingOverride || pendingIncomingCall;
+  stopRingtone();
   if (!incoming || !fbAuth?.currentUser || !fbDb) return;
   document.getElementById('incomingCallPrompt')?.remove();
   pendingIncomingCall = null;
@@ -2789,6 +2868,10 @@ async function acceptIncomingCall() {
     const pc = new RTCPeerConnection(peerConnectionConfig);
     activePeerConnection = pc;
     activeCallDocRef = callRef;
+    activeCallPartnerId = incoming.callerId;
+    activeCallId = incoming.callId;
+    activeCallMatchId = incoming.matchId;
+    activeCallIsRinging = false;
     pendingRemoteCandidates = [];
 
     const overlay = document.getElementById(type === 'video' ? 'videoCallOverlay' : 'voiceCallOverlay');
@@ -2823,6 +2906,7 @@ async function acceptIncomingCall() {
 
 async function declineIncomingCall(incomingOverride) {
   const incoming = incomingOverride || pendingIncomingCall;
+  stopRingtone();
   document.getElementById('incomingCallPrompt')?.remove();
   pendingIncomingCall = null;
   if (!incoming || !fbDb) return;
@@ -2875,6 +2959,7 @@ async function startVideoCall() {
 }
 
 function endCall(showToastMessage = true) {
+  stopRingtone();
   const seconds = activeCallSeconds;
   if (activeCallDocRef && fbAuth?.currentUser) {
     activeCallDocRef.update({
@@ -2882,6 +2967,25 @@ function endCall(showToastMessage = true) {
       endedAt: firebase.firestore.FieldValue.serverTimestamp()
     }).catch(() => {});
   }
+  // If call is ended while still ringing, notify callee device to dismiss ringing push notification
+  if (activeCallPartnerId && activeCallIsRinging && fbAuth?.currentUser) {
+    const partnerId = activeCallPartnerId;
+    const callId = activeCallId;
+    fbAuth.currentUser.getIdToken().then(token => {
+      fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : ''}/fcm/call-ended`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token
+        },
+        body: JSON.stringify({ toUserId: partnerId, callId })
+      }).catch(() => {});
+    }).catch(() => {});
+  }
+  activeCallIsRinging = false;
+  activeCallPartnerId = null;
+  activeCallId = null;
+  activeCallMatchId = null;
   closeCallListeners();
   if (activePeerConnection) {
     try { activePeerConnection.close(); } catch (_) {}
@@ -3034,32 +3138,115 @@ function toggleCamera() {
 }
 
 async function flipCamera() {
+  if (isFlippingCamera) return;
   if (!activeMediaStream || !activePeerConnection) return;
   const currentTrack = activeMediaStream.getVideoTracks()[0];
   if (!currentTrack) return;
 
-  currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+  isFlippingCamera = true;
+  const flipBtn = document.getElementById('videoFlipBtn');
+  if (flipBtn) {
+    flipBtn.style.pointerEvents = 'none';
+    flipBtn.style.opacity = '0.5';
+  }
+
+  const targetMode = currentFacingMode === 'user' ? 'environment' : 'user';
+
   try {
-    const newStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: currentFacingMode },
-      audio: false
-    });
+    // 1. Enumerate video devices to see all available cameras on device
+    let videoDevices = [];
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      videoDevices = devices.filter(d => d.kind === 'videoinput');
+    } catch (_) {}
+
+    // Find next deviceId if multiple cameras exist
+    let targetDeviceId = null;
+    if (videoDevices.length > 1) {
+      if (currentCameraDeviceId) {
+        const currIdx = videoDevices.findIndex(d => d.deviceId === currentCameraDeviceId);
+        const nextIdx = (currIdx + 1) % videoDevices.length;
+        targetDeviceId = videoDevices[nextIdx].deviceId;
+      } else {
+        const backCam = videoDevices.find(d => /back|rear|environment/i.test(d.label));
+        const frontCam = videoDevices.find(d => /front|user|selfie/i.test(d.label));
+        if (targetMode === 'environment' && backCam) targetDeviceId = backCam.deviceId;
+        else if (targetMode === 'user' && frontCam) targetDeviceId = frontCam.deviceId;
+        else if (videoDevices[1]) targetDeviceId = videoDevices[1].deviceId;
+      }
+    }
+
+    // 2. Stop and release current track FIRST so mobile hardware releases camera lock
+    activeMediaStream.removeTrack(currentTrack);
+    try { currentTrack.stop(); } catch (_) {}
+
+    // 3. Try to acquire new video track using exact deviceId or ideal facingMode
+    const candidateConstraints = [];
+    if (targetDeviceId) {
+      candidateConstraints.push({ video: { deviceId: { exact: targetDeviceId } }, audio: false });
+    }
+    candidateConstraints.push({ video: { facingMode: { exact: targetMode } }, audio: false });
+    candidateConstraints.push({ video: { facingMode: { ideal: targetMode } }, audio: false });
+    candidateConstraints.push({ video: true, audio: false });
+
+    let newStream = null;
+    for (const constraints of candidateConstraints) {
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (newStream && newStream.getVideoTracks().length > 0) break;
+      } catch (_) {}
+    }
+
+    // 4. Fallback recovery if switching failed: re-acquire front camera so user isn't stuck
+    if (!newStream || !newStream.getVideoTracks().length) {
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user' },
+          audio: false
+        });
+      } catch (err) {
+        console.error('Camera recovery failed:', err);
+        showToast('Could not access camera', 'error');
+        return;
+      }
+    } else {
+      currentFacingMode = targetMode;
+    }
+
     const newTrack = newStream.getVideoTracks()[0];
     if (newTrack) {
+      const settings = newTrack.getSettings ? newTrack.getSettings() : null;
+      if (settings?.deviceId) currentCameraDeviceId = settings.deviceId;
+
+      activeMediaStream.addTrack(newTrack);
+
       const sender = activePeerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
       if (sender) {
-        await sender.replaceTrack(newTrack);
+        try {
+          await sender.replaceTrack(newTrack);
+        } catch (err) {
+          console.warn('Sender replaceTrack error:', err.message);
+        }
       }
-      activeMediaStream.removeTrack(currentTrack);
-      try { currentTrack.stop(); } catch (_) {}
-      activeMediaStream.addTrack(newTrack);
+
       const localVideo = document.getElementById('myVideoStream');
-      if (localVideo) localVideo.srcObject = activeMediaStream;
+      if (localVideo) {
+        localVideo.srcObject = activeMediaStream;
+        localVideo.style.transform = currentFacingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
+        localVideo.play?.().catch(() => {});
+      }
+
       showToast(currentFacingMode === 'user' ? 'Front camera 🤳' : 'Back camera 📸', 'info');
     }
   } catch (err) {
-    console.warn('Flip camera failed:', err.message);
+    console.warn('Flip camera error:', err);
     showToast('Could not flip camera', 'warning');
+  } finally {
+    isFlippingCamera = false;
+    if (flipBtn) {
+      flipBtn.style.pointerEvents = '';
+      flipBtn.style.opacity = '1';
+    }
   }
 }
 
@@ -5164,10 +5351,31 @@ function triggerSystemNotification(title, options = {}) {
 
 // Handle notification tap messages sent from Service Worker
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('message', (event) => {
+  navigator.serviceWorker.addEventListener('message', async (event) => {
     if (event.data?.type === 'PUSH_NOTIFICATION_CLICK' && event.data.matchId) {
       if (typeof openChat === 'function') {
         openChat(event.data.matchId);
+      }
+    } else if (event.data?.type === 'INCOMING_CALL_CLICK' && event.data.matchId) {
+      const { matchId, callId, autoAnswer } = event.data;
+      if (typeof openChat === 'function') {
+        openChat(matchId);
+      }
+      if (callId && fbDb && fbAuth?.currentUser) {
+        try {
+          const cDoc = await fbDb.collection('matches').doc(matchId).collection('calls').doc(callId).get();
+          if (cDoc.exists && cDoc.data()?.status === 'ringing') {
+            const callData = { ...cDoc.data(), matchId };
+            if (autoAnswer && typeof acceptIncomingCall === 'function') {
+              pendingIncomingCall = { callId, ...callData };
+              acceptIncomingCall();
+            } else if (typeof showIncomingCallPrompt === 'function') {
+              showIncomingCallPrompt(callId, callData);
+            }
+          }
+        } catch (err) {
+          console.warn('Handle incoming call SW message error:', err);
+        }
       }
     }
   });

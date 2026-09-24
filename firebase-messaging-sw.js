@@ -18,49 +18,91 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Handle background messages — show OS-level notification
-messaging.onBackgroundMessage((payload) => {
-  console.log('[SW] Background push received:', payload);
+function handleCallOrPush(payloadData, notif) {
+  const isIncomingCall = payloadData?.type === 'incoming_call';
+  const isCallEnded = payloadData?.type === 'call_ended';
 
-  const { title, body, icon, data } = payload.notification || {};
-  const notifTitle = title || 'hookmebysam 💕';
-  const notifOptions = {
-    body: body || 'You have a new notification',
-    icon: icon || '/icons/icon-192.png',
-    badge: '/icons/icon-72.png',
-    tag: data?.matchId || 'hmbs-notif',   // Collapses duplicate notifs for same chat
-    data: data || {},
-    vibrate: [200, 100, 200],
-    actions: [
-      { action: 'open', title: 'Open App 💬' },
-      { action: 'dismiss', title: 'Dismiss' }
+  if (isCallEnded && payloadData?.callId) {
+    return self.registration.getNotifications({ tag: `call_${payloadData.callId}` }).then(notifications => {
+      notifications.forEach(n => n.close());
+    });
+  }
+
+  const title = notif?.title || (isIncomingCall ? "📞 Incoming Call" : "hookmebysam 💕");
+  const options = {
+    body: notif?.body || (isIncomingCall ? `${payloadData?.callerName || 'Someone'} is calling you... Tap to answer!` : "You have a new message!"),
+    icon: notif?.icon || "/icons/icon-192.png",
+    badge: "/icons/icon-72.png",
+    vibrate: isIncomingCall ? [600, 300, 600, 300, 600, 300, 600] : [200, 100, 200],
+    tag: isIncomingCall ? `call_${payloadData?.callId || Date.now()}` : (payloadData?.matchId || "hmbs-notif"),
+    renotify: true,
+    requireInteraction: isIncomingCall,
+    data: payloadData || {},
+    actions: isIncomingCall ? [
+      { action: "answer", title: "Answer 📞" },
+      { action: "decline", title: "Decline ✕" }
+    ] : [
+      { action: "open", title: "Open App 💬" },
+      { action: "dismiss", title: "Dismiss" }
     ]
   };
 
-  self.registration.showNotification(notifTitle, notifOptions);
+  return self.registration.showNotification(title, options);
+}
+
+// Handle background messages — show OS-level notification
+messaging.onBackgroundMessage((payload) => {
+  console.log('[SW] Background push received:', payload);
+  const data = payload.data || {};
+  const notif = payload.notification || {};
+  return handleCallOrPush(data, notif);
+});
+
+// Native push fallback
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+  try {
+    const raw = event.data.json();
+    const data = raw.data || raw;
+    const notif = raw.notification || {};
+    event.waitUntil(handleCallOrPush(data, notif));
+  } catch (_) {
+    // If not json, let FCM SDK handle it
+  }
 });
 
 // Handle notification click — focus app or open it
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  if (event.action === 'dismiss') return;
+  if (event.action === 'dismiss' || event.action === 'decline') return;
 
-  const matchId = event.notification.data?.matchId;
-  const urlToOpen = matchId
-    ? `${self.location.origin}/?openChat=${matchId}`
-    : self.location.origin;
+  const notifData = event.notification.data || {};
+  const partnerId = notifData.callerId || notifData.matchId;
+  const isAnswer = event.action === 'answer';
+  const queryParams = isAnswer
+    ? `?autoAnswer=1&callId=${encodeURIComponent(notifData.callId || '')}&callType=${encodeURIComponent(notifData.callType || 'audio')}`
+    : '';
+  const urlToOpen = partnerId
+    ? `${self.location.origin}/#chat/${partnerId}${queryParams}`
+    : `${self.location.origin}/`;
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // If app is already open, focus it
       for (const client of windowClients) {
         if (client.url.startsWith(self.location.origin) && 'focus' in client) {
-          client.postMessage({ type: 'PUSH_NOTIFICATION_CLICK', matchId });
+          if (partnerId) {
+            client.postMessage({
+              type: notifData.type === 'incoming_call' ? 'INCOMING_CALL_CLICK' : 'PUSH_NOTIFICATION_CLICK',
+              matchId: partnerId,
+              callId: notifData.callId,
+              callType: notifData.callType,
+              autoAnswer: isAnswer
+            });
+          }
           return client.focus();
         }
       }
-      // Otherwise open a new tab
       if (clients.openWindow) {
         return clients.openWindow(urlToOpen);
       }

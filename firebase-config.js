@@ -24,9 +24,13 @@ const BACKEND_URL = (
   typeof window !== 'undefined' &&
   (window.location.hostname === 'localhost' ||
    window.location.hostname === '127.0.0.1' ||
+   window.location.hostname.startsWith('192.168.') ||
+   window.location.hostname.startsWith('10.') ||
+   window.location.hostname.startsWith('172.') ||
+   window.location.hostname.endsWith('.local') ||
    new URLSearchParams(window.location.search).get('localBackend') === '1')
 )
-  ? 'http://127.0.0.1:3001'
+  ? `http://${window.location.hostname || '127.0.0.1'}:3001`
   : 'https://matchmaker-viwb.onrender.com';
 
 async function getBackendAuthHeaders() {
@@ -196,7 +200,8 @@ function listenToAuthChanges() {
         showScreen(window.appState?.currentScreen || 'discovery');
       }
       if (typeof initMainApp === 'function') initMainApp();
-       if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
+      if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
+      if (typeof initPushNotifications === 'function') initPushNotifications();
       
       // Wire up live real-time matches & messages listener immediately upon auth
       if (typeof listenToUserMatches === 'function' && typeof applyMatchesUpdate === 'function') {
@@ -789,29 +794,45 @@ let _fcmMessaging = null;
 
 // Call this once after login to register the device for push
 async function initPushNotifications() {
-  // Only works in production (HTTPS) or with a real Firebase project
-  if (!fbApp || typeof firebase === 'undefined' || !firebase.messaging) return;
+  if (!fbApp || typeof firebase === 'undefined' || !firebase.messaging || typeof Notification === 'undefined') return;
 
   try {
     _fcmMessaging = firebase.messaging();
 
-    // Request permission (browser will show the OS permission dialog)
-    const permission = await Notification.requestPermission();
+    let permission = Notification.permission;
+    if (permission === 'default') {
+      try {
+        permission = await Notification.requestPermission();
+      } catch (_) {}
+    }
     if (permission !== 'granted') {
-      console.info('Push notification permission denied.');
+      console.info('Push notification permission:', permission);
       return;
     }
 
-    // Your VAPID key — Firebase Console → Project Settings → Cloud Messaging → Web configuration
     const VAPID_KEY = 'BLp3qjWUxvFZkjtXaP7Xs4o4Oidsgz2segUhkRBeJWCWnYS283ds9P0c2Ao86eqxSjSZvGphASeN5Y6Ty7bC3h8';
 
-    let serviceWorkerRegistration;
+    let serviceWorkerRegistration = null;
     if ('serviceWorker' in navigator) {
-      serviceWorkerRegistration = await navigator.serviceWorker.ready;
+      try {
+        // Ensure sw.js is registered first if not present
+        if (!navigator.serviceWorker.controller) {
+          await navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
+        }
+        // Race ready with a timeout so it never hangs execution
+        serviceWorkerRegistration = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+        ]).catch(() => null);
+      } catch (_) {}
     }
-    const token = await _fcmMessaging.getToken({
-      vapidKey: VAPID_KEY,
-      serviceWorkerRegistration
+
+    const tokenOptions = { vapidKey: VAPID_KEY };
+    if (serviceWorkerRegistration) tokenOptions.serviceWorkerRegistration = serviceWorkerRegistration;
+
+    const token = await _fcmMessaging.getToken(tokenOptions).catch(err => {
+      console.warn('FCM getToken error:', err?.message);
+      return null;
     });
     if (!token) return;
 
@@ -821,17 +842,41 @@ async function initPushNotifications() {
     // Handle foreground messages (app is open)
     _fcmMessaging.onMessage((payload) => {
       console.log('📬 Foreground push received:', payload);
+      const data = payload.data || {};
       const { title, body } = payload.notification || {};
-      if (title || body) {
+      if (data.type === 'incoming_call') {
+        if (typeof showIncomingCallPrompt === 'function' && data.callId) {
+          showIncomingCallPrompt(data.callId, data);
+        }
+      } else if (title || body) {
         showToast(`🔔 ${body || title}`, 'info');
       }
     });
 
     // Listen for push-click messages from the service worker
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.addEventListener('message', (event) => {
+      navigator.serviceWorker.addEventListener('message', async (event) => {
         if (event.data?.type === 'PUSH_NOTIFICATION_CLICK' && event.data.matchId) {
           if (typeof openChat === 'function') openChat(event.data.matchId);
+        } else if (event.data?.type === 'INCOMING_CALL_CLICK' && event.data.matchId) {
+          const { matchId, callId, autoAnswer } = event.data;
+          if (typeof openChat === 'function') openChat(matchId);
+          if (callId && fbDb && fbAuth?.currentUser) {
+            try {
+              const cDoc = await fbDb.collection('matches').doc(matchId).collection('calls').doc(callId).get();
+              if (cDoc.exists && cDoc.data()?.status === 'ringing') {
+                const callData = { ...cDoc.data(), matchId };
+                if (autoAnswer && typeof acceptIncomingCall === 'function') {
+                  pendingIncomingCall = { callId, ...callData };
+                  acceptIncomingCall();
+                } else if (typeof showIncomingCallPrompt === 'function') {
+                  showIncomingCallPrompt(callId, callData);
+                }
+              }
+            } catch (err) {
+              console.warn('Handle incoming call SW message error:', err);
+            }
+          }
         }
       });
     }
