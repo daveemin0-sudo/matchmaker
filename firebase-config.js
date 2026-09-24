@@ -508,7 +508,11 @@ async function reactRealtimeMessage(matchId, messageId, emoji) {
 async function uploadFileToBackend(file, path, returnMetadata = false) {
   if (!fbStorage) return null;
   try {
-    const storageRef = fbStorage.ref(`${path}/${Date.now()}_${file.name || 'file'}`);
+    const allowedRoots = new Set(['stories', 'voicenotes']);
+    if (!allowedRoots.has(path) || !fbAuth?.currentUser) return null;
+    const uid = fbAuth.currentUser.uid;
+    const safeName = String(file.name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+    const storageRef = fbStorage.ref(`${path}/${uid}/${Date.now()}_${safeName}`);
     const snapshot = await storageRef.put(file);
     const downloadUrl = await snapshot.ref.getDownloadURL();
     return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
