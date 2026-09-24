@@ -3161,21 +3161,37 @@ async function flipCamera() {
   const targetMode = currentFacingMode === 'user' ? 'environment' : 'user';
 
   try {
-    // 1. Enumerate devices to look for explicit back/rear labels if available
+    // 1. Enumerate video devices to detect multi-camera mobile devices
     let videoDevices = [];
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       videoDevices = devices.filter(d => d.kind === 'videoinput');
     } catch (_) {}
 
-    let matchedDeviceId = null;
-    if (videoDevices.length > 0) {
+    const currentDeviceId = currentTrack.getSettings ? currentTrack.getSettings().deviceId : null;
+
+    let targetDeviceId = null;
+    if (videoDevices.length > 1) {
       if (targetMode === 'environment') {
-        const back = videoDevices.find(d => /back|rear|environment|world/i.test(d.label));
-        if (back) matchedDeviceId = back.deviceId;
+        const back = videoDevices.find(d => /back|rear|environment|world|camera2 0|camera 0/i.test(d.label));
+        if (back) {
+          targetDeviceId = back.deviceId;
+        } else if (currentDeviceId) {
+          const next = videoDevices.find(d => d.deviceId !== currentDeviceId);
+          if (next) targetDeviceId = next.deviceId;
+        } else {
+          targetDeviceId = videoDevices[videoDevices.length - 1].deviceId;
+        }
       } else {
-        const front = videoDevices.find(d => /front|user|selfie|face/i.test(d.label));
-        if (front) matchedDeviceId = front.deviceId;
+        const front = videoDevices.find(d => /front|user|selfie|face|camera2 1|camera 1/i.test(d.label));
+        if (front) {
+          targetDeviceId = front.deviceId;
+        } else if (currentDeviceId) {
+          const next = videoDevices.find(d => d.deviceId !== currentDeviceId);
+          if (next) targetDeviceId = next.deviceId;
+        } else {
+          targetDeviceId = videoDevices[0].deviceId;
+        }
       }
     }
 
@@ -3185,18 +3201,17 @@ async function flipCamera() {
       activeMediaStream.removeTrack(currentTrack);
     } catch (_) {}
 
-    // 3. Small pause to allow mobile OS camera HAL to release sensor lock
-    await new Promise(r => setTimeout(r, 80));
+    // 3. Small pause to allow mobile OS camera HAL to release hardware sensor
+    await new Promise(r => setTimeout(r, 90));
 
-    // 4. Try target constraints in order: explicit label deviceId, ideal facingMode, exact facingMode, bare facingMode
+    // 4. Try target constraints in priority order (never fall back to video:true for environment)
     const candidateConstraints = [];
-    if (matchedDeviceId) {
-      candidateConstraints.push({ video: { deviceId: { exact: matchedDeviceId } }, audio: false });
+    if (targetDeviceId) {
+      candidateConstraints.push({ video: { deviceId: { exact: targetDeviceId } }, audio: false });
     }
+    candidateConstraints.push({ video: { facingMode: { exact: targetMode } }, audio: false });
     candidateConstraints.push({ video: { facingMode: { ideal: targetMode } }, audio: false });
     candidateConstraints.push({ video: { facingMode: targetMode }, audio: false });
-    candidateConstraints.push({ video: { facingMode: { exact: targetMode } }, audio: false });
-    candidateConstraints.push({ video: true, audio: false });
 
     let newStream = null;
     for (const constraints of candidateConstraints) {
@@ -3206,13 +3221,15 @@ async function flipCamera() {
       } catch (_) {}
     }
 
-    // 5. Fallback recovery: restore user camera if back camera was blocked
+    // 5. Fallback recovery: restore user camera if back camera could not be opened
     if (!newStream || !newStream.getVideoTracks().length) {
       try {
         newStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'user' },
           audio: false
         });
+        currentFacingMode = 'user';
+        showToast('Back camera not available on this device', 'warning');
       } catch (err) {
         console.error('Camera recovery failed:', err);
         showToast('Could not access camera', 'error');
