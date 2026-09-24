@@ -243,7 +243,7 @@ async function fetchRealUsersFromFirestore() {
   const currentUserId = fbAuth.currentUser.uid;
 
   try {
-    const snapshot = await fbDb.collection('users').get();
+    const snapshot = await fbDb.collection('public_profiles').get();
     const users = [];
     snapshot.forEach(doc => {
       if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
@@ -281,7 +281,7 @@ async function searchUsersInFirestore(queryText) {
   if (!q) return [];
 
   try {
-    const snapshot = await fbDb.collection('users').get();
+    const snapshot = await fbDb.collection('public_profiles').get();
     const results = [];
     snapshot.forEach(doc => {
       if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
@@ -328,7 +328,7 @@ function listenToUserMatches(callback) {
           const partnerId = matchData.users.find(id => id !== currentUserId);
           if (partnerId && !(window.__blockedUserIds || new Set()).has(partnerId)) {
             try {
-              const userDoc = await fbDb.collection('users').doc(partnerId).get();
+              const userDoc = await fbDb.collection('public_profiles').doc(partnerId).get();
               if (userDoc.exists) {
                 const data = userDoc.data();
                 matchedProfiles.push({
@@ -376,7 +376,7 @@ async function fetchUserMatchesDirectly() {
       const partnerId = matchData.users.find(id => id !== currentUserId);
       if (partnerId) {
         try {
-          const userDoc = await fbDb.collection('users').doc(partnerId).get();
+          const userDoc = await fbDb.collection('public_profiles').doc(partnerId).get();
           if (userDoc.exists) {
             const data = userDoc.data();
             matchedProfiles.push({
