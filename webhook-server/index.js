@@ -804,7 +804,7 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
         displayName: d.displayName || d.name || 'User',
         age: Number(d.age || 24),
         bio: String(d.bio || '').slice(0, 2000),
-        gender: d.gender || 'Female',
+        gender: d.gender || '',
         interests: Array.isArray(d.interests) ? d.interests.slice(0, 30) : [],
         location: String(d.location || '').slice(0, 200),
         image: d.image || d.avatar || '',
