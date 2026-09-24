@@ -343,34 +343,79 @@ setInterval(() => {
   }
 }, 30000);
 
-// Smooth Pull To Refresh Gesture Controller
+// Global App Reload Controller (Button, gesture, or floating pill)
+window.triggerAppReload = function triggerAppReload() {
+  const indicator = document.getElementById('ptrIndicator');
+  const text = document.getElementById('ptrText');
+  const icon = document.getElementById('ptrIcon');
+  const reloadBtn = document.getElementById('appReloadBtn');
+
+  if (indicator) {
+    indicator.classList.remove('ptr-pulling');
+    indicator.classList.add('ptr-refreshing');
+    indicator.style.transform = 'translate3d(-50%, 16px, 0)';
+    if (text) text.textContent = 'Reloading app...';
+    if (icon) icon.style.transform = 'rotate(180deg)';
+  }
+  if (reloadBtn) {
+    reloadBtn.style.opacity = '0.5';
+    const svg = reloadBtn.querySelector('svg');
+    if (svg) svg.style.animation = 'ptrSpin 0.75s linear infinite';
+    reloadBtn.disabled = true;
+  }
+  if (navigator.vibrate) {
+    try { navigator.vibrate([15, 30, 15]); } catch (_) {}
+  }
+
+  // Ping Service Worker to activate any waiting update
+  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+    try {
+      navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+    } catch (_) {}
+  }
+
+  // Reload with cache-busting timestamp so PWA updates instantly
+  setTimeout(() => {
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set('_r', Date.now().toString());
+      window.location.replace(url.toString());
+    } catch (e) {
+      window.location.reload();
+    }
+  }, 260);
+};
+
+// Smooth Pull To Refresh Gesture Controller (Bound globally to document)
 function initPullToRefresh() {
-  const container = document.querySelector('.screens-container') || document.body;
   const indicator = document.getElementById('ptrIndicator');
   const icon = document.getElementById('ptrIcon');
   const text = document.getElementById('ptrText');
-  if (!container || !indicator) return;
+  if (!indicator) return;
 
-  if (container._ptrBound) return;
-  container._ptrBound = true;
+  if (window._ptrBound) return;
+  window._ptrBound = true;
 
   let startY = 0;
   let startX = 0;
   let isPulling = false;
   let isRefreshing = false;
-  const PULL_THRESHOLD = 55;
+  const PULL_THRESHOLD = 52;
   const MAX_PULL = 85;
 
   function getScrollTop() {
     const activeScreen = document.querySelector('.screen.active');
-    if (!activeScreen) return window.scrollY || document.documentElement.scrollTop;
-    const scrollContainer = activeScreen.querySelector('.settings-workspace, .matches-workspace, .chats-inbox-wrap, .auth-screen, .profile-screen-workspace, .discovery-workspace') || activeScreen;
-    return scrollContainer.scrollTop || window.scrollY || 0;
+    if (!activeScreen) return window.scrollY || document.documentElement.scrollTop || 0;
+    const scrollContainer = activeScreen.querySelector('.settings-workspace, .matches-workspace, .chats-inbox-wrap, .auth-screen, .profile-screen-workspace, .discovery-workspace, .chat-messages-wrap');
+    if (scrollContainer && scrollContainer.scrollTop !== undefined) {
+      return scrollContainer.scrollTop;
+    }
+    return activeScreen.scrollTop || window.scrollY || document.documentElement.scrollTop || 0;
   }
 
-  container.addEventListener('touchstart', (e) => {
+  document.addEventListener('touchstart', (e) => {
     if (isRefreshing || !e.touches || e.touches.length === 0) return;
-    if (getScrollTop() <= 2) {
+    if (getScrollTop() <= 4) {
       startY = e.touches[0].clientY;
       startX = e.touches[0].clientX;
       isPulling = false;
@@ -379,7 +424,7 @@ function initPullToRefresh() {
     }
   }, { passive: true });
 
-  container.addEventListener('touchmove', (e) => {
+  document.addEventListener('touchmove', (e) => {
     if (!startY || isRefreshing || !e.touches || e.touches.length === 0) return;
     const currentY = e.touches[0].clientY;
     const currentX = e.touches[0].clientX;
@@ -387,14 +432,14 @@ function initPullToRefresh() {
     const diffX = currentX - startX;
 
     // Ignore horizontal swipes (card swiping in discovery)
-    if (Math.abs(diffX) > Math.abs(diffY) * 0.9) {
+    if (Math.abs(diffX) > Math.abs(diffY) * 0.85) {
       startY = 0;
       return;
     }
 
-    if (diffY > 8 && getScrollTop() <= 2) {
+    if (diffY > 8 && getScrollTop() <= 4) {
       isPulling = true;
-      const pullDistance = Math.min(MAX_PULL, (diffY - 8) * 0.42);
+      const pullDistance = Math.min(MAX_PULL, (diffY - 8) * 0.45);
       indicator.classList.add('ptr-pulling');
       indicator.style.transform = `translate3d(-50%, ${pullDistance}px, 0)`;
 
@@ -402,16 +447,16 @@ function initPullToRefresh() {
       if (icon) icon.style.transform = `rotate(${rotation}deg)`;
 
       if (pullDistance >= PULL_THRESHOLD) {
-        if (text) text.textContent = 'Release to refresh';
+        if (text) text.textContent = 'Release to reload';
         indicator.style.borderColor = 'var(--gold-1, #F4C550)';
       } else {
-        if (text) text.textContent = 'Pull down to refresh';
-        indicator.style.borderColor = 'rgba(244, 197, 80, 0.35)';
+        if (text) text.textContent = 'Pull down to reload';
+        indicator.style.borderColor = 'rgba(244, 197, 80, 0.45)';
       }
     }
   }, { passive: true });
 
-  const endPull = async () => {
+  const endPull = () => {
     if (!isPulling || isRefreshing) {
       startY = 0;
       isPulling = false;
@@ -425,26 +470,7 @@ function initPullToRefresh() {
 
     if (currentDistance >= PULL_THRESHOLD) {
       isRefreshing = true;
-      indicator.classList.add('ptr-refreshing');
-      if (text) text.textContent = 'Refreshing...';
-      if (navigator.vibrate) navigator.vibrate(12);
-
-      const startTime = Date.now();
-      await refreshAppData({ manual: true });
-      const elapsed = Date.now() - startTime;
-      if (elapsed < 500) {
-        await new Promise(r => setTimeout(r, 500 - elapsed));
-      }
-
-      if (text) text.textContent = 'Updated ✨';
-      setTimeout(() => {
-        indicator.classList.remove('ptr-refreshing');
-        indicator.style.transform = 'translate3d(-50%, -90px, 0)';
-        if (icon) icon.style.transform = 'rotate(0deg)';
-        isRefreshing = false;
-        isPulling = false;
-        startY = 0;
-      }, 350);
+      triggerAppReload();
     } else {
       indicator.style.transform = 'translate3d(-50%, -90px, 0)';
       if (icon) icon.style.transform = 'rotate(0deg)';
@@ -453,8 +479,8 @@ function initPullToRefresh() {
     }
   };
 
-  container.addEventListener('touchend', endPull, { passive: true });
-  container.addEventListener('touchcancel', endPull, { passive: true });
+  document.addEventListener('touchend', endPull, { passive: true });
+  document.addEventListener('touchcancel', endPull, { passive: true });
 }
 
 async function loadProfilesForDiscovery() {
@@ -617,11 +643,13 @@ function updateHeader(screenId) {
   const reportBtn = document.getElementById('chatReportBtn');
   const upgradeBtn = document.getElementById('upgradeHeaderBtn');
   const matchBtn  = document.getElementById('matchesQuickBtn');
+  const reloadBtn = document.getElementById('appReloadBtn');
 
   if (searchBtn)  searchBtn.style.display  = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
   if (reportBtn)  reportBtn.style.display  = screenId === 'chat' ? 'flex' : 'none';
   if (upgradeBtn) upgradeBtn.style.display = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
   if (matchBtn)   matchBtn.style.display   = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
+  if (reloadBtn)  reloadBtn.style.display  = screenId === 'chat' ? 'none' : 'flex';
 
   switch (screenId) {
     case 'discovery':
