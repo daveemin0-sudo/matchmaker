@@ -25,7 +25,7 @@ jobs:
     steps:
       - name: Check backend health
         env:
-          BACKEND_HEALTH_URL: ${{ secrets.BACKEND_HEALTH_URL }}
+          BACKEND_HEALTH_URL: https://matchmaker-viwb.onrender.com/health
         run: |
           test -n "$BACKEND_HEALTH_URL"
           curl --fail --silent --show-error --max-time 20 "$BACKEND_HEALTH_URL"
