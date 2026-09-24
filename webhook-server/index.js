@@ -17,7 +17,6 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const CLEANUP_SECRET = process.env.CLEANUP_SECRET;
 const METERED_API_KEY = process.env.METERED_API_KEY;
 const METERED_DOMAIN = process.env.METERED_DOMAIN || 'hookmebysam.metered.live';
-const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || serviceAccount?.storage_bucket || '';
 const DAILY_FREE_SWIPES = Math.max(1, Number(process.env.DAILY_FREE_SWIPES || 100));
 
 if (!TERMII_API_KEY || !PAYSTACK_SECRET_KEY || !CLEANUP_SECRET) {
@@ -44,6 +43,8 @@ try {
 if (!serviceAccount) {
   throw new Error('Firebase Admin credentials are required in production.');
 }
+const FIREBASE_STORAGE_BUCKET = process.env.FIREBASE_STORAGE_BUCKET || serviceAccount?.storage_bucket || '';
+
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
