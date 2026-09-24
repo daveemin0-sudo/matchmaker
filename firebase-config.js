@@ -22,6 +22,12 @@ const PAYSTACK_PUBLIC_KEY = "pk_test_64c0226b47c23fcdf84f6354d3cc1868e699e62b";
 // 3. YOUR WEBHOOK SERVER URL (Live Render Production Backend)
 const BACKEND_URL = "https://matchmaker-viwb.onrender.com";
 
+async function getBackendAuthHeaders() {
+  if (!fbAuth?.currentUser) throw new Error('Sign in required.');
+  const token = await fbAuth.currentUser.getIdToken();
+  return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token };
+}
+
 /* ==========================================================
    FIREBASE ADAPTER FUNCTIONS
    ========================================================== */
@@ -549,15 +555,12 @@ async function verifyPaymentOnBackend(reference, tier) {
     return { success: true };
   }
 
-  const uid = (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser)
-    ? fbAuth.currentUser.uid
-    : (window.currentUser?.id || 'demo_user');
-
   try {
+    const headers = await getBackendAuthHeaders();
     const res = await fetch(`${BACKEND_URL}/payment/verify`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reference, uid, tier }),
+      headers,
+      body: JSON.stringify({ reference, tier }),
     });
     const data = await res.json();
     if (data.success) return { success: true };
