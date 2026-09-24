@@ -6141,3 +6141,58 @@ body[data-theme="light"],
 [data-theme="light"] .swipe-card .card-bio {
   color: #FFFFFF !important;
 }
+
+
+/* Light-mode modal readability: override legacy inline dark-theme text safely. */
+[data-theme="light"] #editProfileModal > .edit-modal-sheet,
+[data-theme="light"] #forgotPasswordModal > div,
+[data-theme="light"] #forwardModal > div,
+[data-theme="light"] #phoneVerificationModal > div,
+[data-theme="light"] #languageModal > div {
+  background: #FFFFFF !important;
+  color: #15121A !important;
+  border-color: #E1DCE5 !important;
+}
+
+[data-theme="light"] #editProfileModal h2,
+[data-theme="light"] #forgotPasswordModal h2,
+[data-theme="light"] #forwardModal h2,
+[data-theme="light"] #phoneVerificationModal h2,
+[data-theme="light"] #languageModal h2 {
+  color: #15121A !important;
+}
+
+[data-theme="light"] #editProfileModal p,
+[data-theme="light"] #forgotPasswordModal p,
+[data-theme="light"] #forwardModal p,
+[data-theme="light"] #phoneVerificationModal p,
+[data-theme="light"] #languageModal p {
+  color: #5B5364 !important;
+}
+
+[data-theme="light"] #editProfileModal button,
+[data-theme="light"] #forgotPasswordModal button,
+[data-theme="light"] #forwardModal button,
+[data-theme="light"] #phoneVerificationModal button,
+[data-theme="light"] #languageModal button {
+  color: #3F3747 !important;
+}
+
+[data-theme="light"] #editProfileModal .form-field label,
+[data-theme="light"] #forgotPasswordModal label,
+[data-theme="light"] #forwardModal label,
+[data-theme="light"] #phoneVerificationModal label,
+[data-theme="light"] #languageModal label {
+  color: #3F3747 !important;
+}
+
+[data-theme="light"] #phoneVerificationModal .auth-input-icon {
+  color: #5B5364 !important;
+}
+
+/* Preserve intentionally dark/image-based experiences. */
+[data-theme="light"] .story-header-area,
+[data-theme="light"] .story-viewer,
+[data-theme="light"] .paywall-modal {
+  color: #FFFFFF;
+}
