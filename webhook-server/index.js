@@ -60,6 +60,7 @@ app.use(express.json({
   limit: '1mb',
   verify: (req, _res, buf) => { req.rawBody = Buffer.from(buf); }
 }));
+app.set('trust proxy', 1);
 app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -307,7 +308,8 @@ app.post('/auth/send-otp', async (req, res) => {
   try { phone = normalizeNigerianPhone(req.body?.phone); }
   catch (_) { return res.status(400).json({ success: false, error: 'Enter a valid Nigerian phone number.' }); }
 
-  if (!rateLimit(`otp-send:${phone}`, 3, 10 * 60 * 1000)) {
+  if (!rateLimit(`otp-send:${phone}`, 3, 10 * 60 * 1000) ||
+      !rateLimit(`otp-send-ip:${req.ip}`, 10, 10 * 60 * 1000)) {
     return res.status(429).json({ success: false, error: 'Too many OTP requests. Try again later.' });
   }
 
@@ -347,7 +349,8 @@ app.post('/auth/verify-otp', async (req, res) => {
   catch (_) { return res.status(400).json({ success: false, error: 'Invalid phone number.' }); }
   const otp = String(req.body?.otp || '').trim();
   if (!/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, error: 'Enter the 6-digit code.' });
-  if (!rateLimit(`otp-verify:${phone}`, 5, 10 * 60 * 1000)) {
+  if (!rateLimit(`otp-verify:${phone}`, 5, 10 * 60 * 1000) ||
+      !rateLimit(`otp-verify-ip:${req.ip}`, 20, 10 * 60 * 1000)) {
     return res.status(429).json({ success: false, error: 'Too many verification attempts.' });
   }
 
