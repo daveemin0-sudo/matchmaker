@@ -92,11 +92,17 @@ app.set('trust proxy', 1);
 app.use(express.urlencoded({ extended: false, limit: '50kb' }));
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const originAllowed = !origin || !ALLOWED_ORIGINS.length || ALLOWED_ORIGINS.includes(origin);
+  const isLocalOrigin = origin && (
+    origin.includes('localhost') ||
+    origin.includes('127.0.0.1') ||
+    origin.includes('0.0.0.0')
+  );
+  const originAllowed = !origin || !ALLOWED_ORIGINS.length || ALLOWED_ORIGINS.includes(origin) || isLocalOrigin;
   if (origin && !originAllowed) {
     return res.status(403).json({ error: 'Origin not allowed.' });
   }
   if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+  else res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Cleanup-Secret');

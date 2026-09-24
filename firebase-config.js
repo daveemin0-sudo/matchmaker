@@ -216,7 +216,9 @@ function listenToAuthChanges() {
 
 async function recordSwipeInBackend(targetUserId, action) {
   if (!fbAuth?.currentUser) return { success: false, matched: false, error: 'Sign in required.' };
+  const uid = fbAuth.currentUser.uid;
 
+  // 1. Try backend server if available
   try {
     const token = await fbAuth.currentUser.getIdToken();
     const res = await fetch(BACKEND_URL + '/swipes/record', {
@@ -224,17 +226,54 @@ async function recordSwipeInBackend(targetUserId, action) {
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       body: JSON.stringify({ targetUserId, action })
     });
-    const data = await res.json();
-    if (!res.ok || !data.success) {
-      if (data?.error) showToast(data.error, data.limited ? 'gold' : 'error');
-      return { success: false, matched: false, limited: Boolean(data?.limited), error: data?.error || 'Could not record swipe.' };
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success) {
+        return { success: true, matched: Boolean(data.matched), matchId: data.matchId || null };
+      }
+      if (data?.limited) {
+        if (data.error) showToast(data.error, 'gold');
+        return { success: false, matched: false, limited: true, error: data.error };
+      }
     }
-    return { success: true, matched: Boolean(data.matched), matchId: data.matchId || null };
-  } catch (err) {
-    console.warn("recordSwipeInBackend warning:", err.message);
-    showToast('Could not save your swipe. Please try again.', 'error');
-    return { success: false, matched: false, error: 'Network error.' };
+  } catch (backendErr) {
+    console.info("Backend swipe endpoint unavailable, saving directly to Firestore:", backendErr.message);
   }
+
+  // 2. Direct Firestore fallback (instant, offline-capable, works seamlessly in local dev)
+  if (fbDb) {
+    try {
+      const swipeId = `${uid}_${targetUserId}`;
+      await fbDb.collection('swipes').doc(swipeId).set({
+        fromUserId: uid,
+        toUserId: targetUserId,
+        action: action,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      // If user liked the profile, check for a mutual match
+      if (action === 'like') {
+        const reverseDoc = await fbDb.collection('swipes').doc(`${targetUserId}_${uid}`).get().catch(() => null);
+        if (reverseDoc && reverseDoc.exists && reverseDoc.data()?.action === 'like') {
+          const matchId = [uid, targetUserId].sort().join('_');
+          await fbDb.collection('matches').doc(matchId).set({
+            users: [uid, targetUserId],
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            lastActivity: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          return { success: true, matched: true, matchId };
+        }
+      }
+      return { success: true, matched: false };
+    } catch (fsErr) {
+      console.warn("Direct Firestore swipe error:", fsErr.message);
+      showToast('Could not save your swipe. Please try again.', 'error');
+      return { success: false, matched: false, error: fsErr.message };
+    }
+  }
+
+  showToast('Could not save your swipe. Please try again.', 'error');
+  return { success: false, matched: false, error: 'Offline.' };
 }
 
 // Fetch all registered users from Firestore for the swipe card stack
