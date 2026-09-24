@@ -36,7 +36,9 @@ Deploy and verify both:
 - `firestore.rules`
 - `storage.rules`
 
-Create one trusted admin account and set its Firestore user document field `role` to `admin` from an administrative path. The normal client cannot change this field.
+Create one trusted admin account and set its private Firestore user document field `role` to `admin` from an administrative path. The normal client cannot change this field.
+
+Before opening matchmaking to existing users, sign in to `admin.html` and run **Migrate existing profiles** once. Matchmaking reads only `public_profiles`; private `users` documents are no longer publicly readable.
 
 ### GitHub Actions
 
@@ -45,7 +47,7 @@ Create repository secrets:
 - `CLEANUP_SECRET` = the same secret configured on Render
 - `BACKEND_HEALTH_URL` = the deployed backend `/health` endpoint
 
-The workflow runs story cleanup every 30 minutes and checks backend health.
+The workflow runs story cleanup every 30 minutes and checks backend health. High-risk abuse limits (OTP/report) are also persisted in Firestore so they survive backend restarts.
 
 ## Required smoke tests
 
@@ -63,6 +65,7 @@ Use two real test accounts on real devices and verify:
 10. Background notification after closing the PWA.
 11. Paystack live payment with a small real transaction, followed by server verification.
 12. Expired story cleanup removes both the Firestore story record and stored media.
+13. Account deletion completes backend cleanup of profile, matches/messages, swipes, blocks, stories, tokens, storage media, and the Firebase Auth account.
 
 ## Credential rotation
 
