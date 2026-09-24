@@ -22,7 +22,7 @@ const PAYSTACK_PUBLIC_KEY = "pk_live_REPLACE_WITH_YOUR_LIVE_PAYSTACK_PUBLIC_KEY"
 // 3. YOUR WEBHOOK SERVER URL (Auto-switches to local server when testing locally)
 const BACKEND_URL = (
   typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  new URLSearchParams(window.location.search).get('localBackend') === '1'
 )
   ? 'http://127.0.0.1:3001'
   : 'https://matchmaker-viwb.onrender.com';
@@ -223,7 +223,8 @@ async function recordSwipeInBackend(targetUserId, action) {
   if (!fbAuth?.currentUser) return { success: false, matched: false, error: 'Sign in required.' };
   const uid = fbAuth.currentUser.uid;
 
-  // 1. Try backend server if available
+  // Swipes are server-authoritative. Do not fall back to direct Firestore writes,
+  // because client-side writes would bypass abuse limits and block enforcement.
   try {
     const token = await fbAuth.currentUser.getIdToken();
     const res = await fetch(BACKEND_URL + '/swipes/record', {
@@ -231,48 +232,29 @@ async function recordSwipeInBackend(targetUserId, action) {
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       body: JSON.stringify({ targetUserId, action })
     });
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.success) {
-        return { success: true, matched: Boolean(data.matched), matchId: data.matchId || null };
-      }
-      if (data?.limited) {
-        if (data.error) showToast(data.error, 'gold');
-        return { success: false, matched: false, limited: true, error: data.error };
-      }
+    const data = await res.json().catch(() => ({}));
+
+    if (res.ok && data?.success) {
+      return { success: true, matched: Boolean(data.matched), matchId: data.matchId || null };
     }
+    if (res.status === 429 && data?.limited) {
+      if (data.error) showToast(data.error, 'gold');
+      return { success: false, matched: false, limited: true, error: data.error };
+    }
+    if (res.status === 401) {
+      showToast('Your session expired. Please sign in again.', 'error');
+      try { await fbAuth.signOut(); } catch (_) {}
+      return { success: false, matched: false, error: 'Authentication required.' };
+    }
+    showToast(data?.error || 'Could not save your swipe. Please try again.', 'error');
+    return { success: false, matched: false, error: data?.error || ('HTTP ' + res.status) };
   } catch (backendErr) {
-    console.info("Backend swipe endpoint unavailable, saving directly to Firestore:", backendErr.message);
+    console.warn("Backend swipe request failed:", backendErr.message);
+    showToast('Connection to the matching server failed. Please try again.', 'error');
+    return { success: false, matched: false, error: backendErr.message };
   }
 
-  // 2. Direct Firestore fallback (instant, offline-capable, works seamlessly in local dev)
-  if (fbDb) {
-    try {
-      const swipeId = `${uid}_${targetUserId}`;
-      await fbDb.collection('swipes').doc(swipeId).set({
-        fromUserId: uid,
-        toUserId: targetUserId,
-        action: action,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      // If user liked the profile, check for a mutual match
-      if (action === 'like') {
-        const reverseDoc = await fbDb.collection('swipes').doc(`${targetUserId}_${uid}`).get().catch(() => null);
-        if (reverseDoc && reverseDoc.exists && reverseDoc.data()?.action === 'like') {
-          const matchId = [uid, targetUserId].sort().join('_');
-          await fbDb.collection('matches').doc(matchId).set({
-            users: [uid, targetUserId],
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            lastActivity: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-          return { success: true, matched: true, matchId };
-        }
-      }
-      return { success: true, matched: false };
-    } catch (fsErr) {
-      console.warn("Direct Firestore swipe error:", fsErr.message);
-      showToast('Could not save your swipe. Please try again.', 'error');
+  showToast('Could not save your swipe. Please try again.', 'error');
       return { success: false, matched: false, error: fsErr.message };
     }
   }
