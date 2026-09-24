@@ -530,18 +530,22 @@ app.post('/matches/create', requireAuth, async (req, res) => {
 /* FCM: all public trigger endpoints require a Firebase ID token. */
 async function sendPushToUser(userId, { title, body, data = {} }) {
   const snap = await db.collection('fcm_tokens').doc(userId).collection('tokens').get();
-  const tokens = snap.docs.map(d => d.data().token).filter(Boolean);
-  if (!tokens.length) return;
+  const tokenEntries = snap.docs
+    .map(d => ({ docId: d.id, token: d.data().token }))
+    .filter(item => item.token);
+  if (!tokenEntries.length) return;
+
   const response = await admin.messaging().sendEachForMulticast({
     notification: { title: String(title).slice(0, 120), body: String(body || '').slice(0, 500) },
     data: Object.fromEntries(Object.entries(data || {}).map(([k, v]) => [String(k), String(v)])),
-    tokens
+    tokens: tokenEntries.map(item => item.token)
   });
+
   for (let i = 0; i < response.responses.length; i++) {
     const err = response.responses[i].error;
     if (err?.code === 'messaging/registration-token-not-registered' ||
         err?.code === 'messaging/invalid-registration-token') {
-      await db.collection('fcm_tokens').doc(userId).collection('tokens').doc(tokens[i]).delete().catch(() => {});
+      await db.collection('fcm_tokens').doc(userId).collection('tokens').doc(tokenEntries[i].docId).delete().catch(() => {});
     }
   }
 }
