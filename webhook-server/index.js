@@ -935,7 +935,31 @@ app.post('/admin/users/unsuspend', requireAuth, requireAdmin, async (req, res) =
   }
 });
 
-app.get('/health', (_req, res) => res.json({ ok: true }));
+app.get('/health', async (_req, res) => {
+  try {
+    await db.collection('users').limit(1).get();
+    return res.json({
+      ok: true,
+      service: 'hookmebysam-backend',
+      uptimeSeconds: Math.floor(process.uptime()),
+      timestamp: new Date().toISOString(),
+      dependencies: {
+        firebase: true,
+        paystack: Boolean(PAYSTACK_SECRET_KEY),
+        termii: Boolean(TERMII_API_KEY),
+        storage: Boolean(FIREBASE_STORAGE_BUCKET),
+        turn: Boolean(METERED_API_KEY && METERED_DOMAIN)
+      }
+    });
+  } catch (err) {
+    console.error('Health check failed:', err.message);
+    return res.status(503).json({
+      ok: false,
+      service: 'hookmebysam-backend',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 app.get('/', (_req, res) => res.json({ service: 'hookmebysam backend', status: 'online' }));
 
 app.listen(PORT, () => console.log(`hookmebysam backend listening on port ${PORT}`));
