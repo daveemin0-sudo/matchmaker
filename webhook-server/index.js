@@ -704,7 +704,10 @@ async function deleteQueryDocs(query) {
 async function deleteDocumentTree(ref) {
   const collections = await ref.listCollections();
   for (const collection of collections) {
-    await deleteQueryDocs(collection);
+    const docs = await collection.get();
+    for (const doc of docs.docs) {
+      await deleteDocumentTree(doc.ref);
+    }
   }
   await ref.delete().catch(err => {
     if (err.code !== 5) throw err;
@@ -742,9 +745,11 @@ app.post('/account/delete', requireAuth, async (req, res) => {
     await Promise.all([
       db.collection('users').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
       db.collection('public_profiles').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
-      deleteUserStorage(uid),
-      admin.auth().deleteUser(uid)
+      deleteUserStorage(uid)
     ]);
+
+    // Delete the Auth account last so a partial cleanup can be retried safely.
+    await admin.auth().deleteUser(uid);
 
     return res.json({ success: true });
   } catch (err) {
