@@ -353,6 +353,12 @@ app.post('/auth/verify-otp', async (req, res) => {
         createdAt: admin.firestore.FieldValue.serverTimestamp()
       }, { merge: true });
     }
+    await db.collection('users').doc(userRecord.uid).set({
+      id: userRecord.uid,
+      phone,
+      phoneVerified: true
+    }, { merge: true });
+
     const token = await admin.auth().createCustomToken(userRecord.uid);
     return res.json({ success: true, token, uid: userRecord.uid });
   } catch (err) {
