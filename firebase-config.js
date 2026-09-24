@@ -178,6 +178,7 @@ function listenToAuthChanges() {
       if (window.appState) window.appState.isLoggedIn = true;
       if (typeof showScreen === 'function') showScreen('discovery');
       if (typeof initMainApp === 'function') initMainApp();
+       if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
       
       // Wire up live real-time matches & messages listener immediately upon auth
       if (typeof listenToUserMatches === 'function' && typeof applyMatchesUpdate === 'function') {
