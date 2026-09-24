@@ -2428,9 +2428,7 @@ let peerConnectionConfig = {
 // Asynchronously refresh dynamic TURN credentials from Metered if available
 async function refreshTurnCredentials() {
   try {
-    const token = await fbAuth?.currentUser?.getIdToken();
-    if (!token) return;
-    const res = await fetch(`${BACKEND_URL}/turn/credentials`, { headers: { Authorization: 'Bearer ' + token } });
+    const res = await fetch("https://hookmebysam.metered.live/api/v1/turn/credentials?apiKey=06edf4b6db269eaf1cad2bf8ed0fd268ad9f");
     if (res.ok) {
       const liveServers = await res.json();
       if (Array.isArray(liveServers) && liveServers.length > 0) {
@@ -2685,9 +2683,9 @@ function sendMessage() {
 
     // Trigger push notification to partner (fire-and-forget)
     const myName = currentUser.name || 'Your match';
-    fbAuth.currentUser.getIdToken().then(token => fetch(`${BACKEND_URL}/fcm/new-message`, {
+    fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : 'http://localhost:3001'}/fcm/new-message`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         toUserId: appState.currentChatId,
         fromUserName: myName,
@@ -3626,7 +3624,8 @@ function completeVipUpgrade() {
 
   showToast('👑 VIP GOLD ACTIVATED!', 'gold');
 
-  // Persistent VIP state is granted by the backend after Paystack verification.
+  // Persistent VIP state is granted by the backend after verified payment.
+
   updateMatchesNotificationBadge();
   renderMatchesView();
   revealBlurredMatches();
@@ -4544,18 +4543,16 @@ async function unblockUser(userId, name) {
   if (idx !== -1) blockedUsers.splice(idx, 1);
 
   const restoredProfile = userObj || PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
-  if (restoredProfile) {
-    if (!matchedUsers.some(u => u.id === userId)) {
-      matchedUsers.unshift({
-        id: restoredProfile.id,
-        name: restoredProfile.name || userName,
-        age: restoredProfile.age || 24,
-        image: restoredProfile.image || '',
-        bio: restoredProfile.bio || '',
-        tags: restoredProfile.tags || ['Music 🎵', 'Positive vibes ✨'],
-        distance: restoredProfile.distance || '2 km'
-      });
-    }
+  if (restoredProfile && !matchedUsers.some(u => u.id === userId)) {
+    matchedUsers.unshift({
+      id: restoredProfile.id,
+      name: restoredProfile.name || userName,
+      age: restoredProfile.age || 24,
+      image: restoredProfile.image || '',
+      bio: restoredProfile.bio || '',
+      tags: restoredProfile.tags || ['Music 🎵', 'Positive vibes ✨'],
+      distance: restoredProfile.distance || '2 km'
+    });
   }
 
   saveToStorage();
