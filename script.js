@@ -711,6 +711,8 @@ function setTheme(theme) {
   const darkBtn = document.getElementById('themeBtnDark');
   const lightBtn = document.getElementById('themeBtnLight');
   const themeLabel = document.getElementById('themeLabel');
+  const darkModeCheck = document.getElementById('toggleDarkModeCheck');
+  if (darkModeCheck) darkModeCheck.checked = theme === 'dark';
 
   if (darkBtn && lightBtn) {
     if (theme === 'light') {
