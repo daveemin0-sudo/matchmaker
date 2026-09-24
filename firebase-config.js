@@ -588,12 +588,7 @@ async function sendOtpToPhone(phoneNumber) {
     });
     const data = await res.json();
     if (data.success) {
-      if (data.testCode) {
-        window._demoOtp = String(data.testCode);
-        showToast(`📱 Verification code: ${data.testCode}`, 'gold');
-      } else {
-        showToast('📱 OTP sent! Check your SMS.', 'info');
-      }
+      showToast('📱 OTP sent! Check your SMS.', 'info');
       return true;
     } else {
       showToast(data.error || 'Failed to send OTP.', 'error');
