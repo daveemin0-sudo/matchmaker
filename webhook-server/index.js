@@ -17,6 +17,7 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
 const CLEANUP_SECRET = process.env.CLEANUP_SECRET;
 const METERED_API_KEY = process.env.METERED_API_KEY;
 const METERED_DOMAIN = process.env.METERED_DOMAIN || 'hookmebysam.metered.live';
+const DAILY_FREE_SWIPES = Math.max(1, Number(process.env.DAILY_FREE_SWIPES || 100));
 
 if (!TERMII_API_KEY || !PAYSTACK_SECRET_KEY || !CLEANUP_SECRET) {
   throw new Error('Missing required production secrets: TERMII_API_KEY, PAYSTACK_SECRET_KEY and CLEANUP_SECRET');
@@ -396,11 +397,120 @@ app.post('/auth/verify-phone', requireAuth, async (req, res) => {
   }
 });
 
+/* Swipe writes are server-authoritative. This applies abuse limits and block checks. */
+app.post('/swipes/record', requireAuth, async (req, res) => {
+  const targetUserId = String(req.body?.targetUserId || '');
+  const action = String(req.body?.action || '');
+  if (!targetUserId || targetUserId === req.user.uid || !['like','pass','superlike'].includes(action)) {
+    return res.status(400).json({ success: false, error: 'Invalid swipe.' });
+  }
+
+  if (!rateLimit(`swipe-rate:${req.user.uid}`, 60, 60 * 1000)) {
+    return res.status(429).json({ success: false, error: 'Too many swipes. Slow down and try again.' });
+  }
+
+  try {
+    const userRef = db.collection('users').doc(req.user.uid);
+    const targetRef = db.collection('users').doc(targetUserId);
+    const blockARef = db.collection('blocks').doc(req.user.uid + '_' + targetUserId);
+    const blockBRef = db.collection('blocks').doc(targetUserId + '_' + req.user.uid);
+
+    const todayKey = new Date().toISOString().slice(0, 10);
+    const counterRef = db.collection('swipe_daily').doc(req.user.uid + '_' + todayKey);
+
+    const result = await db.runTransaction(async tx => {
+      const [userSnap, targetSnap, blockASnap, blockBSnap, counterSnap] = await Promise.all([
+        tx.get(userRef), tx.get(targetRef), tx.get(blockARef), tx.get(blockBRef), tx.get(counterRef)
+      ]);
+
+      if (!userSnap.exists || !targetSnap.exists) throw Object.assign(new Error('User not found.'), { code: 'USER_NOT_FOUND' });
+      if (blockASnap.exists || blockBSnap.exists) throw Object.assign(new Error('Blocked user.'), { code: 'BLOCKED' });
+
+      const userData = userSnap.data() || {};
+      const vipActive = Boolean(
+        userData.isVip &&
+        userData.vipExpiry?.toDate &&
+        userData.vipExpiry.toDate() > new Date()
+      );
+
+      const currentCount = counterSnap.exists ? Number(counterSnap.data().count || 0) : 0;
+      if (!vipActive && currentCount >= DAILY_FREE_SWIPES) {
+        return { limited: true };
+      }
+
+      const swipeRef = db.collection('swipes').doc();
+      tx.set(swipeRef, {
+        fromUserId: req.user.uid,
+        toUserId: targetUserId,
+        action,
+        timestamp: admin.firestore.FieldValue.serverTimestamp()
+      });
+      tx.set(counterRef, {
+        uid: req.user.uid,
+        day: todayKey,
+        count: currentCount + 1,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      return { limited: false };
+    });
+
+    if (result.limited) {
+      return res.status(429).json({
+        success: false,
+        limited: true,
+        error: `Daily swipe limit reached. Free accounts can send up to ${DAILY_FREE_SWIPES} swipes per day.`
+      });
+    }
+
+    let matched = false;
+    let matchId = null;
+    if (action === 'like' || action === 'superlike') {
+      const reciprocal = await db.collection('swipes')
+        .where('fromUserId', '==', targetUserId)
+        .where('toUserId', '==', req.user.uid)
+        .where('action', 'in', ['like', 'superlike'])
+        .limit(1).get();
+
+      if (!reciprocal.empty) {
+        const blockA = await blockARef.get();
+        const blockB = await blockBRef.get();
+        if (blockA.exists || blockB.exists) {
+          return res.json({ success: true, matched: false, blocked: true });
+        }
+        matchId = [req.user.uid, targetUserId].sort().join('_');
+        try {
+          await db.collection('matches').doc(matchId).create({
+            users: [req.user.uid, targetUserId],
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+          });
+        } catch (err) {
+          if (err.code !== 6) throw err;
+        }
+        matched = true;
+      }
+    }
+
+    return res.json({ success: true, matched, matchId });
+  } catch (err) {
+    if (err.code === 'BLOCKED') return res.status(403).json({ success: false, error: 'You cannot interact with this user.' });
+    if (err.code === 'USER_NOT_FOUND') return res.status(404).json({ success: false, error: 'User not found.' });
+    console.error('Swipe recording error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not record swipe.' });
+  }
+});
+
 /* Match creation is server-verified so clients cannot forge matches. */
 app.post('/matches/create', requireAuth, async (req, res) => {
   const targetUserId = String(req.body?.targetUserId || '');
   if (!targetUserId || targetUserId === req.user.uid) return res.status(400).json({ success: false, error: 'Valid target user is required.' });
   try {
+    const blockA = await db.collection('blocks').doc(req.user.uid + '_' + targetUserId).get();
+    const blockB = await db.collection('blocks').doc(targetUserId + '_' + req.user.uid).get();
+    if (blockA.exists || blockB.exists) {
+      return res.status(403).json({ success: false, error: 'You cannot match with a blocked user.' });
+    }
+
     const reciprocal = await db.collection('swipes')
       .where('fromUserId', '==', targetUserId)
       .where('toUserId', '==', req.user.uid)
