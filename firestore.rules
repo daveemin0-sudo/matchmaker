@@ -6,13 +6,20 @@ service cloud.firestore {
     function participant(matchData) {
       return signedIn() && request.auth.uid in matchData.users;
     }
+    function otherUserId(matchData) {
+      return matchData.users[0] == request.auth.uid ? matchData.users[1] : matchData.users[0];
+    }
+    function notBlockedWith(matchData) {
+      let other = otherUserId(matchData);
+      return !exists(/databases/$(database)/documents/blocks/$(request.auth.uid)_$(other))
+        && !exists(/databases/$(database)/documents/blocks/$(other)_$(request.auth.uid));
+    }
 
     match /users/{userId} {
       allow read: if signedIn();
       allow create: if owner(userId)
         && (!('isVip' in request.resource.data) || request.resource.data.isVip == false)
         && (!('role' in request.resource.data) || request.resource.data.role == 'user')
-        && (!('isVip' in request.resource.data) || request.resource.data.isVip == false)
         && (!('phoneVerified' in request.resource.data) || request.resource.data.phoneVerified == false)
         && (!('emailVerified' in request.resource.data) || request.resource.data.emailVerified == false);
       allow update: if owner(userId)
@@ -40,6 +47,7 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
         allow create: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+          && notBlockedWith(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && request.resource.data.sender == request.auth.uid;
         allow update: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && resource.data.sender == request.auth.uid;
@@ -66,8 +74,23 @@ service cloud.firestore {
     }
 
     match /reports/{reportId} {
-      allow create: if signedIn() && request.resource.data.reportedBy == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.reportedBy == request.auth.uid
+        && request.resource.data.reportedUserId is string
+        && request.resource.data.reportedUserId != request.auth.uid
+        && request.resource.data.reason in ['inappropriate','spam','fake','harassment','other'];
       allow read, update, delete: if false;
+    }
+
+    match /blocks/{blockId} {
+      allow read: if owner(request.auth.uid);
+      allow create: if signedIn()
+        && request.resource.data.blockedBy == request.auth.uid
+        && request.resource.data.blockedUserId is string
+        && request.resource.data.blockedUserId != request.auth.uid
+        && blockId == request.auth.uid + '_' + request.resource.data.blockedUserId;
+      allow update: if false;
+      allow delete: if signedIn() && resource.data.blockedBy == request.auth.uid;
     }
 
     match /fcm_tokens/{userId}/tokens/{tokenId} {
