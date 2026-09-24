@@ -320,6 +320,50 @@ function listenToUserMatches(callback) {
   }
 }
 
+// One-shot direct fetch of user matches (ideal for pull-to-refresh & app resume)
+async function fetchUserMatchesDirectly() {
+  if (!fbDb || !fbAuth?.currentUser) return [];
+  const currentUserId = fbAuth.currentUser.uid;
+  try {
+    const snapshot = await fbDb.collection('matches')
+      .where('users', 'array-contains', currentUserId)
+      .get();
+    const matchedProfiles = [];
+    for (const doc of snapshot.docs) {
+      const matchData = doc.data();
+      const partnerId = matchData.users.find(id => id !== currentUserId);
+      if (partnerId) {
+        try {
+          const userDoc = await fbDb.collection('users').doc(partnerId).get();
+          if (userDoc.exists) {
+            const data = userDoc.data();
+            matchedProfiles.push({
+              id: partnerId,
+              name: data.displayName || data.name || 'Match',
+              age: data.age || 24,
+              bio: data.bio || '',
+              image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+              tags: data.interests || [],
+              distance: '2 km',
+              lastMessage: matchData.lastMessage || '',
+              lastSender: matchData.lastSender || '',
+              lastUpdated: matchData.lastUpdated?.toMillis ? matchData.lastUpdated.toMillis() : (matchData.createdAt?.toMillis ? matchData.createdAt.toMillis() : Date.now()),
+              isRealUser: true
+            });
+          }
+        } catch (e) {
+          console.warn("Error loading match profile directly:", e);
+        }
+      }
+    }
+    matchedProfiles.sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+    return matchedProfiles;
+  } catch (err) {
+    console.warn("fetchUserMatchesDirectly failed:", err.message);
+    return [];
+  }
+}
+
 // ----------------------------------------------------------
 // REALTIME MESSAGING
 // ----------------------------------------------------------

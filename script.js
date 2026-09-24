@@ -214,50 +214,7 @@ function initMainApp() {
 
   // Subscribe to real-time matches from Firestore
   if (typeof listenToUserMatches === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    listenToUserMatches((realMatches) => {
-      if (realMatches && realMatches.length > 0) {
-        let hasNewIncomingMessage = false;
-        realMatches.forEach(m => {
-          if (!DUMMY_USER_IDS.includes(m.id)) {
-            const existingIndex = matchedUsers.findIndex(u => u.id === m.id);
-            if (existingIndex === -1) {
-              matchedUsers.unshift(m);
-            } else {
-              matchedUsers[existingIndex] = { ...matchedUsers[existingIndex], ...m };
-            }
-            if (!conversations[m.id]) {
-              conversations[m.id] = { messages: [] };
-            }
-            // If match doc has latest message from partner, sync it
-            if (m.lastMessage && m.lastSender && fbAuth.currentUser && m.lastSender !== fbAuth.currentUser.uid) {
-              const msgs = conversations[m.id].messages;
-              const lastLocal = msgs[msgs.length - 1];
-              if (!lastLocal || lastLocal.text !== m.lastMessage) {
-                const isViewing = (appState.currentScreen === 'chat' && appState.currentChatId === m.id);
-                msgs.push({
-                  sender: 'them',
-                  text: m.lastMessage,
-                  read: isViewing,
-                  timestamp: m.lastUpdated || Date.now()
-                });
-                movePartnerToTop(m.id);
-                if (!isViewing) {
-                  hasNewIncomingMessage = true;
-                  showToast(`💬 ${m.name}: ${m.lastMessage.substring(0, 36)}...`, 'info');
-                }
-              }
-            }
-          }
-        });
-        sortMatchedUsersByLatest();
-        renderMatchesView();
-        updateMatchesNotificationBadge();
-        saveToStorage();
-        if (hasNewIncomingMessage) {
-          playNotificationSound();
-        }
-      }
-    });
+    listenToUserMatches(applyMatchesUpdate);
   }
 
   // Ask for notification permission after a short delay
@@ -267,15 +224,234 @@ function initMainApp() {
   if (typeof initPushNotifications === 'function' && isRealUserLoggedIn()) {
     setTimeout(() => initPushNotifications(), 4000);
   }
-  // Register service worker for PWA — but never on localhost/local dev
-  // servers. The SW exists to help real users go offline and get fast
-  // repeat loads; while you're actively editing and reloading via Live
-  // Server (127.0.0.1) it only gets in the way. It still registers
-  // normally once this is deployed to a real domain.
+
+  // Register service worker for PWA
   const isLocalDev = ['localhost', '127.0.0.1', '', '::1'].includes(location.hostname);
   if ('serviceWorker' in navigator && !isLocalDev) {
-    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then((reg) => {
+      // Periodically check for SW updates
+      setInterval(() => { reg.update().catch(() => {}); }, 10 * 60 * 1000);
+    }).catch(() => {});
   }
+
+  // Initialize Pull To Refresh for PWA & mobile
+  initPullToRefresh();
+}
+
+// Reusable handler to process matches & messages payload from Firestore
+function applyMatchesUpdate(realMatches) {
+  if (!realMatches || realMatches.length === 0) return;
+  let hasNewIncomingMessage = false;
+  realMatches.forEach(m => {
+    if (!DUMMY_USER_IDS.includes(m.id)) {
+      const existingIndex = matchedUsers.findIndex(u => u.id === m.id);
+      if (existingIndex === -1) {
+        matchedUsers.unshift(m);
+      } else {
+        matchedUsers[existingIndex] = { ...matchedUsers[existingIndex], ...m };
+      }
+      if (!conversations[m.id]) {
+        conversations[m.id] = { messages: [] };
+      }
+      // If match doc has latest message from partner, sync it
+      if (m.lastMessage && m.lastSender && fbAuth?.currentUser && m.lastSender !== fbAuth.currentUser.uid) {
+        const msgs = conversations[m.id].messages;
+        const lastLocal = msgs[msgs.length - 1];
+        if (!lastLocal || lastLocal.text !== m.lastMessage) {
+          const isViewing = (appState.currentScreen === 'chat' && appState.currentChatId === m.id);
+          msgs.push({
+            sender: 'them',
+            text: m.lastMessage,
+            read: isViewing,
+            timestamp: m.lastUpdated || Date.now()
+          });
+          movePartnerToTop(m.id);
+          if (!isViewing) {
+            hasNewIncomingMessage = true;
+            showToast(`💬 ${m.name}: ${m.lastMessage.substring(0, 36)}...`, 'info');
+          }
+        }
+      }
+    }
+  });
+  sortMatchedUsersByLatest();
+  renderMatchesView();
+  updateMatchesNotificationBadge();
+  saveToStorage();
+  if (hasNewIncomingMessage) {
+    playNotificationSound();
+  }
+}
+
+// Unified auto-refresh & pull-to-refresh runner
+async function refreshAppData({ manual = false, background = false } = {}) {
+  try {
+    if (!isRealUserLoggedIn()) {
+      if (manual) showToast('✨ Refreshed', 'gold');
+      return;
+    }
+
+    // 1. Direct one-shot pull of latest matches and messages
+    if (typeof fetchUserMatchesDirectly === 'function') {
+      const freshMatches = await fetchUserMatchesDirectly();
+      if (freshMatches && freshMatches.length > 0) {
+        applyMatchesUpdate(freshMatches);
+      }
+    }
+
+    // 2. Refresh discovery stack if viewing discovery
+    if (appState.currentScreen === 'discovery') {
+      loadProfilesForDiscovery();
+    }
+
+    // 3. Update stories & badges
+    if (typeof loadCommunityStories === 'function') {
+      loadCommunityStories();
+    }
+    updateMatchesNotificationBadge();
+
+    if (manual) {
+      if (navigator.vibrate) navigator.vibrate(15);
+      showToast('✨ Updated to latest', 'gold');
+    }
+  } catch (err) {
+    console.warn('App refresh error:', err);
+  }
+}
+
+// PWA Auto-Refresh when returning to app (fixes having to restart app for notifications)
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && isRealUserLoggedIn()) {
+    console.log('📱 App resumed in foreground — refreshing notifications and matches...');
+    refreshAppData({ background: true });
+  }
+});
+
+window.addEventListener('focus', () => {
+  if (isRealUserLoggedIn()) {
+    refreshAppData({ background: true });
+  }
+});
+
+// Periodic foreground sync every 30 seconds
+setInterval(() => {
+  if (document.visibilityState === 'visible' && isRealUserLoggedIn()) {
+    refreshAppData({ background: true });
+  }
+}, 30000);
+
+// Smooth Pull To Refresh Gesture Controller
+function initPullToRefresh() {
+  const container = document.querySelector('.screens-container') || document.body;
+  const indicator = document.getElementById('ptrIndicator');
+  const icon = document.getElementById('ptrIcon');
+  const text = document.getElementById('ptrText');
+  if (!container || !indicator) return;
+
+  if (container._ptrBound) return;
+  container._ptrBound = true;
+
+  let startY = 0;
+  let startX = 0;
+  let isPulling = false;
+  let isRefreshing = false;
+  const PULL_THRESHOLD = 55;
+  const MAX_PULL = 85;
+
+  function getScrollTop() {
+    const activeScreen = document.querySelector('.screen.active');
+    if (!activeScreen) return window.scrollY || document.documentElement.scrollTop;
+    const scrollContainer = activeScreen.querySelector('.settings-workspace, .matches-workspace, .chats-inbox-wrap, .auth-screen, .profile-screen-workspace, .discovery-workspace') || activeScreen;
+    return scrollContainer.scrollTop || window.scrollY || 0;
+  }
+
+  container.addEventListener('touchstart', (e) => {
+    if (isRefreshing || !e.touches || e.touches.length === 0) return;
+    if (getScrollTop() <= 2) {
+      startY = e.touches[0].clientY;
+      startX = e.touches[0].clientX;
+      isPulling = false;
+    } else {
+      startY = 0;
+    }
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    if (!startY || isRefreshing || !e.touches || e.touches.length === 0) return;
+    const currentY = e.touches[0].clientY;
+    const currentX = e.touches[0].clientX;
+    const diffY = currentY - startY;
+    const diffX = currentX - startX;
+
+    // Ignore horizontal swipes (card swiping in discovery)
+    if (Math.abs(diffX) > Math.abs(diffY) * 0.9) {
+      startY = 0;
+      return;
+    }
+
+    if (diffY > 8 && getScrollTop() <= 2) {
+      isPulling = true;
+      const pullDistance = Math.min(MAX_PULL, (diffY - 8) * 0.42);
+      indicator.classList.add('ptr-pulling');
+      indicator.style.transform = `translate3d(-50%, ${pullDistance}px, 0)`;
+
+      const rotation = Math.min(360, (pullDistance / PULL_THRESHOLD) * 360);
+      if (icon) icon.style.transform = `rotate(${rotation}deg)`;
+
+      if (pullDistance >= PULL_THRESHOLD) {
+        if (text) text.textContent = 'Release to refresh';
+        indicator.style.borderColor = 'var(--gold-1, #F4C550)';
+      } else {
+        if (text) text.textContent = 'Pull down to refresh';
+        indicator.style.borderColor = 'rgba(244, 197, 80, 0.35)';
+      }
+    }
+  }, { passive: true });
+
+  const endPull = async () => {
+    if (!isPulling || isRefreshing) {
+      startY = 0;
+      isPulling = false;
+      return;
+    }
+
+    indicator.classList.remove('ptr-pulling');
+    const transform = indicator.style.transform || '';
+    const match = transform.match(/translate3d\(-50%,\s*([0-9.]+)px/);
+    const currentDistance = match ? parseFloat(match[1]) : 0;
+
+    if (currentDistance >= PULL_THRESHOLD) {
+      isRefreshing = true;
+      indicator.classList.add('ptr-refreshing');
+      if (text) text.textContent = 'Refreshing...';
+      if (navigator.vibrate) navigator.vibrate(12);
+
+      const startTime = Date.now();
+      await refreshAppData({ manual: true });
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 500) {
+        await new Promise(r => setTimeout(r, 500 - elapsed));
+      }
+
+      if (text) text.textContent = 'Updated ✨';
+      setTimeout(() => {
+        indicator.classList.remove('ptr-refreshing');
+        indicator.style.transform = 'translate3d(-50%, -90px, 0)';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+        isRefreshing = false;
+        isPulling = false;
+        startY = 0;
+      }, 350);
+    } else {
+      indicator.style.transform = 'translate3d(-50%, -90px, 0)';
+      if (icon) icon.style.transform = 'rotate(0deg)';
+      isPulling = false;
+      startY = 0;
+    }
+  };
+
+  container.addEventListener('touchend', endPull, { passive: true });
+  container.addEventListener('touchcancel', endPull, { passive: true });
 }
 
 async function loadProfilesForDiscovery() {
