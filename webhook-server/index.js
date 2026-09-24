@@ -18,6 +18,14 @@ const CLEANUP_SECRET = process.env.CLEANUP_SECRET;
 const METERED_API_KEY = process.env.METERED_API_KEY;
 const METERED_DOMAIN = process.env.METERED_DOMAIN || 'hookmebysam.metered.live';
 const DAILY_FREE_SWIPES = Math.max(1, Number(process.env.DAILY_FREE_SWIPES || 100));
+function nigeriaDateKey(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Lagos',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(date);
+}
 
 if (!TERMII_API_KEY || !PAYSTACK_SECRET_KEY || !CLEANUP_SECRET) {
   throw new Error('Missing required production secrets: TERMII_API_KEY, PAYSTACK_SECRET_KEY and CLEANUP_SECRET');
@@ -449,7 +457,7 @@ app.post('/swipes/record', requireAuth, async (req, res) => {
     const blockARef = db.collection('blocks').doc(req.user.uid + '_' + targetUserId);
     const blockBRef = db.collection('blocks').doc(targetUserId + '_' + req.user.uid);
 
-    const todayKey = new Date().toISOString().slice(0, 10);
+    const todayKey = nigeriaDateKey();
     const counterRef = db.collection('swipe_daily').doc(req.user.uid + '_' + todayKey);
 
     const result = await db.runTransaction(async tx => {
