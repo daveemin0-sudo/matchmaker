@@ -1,4 +1,4 @@
-/* ==========================================================
+ï»¿/* ==========================================================
    hookmebysam â€” Full Application Logic
    ========================================================== */
 
@@ -360,10 +360,18 @@ function saveToStorage() {
     localStorage.setItem('hmbs_user', JSON.stringify(currentUser));
     localStorage.setItem('hmbs_settings', JSON.stringify(settings));
     localStorage.setItem('hmbs_matches', JSON.stringify(matchedUsers));
-    localStorage.setItem('hmbs_convos', JSON.stringify(conversations));
+    const MAX_MSGS = 60;
+    const trimmedConvos = {};
+    for (const chatId in conversations) {
+      const msgs = conversations[chatId]?.messages;
+      trimmedConvos[chatId] = { ...conversations[chatId], messages: Array.isArray(msgs) ? msgs.slice(-MAX_MSGS) : [] };
+    }
+    localStorage.setItem('hmbs_convos', JSON.stringify(trimmedConvos));
     localStorage.setItem('hmbs_blocked', JSON.stringify(blockedUsers));
   } catch (e) {
-    console.warn('Storage save error', e);
+    if (e.name === 'QuotaExceededError' || e.code === 22) {
+      try { localStorage.removeItem('hmbs_convos'); } catch (_) {}
+    } else { console.warn('Storage save error', e); }
   }
 }
 
@@ -5125,17 +5133,17 @@ async function handleStoryPhotoSelected(event) {
 }
 
 // ==========================================================
-// LEGAL MODALS — Terms, Privacy Policy, DMCA (compliance)
+// LEGAL MODALS ï¿½ Terms, Privacy Policy, DMCA (compliance)
 // ==========================================================
 
 const LEGAL_CONTENT = {
   terms: {
     title: 'Terms of Service',
-    body: `<p><strong style="color:#FFF">Effective: January 2025</strong></p><p><strong style="color:#FFF">1. Eligibility</strong><br>You must be at least <strong>18 years old</strong> to use hookmebysam. Underage accounts are terminated immediately.</p><p><strong style="color:#FFF">2. Acceptable Use</strong><br>No illegal, abusive, or harassing content. No spam. Violations result in a permanent ban.</p><p><strong style="color:#FFF">3. VIP Subscriptions</strong><br>VIP Gold plans are <strong>one-time purchases and do not auto-renew</strong>. Refunds within 24 hours via <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a>.</p><p><strong style="color:#FFF">4. Limitation of Liability</strong><br>App provided as-is. We are not liable for damages from use of the app.</p><p>hookmebysam · Lagos, Nigeria · <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a></p>`
+    body: `<p><strong style="color:#FFF">Effective: January 2025</strong></p><p><strong style="color:#FFF">1. Eligibility</strong><br>You must be at least <strong>18 years old</strong> to use hookmebysam. Underage accounts are terminated immediately.</p><p><strong style="color:#FFF">2. Acceptable Use</strong><br>No illegal, abusive, or harassing content. No spam. Violations result in a permanent ban.</p><p><strong style="color:#FFF">3. VIP Subscriptions</strong><br>VIP Gold plans are <strong>one-time purchases and do not auto-renew</strong>. Refunds within 24 hours via <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a>.</p><p><strong style="color:#FFF">4. Limitation of Liability</strong><br>App provided as-is. We are not liable for damages from use of the app.</p><p>hookmebysam ï¿½ Lagos, Nigeria ï¿½ <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a></p>`
   },
   privacy: {
     title: 'Privacy Policy',
-    body: `<p><strong style="color:#FFF">NDPR &amp; GDPR aligned · Effective January 2025</strong></p><p><strong style="color:#FFF">We collect:</strong> Name, age, gender, photo, email, and messages between matched users.</p><p><strong style="color:#FFF">We do NOT:</strong> Use session-recording tools, sell your data, log keystrokes, or track location without consent.</p><p><strong style="color:#FFF">Payments:</strong> Processed by Paystack — payment data is never stored on our servers.</p><p><strong style="color:#FFF">Delete account:</strong> Settings ? Delete Account removes all data within 30 days.</p><p><strong style="color:#FFF">Unsubscribe:</strong> Email <a href="mailto:contact@hookmebysam.com?subject=Unsubscribe" style="color:#FF2D78">contact@hookmebysam.com</a> with subject "Unsubscribe".</p><p>hookmebysam · Lagos, Nigeria · contact@hookmebysam.com</p>`
+    body: `<p><strong style="color:#FFF">NDPR &amp; GDPR aligned ï¿½ Effective January 2025</strong></p><p><strong style="color:#FFF">We collect:</strong> Name, age, gender, photo, email, and messages between matched users.</p><p><strong style="color:#FFF">We do NOT:</strong> Use session-recording tools, sell your data, log keystrokes, or track location without consent.</p><p><strong style="color:#FFF">Payments:</strong> Processed by Paystack ï¿½ payment data is never stored on our servers.</p><p><strong style="color:#FFF">Delete account:</strong> Settings ? Delete Account removes all data within 30 days.</p><p><strong style="color:#FFF">Unsubscribe:</strong> Email <a href="mailto:contact@hookmebysam.com?subject=Unsubscribe" style="color:#FF2D78">contact@hookmebysam.com</a> with subject "Unsubscribe".</p><p>hookmebysam ï¿½ Lagos, Nigeria ï¿½ contact@hookmebysam.com</p>`
   },
   dmca: {
     title: 'DMCA Takedown Policy',

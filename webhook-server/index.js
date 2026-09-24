@@ -66,10 +66,17 @@ const db = admin.firestore();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// CORS for your frontend domain
+// CORS — allow all origins including OPTIONS preflight
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', process.env.FRONTEND_URL || '*');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  const allowedOrigin = process.env.FRONTEND_URL || '*';
+  res.header('Access-Control-Allow-Origin', allowedOrigin);
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
+  res.header('Access-Control-Max-Age', '86400'); // Cache preflight 24h
+  // Respond immediately to all OPTIONS preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
   next();
 });
 
@@ -262,6 +269,7 @@ app.post('/auth/send-otp', async (req, res) => {
   try {
     const senderId = process.env.TERMII_SENDER_ID || 'N-Alert';
     const apiKey = process.env.TERMII_API_KEY || 'tlv_ZfuIsmGag1PuYwPWWQ3h2HaV0jE3I_yPn-2JnIPjudU';
+    // Termii OTP send — correct pin_placeholder that matches message_text
     const response = await fetch('https://api.ng.termii.com/api/sms/otp/send', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -272,31 +280,39 @@ app.post('/auth/send-otp', async (req, res) => {
         from: senderId,
         channel: 'generic',
         pin_attempts: 3,
-        pin_time_to_live: 5,    // OTP expires in 5 minutes
+        pin_time_to_live: 5,
         pin_length: 6,
         pin_placeholder: '< 1234 >',
-        message_text: 'Your hookmebysam verification code is < 1234 >. Valid for 5 minutes.',
+        message_text: 'Your hookmebysam verification code is < 1234 >. Valid for 5 minutes. Do not share.',
         pin_type: 'NUMERIC'
       })
     });
 
     const data = await response.json();
+    console.log('Termii send-otp response:', JSON.stringify(data));
 
     if (data.pinId) {
       await saveOtpRequest(normalizedPhone, data.pinId);
-      console.log(`📱 OTP sent to ${normalizedPhone}`);
-      res.json({ success: true, message: 'OTP sent successfully via Termii SMS.' });
-    } else if (data.message && (data.message.includes('Country Inactive') || data.message.includes('Unauthenticated'))) {
-      console.warn('⚠️ Termii notice:', data.message, '— providing dev test code 123456 so verification testing is not blocked.');
-      await saveOtpRequest(normalizedPhone, 'DEV_TEST_PIN');
+      console.log(`📱 OTP sent to ${normalizedPhone} via Termii SMS`);
+      res.json({ success: true, message: 'OTP sent successfully via SMS.' });
+    } else if (data.message && (
+      data.message.toLowerCase().includes('country') ||
+      data.message.toLowerCase().includes('inactive') ||
+      data.message.toLowerCase().includes('unauthenticated') ||
+      data.message.toLowerCase().includes('unauthorized')
+    )) {
+      // Termii account activation pending — send demo code so testing is not blocked
+      const demoOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      await saveOtpRequest(normalizedPhone, 'DEV_TEST_PIN_' + demoOtp);
+      console.warn(`⚠️ Termii notice: ${data.message} — using demo code: ${demoOtp}`);
       res.json({
         success: true,
-        message: 'OTP ready (Termii approval pending: use test code 123456)',
-        testCode: '123456'
+        message: 'OTP ready (Termii SMS pending approval). Check server console for code.',
+        testCode: demoOtp
       });
     } else {
       console.error('Termii error response:', data);
-      res.status(400).json({ error: data.message || 'Failed to send OTP via SMS gateway.' });
+      res.status(400).json({ error: data.message || 'Failed to send OTP. Check Termii account.' });
     }
   } catch (err) {
     console.error('Termii processing error:', err.message);
@@ -316,16 +332,24 @@ app.post('/auth/verify-otp', async (req, res) => {
 
   const { pinId } = otpData;
 
-  // Test mode bypass if Termii country activation is pending
-  if (pinId === 'DEV_TEST_PIN' && (otp === '123456' || otp === '1234')) {
-    await db.collection('otp_requests').doc(normalizedPhone).update({ verified: true });
-    let uid = 'user_' + Buffer.from(normalizedPhone).toString('hex').slice(0, 16);
-    let token = null;
-    try {
-      token = await admin.auth().createCustomToken(uid);
-    } catch (_) {}
-    console.log(`✅ Dev test OTP verified for ${normalizedPhone}`);
-    return res.json({ success: true, token, uid });
+  // Dev/test mode: pinId starts with DEV_TEST_PIN_<actual_code>
+  if (pinId && pinId.startsWith('DEV_TEST_PIN')) {
+    const expectedCode = pinId.replace('DEV_TEST_PIN_', '');
+    // Accept the embedded code OR legacy '123456'
+    if (otp === expectedCode || otp === '123456') {
+      try {
+        await db.collection('otp_requests').doc(normalizedPhone).set({ verified: true }, { merge: true });
+      } catch (_) {
+        memoryOtpStore.set(normalizedPhone, { ...otpData, verified: true });
+      }
+      let uid = 'user_' + Buffer.from(normalizedPhone).toString('hex').slice(0, 16);
+      let token = null;
+      try { token = await admin.auth().createCustomToken(uid); } catch (_) {}
+      console.log(`✅ Dev-mode OTP verified for ${normalizedPhone}`);
+      return res.json({ success: true, token, uid });
+    } else {
+      return res.status(400).json({ error: 'Incorrect code. Please try again.' });
+    }
   }
 
   try {
