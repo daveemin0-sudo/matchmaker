@@ -4314,45 +4314,90 @@ function submitReport(reason, name) {
   showToast(`✅ Report submitted. We'll review ${name}'s account.`, 'info');
 }
 
-function blockUser(userId, name) {
+async function persistBlockToFirestore(userId) {
+  if (!fbDb || !fbAuth?.currentUser || !userId) return true;
+  const uid = fbAuth.currentUser.uid;
+  if (uid === userId) return false;
+  await fbDb.collection('blocks').doc(uid + '_' + userId).set({
+    blockedBy: uid,
+    blockedUserId: userId,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  return true;
+}
+
+async function deleteBlockFromFirestore(userId) {
+  if (!fbDb || !fbAuth?.currentUser || !userId) return true;
+  const uid = fbAuth.currentUser.uid;
+  await fbDb.collection('blocks').doc(uid + '_' + userId).delete();
+  return true;
+}
+
+async function blockUser(userId, name) {
   closeReportModal();
-  if (userId) {
-    const existing = matchedUsers.find(u => u.id === userId);
-    const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
-    const userObj = existing || fallback || { id: userId, name: name };
+  if (!userId) return;
 
-    if (!blockedUsers.some(b => b.id === userId)) {
-      blockedUsers.unshift({
-        id: userId,
-        name: userObj.name || name || 'User',
-        image: userObj.image || userObj.photoUrl || '',
-        bio: userObj.bio || '',
-        age: userObj.age || 24,
-        blockedAt: Date.now()
-      });
-    }
+  const existing = matchedUsers.find(u => u.id === userId);
+  const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
+  const userObj = existing || fallback || { id: userId, name: name };
 
-    matchedUsers = matchedUsers.filter(u => u.id !== userId);
-    profileStack = profileStack.filter(p => p.id !== userId);
-    delete conversations[userId];
-
-    saveToStorage();
-    renderMatchesView();
-    renderSettingsScreen();
-    updateMatchesNotificationBadge();
+  try {
+    await persistBlockToFirestore(userId);
+  } catch (err) {
+    console.warn('Block persistence failed:', err);
+    showToast('Could not block this contact right now. Please try again.', 'error');
+    return;
   }
-  showToast(`${name} has been blocked.`, 'info');
+
+  if (!blockedUsers.some(b => b.id === userId)) {
+    blockedUsers.unshift({
+      id: userId,
+      name: userObj.name || name || 'User',
+      image: userObj.image || userObj.photoUrl || '',
+      bio: userObj.bio || '',
+      age: userObj.age || 24,
+      blockedAt: Date.now()
+    });
+  }
+
+  matchedUsers = matchedUsers.filter(u => u.id !== userId);
+  profileStack = profileStack.filter(p => p.id !== userId);
+  delete conversations[userId];
+
+  saveToStorage();
+  renderMatchesView();
+  renderSettingsScreen();
+  updateMatchesNotificationBadge();
+  showToast(`${name || 'User'} has been blocked.`, 'info');
   showScreen('matches');
 }
 
-function executeReportAndBlock(userId, name) {
+async function executeReportAndBlock(userId, name) {
   closeReportModal();
-  if (userId) {
-    const existing = matchedUsers.find(u => u.id === userId);
-    const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
-    const userObj = existing || fallback || { id: userId, name: name };
+  if (!userId || !fbDb || !fbAuth?.currentUser) {
+    showToast('Please sign in to report an account.', 'error');
+    return;
+  }
+
+  const reason = document.querySelector('input[name="reportReason"]:checked')?.value || 'other';
+  const reporterId = fbAuth.currentUser.uid;
+
+  try {
+    await fbDb.collection('reports').add({
+      reportedBy: reporterId,
+      reportedUserId: userId,
+      reportedUserName: String(name || 'User').slice(0, 120),
+      reason,
+      status: 'open',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+
+    await persistBlockToFirestore(userId);
 
     if (!blockedUsers.some(b => b.id === userId)) {
+      const existing = matchedUsers.find(u => u.id === userId);
+      const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
+      const userObj = existing || fallback || { id: userId, name: name };
       blockedUsers.unshift({
         id: userId,
         name: userObj.name || name || 'User',
@@ -4366,14 +4411,16 @@ function executeReportAndBlock(userId, name) {
     matchedUsers = matchedUsers.filter(u => u.id !== userId);
     profileStack = profileStack.filter(p => p.id !== userId);
     delete conversations[userId];
-
     saveToStorage();
     renderMatchesView();
     renderSettingsScreen();
     updateMatchesNotificationBadge();
+    showToast(`🛡️ ${name || 'User'} was reported and blocked.`, 'gold');
+    showScreen('matches');
+  } catch (err) {
+    console.warn('Report/block failed:', err);
+    showToast('Could not submit the report. Please try again.', 'error');
   }
-  showToast(`🛡️ ${name} was reported and blocked.`, 'gold');
-  showScreen('matches');
 }
 
 // ==========================================================
@@ -4471,7 +4518,7 @@ function renderBlockedUsersListInModal() {
   }).join('');
 }
 
-function unblockUser(userId, name) {
+async function unblockUser(userId, name) {
   const idx = blockedUsers.findIndex(b => b.id === userId);
   let userName = name || 'User';
   let userObj = null;
@@ -4479,10 +4526,18 @@ function unblockUser(userId, name) {
   if (idx !== -1) {
     userObj = blockedUsers[idx];
     userName = userObj.name || userName;
-    blockedUsers.splice(idx, 1);
   }
 
-  // Restore the user back to matches and conversations so user can chat with them again!
+  try {
+    await deleteBlockFromFirestore(userId);
+  } catch (err) {
+    console.warn('Unblock persistence failed:', err);
+    showToast('Could not unblock this contact right now. Please try again.', 'error');
+    return;
+  }
+
+  if (idx !== -1) blockedUsers.splice(idx, 1);
+
   const restoredProfile = userObj || PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
   if (restoredProfile) {
     if (!matchedUsers.some(u => u.id === userId)) {
@@ -4496,18 +4551,12 @@ function unblockUser(userId, name) {
         distance: restoredProfile.distance || '2 km'
       });
     }
-    if (!conversations[userId]) {
-      conversations[userId] = {
-        messages: [{ sender: 'them', text: 'You unblocked this contact. Say hi! 👋', read: true, timestamp: Date.now() }]
-      };
-    }
   }
 
   saveToStorage();
   renderMatchesView();
   renderSettingsScreen();
   updateMatchesNotificationBadge();
-
   showToast(`✨ ${userName} has been unblocked!`, 'gold');
   renderBlockedUsersListInModal();
 }
