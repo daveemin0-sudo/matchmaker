@@ -176,36 +176,26 @@ function listenToAuthChanges() {
 // ----------------------------------------------------------
 
 async function recordSwipeInBackend(targetUserId, action) {
-  if (!fbDb || !fbAuth?.currentUser) return false;
-  const currentUserId = fbAuth.currentUser.uid;
+  if (!fbAuth?.currentUser) return { success: false, matched: false, error: 'Sign in required.' };
 
   try {
-    // Record swipe action in Firestore
-    await fbDb.collection('swipes').add({
-      fromUserId: currentUserId,
-      toUserId: targetUserId,
-      action: action, // "like", "pass", "superlike"
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    const token = await fbAuth.currentUser.getIdToken();
+    const res = await fetch(BACKEND_URL + '/swipes/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ targetUserId, action })
     });
-
-    // If action is like, check for mutual match
-    if (action === 'like' || action === 'superlike') {
-      const token = await fbAuth.currentUser.getIdToken();
-      const matchRes = await fetch(`${BACKEND_URL}/matches/create`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ targetUserId })
-      });
-      const matchData = await matchRes.json();
-      if (matchData.success) {
-        console.log("🎉 Server-verified match created:", matchData.matchId);
-        return true;
-      }
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      if (data?.error) showToast(data.error, data.limited ? 'gold' : 'error');
+      return { success: false, matched: false, limited: Boolean(data?.limited), error: data?.error || 'Could not record swipe.' };
     }
+    return { success: true, matched: Boolean(data.matched), matchId: data.matchId || null };
   } catch (err) {
     console.warn("recordSwipeInBackend warning:", err.message);
+    showToast('Could not save your swipe. Please try again.', 'error');
+    return { success: false, matched: false, error: 'Network error.' };
   }
-  return false;
 }
 
 // Fetch all registered users from Firestore for the swipe card stack
