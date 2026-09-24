@@ -684,14 +684,18 @@ async function verifyPhoneOwnershipOnly(phoneNumber, otpCode) {
 // ----------------------------------------------------------
 async function checkAndSyncVipStatus() {
   if (!fbDb || !fbAuth?.currentUser) return;
+  if (typeof appState !== 'undefined') appState.isVip = false;
+  if (window.appState) window.appState.isVip = false;
+
   try {
     const doc = await fbDb.collection('users').doc(fbAuth.currentUser.uid).get();
     if (!doc.exists) return;
     const data = doc.data();
-    const isVip = data.isVip && data.vipExpiry && data.vipExpiry.toDate() > new Date();
+    const expiryMs = data.vipExpiry?.toMillis ? data.vipExpiry.toMillis() : 0;
+    const isVip = Boolean(data.isVip && (!expiryMs || expiryMs > Date.now()));
     if (typeof appState !== 'undefined') appState.isVip = isVip;
     if (window.appState) window.appState.isVip = isVip;
-    if (isVip && typeof applyVipUI === 'function') applyVipUI();
+    if (typeof renderSettingsScreen === 'function') renderSettingsScreen();
     console.log(`👑 VIP Status: ${isVip ? 'ACTIVE' : 'INACTIVE'} | Expires: ${data.vipExpiry?.toDate?.()?.toDateString?.() || 'N/A'}`);
   } catch (e) {
     console.warn('Could not sync VIP status:', e);
