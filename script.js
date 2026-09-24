@@ -1457,10 +1457,15 @@ async function doSwipe(dir) {
   profileStack.shift();
   renderCardStack();
 
-  // Record swipe in Firestore if logged in with Firebase
+  // Record swipe through the authenticated backend so limits and blocks are enforced server-side.
   if (typeof recordSwipeInBackend === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    const isMutual = await recordSwipeInBackend(profile.id, dir === 'right' ? 'like' : 'pass');
-    if (isMutual && dir === 'right') {
+    const result = await recordSwipeInBackend(profile.id, dir === 'right' ? 'like' : 'pass');
+    if (!result.success) {
+      profileStack.unshift(profile);
+      renderCardStack();
+      return;
+    }
+    if (result.matched && dir === 'right') {
       triggerMatchPopup(profile);
     }
   } else {
