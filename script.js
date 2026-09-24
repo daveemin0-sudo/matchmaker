@@ -2474,7 +2474,15 @@ function ensureRemoteAudioElement() {
 function ensureRemoteVideoElement() {
   let video = document.getElementById('remoteVideoStream');
   const overlay = document.getElementById('videoCallOverlay');
-  if (!video || !overlay) return null;
+  if (!overlay) return null;
+
+  if (!video) {
+    video = document.createElement('video');
+    video.id = 'remoteVideoStream';
+    video.setAttribute('aria-label', 'Remote video');
+    overlay.appendChild(video);
+  }
+
   video.autoplay = true;
   video.playsInline = true;
   video.style.position = 'absolute';
