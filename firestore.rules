@@ -78,7 +78,7 @@ service cloud.firestore {
            && (
              (
                resource.data.calleeId == request.auth.uid
-               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer','status'])
+               && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['answer','status','endedAt'])
              )
              ||
              (
