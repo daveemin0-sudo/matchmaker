@@ -226,8 +226,63 @@ app.post('/payment/verify', requireAuth, async (req, res) => {
   }
 });
 
-/* Termii OTP */
-const otpCache = new Map();
+/* Termii OTP — Firestore-backed pending state so verification survives restarts. */
+const otpMemoryCache = new Map();
+
+function otpDocId(phone) {
+  return crypto.createHash('sha256').update(phone).digest('hex');
+}
+
+async function savePendingOtp(phone, pinId, expiresAtMs) {
+  const ref = db.collection('otp_requests').doc(otpDocId(phone));
+  await ref.set({
+    pinId: String(pinId),
+    phoneHash: otpDocId(phone),
+    expiresAt: admin.firestore.Timestamp.fromMillis(expiresAtMs),
+    createdAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+  otpMemoryCache.set(phone, { pinId: String(pinId), expiresAt: expiresAtMs });
+}
+
+async function loadPendingOtp(phone) {
+  const memory = otpMemoryCache.get(phone);
+  if (memory && Date.now() <= memory.expiresAt) return { ref: null, ...memory };
+
+  const ref = db.collection('otp_requests').doc(otpDocId(phone));
+  const snap = await ref.get();
+  if (!snap.exists) return null;
+  const data = snap.data();
+  const expiresAt = data.expiresAt?.toMillis?.() || 0;
+  if (!data.pinId || Date.now() > expiresAt) {
+    await ref.delete().catch(() => {});
+    otpMemoryCache.delete(phone);
+    return null;
+  }
+  const pending = { ref, pinId: String(data.pinId), expiresAt };
+  otpMemoryCache.set(phone, { pinId: pending.pinId, expiresAt });
+  return pending;
+}
+
+async function verifyTermiiOtp(phone, otp) {
+  const pending = await loadPendingOtp(phone);
+  if (!pending) return { ok: false, error: 'Code expired. Request a new one.' };
+
+  const response = await fetch('https://api.ng.termii.com/api/sms/otp/verify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: TERMII_API_KEY, pin_id: pending.pinId, pin: otp })
+  });
+  const data = await response.json();
+  const verified = response.ok &&
+    (data.verified === true || data.verified === 'True' || data.verified === 'true');
+
+  if (!verified) return { ok: false, error: 'Incorrect verification code.' };
+
+  if (pending.ref) await pending.ref.delete().catch(() => {});
+  else await db.collection('otp_requests').doc(otpDocId(phone)).delete().catch(() => {});
+  otpMemoryCache.delete(phone);
+  return { ok: true };
+}
 
 app.post('/auth/send-otp', async (req, res) => {
   let phone;
@@ -260,7 +315,7 @@ app.post('/auth/send-otp', async (req, res) => {
     if (!response.ok || !data.pinId) {
       return res.status(502).json({ success: false, error: 'Could not send SMS right now. Try again shortly.' });
     }
-    otpCache.set(phone, { pinId: data.pinId, expiresAt: Date.now() + 10 * 60 * 1000 });
+    await savePendingOtp(phone, data.pinId, Date.now() + 10 * 60 * 1000);
     return res.json({ success: true, message: 'OTP sent. Check your SMS.' });
   } catch (err) {
     console.error('OTP send error:', err.message);
@@ -278,23 +333,9 @@ app.post('/auth/verify-otp', async (req, res) => {
     return res.status(429).json({ success: false, error: 'Too many verification attempts.' });
   }
 
-  const pending = otpCache.get(phone);
-  if (!pending || Date.now() > pending.expiresAt) {
-    otpCache.delete(phone);
-    return res.status(400).json({ success: false, error: 'Code expired. Request a new one.' });
-  }
-
   try {
-    const response = await fetch('https://api.ng.termii.com/api/sms/otp/verify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ api_key: TERMII_API_KEY, pin_id: pending.pinId, pin: otp })
-    });
-    const data = await response.json();
-    if (!response.ok || !(data.verified === true || data.verified === 'True' || data.verified === 'true')) {
-      return res.status(400).json({ success: false, error: 'Incorrect verification code.' });
-    }
-    otpCache.delete(phone);
+    const result = await verifyTermiiOtp(phone, otp);
+    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
 
     let userRecord;
     try {
@@ -305,6 +346,7 @@ app.post('/auth/verify-otp', async (req, res) => {
       await db.collection('users').doc(userRecord.uid).set({
         id: userRecord.uid,
         phone,
+        phoneVerified: true,
         isVip: false,
         role: 'user',
         createdAt: admin.firestore.FieldValue.serverTimestamp()
@@ -314,6 +356,42 @@ app.post('/auth/verify-otp', async (req, res) => {
     return res.json({ success: true, token, uid: userRecord.uid });
   } catch (err) {
     console.error('OTP verify error:', err.message);
+    return res.status(502).json({ success: false, error: 'Verification service is temporarily unavailable.' });
+  }
+});
+
+app.post('/auth/verify-phone', requireAuth, async (req, res) => {
+  let phone;
+  try { phone = normalizeNigerianPhone(req.body?.phone); }
+  catch (_) { return res.status(400).json({ success: false, error: 'Invalid phone number.' }); }
+  const otp = String(req.body?.otp || '').trim();
+  if (!/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, error: 'Enter the 6-digit code.' });
+  if (!rateLimit(`otp-phone-verify:${req.user.uid}`, 5, 10 * 60 * 1000)) {
+    return res.status(429).json({ success: false, error: 'Too many verification attempts.' });
+  }
+
+  try {
+    const result = await verifyTermiiOtp(phone, otp);
+    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+
+    let updated;
+    try {
+      updated = await admin.auth().updateUser(req.user.uid, { phoneNumber: phone });
+    } catch (err) {
+      if (err.code === 'auth/phone-number-already-exists') {
+        return res.status(409).json({ success: false, error: 'That phone number is already linked to another account.' });
+      }
+      throw err;
+    }
+
+    await db.collection('users').doc(req.user.uid).set({
+      phone,
+      phoneVerified: true
+    }, { merge: true });
+
+    return res.json({ success: true, uid: updated.uid });
+  } catch (err) {
+    console.error('Phone verification error:', err.message);
     return res.status(502).json({ success: false, error: 'Verification service is temporarily unavailable.' });
   }
 });
@@ -357,14 +435,6 @@ async function sendPushToUser(userId, { title, body, data = {} }) {
     }
   }
 }
-
-app.post('/fcm/send', requireAuth, async (req, res) => {
-  if (!rateLimit(`fcm:${req.user.uid}`, 30, 60 * 1000)) return res.status(429).json({ error: 'Too many notification requests.' });
-  const { toUserId, title, body, data } = req.body || {};
-  if (!toUserId || !title) return res.status(400).json({ error: 'toUserId and title are required.' });
-  await sendPushToUser(String(toUserId), { title, body, data });
-  res.json({ success: true });
-});
 
 app.post('/fcm/new-match', requireAuth, async (req, res) => {
   const { matchedUserId, matchedUserName } = req.body || {};
