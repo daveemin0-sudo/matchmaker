@@ -142,6 +142,35 @@ function isRealUserLoggedIn() {
 }
 
 // ==========================================================
+// AGE GATE â€” 18+ verification (COPPA / dating-app law)
+// ==========================================================
+
+(function initAgeGate() {
+  const overlay = document.getElementById('ageGateOverlay');
+  if (!overlay) return;
+  // If user already confirmed age in this browser, skip the gate
+  if (localStorage.getItem('hmbs_age_confirmed') === '1') {
+    overlay.style.display = 'none';
+  }
+  // Otherwise it stays visible blocking the entire app
+})();
+
+function confirmAgeGate() {
+  localStorage.setItem('hmbs_age_confirmed', '1');
+  const overlay = document.getElementById('ageGateOverlay');
+  if (overlay) {
+    overlay.style.transition = 'opacity 0.4s';
+    overlay.style.opacity = '0';
+    setTimeout(() => { overlay.style.display = 'none'; }, 400);
+  }
+}
+
+function rejectAgeGate() {
+  // Redirect under-18 users away from the page
+  window.location.replace('https://www.google.com');
+}
+
+// ==========================================================
 // INIT
 // ==========================================================
 
@@ -3114,6 +3143,16 @@ function selectPricingTier(n) {
   document.querySelectorAll('.pricing-card').forEach((card, i) => {
     card.classList.toggle('selected', i + 1 === n);
   });
+
+  // Update renewal terms text dynamically â€” California ARL compliance
+  const tierPrices = { 1: '\u20a62,500', 2: '\u20a67,500', 3: '\u20a625,000' };
+  const tierNames  = { 1: '1 Week VIP Gold', 2: '1 Month VIP Gold', 3: 'Lifetime VIP Gold' };
+  const nameEl  = document.getElementById('renewalPlanName');
+  const priceEl = document.getElementById('renewalPrice');
+  const ctaEl   = document.getElementById('paywallCtaLabel');
+  if (nameEl)  nameEl.textContent  = tierNames[n]  || '1 Month VIP Gold';
+  if (priceEl) priceEl.textContent = tierPrices[n] || '\u20a67,500';
+  if (ctaEl)   ctaEl.textContent   = `Subscribe Now \u2014 ${tierNames[n] || 'VIP Gold'}`;
 }
 
 function simulatePurchase() {
@@ -5083,4 +5122,41 @@ async function handleStoryPhotoSelected(event) {
     console.error('Story upload failed:', err);
     showToast('Could not process photo. Please try again.', 'error');
   }
+}
+
+// ==========================================================
+// LEGAL MODALS — Terms, Privacy Policy, DMCA (compliance)
+// ==========================================================
+
+const LEGAL_CONTENT = {
+  terms: {
+    title: 'Terms of Service',
+    body: `<p><strong style="color:#FFF">Effective: January 2025</strong></p><p><strong style="color:#FFF">1. Eligibility</strong><br>You must be at least <strong>18 years old</strong> to use hookmebysam. Underage accounts are terminated immediately.</p><p><strong style="color:#FFF">2. Acceptable Use</strong><br>No illegal, abusive, or harassing content. No spam. Violations result in a permanent ban.</p><p><strong style="color:#FFF">3. VIP Subscriptions</strong><br>VIP Gold plans are <strong>one-time purchases and do not auto-renew</strong>. Refunds within 24 hours via <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a>.</p><p><strong style="color:#FFF">4. Limitation of Liability</strong><br>App provided as-is. We are not liable for damages from use of the app.</p><p>hookmebysam · Lagos, Nigeria · <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a></p>`
+  },
+  privacy: {
+    title: 'Privacy Policy',
+    body: `<p><strong style="color:#FFF">NDPR &amp; GDPR aligned · Effective January 2025</strong></p><p><strong style="color:#FFF">We collect:</strong> Name, age, gender, photo, email, and messages between matched users.</p><p><strong style="color:#FFF">We do NOT:</strong> Use session-recording tools, sell your data, log keystrokes, or track location without consent.</p><p><strong style="color:#FFF">Payments:</strong> Processed by Paystack — payment data is never stored on our servers.</p><p><strong style="color:#FFF">Delete account:</strong> Settings ? Delete Account removes all data within 30 days.</p><p><strong style="color:#FFF">Unsubscribe:</strong> Email <a href="mailto:contact@hookmebysam.com?subject=Unsubscribe" style="color:#FF2D78">contact@hookmebysam.com</a> with subject "Unsubscribe".</p><p>hookmebysam · Lagos, Nigeria · contact@hookmebysam.com</p>`
+  },
+  dmca: {
+    title: 'DMCA Takedown Policy',
+    body: `<p>hookmebysam complies with the DMCA. Our designated agent:</p><div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;margin:10px 0"><strong style="color:#FFF">DMCA Agent: hookmebysam</strong><br>Email: <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a><br>Address: Lagos, Nigeria</div><p>To file a notice, email the agent with: (1) description of infringing work, (2) location of content, (3) your contact info, (4) good-faith statement, (5) accuracy statement under penalty of perjury, (6) your signature. We act promptly. Repeat infringers lose access.</p>`
+  }
+};
+
+function showLegalModal(type) {
+  const modal   = document.getElementById('legalModal');
+  const titleEl = document.getElementById('legalModalTitle');
+  const bodyEl  = document.getElementById('legalModalBody');
+  const content = LEGAL_CONTENT[type] || LEGAL_CONTENT.terms;
+  if (!modal) return;
+  if (titleEl) titleEl.textContent = content.title;
+  if (bodyEl)  bodyEl.innerHTML    = content.body;
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLegalModal() {
+  const modal = document.getElementById('legalModal');
+  if (modal) modal.style.display = 'none';
+  document.body.style.overflow = '';
 }
