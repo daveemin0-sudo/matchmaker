@@ -16,7 +16,8 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read: if signedIn();
+      // Private account document: only the account owner can read it.
+      allow read: if owner(userId);
       allow create: if owner(userId)
         && (!('isVip' in request.resource.data) || request.resource.data.isVip == false)
         && (!('role' in request.resource.data) || request.resource.data.role == 'user')
@@ -25,6 +26,17 @@ service cloud.firestore {
       allow update: if owner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys()
           .hasAny(['isVip','vipTier','vipPlan','vipExpiry','vipExpiresAt','vipActivatedAt','role','emailVerified','phoneVerified','subscriptionStatus','paystackReference','paystackEmail','paystackAmount']);
+      allow delete: if owner(userId);
+    }
+
+    match /public_profiles/{userId} {
+      allow read: if signedIn();
+      allow create: if owner(userId)
+        && request.resource.data.id == userId
+        && request.resource.data.keys().hasOnly(['id','name','displayName','age','bio','gender','interests','location','image','avatar','createdAt','updatedAt']);
+      allow update: if owner(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name','displayName','age','bio','gender','interests','location','image','avatar','updatedAt']);
       allow delete: if owner(userId);
     }
 
