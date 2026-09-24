@@ -88,6 +88,20 @@ setInterval(() => {
   }
 }, 5 * 60 * 1000).unref();
 
+async function requireAdmin(req, res, next) {
+  try {
+    const doc = await db.collection('users').doc(req.user.uid).get();
+    if (!doc.exists || doc.data()?.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin access required.' });
+    }
+    req.adminProfile = doc.data();
+    next();
+  } catch (err) {
+    console.error('Admin authorization error:', err.message);
+    return res.status(500).json({ error: 'Could not verify admin access.' });
+  }
+}
+
 async function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   if (!header.startsWith('Bearer ')) return res.status(401).json({ error: 'Authentication required.' });
@@ -641,6 +655,100 @@ app.get('/turn/credentials', requireAuth, async (_req, res) => {
   } catch (err) {
     console.error('TURN credentials error:', err.message);
     res.status(502).json({ error: 'Failed to obtain TURN credentials.' });
+  }
+});
+
+/* Admin moderation */
+app.get('/admin/reports', requireAuth, requireAdmin, async (req, res) => {
+  if (!rateLimit(`admin-reports:${req.user.uid}`, 30, 60 * 1000)) {
+    return res.status(429).json({ error: 'Too many admin requests.' });
+  }
+  try {
+    const snap = await db.collection('reports').limit(100).get();
+    const statusFilter = req.query?.status ? String(req.query.status) : '';
+    const reports = snap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(report => !statusFilter || report.status === statusFilter)
+      .sort((a, b) => {
+        const at = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
+        const bt = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+        return bt - at;
+      })
+      .map(report => ({
+        id: report.id,
+        reportedBy: report.reportedBy || '',
+        reportedUserId: report.reportedUserId || '',
+        reportedUserName: report.reportedUserName || 'User',
+        reason: report.reason || 'other',
+        status: report.status || 'open',
+        createdAt: report.createdAt?.toDate ? report.createdAt.toDate().toISOString() : null,
+        reviewedAt: report.reviewedAt?.toDate ? report.reviewedAt.toDate().toISOString() : null,
+        adminNote: report.adminNote || ''
+      }));
+    return res.json({ success: true, reports });
+  } catch (err) {
+    console.error('Admin report list error:', err.message);
+    return res.status(500).json({ error: 'Could not load reports.' });
+  }
+});
+
+app.post('/admin/reports/update', requireAuth, requireAdmin, async (req, res) => {
+  const reportId = String(req.body?.reportId || '');
+  const status = String(req.body?.status || '');
+  const adminNote = String(req.body?.adminNote || '').slice(0, 1000);
+  if (!reportId || !['open','reviewing','resolved','dismissed'].includes(status)) {
+    return res.status(400).json({ error: 'Invalid report update.' });
+  }
+  if (!rateLimit(`admin-update:${req.user.uid}`, 60, 60 * 1000)) {
+    return res.status(429).json({ error: 'Too many admin updates.' });
+  }
+  try {
+    await db.collection('reports').doc(reportId).update({
+      status,
+      adminNote,
+      reviewedBy: req.user.uid,
+      reviewedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Admin report update error:', err.message);
+    return res.status(500).json({ error: 'Could not update report.' });
+  }
+});
+
+app.post('/admin/users/suspend', requireAuth, requireAdmin, async (req, res) => {
+  const targetUid = String(req.body?.userId || '');
+  const reason = String(req.body?.reason || 'Policy violation').slice(0, 500);
+  if (!targetUid || targetUid === req.user.uid) {
+    return res.status(400).json({ error: 'Invalid target user.' });
+  }
+  try {
+    await admin.auth().updateUser(targetUid, { disabled: true });
+    await db.collection('users').doc(targetUid).set({
+      suspended: true,
+      suspendedAt: admin.firestore.FieldValue.serverTimestamp(),
+      suspensionReason: reason
+    }, { merge: true });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Admin suspension error:', err.message);
+    return res.status(500).json({ error: 'Could not suspend user.' });
+  }
+});
+
+app.post('/admin/users/unsuspend', requireAuth, requireAdmin, async (req, res) => {
+  const targetUid = String(req.body?.userId || '');
+  if (!targetUid) return res.status(400).json({ error: 'Invalid target user.' });
+  try {
+    await admin.auth().updateUser(targetUid, { disabled: false });
+    await db.collection('users').doc(targetUid).set({
+      suspended: false,
+      unsuspendedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Admin unsuspension error:', err.message);
+    return res.status(500).json({ error: 'Could not restore user.' });
   }
 });
 
