@@ -85,6 +85,31 @@ app.use((req, res, next) => {
 });
 
 const rateBuckets = new Map();
+
+async function persistentRateLimit(key, max, windowMs) {
+  const id = crypto.createHash('sha256').update(String(key)).digest('hex');
+  const ref = db.collection('rate_limits').doc(id);
+  const now = Date.now();
+  let allowed = false;
+
+  await db.runTransaction(async tx => {
+    const snap = await tx.get(ref);
+    const previous = snap.exists && Array.isArray(snap.data()?.hits) ? snap.data().hits : [];
+    const hits = previous
+      .map(value => typeof value === 'number' ? value : value?.toMillis?.())
+      .filter(value => Number.isFinite(value) && now - value < windowMs);
+
+    allowed = hits.length < max;
+    if (allowed) hits.push(now);
+
+    tx.set(ref, {
+      hits,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  });
+
+  return allowed;
+}
 function rateLimit(key, max, windowMs) {
   const now = Date.now();
   const old = (rateBuckets.get(key) || []).filter(t => now - t < windowMs);
@@ -325,7 +350,9 @@ app.post('/auth/send-otp', async (req, res) => {
   catch (_) { return res.status(400).json({ success: false, error: 'Enter a valid Nigerian phone number.' }); }
 
   if (!rateLimit(`otp-send:${phone}`, 3, 10 * 60 * 1000) ||
-      !rateLimit(`otp-send-ip:${req.ip}`, 10, 10 * 60 * 1000)) {
+      !rateLimit(`otp-send-ip:${req.ip}`, 10, 10 * 60 * 1000) ||
+      !(await persistentRateLimit(`otp-send:${phone}`, 3, 10 * 60 * 1000)) ||
+      !(await persistentRateLimit(`otp-send-ip:${req.ip}`, 10, 10 * 60 * 1000))) {
     return res.status(429).json({ success: false, error: 'Too many OTP requests. Try again later.' });
   }
 
@@ -366,7 +393,9 @@ app.post('/auth/verify-otp', async (req, res) => {
   const otp = String(req.body?.otp || '').trim();
   if (!/^\d{6}$/.test(otp)) return res.status(400).json({ success: false, error: 'Enter the 6-digit code.' });
   if (!rateLimit(`otp-verify:${phone}`, 5, 10 * 60 * 1000) ||
-      !rateLimit(`otp-verify-ip:${req.ip}`, 20, 10 * 60 * 1000)) {
+      !rateLimit(`otp-verify-ip:${req.ip}`, 20, 10 * 60 * 1000) ||
+      !(await persistentRateLimit(`otp-verify:${phone}`, 5, 10 * 60 * 1000)) ||
+      !(await persistentRateLimit(`otp-verify-ip:${req.ip}`, 20, 10 * 60 * 1000))) {
     return res.status(429).json({ success: false, error: 'Too many verification attempts.' });
   }
 
@@ -816,7 +845,8 @@ app.post('/reports', requireAuth, async (req, res) => {
   if (!reportedUserId || reportedUserId === req.user.uid || !['inappropriate','spam','fake','harassment','other'].includes(reason)) {
     return res.status(400).json({ success: false, error: 'Invalid report.' });
   }
-  if (!rateLimit(`report:${req.user.uid}`, 10, 10 * 60 * 1000)) {
+  if (!rateLimit(`report:${req.user.uid}`, 10, 10 * 60 * 1000) ||
+      !(await persistentRateLimit(`report:${req.user.uid}`, 10, 10 * 60 * 1000))) {
     return res.status(429).json({ success: false, error: 'Too many reports. Please try again later.' });
   }
 
