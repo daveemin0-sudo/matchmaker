@@ -288,7 +288,7 @@ app.post('/auth/verify-otp', async (req, res) => {
     const response = await fetch('https://api.ng.termii.com/api/sms/otp/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: { api_key: TERMII_API_KEY, pin_id: pending.pinId, pin: otp }
+      body: JSON.stringify({ api_key: TERMII_API_KEY, pin_id: pending.pinId, pin: otp })
     });
     const data = await response.json();
     if (!response.ok || !(data.verified === true || data.verified === 'True' || data.verified === 'true')) {
@@ -315,6 +315,27 @@ app.post('/auth/verify-otp', async (req, res) => {
   } catch (err) {
     console.error('OTP verify error:', err.message);
     return res.status(502).json({ success: false, error: 'Verification service is temporarily unavailable.' });
+  }
+});
+
+/* Match creation is server-verified so clients cannot forge matches. */
+app.post('/matches/create', requireAuth, async (req, res) => {
+  const targetUserId = String(req.body?.targetUserId || '');
+  if (!targetUserId || targetUserId === req.user.uid) return res.status(400).json({ success: false, error: 'Valid target user is required.' });
+  try {
+    const reciprocal = await db.collection('swipes')
+      .where('fromUserId', '==', targetUserId)
+      .where('toUserId', '==', req.user.uid)
+      .where('action', 'in', ['like', 'superlike']).limit(1).get();
+    if (reciprocal.empty) return res.status(403).json({ success: false, error: 'No mutual like exists.' });
+    const matchId = [req.user.uid, targetUserId].sort().join('_');
+    await db.collection('matches').doc(matchId).create({ users: [req.user.uid, targetUserId], createdAt: admin.firestore.FieldValue.serverTimestamp() }).catch(err => {
+      if (err.code !== 6) throw err;
+    });
+    return res.json({ success: true, matchId });
+  } catch (err) {
+    console.error('Match creation error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not create match.' });
   }
 });
 
