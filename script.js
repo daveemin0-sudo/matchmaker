@@ -279,14 +279,20 @@ function applyMatchesUpdate(realMatches) {
   });
   sortMatchedUsersByLatest();
   renderMatchesView();
+  if (typeof renderChatsInbox === 'function') {
+    renderChatsInbox();
+  }
   updateMatchesNotificationBadge();
   saveToStorage();
   if (hasNewIncomingMessage) {
     playNotificationSound();
+    if (navigator.vibrate) {
+      try { navigator.vibrate([30, 50, 30]); } catch (_) {}
+    }
   }
 }
 
-// Unified auto-refresh & pull-to-refresh runner
+// Unified auto-refresh & pull-to-refresh runner (WhatsApp/Instagram-style in-place data sync)
 async function refreshAppData({ manual = false, background = false } = {}) {
   try {
     if (!isRealUserLoggedIn()) {
@@ -314,18 +320,19 @@ async function refreshAppData({ manual = false, background = false } = {}) {
     updateMatchesNotificationBadge();
 
     if (manual) {
-      if (navigator.vibrate) navigator.vibrate(15);
-      showToast('✨ Updated to latest', 'gold');
+      if (navigator.vibrate) {
+        try { navigator.vibrate(15); } catch (_) {}
+      }
     }
   } catch (err) {
     console.warn('App refresh error:', err);
   }
 }
 
-// PWA Auto-Refresh when returning to app (fixes having to restart app for notifications)
+// PWA Auto-Refresh when returning to app (Instant live sync like WhatsApp)
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && isRealUserLoggedIn()) {
-    console.log('📱 App resumed in foreground — refreshing notifications and matches...');
+    console.log('📱 App resumed in foreground — syncing notifications and matches...');
     refreshAppData({ background: true });
   }
 });
@@ -336,57 +343,14 @@ window.addEventListener('focus', () => {
   }
 });
 
-// Periodic foreground sync every 30 seconds
+// Periodic live background sync every 15 seconds (auto-updates while using the app)
 setInterval(() => {
   if (document.visibilityState === 'visible' && isRealUserLoggedIn()) {
     refreshAppData({ background: true });
   }
-}, 30000);
+}, 15000);
 
-// Global App Reload Controller (Button, gesture, or floating pill)
-window.triggerAppReload = function triggerAppReload() {
-  const indicator = document.getElementById('ptrIndicator');
-  const text = document.getElementById('ptrText');
-  const icon = document.getElementById('ptrIcon');
-  const reloadBtn = document.getElementById('appReloadBtn');
-
-  if (indicator) {
-    indicator.classList.remove('ptr-pulling');
-    indicator.classList.add('ptr-refreshing');
-    indicator.style.transform = 'translate3d(-50%, 16px, 0)';
-    if (text) text.textContent = 'Reloading app...';
-    if (icon) icon.style.transform = 'rotate(180deg)';
-  }
-  if (reloadBtn) {
-    reloadBtn.style.opacity = '0.5';
-    const svg = reloadBtn.querySelector('svg');
-    if (svg) svg.style.animation = 'ptrSpin 0.75s linear infinite';
-    reloadBtn.disabled = true;
-  }
-  if (navigator.vibrate) {
-    try { navigator.vibrate([15, 30, 15]); } catch (_) {}
-  }
-
-  // Ping Service Worker to activate any waiting update
-  if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-    try {
-      navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
-    } catch (_) {}
-  }
-
-  // Reload with cache-busting timestamp so PWA updates instantly
-  setTimeout(() => {
-    try {
-      const url = new URL(window.location.href);
-      url.searchParams.set('_r', Date.now().toString());
-      window.location.replace(url.toString());
-    } catch (e) {
-      window.location.reload();
-    }
-  }, 260);
-};
-
-// Smooth Pull To Refresh Gesture Controller (Bound globally to document)
+// Smooth Pull-To-Refresh Gesture Controller (Native WhatsApp / Instagram feel)
 function initPullToRefresh() {
   const indicator = document.getElementById('ptrIndicator');
   const icon = document.getElementById('ptrIcon');
@@ -400,8 +364,8 @@ function initPullToRefresh() {
   let startX = 0;
   let isPulling = false;
   let isRefreshing = false;
-  const PULL_THRESHOLD = 52;
-  const MAX_PULL = 85;
+  const PULL_THRESHOLD = 50;
+  const MAX_PULL = 82;
 
   function getScrollTop() {
     const activeScreen = document.querySelector('.screen.active');
@@ -447,16 +411,16 @@ function initPullToRefresh() {
       if (icon) icon.style.transform = `rotate(${rotation}deg)`;
 
       if (pullDistance >= PULL_THRESHOLD) {
-        if (text) text.textContent = 'Release to reload';
+        if (text) text.textContent = 'Release to refresh';
         indicator.style.borderColor = 'var(--gold-1, #F4C550)';
       } else {
-        if (text) text.textContent = 'Pull down to reload';
+        if (text) text.textContent = 'Pull down to refresh';
         indicator.style.borderColor = 'rgba(244, 197, 80, 0.45)';
       }
     }
   }, { passive: true });
 
-  const endPull = () => {
+  const endPull = async () => {
     if (!isPulling || isRefreshing) {
       startY = 0;
       isPulling = false;
@@ -470,7 +434,29 @@ function initPullToRefresh() {
 
     if (currentDistance >= PULL_THRESHOLD) {
       isRefreshing = true;
-      triggerAppReload();
+      indicator.classList.add('ptr-refreshing');
+      indicator.style.transform = 'translate3d(-50%, 16px, 0)';
+      if (text) text.textContent = 'Updating...';
+      if (navigator.vibrate) {
+        try { navigator.vibrate(12); } catch (_) {}
+      }
+
+      const startTime = Date.now();
+      await refreshAppData({ manual: true });
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 450) {
+        await new Promise(r => setTimeout(r, 450 - elapsed));
+      }
+
+      if (text) text.textContent = 'Updated ✨';
+      setTimeout(() => {
+        indicator.classList.remove('ptr-refreshing');
+        indicator.style.transform = 'translate3d(-50%, -90px, 0)';
+        if (icon) icon.style.transform = 'rotate(0deg)';
+        isRefreshing = false;
+        isPulling = false;
+        startY = 0;
+      }, 350);
     } else {
       indicator.style.transform = 'translate3d(-50%, -90px, 0)';
       if (icon) icon.style.transform = 'rotate(0deg)';
@@ -643,13 +629,11 @@ function updateHeader(screenId) {
   const reportBtn = document.getElementById('chatReportBtn');
   const upgradeBtn = document.getElementById('upgradeHeaderBtn');
   const matchBtn  = document.getElementById('matchesQuickBtn');
-  const reloadBtn = document.getElementById('appReloadBtn');
 
   if (searchBtn)  searchBtn.style.display  = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
   if (reportBtn)  reportBtn.style.display  = screenId === 'chat' ? 'flex' : 'none';
   if (upgradeBtn) upgradeBtn.style.display = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
   if (matchBtn)   matchBtn.style.display   = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
-  if (reloadBtn)  reloadBtn.style.display  = screenId === 'chat' ? 'none' : 'flex';
 
   switch (screenId) {
     case 'discovery':

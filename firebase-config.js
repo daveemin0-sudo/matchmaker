@@ -144,7 +144,19 @@ function listenToAuthChanges() {
       if (window.appState) window.appState.isLoggedIn = true;
       if (typeof showScreen === 'function') showScreen('discovery');
       if (typeof initMainApp === 'function') initMainApp();
+      
+      // Wire up live real-time matches & messages listener immediately upon auth
+      if (typeof listenToUserMatches === 'function' && typeof applyMatchesUpdate === 'function') {
+        if (window._activeMatchesListener) {
+          try { window._activeMatchesListener(); } catch (_) {}
+        }
+        window._activeMatchesListener = listenToUserMatches(applyMatchesUpdate);
+      }
     } else {
+      if (window._activeMatchesListener) {
+        try { window._activeMatchesListener(); } catch (_) {}
+        window._activeMatchesListener = null;
+      }
       if (typeof appState !== 'undefined') appState.isLoggedIn = false;
       if (window.appState) window.appState.isLoggedIn = false;
       if (typeof showScreen === 'function') showScreen('login');
