@@ -690,6 +690,69 @@ app.get('/turn/credentials', requireAuth, async (_req, res) => {
   }
 });
 
+async function deleteQueryDocs(query) {
+  while (true) {
+    const snap = await query.limit(450).get();
+    if (snap.empty) return;
+    const batch = db.batch();
+    snap.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+    if (snap.size < 450) return;
+  }
+}
+
+async function deleteDocumentTree(ref) {
+  const collections = await ref.listCollections();
+  for (const collection of collections) {
+    await deleteQueryDocs(collection);
+  }
+  await ref.delete().catch(err => {
+    if (err.code !== 5) throw err;
+  });
+}
+
+async function deleteUserStorage(uid) {
+  const bucket = admin.storage().bucket();
+  for (const prefix of [`stories/${uid}/`, `voicenotes/${uid}/`]) {
+    const [files] = await bucket.getFiles({ prefix });
+    await Promise.all(files.map(file => file.delete({ ignoreNotFound: true })));
+  }
+}
+
+app.post('/account/delete', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  if (!rateLimit(`account-delete:${uid}`, 1, 15 * 60 * 1000)) {
+    return res.status(429).json({ error: 'Account deletion already requested. Please wait.' });
+  }
+
+  try {
+    // Remove user-owned collections and personal match trees.
+    await deleteQueryDocs(db.collection('stories').where('ownerId', '==', uid));
+    await deleteQueryDocs(db.collection('swipes').where('fromUserId', '==', uid));
+    await deleteQueryDocs(db.collection('swipes').where('toUserId', '==', uid));
+    await deleteQueryDocs(db.collection('blocks').where('blockedBy', '==', uid));
+    await deleteQueryDocs(db.collection('reports').where('reportedBy', '==', uid));
+    await deleteQueryDocs(db.collection('fcm_tokens').doc(uid).collection('tokens'));
+
+    const matches = await db.collection('matches').where('users', 'array-contains', uid).get();
+    for (const match of matches.docs) {
+      await deleteDocumentTree(match.ref);
+    }
+
+    await Promise.all([
+      db.collection('users').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
+      db.collection('public_profiles').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
+      deleteUserStorage(uid),
+      admin.auth().deleteUser(uid)
+    ]);
+
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Account deletion error:', err.message);
+    return res.status(500).json({ error: 'Could not completely delete the account. Please contact support.' });
+  }
+});
+
 /* Public profile migration — safe fields only */
 app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req, res) => {
   if (!rateLimit(`admin-migrate-profiles:${req.user.uid}`, 2, 10 * 60 * 1000)) {
