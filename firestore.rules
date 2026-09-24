@@ -11,10 +11,13 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if owner(userId)
         && (!('isVip' in request.resource.data) || request.resource.data.isVip == false)
-        && (!('role' in request.resource.data) || request.resource.data.role == 'user');
+        && (!('role' in request.resource.data) || request.resource.data.role == 'user')
+        && (!('isVip' in request.resource.data) || request.resource.data.isVip == false)
+        && (!('phoneVerified' in request.resource.data) || request.resource.data.phoneVerified == false)
+        && (!('emailVerified' in request.resource.data) || request.resource.data.emailVerified == false);
       allow update: if owner(userId)
         && !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['isVip','vipTier','vipPlan','vipExpiry','vipExpiresAt','role','emailVerified','paystackReference','paystackEmail','paystackAmount']);
+          .hasAny(['isVip','vipTier','vipPlan','vipExpiry','vipExpiresAt','vipActivatedAt','role','emailVerified','phoneVerified','subscriptionStatus','paystackReference','paystackEmail','paystackAmount']);
       allow delete: if owner(userId);
     }
 
