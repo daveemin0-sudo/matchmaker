@@ -1360,10 +1360,10 @@ function buildProfileCard(p, idx) {
   card.className = 'profile-card';
   card.id = `card_${p.id}`;
 
-  const tagsHTML = p.tags.map(t => `<span class="tag-chip">${t}</span>`).join('');
+  const tagsHTML = (Array.isArray(p.tags) ? p.tags : []).map(t => `<span class="tag-chip">${escHtml(t)}</span>`).join('');
 
   card.innerHTML = `
-    <div class="card-photo-area" style="background-image: url('${p.image}')">
+    <div class="card-photo-area">
       <div class="card-photo-dots">
         <div class="photo-dot active"></div>
         <div class="photo-dot"></div>
@@ -1371,22 +1371,29 @@ function buildProfileCard(p, idx) {
       </div>
       <div class="card-distance-badge">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-        ${p.distance}
+        ${escHtml(p.distance || '')}
       </div>
       <div class="stamp stamp-like">LIKE</div>
       <div class="stamp stamp-nope">NOPE</div>
     </div>
     <div class="card-info">
       <div class="card-name-row">
-        <h2>${p.name}, ${p.age}</h2>
+        <h2>${escHtml(p.name || 'User')}, ${escHtml(p.age ?? '')}</h2>
         <span class="verified-icon" title="Verified">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="#1DA1F2"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
         </span>
       </div>
       <div class="card-tags">${tagsHTML}</div>
-      <p class="card-bio">${p.bio}</p>
+      <p class="card-bio">${escHtml(p.bio || '')}</p>
     </div>
   `;
+
+  const photoArea = card.querySelector('.card-photo-area');
+  if (photoArea && p.image) {
+    photoArea.style.backgroundImage = `url("${safeCssUrl(p.image)}")`;
+    photoArea.style.backgroundSize = 'cover';
+    photoArea.style.backgroundPosition = 'center';
+  }
 
   return card;
 }
@@ -4078,6 +4085,10 @@ function escHtml(str) {
   const div = document.createElement('div');
   div.appendChild(document.createTextNode(str));
   return div.innerHTML;
+}
+
+function safeCssUrl(value) {
+  return String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\r|\n/g, '');
 }
 
 // ==========================================================
