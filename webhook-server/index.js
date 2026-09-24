@@ -671,6 +671,38 @@ app.get('/turn/credentials', requireAuth, async (_req, res) => {
   }
 });
 
+/* User reports */
+app.post('/reports', requireAuth, async (req, res) => {
+  const reportedUserId = String(req.body?.reportedUserId || '');
+  const reason = String(req.body?.reason || '');
+  if (!reportedUserId || reportedUserId === req.user.uid || !['inappropriate','spam','fake','harassment','other'].includes(reason)) {
+    return res.status(400).json({ success: false, error: 'Invalid report.' });
+  }
+  if (!rateLimit(`report:${req.user.uid}`, 10, 10 * 60 * 1000)) {
+    return res.status(429).json({ success: false, error: 'Too many reports. Please try again later.' });
+  }
+
+  try {
+    const targetRef = db.collection('users').doc(reportedUserId);
+    const targetSnap = await targetRef.get();
+    if (!targetSnap.exists) return res.status(404).json({ success: false, error: 'Reported user was not found.' });
+
+    const target = targetSnap.data() || {};
+    const reportRef = await db.collection('reports').add({
+      reportedBy: req.user.uid,
+      reportedUserId,
+      reportedUserName: String(target.displayName || target.name || 'User').slice(0, 120),
+      reason,
+      status: 'open',
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return res.json({ success: true, reportId: reportRef.id });
+  } catch (err) {
+    console.error('Report creation error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not submit the report.' });
+  }
+});
+
 /* Admin moderation */
 app.get('/admin/reports', requireAuth, requireAdmin, async (req, res) => {
   if (!rateLimit(`admin-reports:${req.user.uid}`, 30, 60 * 1000)) {
