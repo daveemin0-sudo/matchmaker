@@ -1215,7 +1215,7 @@ async function syncPublicProfileToFirestore(fields = {}) {
     displayName: fields.displayName ?? fields.name ?? currentUser?.name ?? '',
     age: Number(fields.age ?? currentUser?.age ?? 24),
     bio: fields.bio ?? currentUser?.bio ?? '',
-    gender: fields.gender ?? currentUser?.gender ?? 'Female',
+    gender: fields.gender ?? currentUser?.gender ?? '',
     interests: Array.isArray(fields.interests) ? fields.interests : (currentUser?.interests || []),
     location: fields.location ?? currentUser?.location ?? '',
     image: fields.image ?? currentUser?.image ?? currentUser?.avatar ?? '',
