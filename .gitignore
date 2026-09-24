@@ -32,3 +32,4 @@ build/
 .capacitor/
 android/app/build/
 android/.gradle/
+*.zip
