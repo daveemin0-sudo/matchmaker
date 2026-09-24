@@ -2423,7 +2423,9 @@ let peerConnectionConfig = {
 // Asynchronously refresh dynamic TURN credentials from Metered if available
 async function refreshTurnCredentials() {
   try {
-    const res = await fetch("https://hookmebysam.metered.live/api/v1/turn/credentials?apiKey=06edf4b6db269eaf1cad2bf8ed0fd268ad9f");
+    const token = await fbAuth?.currentUser?.getIdToken();
+    if (!token) return;
+    const res = await fetch(`${BACKEND_URL}/turn/credentials`, { headers: { Authorization: 'Bearer ' + token } });
     if (res.ok) {
       const liveServers = await res.json();
       if (Array.isArray(liveServers) && liveServers.length > 0) {
@@ -2678,9 +2680,9 @@ function sendMessage() {
 
     // Trigger push notification to partner (fire-and-forget)
     const myName = currentUser.name || 'Your match';
-    fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : 'http://localhost:3001'}/fcm/new-message`, {
+    fbAuth.currentUser.getIdToken().then(token => fetch(`${BACKEND_URL}/fcm/new-message`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
       body: JSON.stringify({
         toUserId: appState.currentChatId,
         fromUserName: myName,
