@@ -143,22 +143,26 @@ function listenToAuthChanges() {
     if (user) {
       // Safely access or create currentUser object
       let targetUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : (window.currentUser || {});
-      
-      try {
-        if (fbDb) {
-          const doc = await fbDb.collection('users').doc(user.uid).get();
-          if (doc && doc.exists) {
-            const docData = doc.data();
-            targetUser = Object.assign({}, targetUser, docData);
-            if (docData.isVip) {
-              if (typeof appState !== 'undefined') appState.isVip = true;
-              if (window.appState) window.appState.isVip = true;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn("Firestore profile read fallback:", err.message);
-      }
+       // The server/Firestore account record is the source of truth for VIP.
+       if (typeof appState !== 'undefined') appState.isVip = false;
+       if (window.appState) window.appState.isVip = false;
+
+       try {
+         if (fbDb) {
+           const doc = await fbDb.collection('users').doc(user.uid).get();
+           if (doc && doc.exists) {
+             const docData = doc.data();
+             targetUser = Object.assign({}, targetUser, docData);
+             const expiryMs = docData.vipExpiry?.toMillis ? docData.vipExpiry.toMillis() : 0;
+             const vipActive = Boolean(docData.isVip && (!expiryMs || expiryMs > Date.now()));
+             if (typeof appState !== 'undefined') appState.isVip = vipActive;
+             if (window.appState) window.appState.isVip = vipActive;
+           }
+         }
+       } catch (err) {
+         // Fail closed when the authoritative profile cannot be read.
+         console.warn("Firestore profile read fallback:", err.message);
+       }
       
       // Ensure targetUser has at least auth email and uid
       if (user.email) targetUser.email = user.email;
@@ -192,8 +196,14 @@ function listenToAuthChanges() {
         try { window._activeMatchesListener(); } catch (_) {}
         window._activeMatchesListener = null;
       }
-      if (typeof appState !== 'undefined') appState.isLoggedIn = false;
-      if (window.appState) window.appState.isLoggedIn = false;
+       if (typeof appState !== 'undefined') {
+         appState.isLoggedIn = false;
+         appState.isVip = false;
+       }
+       if (window.appState) {
+         window.appState.isLoggedIn = false;
+         window.appState.isVip = false;
+       }
       if (typeof showScreen === 'function') showScreen('login');
       if (typeof updateHeader === 'function') updateHeader('login');
     }
