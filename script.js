@@ -3139,9 +3139,15 @@ function toggleCamera() {
 
 async function flipCamera() {
   if (isFlippingCamera) return;
-  if (!activeMediaStream || !activePeerConnection) return;
+  if (!activeMediaStream) {
+    showToast('No active video camera', 'warning');
+    return;
+  }
   const currentTrack = activeMediaStream.getVideoTracks()[0];
-  if (!currentTrack) return;
+  if (!currentTrack) {
+    showToast('Camera track not found', 'warning');
+    return;
+  }
 
   isFlippingCamera = true;
   const flipBtn = document.getElementById('videoFlipBtn');
@@ -3153,40 +3159,41 @@ async function flipCamera() {
   const targetMode = currentFacingMode === 'user' ? 'environment' : 'user';
 
   try {
-    // 1. Enumerate video devices to see all available cameras on device
+    // 1. Enumerate devices to look for explicit back/rear labels if available
     let videoDevices = [];
     try {
       const devices = await navigator.mediaDevices.enumerateDevices();
       videoDevices = devices.filter(d => d.kind === 'videoinput');
     } catch (_) {}
 
-    // Find next deviceId if multiple cameras exist
-    let targetDeviceId = null;
-    if (videoDevices.length > 1) {
-      if (currentCameraDeviceId) {
-        const currIdx = videoDevices.findIndex(d => d.deviceId === currentCameraDeviceId);
-        const nextIdx = (currIdx + 1) % videoDevices.length;
-        targetDeviceId = videoDevices[nextIdx].deviceId;
+    let matchedDeviceId = null;
+    if (videoDevices.length > 0) {
+      if (targetMode === 'environment') {
+        const back = videoDevices.find(d => /back|rear|environment|world/i.test(d.label));
+        if (back) matchedDeviceId = back.deviceId;
       } else {
-        const backCam = videoDevices.find(d => /back|rear|environment/i.test(d.label));
-        const frontCam = videoDevices.find(d => /front|user|selfie/i.test(d.label));
-        if (targetMode === 'environment' && backCam) targetDeviceId = backCam.deviceId;
-        else if (targetMode === 'user' && frontCam) targetDeviceId = frontCam.deviceId;
-        else if (videoDevices[1]) targetDeviceId = videoDevices[1].deviceId;
+        const front = videoDevices.find(d => /front|user|selfie|face/i.test(d.label));
+        if (front) matchedDeviceId = front.deviceId;
       }
     }
 
-    // 2. Stop and release current track FIRST so mobile hardware releases camera lock
-    activeMediaStream.removeTrack(currentTrack);
-    try { currentTrack.stop(); } catch (_) {}
+    // 2. Stop current track and release hardware sensor
+    try {
+      currentTrack.stop();
+      activeMediaStream.removeTrack(currentTrack);
+    } catch (_) {}
 
-    // 3. Try to acquire new video track using exact deviceId or ideal facingMode
+    // 3. Small pause to allow mobile OS camera HAL to release sensor lock
+    await new Promise(r => setTimeout(r, 80));
+
+    // 4. Try target constraints in order: explicit label deviceId, ideal facingMode, exact facingMode, bare facingMode
     const candidateConstraints = [];
-    if (targetDeviceId) {
-      candidateConstraints.push({ video: { deviceId: { exact: targetDeviceId } }, audio: false });
+    if (matchedDeviceId) {
+      candidateConstraints.push({ video: { deviceId: { exact: matchedDeviceId } }, audio: false });
     }
-    candidateConstraints.push({ video: { facingMode: { exact: targetMode } }, audio: false });
     candidateConstraints.push({ video: { facingMode: { ideal: targetMode } }, audio: false });
+    candidateConstraints.push({ video: { facingMode: targetMode }, audio: false });
+    candidateConstraints.push({ video: { facingMode: { exact: targetMode } }, audio: false });
     candidateConstraints.push({ video: true, audio: false });
 
     let newStream = null;
@@ -3197,7 +3204,7 @@ async function flipCamera() {
       } catch (_) {}
     }
 
-    // 4. Fallback recovery if switching failed: re-acquire front camera so user isn't stuck
+    // 5. Fallback recovery: restore user camera if back camera was blocked
     if (!newStream || !newStream.getVideoTracks().length) {
       try {
         newStream = await navigator.mediaDevices.getUserMedia({
@@ -3215,25 +3222,30 @@ async function flipCamera() {
 
     const newTrack = newStream.getVideoTracks()[0];
     if (newTrack) {
-      const settings = newTrack.getSettings ? newTrack.getSettings() : null;
-      if (settings?.deviceId) currentCameraDeviceId = settings.deviceId;
-
       activeMediaStream.addTrack(newTrack);
 
-      const sender = activePeerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
-      if (sender) {
-        try {
-          await sender.replaceTrack(newTrack);
-        } catch (err) {
-          console.warn('Sender replaceTrack error:', err.message);
+      // Replace track on WebRTC peer connection if active
+      if (activePeerConnection) {
+        const sender = activePeerConnection.getSenders().find(s => s.track && s.track.kind === 'video') ||
+                       activePeerConnection.getSenders().find(s => s.kind === 'video');
+        if (sender) {
+          try {
+            await sender.replaceTrack(newTrack);
+          } catch (err) {
+            console.warn('replaceTrack error:', err.message);
+          }
         }
       }
 
+      // Re-bind to local video element so mobile browser refreshes the video source
       const localVideo = document.getElementById('myVideoStream');
       if (localVideo) {
+        localVideo.srcObject = null;
         localVideo.srcObject = activeMediaStream;
         localVideo.style.transform = currentFacingMode === 'user' ? 'scaleX(-1)' : 'scaleX(1)';
-        localVideo.play?.().catch(() => {});
+        try {
+          await localVideo.play();
+        } catch (_) {}
       }
 
       showToast(currentFacingMode === 'user' ? 'Front camera 🤳' : 'Back camera 📸', 'info');

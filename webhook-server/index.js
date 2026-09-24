@@ -814,14 +814,20 @@ app.post('/stories/cleanup', async (req, res) => {
 });
 
 app.get('/turn/credentials', requireAuth, async (_req, res) => {
-  if (!METERED_API_KEY) return res.status(503).json({ error: 'TURN service is not configured.' });
+  const fallbackServers = [
+    { urls: "stun:stun.relay.metered.ca:80" },
+    { urls: "stun:stun.l.google.com:19302" },
+    { urls: "stun:stun1.l.google.com:19302" }
+  ];
+  if (!METERED_API_KEY || !METERED_DOMAIN) {
+    return res.json(fallbackServers);
+  }
   try {
     const response = await fetch(`https://${METERED_DOMAIN}/api/v1/turn/credentials?apiKey=${encodeURIComponent(METERED_API_KEY)}`);
     if (!response.ok) throw new Error(`Metered returned ${response.status}`);
     res.json(await response.json());
   } catch (err) {
-    console.error('TURN credentials error:', err.message);
-    res.status(502).json({ error: 'Failed to obtain TURN credentials.' });
+    return res.json(fallbackServers);
   }
 });
 
