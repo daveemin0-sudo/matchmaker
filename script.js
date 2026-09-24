@@ -236,6 +236,9 @@ function initMainApp() {
 
   // Initialize Pull To Refresh for PWA & mobile
   initPullToRefresh();
+
+  // Initialize Hardware/Browser Navigation History (Back & Forward buttons)
+  initNavigationHistory();
 }
 
 // Reusable handler to process matches & messages payload from Firestore
@@ -559,14 +562,15 @@ function saveToStorage() {
 const AUTH_SCREENS = ['login', 'signup', 'signupSuccess'];
 const MAIN_SCREENS = ['discovery', 'matches', 'chatsList', 'chat', 'profile', 'settings'];
 
-function showScreen(screenId) {
+function showScreen(screenId, { fromHistory = false } = {}) {
   // Hide all screens
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
 
   const target = document.getElementById(`${screenId}Screen`);
   if (target) target.classList.add('active');
 
-  appState.previousScreen = appState.currentScreen;
+  const oldScreen = appState.currentScreen;
+  appState.previousScreen = oldScreen;
   appState.currentScreen = screenId;
 
   // Show/hide nav and header appropriately
@@ -579,6 +583,18 @@ function showScreen(screenId) {
 
   updateHeader(screenId);
   updateBottomNav(screenId);
+
+  // Manage browser history for phone hardware back button & forward button
+  if (!fromHistory && oldScreen !== screenId) {
+    try {
+      const stateObj = {
+        screen: screenId,
+        chatId: screenId === 'chat' ? appState.currentChatId : null
+      };
+      const hashStr = '#' + screenId + (screenId === 'chat' && appState.currentChatId ? '/' + appState.currentChatId : '');
+      history.pushState(stateObj, '', hashStr);
+    } catch (e) {}
+  }
 }
 
 function updateHeader(screenId) {
@@ -701,14 +717,199 @@ function updateBottomNav(screenId) {
   if (activeTab) activeTab.classList.add('active');
 }
 
-function handleBackBtn() {
-  if (appState.currentScreen === 'chat') {
-    // Go back to chatsList if that's where we came from, else discovery
-    const prev = appState.previousScreen;
-    showScreen(prev === 'chatsList' || prev === 'matches' ? prev : 'discovery');
-  } else {
-    showScreen('discovery');
+function closeAnyOpenModal() {
+  // 1. Stories viewer
+  const storyOverlay = document.getElementById('storyViewerOverlay');
+  if (storyOverlay && storyOverlay.style.display !== 'none') {
+    if (typeof closeStoryViewer === 'function') { closeStoryViewer(); return true; }
+    storyOverlay.style.display = 'none';
+    return true;
   }
+
+  // 2. VIP Paywall
+  const paywall = document.getElementById('paywallModal');
+  if (paywall && (paywall.classList.contains('open') || paywall.classList.contains('active'))) {
+    if (typeof closePaywall === 'function') { closePaywall(); return true; }
+    paywall.classList.remove('open', 'active');
+    return true;
+  }
+
+  // 3. User search modal
+  const searchOverlay = document.getElementById('searchModalOverlay');
+  if (searchOverlay && searchOverlay.style.display !== 'none') {
+    if (typeof closeSearchModal === 'function') { closeSearchModal(); return true; }
+    searchOverlay.style.display = 'none';
+    return true;
+  }
+
+  // 4. Match popup modal
+  const matchPopup = document.getElementById('matchPopup') || document.getElementById('matchModal');
+  if (matchPopup && matchPopup.style.display !== 'none' && matchPopup.style.display !== '') {
+    if (typeof closeMatchPopup === 'function') { closeMatchPopup(); return true; }
+    matchPopup.style.display = 'none';
+    return true;
+  }
+
+  // 5. Legal modal
+  const legalModal = document.getElementById('legalModal');
+  if (legalModal && legalModal.style.display !== 'none' && legalModal.style.display !== '') {
+    if (typeof closeLegalModal === 'function') { closeLegalModal(); return true; }
+    legalModal.style.display = 'none';
+    return true;
+  }
+
+  // 6. Edit profile modal
+  const editModal = document.getElementById('editProfileModal');
+  if (editModal && editModal.style.display !== 'none' && editModal.style.display !== '') {
+    if (typeof closeEditProfileModal === 'function') { closeEditProfileModal(); return true; }
+    editModal.style.display = 'none';
+    return true;
+  }
+
+  // 7. Phone verification modal
+  const phoneModal = document.getElementById('phoneVerifyModal');
+  if (phoneModal && phoneModal.style.display !== 'none' && phoneModal.style.display !== '') {
+    if (typeof closePhoneVerificationModal === 'function') { closePhoneVerificationModal(); return true; }
+    phoneModal.style.display = 'none';
+    return true;
+  }
+
+  // 8. Language modal
+  const langModal = document.getElementById('languageModal');
+  if (langModal && langModal.style.display !== 'none' && langModal.style.display !== '') {
+    if (typeof closeLanguageModal === 'function') { closeLanguageModal(); return true; }
+    langModal.style.display = 'none';
+    return true;
+  }
+
+  // 9. Blocked users modal
+  const blockedModal = document.getElementById('blockedUsersModalOverlay');
+  if (blockedModal && blockedModal.style.display !== 'none' && blockedModal.style.display !== '') {
+    if (typeof closeBlockedUsersModal === 'function') { closeBlockedUsersModal(); return true; }
+    blockedModal.style.display = 'none';
+    return true;
+  }
+
+  // 10. Forgot password modal
+  const forgotModal = document.getElementById('forgotPasswordModal');
+  if (forgotModal && forgotModal.style.display !== 'none' && forgotModal.style.display !== '') {
+    if (typeof closeForgotPasswordModal === 'function') { closeForgotPasswordModal(); return true; }
+    forgotModal.style.display = 'none';
+    return true;
+  }
+
+  // 11. Forward modal
+  const fwdModal = document.getElementById('forwardModal');
+  if (fwdModal && fwdModal.style.display !== 'none' && fwdModal.style.display !== '') {
+    if (typeof closeForwardModal === 'function') { closeForwardModal(); return true; }
+    fwdModal.style.display = 'none';
+    return true;
+  }
+
+  // 12. Any generic modal overlay currently visible
+  const overlays = document.querySelectorAll('.modal-overlay');
+  for (const m of overlays) {
+    if (m.style.display === 'flex' || m.style.display === 'block') {
+      m.style.display = 'none';
+      return true;
+    }
+  }
+
+  return false;
+}
+
+let _lastBackPressTime = 0;
+
+function handleBackBtn() {
+  if (closeAnyOpenModal()) {
+    return;
+  }
+
+  if (window.history.length > 1) {
+    window.history.back();
+  } else {
+    if (appState.currentScreen === 'chat') {
+      const prev = appState.previousScreen;
+      showScreen(prev === 'chatsList' || prev === 'matches' ? prev : 'discovery', { fromHistory: true });
+    } else if (appState.currentScreen !== 'discovery') {
+      showScreen('discovery', { fromHistory: true });
+    } else {
+      handleAppExitAttempt();
+    }
+  }
+}
+
+function handleAppExitAttempt() {
+  const now = Date.now();
+  if (now - _lastBackPressTime < 2200) {
+    window.history.back();
+  } else {
+    _lastBackPressTime = now;
+    try {
+      history.pushState({ screen: 'discovery' }, '', '#discovery');
+    } catch (e) {}
+    showToast('Press back again to exit', 'info');
+  }
+}
+
+function initNavigationHistory() {
+  if (window._navHistoryInitialized) return;
+  window._navHistoryInitialized = true;
+
+  try {
+    const cur = appState.currentScreen || 'discovery';
+    history.replaceState({ screen: cur, chatId: appState.currentChatId }, '', '#' + cur);
+  } catch (e) {}
+
+  window.addEventListener('popstate', (event) => {
+    // 1. If any modal/overlay is open, close it first and prevent screen jump
+    if (closeAnyOpenModal()) {
+      try {
+        history.pushState({ screen: appState.currentScreen, chatId: appState.currentChatId }, '', '#' + appState.currentScreen);
+      } catch (e) {}
+      return;
+    }
+
+    // 2. If a state object exists with a valid screen:
+    if (event.state && event.state.screen) {
+      const targetScreen = event.state.screen;
+      if (targetScreen === 'chat' && event.state.chatId) {
+        openChat(event.state.chatId, { fromHistory: true });
+      } else {
+        if (appState.currentScreen === 'chat') {
+          appState.currentChatId = null;
+        }
+        showScreen(targetScreen, { fromHistory: true });
+      }
+      return;
+    }
+
+    // 3. Reached bottom of history stack
+    if (appState.currentScreen === 'chat') {
+      showScreen('chatsList', { fromHistory: true });
+    } else if (appState.currentScreen && appState.currentScreen !== 'discovery' && isRealUserLoggedIn()) {
+      showScreen('discovery', { fromHistory: true });
+    } else {
+      handleAppExitAttempt();
+    }
+  });
+
+  // Handle deep-link hash on page load if applicable
+  try {
+    const hash = window.location.hash.replace('#', '');
+    if (hash && isRealUserLoggedIn()) {
+      const parts = hash.split('/');
+      const screen = parts[0];
+      const param = parts[1];
+      if (MAIN_SCREENS.includes(screen)) {
+        if (screen === 'chat' && param) {
+          setTimeout(() => openChat(param, { fromHistory: true }), 300);
+        } else {
+          setTimeout(() => showScreen(screen, { fromHistory: true }), 100);
+        }
+      }
+    }
+  } catch (e) {}
 }
 
 function switchTab(tabId) {
@@ -1699,9 +1900,9 @@ function applyChatSuggestion(suggestionText) {
 // ==========================================================
 // CHAT NAVIGATION & HEADER (WhatsApp Style)
 // ==========================================================
-function openChat(profileId) {
+function openChat(profileId, { fromHistory = false } = {}) {
   appState.currentChatId = profileId;
-  showScreen('chat');
+  showScreen('chat', { fromHistory });
 
   // Mark all incoming messages in this chat as read and refresh badge
   markConversationAsRead(profileId);
@@ -5375,4 +5576,11 @@ function closeLegalModal() {
   const modal = document.getElementById('legalModal');
   if (modal) modal.style.display = 'none';
   document.body.style.overflow = '';
+}
+
+// Ensure hardware back/forward navigation is initialized
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initNavigationHistory);
+} else {
+  initNavigationHistory();
 }
