@@ -1467,6 +1467,21 @@ async function doSwipe(dir) {
     }
     if (result.matched && dir === 'right') {
       triggerMatchPopup(profile);
+
+      // Notify both matched users through authenticated backend FCM.
+      fbAuth.currentUser.getIdToken().then(token => {
+        fetch(BACKEND_URL + '/fcm/new-match', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify({
+            matchedUserId: profile.id,
+            matchedUserName: profile.name || 'your new match'
+          })
+        }).catch(() => {});
+      }).catch(() => {});
     }
   } else {
     // Local prototype mode
@@ -2683,16 +2698,21 @@ function sendMessage() {
 
     // Trigger push notification to partner (fire-and-forget)
     const myName = currentUser.name || 'Your match';
-    fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : 'http://localhost:3001'}/fcm/new-message`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        toUserId: appState.currentChatId,
-        fromUserName: myName,
-        messageText: text,
-        matchId: fbAuth.currentUser.uid
-      })
-    }).catch(() => {}); // Non-blocking, never fail the send
+    fbAuth.currentUser.getIdToken().then(token => {
+      fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : 'http://localhost:3001'}/fcm/new-message`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token
+        },
+        body: JSON.stringify({
+          toUserId: appState.currentChatId,
+          fromUserName: myName,
+          messageText: text,
+          matchId
+        })
+      }).catch(() => {});
+    }).catch(() => {});
   } else {
     triggerAutoReply();
   }
