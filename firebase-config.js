@@ -190,21 +190,16 @@ async function recordSwipeInBackend(targetUserId, action) {
 
     // If action is like, check for mutual match
     if (action === 'like' || action === 'superlike') {
-      const matchQuery = await fbDb.collection('swipes')
-        .where('fromUserId', '==', targetUserId)
-        .where('toUserId', '==', currentUserId)
-        .where('action', 'in', ['like', 'superlike'])
-        .get();
-
-      if (!matchQuery.empty) {
-        // Mutual match found! Create match document
-        const matchId = [currentUserId, targetUserId].sort().join('_');
-        await fbDb.collection('matches').doc(matchId).set({
-          users: [currentUserId, targetUserId],
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        console.log("🎉 Realtime Match Created in Firestore:", matchId);
-        return true; // Indicates mutual match!
+      const token = await fbAuth.currentUser.getIdToken();
+      const matchRes = await fetch(`${BACKEND_URL}/matches/create`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ targetUserId })
+      });
+      const matchData = await matchRes.json();
+      if (matchData.success) {
+        console.log("🎉 Server-verified match created:", matchData.matchId);
+        return true;
       }
     }
   } catch (err) {
