@@ -6255,6 +6255,161 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 }
 
 /* ==========================================================
+   WHATSAPP-STYLE VOICE NOTE PLAYER & PROGRESS BAR
+   ========================================================== */
+
+.msg-bubble.audio-bubble {
+  padding: 10px 14px !important;
+  min-width: 220px !important;
+  max-width: 260px !important;
+  box-sizing: border-box !important;
+}
+
+.vn-player-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.vn-play-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  border: none;
+  color: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, background 0.15s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  outline: none;
+}
+
+.vn-play-btn:hover {
+  transform: scale(1.06);
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.vn-play-btn:active {
+  transform: scale(0.94);
+}
+
+.msg-bubble.received .vn-play-btn {
+  background: rgba(209, 58, 99, 0.25);
+  color: #FF2E70;
+}
+
+.msg-bubble.received .vn-play-btn:hover {
+  background: rgba(209, 58, 99, 0.38);
+}
+
+[data-theme="light"] .msg-bubble.sent .vn-play-btn {
+  background: rgba(37, 211, 102, 0.25);
+  color: #075E54;
+}
+
+[data-theme="light"] .msg-bubble.received .vn-play-btn {
+  background: rgba(0, 0, 0, 0.08);
+  color: #128C7E;
+}
+
+.vn-content-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vn-track-wrap {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.msg-bubble.received .vn-track-wrap {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+[data-theme="light"] .msg-bubble.sent .vn-track-wrap {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+[data-theme="light"] .msg-bubble.received .vn-track-wrap {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.vn-track-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0%;
+  background: #FFFFFF;
+  border-radius: 4px;
+  pointer-events: none;
+  transition: width 0.06s linear;
+}
+
+.msg-bubble.received .vn-track-fill {
+  background: #FF2E70;
+}
+
+[data-theme="light"] .msg-bubble.sent .vn-track-fill {
+  background: #128C7E;
+}
+
+[data-theme="light"] .msg-bubble.received .vn-track-fill {
+  background: #128C7E;
+}
+
+.vn-track-knob {
+  position: absolute;
+  right: -5px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.msg-bubble.received .vn-track-knob {
+  background: #FF2E70;
+}
+
+[data-theme="light"] .msg-bubble.sent .vn-track-knob {
+  background: #075E54;
+}
+
+.vn-meta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.9;
+  line-height: 1;
+}
+
+.vn-duration {
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  font-size: 11px;
+}
+
+/* ==========================================================
    FCM PUSH — Notification nudge banner
    ========================================================== */
 

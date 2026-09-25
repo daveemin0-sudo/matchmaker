@@ -2985,17 +2985,28 @@ function renderChatThread() {
         </div>`;
     } else if (msg.isVoice) {
       const audioSrc = msg.audioUrl || '';
+      const totalDuration = msg.duration || '0:05';
+      const playIconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+
       bubbleHtml = `
-        <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" data-audiosrc="${escHtml(audioSrc)}" onclick="playVoiceNote(this.dataset.audiosrc, this.querySelector('.voice-play-icon'))" ${pressEvents}>
+        <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" id="voiceBubble_${msgId}" data-audiosrc="${escHtml(audioSrc)}" data-duration="${escHtml(totalDuration)}" ${pressEvents}>
           ${quoteHtml}
-          <div style="display:flex;align-items:center;gap:10px;width:170px">
-            <span class="voice-play-icon" style="cursor:pointer;font-size:16px;line-height:1">▶️</span>
-            <div style="flex:1;height:4px;background:rgba(255,255,255,0.3);border-radius:2px;position:relative">
-              <div style="width:55%;height:100%;background:#fff;border-radius:2px"></div>
+          <div class="vn-player-wrap">
+            <button class="vn-play-btn" onclick="event.stopPropagation();toggleVoiceNotePlayback('${msgId}')" aria-label="Play voice note">
+              ${playIconSvg}
+            </button>
+            <div class="vn-content-col">
+              <div class="vn-track-wrap" onclick="event.stopPropagation();seekVoiceNote(event, '${msgId}')" title="Tap to seek">
+                <div class="vn-track-fill" id="vnFill_${msgId}">
+                  <div class="vn-track-knob"></div>
+                </div>
+              </div>
+              <div class="vn-meta-row">
+                <span class="vn-duration" id="vnTime_${msgId}">${escHtml(totalDuration)}</span>
+                ${timeBadgeHtml}
+              </div>
             </div>
-            <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.9)">${msg.duration || '0:05'}</span>
           </div>
-          ${timeBadgeHtml}
         </div>`;
     } else {
       bubbleHtml = `
@@ -4676,47 +4687,139 @@ async function toggleVoiceRecording() {
   }
 }
 
-let _activeAudioInstance = null;
-let _activeAudioIcon = null;
+let _currentPlayingVoiceMsgId = null;
+let _currentVoiceAudio = null;
 
-function playVoiceNote(audioUrl, iconEl) {
-  if (!audioUrl) {
+const PLAY_ICON_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+const PAUSE_ICON_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+
+function formatAudioTime(seconds) {
+  if (isNaN(seconds) || seconds < 0) seconds = 0;
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+function resetVoiceNoteUi(msgId) {
+  if (!msgId) return;
+  const bubble = document.getElementById(`voiceBubble_${msgId}`);
+  if (bubble) {
+    const playBtn = bubble.querySelector('.vn-play-btn');
+    if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
+    const fillEl = document.getElementById(`vnFill_${msgId}`);
+    if (fillEl) fillEl.style.width = '0%';
+    const timeEl = document.getElementById(`vnTime_${msgId}`);
+    if (timeEl && bubble.dataset.duration) timeEl.textContent = bubble.dataset.duration;
+  }
+}
+
+function toggleVoiceNotePlayback(msgId) {
+  const bubble = document.getElementById(`voiceBubble_${msgId}`);
+  if (!bubble) return;
+  const audioSrc = bubble.dataset.audiosrc;
+  if (!audioSrc) {
     showToast('Voice note is not available.', 'error');
     return;
   }
 
-  // Toggle pause if clicking same playing audio
-  if (_activeAudioInstance && !_activeAudioInstance.paused) {
-    _activeAudioInstance.pause();
-    if (_activeAudioIcon) _activeAudioIcon.textContent = '▶️';
-    if (_activeAudioInstance.src === audioUrl) {
-      _activeAudioInstance = null;
-      _activeAudioIcon = null;
-      return;
+  // If clicking currently active voice note
+  if (_currentPlayingVoiceMsgId === msgId && _currentVoiceAudio) {
+    if (_currentVoiceAudio.paused) {
+      _currentVoiceAudio.play().then(() => {
+        const btn = bubble.querySelector('.vn-play-btn');
+        if (btn) btn.innerHTML = PAUSE_ICON_SVG;
+      }).catch(err => console.warn('Audio resume failed:', err));
+    } else {
+      _currentVoiceAudio.pause();
+      const btn = bubble.querySelector('.vn-play-btn');
+      if (btn) btn.innerHTML = PLAY_ICON_SVG;
     }
+    return;
   }
 
-  const audio = new Audio(audioUrl);
-  _activeAudioInstance = audio;
-  _activeAudioIcon = iconEl;
-  if (iconEl) iconEl.textContent = '⏸️';
+  // If another voice note was playing, pause and reset it
+  if (_currentVoiceAudio) {
+    try { _currentVoiceAudio.pause(); } catch (_) {}
+    resetVoiceNoteUi(_currentPlayingVoiceMsgId);
+    _currentVoiceAudio = null;
+    _currentPlayingVoiceMsgId = null;
+  }
+
+  const audio = new Audio(audioSrc);
+  _currentVoiceAudio = audio;
+  _currentPlayingVoiceMsgId = msgId;
+
+  const playBtn = bubble.querySelector('.vn-play-btn');
+  const fillEl = document.getElementById(`vnFill_${msgId}`);
+  const timeEl = document.getElementById(`vnTime_${msgId}`);
+  const originalDuration = bubble.dataset.duration || '0:05';
+
+  if (playBtn) playBtn.innerHTML = PAUSE_ICON_SVG;
+
+  audio.ontimeupdate = () => {
+    if (!audio.duration || isNaN(audio.duration)) return;
+    const pct = Math.min(100, Math.max(0, (audio.currentTime / audio.duration) * 100));
+    if (fillEl) fillEl.style.width = `${pct}%`;
+    if (timeEl) timeEl.textContent = formatAudioTime(audio.currentTime);
+  };
 
   audio.onended = () => {
-    if (iconEl) iconEl.textContent = '▶️';
-    _activeAudioInstance = null;
-    _activeAudioIcon = null;
+    if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
+    if (fillEl) fillEl.style.width = '0%';
+    if (timeEl) timeEl.textContent = originalDuration;
+    _currentVoiceAudio = null;
+    _currentPlayingVoiceMsgId = null;
   };
+
   audio.onerror = (e) => {
-    console.warn('Voice note playback error:', e);
-    if (iconEl) iconEl.textContent = '▶️';
-    _activeAudioInstance = null;
-    _activeAudioIcon = null;
+    console.warn('Voice playback error:', e);
+    if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
+    if (fillEl) fillEl.style.width = '0%';
+    if (timeEl) timeEl.textContent = originalDuration;
+    _currentVoiceAudio = null;
+    _currentPlayingVoiceMsgId = null;
     showToast('Could not play voice note.', 'error');
   };
-  audio.play().catch(e => {
-    console.warn('Audio play failed:', e);
-    if (iconEl) iconEl.textContent = '▶️';
+
+  audio.play().catch(err => {
+    console.warn('Audio play failed:', err);
+    if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
+    _currentVoiceAudio = null;
+    _currentPlayingVoiceMsgId = null;
   });
+}
+window.toggleVoiceNotePlayback = toggleVoiceNotePlayback;
+
+function seekVoiceNote(event, msgId) {
+  event.stopPropagation();
+  const bubble = document.getElementById(`voiceBubble_${msgId}`);
+  if (!bubble) return;
+  const track = event.currentTarget;
+  if (!track) return;
+
+  const rect = track.getBoundingClientRect();
+  const clickX = event.clientX || (event.touches && event.touches[0]?.clientX) || 0;
+  const pct = Math.max(0, Math.min(1, (clickX - rect.left) / rect.width));
+
+  if (_currentPlayingVoiceMsgId === msgId && _currentVoiceAudio && _currentVoiceAudio.duration) {
+    _currentVoiceAudio.currentTime = pct * _currentVoiceAudio.duration;
+    const fillEl = document.getElementById(`vnFill_${msgId}`);
+    if (fillEl) fillEl.style.width = `${pct * 100}%`;
+  } else {
+    toggleVoiceNotePlayback(msgId);
+    if (_currentVoiceAudio) {
+      _currentVoiceAudio.addEventListener('loadedmetadata', () => {
+        _currentVoiceAudio.currentTime = pct * _currentVoiceAudio.duration;
+      }, { once: true });
+    }
+  }
+}
+window.seekVoiceNote = seekVoiceNote;
+
+function playVoiceNote(audioUrl, iconEl) {
+  if (_currentPlayingVoiceMsgId) {
+    toggleVoiceNotePlayback(_currentPlayingVoiceMsgId);
+  }
 }
 window.playVoiceNote = playVoiceNote;
 
