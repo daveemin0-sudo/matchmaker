@@ -2527,14 +2527,32 @@ function openChat(profileId, { fromHistory = false } = {}) {
       activeRealtimeListener = listenToRealtimeMessages(matchId, (msgs) => {
         conversations[profileId] = {
           messages: (msgs || []).map(m => {
-            const isMe = m.sender === uid;
+            const senderId = m.sender || m.senderId;
+            let isMe = false;
+            if (m.isCall) {
+              if (senderId) {
+                isMe = (senderId === uid);
+              } else if (m.recipientId) {
+                isMe = (m.recipientId !== uid);
+              } else if (m.sender === 'me') {
+                isMe = true;
+              } else if (m.sender === 'them') {
+                isMe = false;
+              } else if (m.callDirection) {
+                isMe = (m.callDirection === 'outgoing');
+              }
+            } else {
+              isMe = (senderId === uid) || (m.sender === 'me');
+            }
             return {
               sender: isMe ? 'me' : 'them',
+              senderId: senderId || (isMe ? uid : profileId),
+              recipientId: m.recipientId || (isMe ? profileId : uid),
               text: m.text || '',
               isVoice: m.isVoice || false,
               isCall: m.isCall || false,
               callType: m.callType || 'audio',
-              callDirection: m.callDirection || (isMe ? 'outgoing' : 'incoming'),
+              callDirection: isMe ? 'outgoing' : 'incoming',
               callStatus: m.callStatus || 'completed',
               replyTo: m.replyTo || null,
               audioUrl: m.audioUrl || '',
@@ -2838,7 +2856,22 @@ function renderChatThread() {
 
   hist.forEach((msg, idx) => {
     const isLast = idx === hist.length - 1;
-    const isSent = msg.sender === 'me';
+    let isSent = msg.sender === 'me';
+    if (msg.isCall) {
+      if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+        const myUid = fbAuth.currentUser.uid;
+        const sid = msg.senderId || (msg.sender !== 'me' && msg.sender !== 'them' ? msg.sender : null);
+        if (sid) {
+          isSent = (sid === myUid);
+        } else if (msg.recipientId) {
+          isSent = (msg.recipientId !== myUid);
+        } else if (msg.callDirection) {
+          isSent = (msg.callDirection === 'outgoing');
+        }
+      } else if (msg.callDirection) {
+        isSent = (msg.callDirection === 'outgoing');
+      }
+    }
     const msgId = msg.firestoreId || msg.id || `local_${idx}`;
     if (!msg.firestoreId) msg.firestoreId = msgId;
     const timeStr = formatWhatsAppTime(msg.timestamp, msg.time);
@@ -3450,8 +3483,14 @@ function logCallInChat({ partnerId, callType, direction, status, durationSeconds
     displayText = (direction === 'outgoing') ? 'No answer' : `Missed ${isVideo ? 'video' : 'voice'} call`;
   }
 
+  const myUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : 'me';
+  const callSenderId = (direction === 'outgoing') ? myUid : partnerId;
+  const callRecipientId = (direction === 'outgoing') ? partnerId : myUid;
+
   const callMsg = {
     sender: direction === 'outgoing' ? 'me' : 'them',
+    senderId: callSenderId,
+    recipientId: callRecipientId,
     isCall: true,
     callId: callId || '',
     callType: isVideo ? 'video' : 'audio',
@@ -3493,12 +3532,13 @@ function logCallInChat({ partnerId, callType, direction, status, durationSeconds
     const docId = callId ? `call_${callId}` : `call_${matchId}_${Math.floor(Date.now() / 15000)}`;
 
     fbDb.collection('matches').doc(matchId).collection('messages').doc(docId).set({
-      senderId: direction === 'outgoing' ? uid : partnerId,
-      recipientId: direction === 'outgoing' ? partnerId : uid,
+      sender: callSenderId,
+      senderId: callSenderId,
+      recipientId: callRecipientId,
       isCall: true,
       callId: callId || '',
       callType: isVideo ? 'video' : 'audio',
-      callDirection: direction,
+      callDirection: 'outgoing',
       callStatus: status,
       duration: durationText,
       durationSeconds: durationSeconds,
