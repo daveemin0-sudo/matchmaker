@@ -30,15 +30,9 @@ body::before {
   position: relative;
   z-index: 1;
   overflow: hidden;
-}
-
-
-@media (min-width: 500px) {
-  .app-shell {
-    border-radius: 48px !important;
-    border: 8px solid #0B0813 !important;
-    box-shadow: 0 30px 100px rgba(0, 0, 0, 0.95), 0 0 0 1px rgba(255, 255, 255, 0.08) !important;
-  }
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* --- 4. FLOATING GLASS HEADER --- */
@@ -47,8 +41,12 @@ body::before {
   backdrop-filter: blur(28px) saturate(190%) !important;
   -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  height: 64px !important;
-  padding: 0 18px !important;
+  height: calc(60px + env(safe-area-inset-top, 0px)) !important;
+  padding-top: env(safe-area-inset-top, 0px) !important;
+  padding-left: 18px !important;
+  padding-right: 18px !important;
+  padding-bottom: 0 !important;
+  box-sizing: border-box !important;
   display: flex;
   align-items: center !important;
   justify-content: space-between !important;
@@ -664,7 +662,11 @@ body::before {
   -webkit-backdrop-filter: blur(32px) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
   height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-top: 0 !important;
   padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  box-sizing: border-box !important;
   display: flex;
   align-items: center !important;
   justify-content: space-around !important;
@@ -2158,7 +2160,10 @@ body[data-theme="light"]::before {
   backdrop-filter: blur(28px) saturate(190%) !important;
   -webkit-backdrop-filter: blur(28px) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-  padding: 10px 14px !important;
+  padding-top: 10px !important;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
@@ -2366,7 +2371,10 @@ body[data-theme="light"]::before {
 
 /* --- BOTTOM NAV: 4-Tab wider spacing --- */
 .bottom-nav {
-  padding: 0 8px !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  padding-top: 0 !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
 }
 
 .nav-tab {

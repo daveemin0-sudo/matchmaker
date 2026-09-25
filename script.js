@@ -175,6 +175,19 @@ function rejectAgeGate() {
 // ==========================================================
 
 function bootApplication() {
+  // Immersive edge-to-edge configuration for Android / Capacitor
+  if (window.Capacitor && window.Capacitor.Plugins) {
+    try {
+      if (window.Capacitor.Plugins.StatusBar) {
+        window.Capacitor.Plugins.StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
+        window.Capacitor.Plugins.StatusBar.setStyle({ style: (localStorage.getItem('hookmebysam_theme') === 'light') ? 'LIGHT' : 'DARK' }).catch(() => {});
+      }
+      if (window.Capacitor.Plugins.NavigationBar) {
+        window.Capacitor.Plugins.NavigationBar.setTransparency({ isTransparent: true }).catch(() => {});
+      }
+    } catch (e) {}
+  }
+
   loadFromStorage();
   setTheme(localStorage.getItem('hookmebysam_theme') || 'dark');
 
@@ -715,7 +728,11 @@ function setTheme(theme) {
   });
 
   const metaTheme = document.getElementById('metaThemeColor');
-  if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#FAF5EC' : '#07040C');
+  if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#FFFFFF' : '#0A0710');
+
+  if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar) {
+    window.Capacitor.Plugins.StatusBar.setStyle({ style: theme === 'light' ? 'LIGHT' : 'DARK' }).catch(() => {});
+  }
 
   const darkBtn = document.getElementById('themeBtnDark');
   const lightBtn = document.getElementById('themeBtnLight');
@@ -2067,6 +2084,11 @@ function openChat(profileId, { fromHistory = false } = {}) {
               sender: isMe ? 'me' : 'them',
               text: m.text || '',
               isVoice: m.isVoice || false,
+              isCall: m.isCall || false,
+              callType: m.callType || 'audio',
+              callDirection: m.callDirection || (isMe ? 'outgoing' : 'incoming'),
+              callStatus: m.callStatus || 'completed',
+              replyTo: m.replyTo || null,
               audioUrl: m.audioUrl || '',
               imageUrl: m.imageUrl || '',
               duration: m.duration || '0:05',
@@ -2303,6 +2325,43 @@ function clearCurrentChatHistory() {
   }
 }
 
+function formatWhatsAppTime(timestamp) {
+  if (!timestamp) return '';
+  const date = (typeof timestamp === 'number') ? new Date(timestamp) : (timestamp?.toDate ? timestamp.toDate() : new Date(timestamp));
+  if (isNaN(date.getTime())) return '';
+  let hours = date.getHours();
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  return `${hours}:${minutes} ${ampm}`;
+}
+
+function getWhatsAppDateHeader(timestamp) {
+  if (!timestamp) return null;
+  const msgDate = (typeof timestamp === 'number') ? new Date(timestamp) : (timestamp?.toDate ? timestamp.toDate() : new Date(timestamp));
+  if (isNaN(msgDate.getTime())) return null;
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const isSameDay = (d1, d2) =>
+    d1.getFullYear() === d2.getFullYear() &&
+    d1.getMonth() === d2.getMonth() &&
+    d1.getDate() === d2.getDate();
+
+  if (isSameDay(msgDate, today)) {
+    return 'Today';
+  }
+  if (isSameDay(msgDate, yesterday)) {
+    return 'Yesterday';
+  }
+
+  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  return `${months[msgDate.getMonth()]} ${msgDate.getDate()}, ${msgDate.getFullYear()}`;
+}
+
 function renderChatThread() {
   const container = document.getElementById('chatMessages');
   if (!container) return;
@@ -2318,10 +2377,21 @@ function renderChatThread() {
     return;
   }
 
-  container.innerHTML = hist.map((msg, idx) => {
+  let lastDateHeader = null;
+  let html = '';
+
+  hist.forEach((msg, idx) => {
     const isLast = idx === hist.length - 1;
     const isSent = msg.sender === 'me';
     const msgId = msg.firestoreId || `local_${idx}`;
+    const timeStr = formatWhatsAppTime(msg.timestamp);
+
+    // Date separator pill (Today, Yesterday, or Month Day, Year)
+    const dateHeader = getWhatsAppDateHeader(msg.timestamp);
+    if (dateHeader && dateHeader !== lastDateHeader) {
+      lastDateHeader = dateHeader;
+      html += `<div class="chat-date-separator" data-date="${escHtml(dateHeader)}"><span>${escHtml(dateHeader)}</span></div>`;
+    }
 
     // Build reaction bar
     const reactions = msg.reactions || {};
@@ -2335,21 +2405,69 @@ function renderChatThread() {
     const pressEvents = `onmousedown="startLongPress(event,'${matchId}','${msgId}')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchstart="startLongPress(event,'${matchId}','${msgId}')" ontouchend="cancelLongPress()" oncontextmenu="event.preventDefault();showReactionPicker(event,'${matchId}','${msgId}')"`;
 
     let bubbleHtml = '';
-    const receiptHtml = isSent ? `<span class="msg-receipt ${isLast ? 'read' : ''}">✓✓</span>` : '';
+    const receiptHtml = isSent ? `<span class="msg-receipt-ticks ${isLast ? 'read' : ''}">✓✓</span>` : '';
     const editedHtml = msg.edited ? `<span class="msg-edited">(edited)</span>` : '';
     const forwardedHtml = msg.forwarded
       ? `<div class="msg-forwarded-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg> Forwarded</div>`
       : '';
 
-    if (msg.imageUrl) {
+    // Quoted reply block inside the bubble
+    let quoteHtml = '';
+    if (msg.replyTo) {
+      const qAuthor = escHtml(msg.replyTo.senderName || 'You');
+      const qText = escHtml(msg.replyTo.text || '');
+      const qId = msg.replyTo.id || '';
+      quoteHtml = `
+        <div class="msg-quote-preview" onclick="scrollToQuotedMessage('${qId}')">
+          <div class="quote-stripe"></div>
+          <div class="quote-text-col">
+            <div class="quote-author">${qAuthor}</div>
+            <div class="quote-content">${qText}</div>
+          </div>
+        </div>`;
+    }
+
+    const timeBadgeHtml = `<span class="msg-time-badge"><span class="msg-time">${timeStr}</span>${receiptHtml}</span>`;
+
+    // Detect if this message is a call
+    const rawText = typeof msg.text === 'string' ? msg.text : '';
+    const isCallMsg = msg.isCall || rawText.startsWith('Voice call') || rawText.startsWith('Video call') || rawText.startsWith('Missed') || rawText.startsWith('Declined') || rawText.startsWith('Cancelled');
+
+    if (isCallMsg) {
+      const isVideo = msg.callType === 'video' || rawText.toLowerCase().includes('video');
+      const isMissed = msg.callStatus === 'missed' || msg.callStatus === 'declined' || rawText.toLowerCase().includes('missed') || rawText.toLowerCase().includes('declined') || rawText.toLowerCase().includes('cancelled');
+      
+      let title = isVideo ? (isMissed ? 'Missed video call' : 'Video call') : (isMissed ? 'Missed voice call' : 'Voice call');
+      let subText = isMissed ? 'Tap to call back' : (msg.duration || (rawText.match(/\((.*?)\)/)?.[1]) || 'Completed');
+
+      const phoneIconSvg = isMissed
+        ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><path d="m23 7-6 6"/><path d="m17 7h6v6"/></svg>`
+        : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/><path d="M16 3l5 5"/><path d="M21 3v5h-5"/></svg>`;
+
+      const videoIconSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`;
+
+      bubbleHtml = `
+        <div class="msg-call-card ${isSent ? 'sent' : 'received'}" onclick="${isVideo ? 'startVideoCall()' : 'startVoiceCall()'}" title="Tap to call back" ${pressEvents}>
+          <div class="call-card-icon-circle ${isMissed ? 'missed' : 'normal'}">
+            ${isVideo ? videoIconSvg : phoneIconSvg}
+          </div>
+          <div class="call-card-body">
+            <div class="call-card-title ${isMissed ? 'missed' : ''}">${title}</div>
+            <div class="call-card-sub">${subText}</div>
+          </div>
+          <div class="call-card-meta">${timeStr}</div>
+        </div>`;
+    } else if (msg.imageUrl) {
       bubbleHtml = `
         <div class="msg-bubble ${isSent ? 'sent' : 'received'}" style="padding:4px;max-width:240px;overflow:hidden;cursor:pointer" ${pressEvents}>
+          ${quoteHtml}
           <img src="${msg.imageUrl}" style="width:100%;border-radius:14px;display:block">
-          ${receiptHtml}
+          <div style="padding:4px 6px;text-align:right">${timeBadgeHtml}</div>
         </div>`;
     } else if (msg.isVoice) {
       bubbleHtml = `
         <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" ${pressEvents}>
+          ${quoteHtml}
           <div style="display:flex;align-items:center;gap:10px;width:170px">
             <span style="cursor:pointer;font-size:14px">▶️</span>
             <div style="flex:1;height:4px;background:rgba(255,255,255,0.3);border-radius:2px;position:relative">
@@ -2357,61 +2475,254 @@ function renderChatThread() {
             </div>
             <span style="font-size:11px;font-weight:600;color:rgba(255,255,255,0.9)">${msg.duration || '0:05'}</span>
           </div>
-          ${receiptHtml}
-        </div>`;
-    } else if (msg.isCall) {
-      const isVideo = msg.callType === 'video';
-      const isOutgoing = msg.callDirection === 'outgoing' || msg.sender === 'me';
-      const isMissed = msg.callStatus === 'missed' || msg.callStatus === 'declined';
-      const iconClass = isMissed ? 'call-missed' : (isOutgoing ? 'call-outgoing' : 'call-incoming');
-      
-      const arrowSvg = isOutgoing
-        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:${isMissed ? '#EF4444' : '#21B06B'};flex-shrink:0"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>`
-        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:${isMissed ? '#EF4444' : '#21B06B'};flex-shrink:0"><path d="M17 7L7 17M7 17H17M7 17V7"/></svg>`;
-
-      const callIconSvg = isVideo
-        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`
-        : `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>`;
-
-      let title = isVideo ? 'Video call' : 'Voice call';
-      if (isMissed) {
-        title = isOutgoing ? 'Cancelled call' : 'Missed call';
-      }
-
-      let subText = msg.duration || (isMissed ? (isOutgoing ? 'Unanswered' : 'Missed') : 'Connected');
-
-      bubbleHtml = `
-        <div class="msg-call-bubble" onclick="${isVideo ? 'startVideoCall()' : 'startVoiceCall()'}" title="Tap to call back" style="cursor:pointer">
-          <div class="call-icon-wrap ${iconClass}">
-            ${callIconSvg}
-          </div>
-          <div class="call-bubble-info">
-            <div class="call-bubble-title ${isMissed ? 'call-missed' : ''}">
-              ${arrowSvg}
-              <span>${title}</span>
-            </div>
-            <div class="call-bubble-sub">${subText}</div>
-          </div>
-          <button class="call-callback-btn" onclick="event.stopPropagation();${isVideo ? 'startVideoCall()' : 'startVoiceCall()'}" title="Call back">
-            ${isVideo ? '📹' : '📞'}
-          </button>
+          ${timeBadgeHtml}
         </div>`;
     } else {
       bubbleHtml = `
         <div class="msg-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" ${pressEvents}>
-          ${escHtml(msg.text)}${editedHtml}${receiptHtml}
+          ${quoteHtml}
+          <div class="msg-text-wrap">
+            <span class="msg-text">${escHtml(msg.text)}${editedHtml}</span>
+            ${timeBadgeHtml}
+          </div>
         </div>`;
     }
 
-    return `
-      <div class="msg-row ${isSent ? 'sent' : 'received'}" style="display:flex;flex-direction:column;align-self:${isSent ? 'flex-end' : 'flex-start'};align-items:${isSent ? 'flex-end' : 'flex-start'};max-width:78%;gap:3px">
+    html += `
+      <div class="msg-row ${isSent ? 'sent' : 'received'}" data-msg-id="${msgId}"
+        ontouchstart="handleMsgTouchStart(event, '${msgId}')"
+        ontouchmove="handleMsgTouchMove(event, '${msgId}')"
+        ontouchend="handleMsgTouchEnd(event, '${msgId}')"
+        style="display:flex;flex-direction:column;align-self:${isSent ? 'flex-end' : 'flex-start'};align-items:${isSent ? 'flex-end' : 'flex-start'};max-width:78%;gap:3px">
+        <div class="swipe-reply-icon">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 14 4 9 9 4"/>
+            <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+          </svg>
+        </div>
         ${forwardedHtml}
         ${bubbleHtml}
         ${reactionBar}
       </div>`;
-  }).join('');
+  });
 
+  container.innerHTML = html;
   container.scrollTop = container.scrollHeight;
+}
+
+// ==========================================================
+// SWIPE TO REPLY & QUOTE REPLY HANDLERS
+// ==========================================================
+let _swipeState = null;
+let _replyingToState = null;
+
+function handleMsgTouchStart(e, msgId) {
+  if (!e.touches || e.touches.length === 0) return;
+  const touch = e.touches[0];
+  _swipeState = {
+    msgId,
+    startX: touch.clientX,
+    startY: touch.clientY,
+    el: e.currentTarget,
+    isSwiping: false
+  };
+}
+
+function handleMsgTouchMove(e, msgId) {
+  if (!_swipeState || _swipeState.msgId !== msgId || !e.touches || e.touches.length === 0) return;
+  const touch = e.touches[0];
+  const dx = touch.clientX - _swipeState.startX;
+  const dy = touch.clientY - _swipeState.startY;
+
+  if (!_swipeState.isSwiping) {
+    if (dx > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+      _swipeState.isSwiping = true;
+      _swipeState.el.classList.add('swiping');
+    } else if (Math.abs(dy) > 10) {
+      _swipeState = null;
+      return;
+    }
+  }
+
+  if (_swipeState?.isSwiping && dx > 0) {
+    const clamped = Math.min(65, dx * 0.55);
+    _swipeState.el.style.transform = `translateX(${clamped}px)`;
+  }
+}
+
+function handleMsgTouchEnd(e, msgId) {
+  if (!_swipeState || _swipeState.msgId !== msgId) {
+    _swipeState = null;
+    return;
+  }
+  const el = _swipeState.el;
+  const touch = e.changedTouches ? e.changedTouches[0] : null;
+  const dx = touch ? (touch.clientX - _swipeState.startX) : 0;
+
+  if (_swipeState.isSwiping && dx >= 38) {
+    if (navigator.vibrate) navigator.vibrate(30);
+    startReplyToMessage(msgId);
+  }
+
+  if (el) {
+    el.classList.remove('swiping');
+    el.style.transition = 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)';
+    el.style.transform = 'translateX(0)';
+    setTimeout(() => {
+      if (el) el.style.transition = '';
+    }, 200);
+  }
+  _swipeState = null;
+}
+
+function startReplyToMessage(msgId) {
+  const info = getMessageInfo(msgId);
+  if (!info || !info.msg) return;
+  const msg = info.msg;
+  const isSent = msg.sender === 'me';
+  const partner = conversations[appState.currentChatId]?.partner || getProfileById(appState.currentChatId) || {};
+  const senderName = isSent ? 'You' : (partner.name || 'Match');
+  const previewText = msg.imageUrl ? '📷 Photo' : (msg.isVoice ? '🎤 Voice note' : (msg.isCall ? (msg.callType === 'video' ? '📹 Video call' : '📞 Voice call') : (msg.text || '')));
+
+  _replyingToState = {
+    id: msgId,
+    senderName,
+    text: previewText
+  };
+
+  const replyBar = document.getElementById('chatReplyBar');
+  const replySender = document.getElementById('chatReplySender');
+  const replyText = document.getElementById('chatReplyText');
+  if (replyBar && replySender && replyText) {
+    replySender.textContent = `Replying to ${senderName}`;
+    replyText.textContent = previewText;
+    replyBar.style.display = 'flex';
+  }
+
+  const input = document.getElementById('chatInput');
+  if (input) input.focus();
+}
+
+function cancelReplyMessage() {
+  _replyingToState = null;
+  const replyBar = document.getElementById('chatReplyBar');
+  if (replyBar) replyBar.style.display = 'none';
+}
+
+function scrollToQuotedMessage(msgId) {
+  if (!msgId) return;
+  const targetRow = document.querySelector(`.msg-row[data-msg-id="${msgId}"]`);
+  if (targetRow) {
+    targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    targetRow.classList.add('chat-highlight-pulse');
+    setTimeout(() => targetRow.classList.remove('chat-highlight-pulse'), 2200);
+  }
+}
+
+// ==========================================================
+// WHATSAPP IN-HEADER CHAT SEARCH
+// ==========================================================
+let _chatSearchResults = [];
+let _chatSearchIndex = -1;
+
+function openChatSearch() {
+  const bar = document.getElementById('chatSearchBar');
+  const input = document.getElementById('chatSearchInput');
+  const menu = document.getElementById('chatDropdownMenu');
+  if (menu) menu.style.display = 'none';
+  if (!bar || !input) return;
+  bar.style.display = 'flex';
+  input.value = '';
+  input.focus();
+  _chatSearchResults = [];
+  _chatSearchIndex = -1;
+  updateChatSearchCount();
+}
+
+function closeChatSearch() {
+  const bar = document.getElementById('chatSearchBar');
+  if (bar) bar.style.display = 'none';
+  clearChatSearchHighlights();
+  _chatSearchResults = [];
+  _chatSearchIndex = -1;
+}
+
+function onChatSearchInput(e) {
+  const query = (e.target.value || '').trim().toLowerCase();
+  clearChatSearchHighlights();
+  _chatSearchResults = [];
+  _chatSearchIndex = -1;
+
+  if (!query) {
+    updateChatSearchCount();
+    return;
+  }
+
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
+
+  const items = container.querySelectorAll('.msg-row, .chat-date-separator');
+  items.forEach(item => {
+    const text = item.textContent.toLowerCase();
+    const dateAttr = (item.getAttribute('data-date') || '').toLowerCase();
+    if (text.includes(query) || dateAttr.includes(query)) {
+      _chatSearchResults.push(item);
+    }
+  });
+
+  if (_chatSearchResults.length > 0) {
+    _chatSearchIndex = _chatSearchResults.length - 1;
+    highlightAndScrollToMatch(_chatSearchIndex);
+  }
+  updateChatSearchCount();
+}
+
+function onChatSearchKeydown(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    if (e.shiftKey) prevSearchMatch();
+    else nextSearchMatch();
+  } else if (e.key === 'Escape') {
+    closeChatSearch();
+  }
+}
+
+function nextSearchMatch() {
+  if (_chatSearchResults.length === 0) return;
+  _chatSearchIndex = (_chatSearchIndex + 1) % _chatSearchResults.length;
+  highlightAndScrollToMatch(_chatSearchIndex);
+  updateChatSearchCount();
+}
+
+function prevSearchMatch() {
+  if (_chatSearchResults.length === 0) return;
+  _chatSearchIndex = (_chatSearchIndex - 1 + _chatSearchResults.length) % _chatSearchResults.length;
+  highlightAndScrollToMatch(_chatSearchIndex);
+  updateChatSearchCount();
+}
+
+function highlightAndScrollToMatch(idx) {
+  clearChatSearchHighlights();
+  if (idx < 0 || idx >= _chatSearchResults.length) return;
+  const target = _chatSearchResults[idx];
+  target.classList.add('chat-highlight-pulse');
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function clearChatSearchHighlights() {
+  document.querySelectorAll('.chat-highlight-pulse').forEach(el => {
+    el.classList.remove('chat-highlight-pulse');
+  });
+}
+
+function updateChatSearchCount() {
+  const countEl = document.getElementById('chatSearchCount');
+  if (!countEl) return;
+  if (_chatSearchResults.length === 0) {
+    countEl.textContent = '0/0';
+  } else {
+    countEl.textContent = `${_chatSearchIndex + 1}/${_chatSearchResults.length}`;
+  }
 }
 
 function onChatInputChange() {

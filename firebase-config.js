@@ -504,12 +504,12 @@ function listenToRealtimeMessages(matchId, callback) {
   }
 }
 
-async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "") {
+async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "", replyTo = null) {
   if (!fbDb || !fbAuth?.currentUser) return;
   const currentUserId = fbAuth.currentUser.uid;
 
   try {
-    await fbDb.collection('matches').doc(matchId).collection('messages').add({
+    const msgData = {
       sender: currentUserId,
       text: text || "",
       isVoice: isVoice,
@@ -517,7 +517,10 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
       imageUrl: imageUrl,
       read: false,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
+    };
+    if (replyTo) msgData.replyTo = replyTo;
+
+    await fbDb.collection('matches').doc(matchId).collection('messages').add(msgData);
 
     // Update parent match doc so partner gets instant real-time notification & re-ordering to top
     const previewText = text || (isVoice ? '🎤 Voice note' : (imageUrl ? '📷 Photo' : 'New message'));

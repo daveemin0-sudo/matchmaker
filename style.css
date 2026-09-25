@@ -3,13 +3,11 @@
    "Lagos After Dark" — obsidian, ember wine & gold foil
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,500;1,9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
-
 /* --- Design Tokens --- */
 :root {
-  /* Type — Fraunces for editorial/display, Plus Jakarta Sans for all functional UI */
-  --font-display: 'Fraunces', Georgia, serif;
-  --font-body: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  /* Type — Use platform system-ui so Android inherits user-configured device font */
+  --font-display: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 
   /* Brand — Ember (primary action) */
   --flame-1: #D13A63;
@@ -168,8 +166,6 @@ html.age-gate-passed #ageGateOverlay {
   position: relative;
   margin: 0 auto;
   padding: 0 !important;
-  padding-top: env(safe-area-inset-top, 0px) !important;
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   box-sizing: border-box;
   border-radius: 0 !important;
   border: none !important;
@@ -228,8 +224,12 @@ html.age-gate-passed #ageGateOverlay {
    APP HEADER
    ============================================================ */
 .app-header {
-  height: 60px;
-  padding: 0 16px;
+  height: calc(60px + env(safe-area-inset-top, 0px)) !important;
+  padding-top: env(safe-area-inset-top, 0px) !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  padding-bottom: 0 !important;
+  box-sizing: border-box !important;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -366,6 +366,9 @@ html.age-gate-passed #ageGateOverlay {
   overflow-y: auto;
   scrollbar-width: none;
   background: var(--bg);
+  padding-top: max(env(safe-area-inset-top, 0px), 16px) !important;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px) !important;
+  box-sizing: border-box !important;
 }
 .auth-screen::-webkit-scrollbar { display: none; }
 
@@ -2302,7 +2305,12 @@ html.age-gate-passed #ageGateOverlay {
    ============================================================ */
 .bottom-nav {
   display: flex;
-  height: 64px;
+  height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+  padding-top: 0 !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  box-sizing: border-box !important;
   border-top: 1px solid var(--border);
   background: var(--bg);
   flex-shrink: 0;
@@ -4060,7 +4068,10 @@ label, .form-field label, .auth-form-group label {
   display: flex !important;
   align-items: center !important;
   gap: 10px !important;
-  padding: 10px 14px !important;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 10px) !important;
+  padding-bottom: 10px !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
   background: var(--bg-elevated) !important;
   border-bottom: 1px solid var(--border-color) !important;
   flex-shrink: 0 !important;
@@ -4278,10 +4289,14 @@ label, .form-field label, .auth-form-group label {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 10px 12px 14px;
+  padding-top: 10px;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+  padding-left: 12px;
+  padding-right: 12px;
   background: var(--bg-elevated);
   border-top: 1px solid var(--border-color);
   flex-shrink: 0;
+  box-sizing: border-box;
 }
 .chat-icon-btn {
   width: 38px; height: 38px;
@@ -6646,7 +6661,8 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 
 .app-shell > .bottom-nav {
   order: 2 !important;
-  flex: 0 0 64px !important;
+  flex: 0 0 calc(64px + env(safe-area-inset-bottom, 0px)) !important;
+  height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
   position: relative !important;
   inset: auto !important;
   top: auto !important;
@@ -7074,3 +7090,417 @@ body[data-theme="light"],
 [data-theme="light"] .story-viewer {
   color: #FFFFFF;
 }
+
+/* ================================================================
+   WHATSAPP-STYLE CHAT EXPERIENCES: CALL CARDS, TIMESTAMPS, DATES,
+   SWIPE-TO-REPLY, QUOTED REPLIES & IN-CHAT SEARCH
+   ================================================================ */
+
+/* --- Date Separator Pill --- */
+.chat-date-separator {
+  align-self: center !important;
+  margin: 14px auto 10px !important;
+  padding: 5px 14px !important;
+  border-radius: 8px !important;
+  background: rgba(22, 16, 30, 0.88) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: var(--txt-muted, #9E97AA) !important;
+  font-size: 0.72rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.3px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+  user-select: none !important;
+  z-index: 10 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+[data-theme="light"] .chat-date-separator {
+  background: #E8E4EC !important;
+  border-color: rgba(0, 0, 0, 0.06) !important;
+  color: #554D60 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* --- WhatsApp-Style Call Card in Chat --- */
+.msg-call-card {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 14px !important;
+  border-radius: 16px !important;
+  max-width: 280px !important;
+  min-width: 220px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  position: relative !important;
+  box-sizing: border-box !important;
+  transition: transform 0.15s ease, background 0.15s ease !important;
+}
+.msg-call-card:hover {
+  transform: translateY(-1px);
+}
+.msg-call-card.received {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #FFFFFF !important;
+}
+.msg-call-card.sent {
+  background: linear-gradient(135deg, rgba(209, 58, 99, 0.35) 0%, rgba(122, 22, 56, 0.35) 100%) !important;
+  border: 1px solid rgba(209, 58, 99, 0.45) !important;
+  color: #FFFFFF !important;
+}
+[data-theme="light"] .msg-call-card.received {
+  background: #FFFFFF !important;
+  border: 1px solid #E5DFEC !important;
+  color: #15121A !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06) !important;
+}
+[data-theme="light"] .msg-call-card.sent {
+  background: #D9FDD3 !important;
+  border: 1px solid #C4EDBE !important;
+  color: #15121A !important;
+  box-shadow: 0 2px 10px rgba(37, 211, 102, 0.1) !important;
+}
+
+.call-card-icon-circle {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+}
+.call-card-icon-circle.normal {
+  background: rgba(33, 176, 107, 0.18) !important;
+  color: #21B06B !important;
+}
+.call-card-icon-circle.missed {
+  background: rgba(239, 68, 68, 0.18) !important;
+  color: #EF4444 !important;
+}
+[data-theme="light"] .call-card-icon-circle.normal {
+  background: #E7F7EF !important;
+  color: #109252 !important;
+}
+[data-theme="light"] .call-card-icon-circle.missed {
+  background: #FEE2E2 !important;
+  color: #DC2626 !important;
+}
+
+.call-card-body {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.call-card-title {
+  font-size: 0.88rem !important;
+  font-weight: 700 !important;
+  color: var(--txt-primary, #FFFFFF) !important;
+}
+.call-card-title.missed {
+  color: #EF4444 !important;
+}
+[data-theme="light"] .call-card-title {
+  color: #15121A !important;
+}
+[data-theme="light"] .call-card-title.missed {
+  color: #DC2626 !important;
+}
+.call-card-sub {
+  font-size: 0.74rem !important;
+  color: var(--txt-muted, #9E97AA) !important;
+}
+[data-theme="light"] .call-card-sub {
+  color: #72687F !important;
+}
+.call-card-meta {
+  font-size: 0.68rem !important;
+  color: var(--txt-muted, #9E97AA) !important;
+  align-self: flex-end !important;
+  margin-left: 6px !important;
+  flex-shrink: 0 !important;
+}
+[data-theme="light"] .call-card-meta {
+  color: #8C8498 !important;
+}
+
+/* --- Message Layout & WhatsApp Timestamp Badges --- */
+.msg-text-wrap {
+  display: inline !important;
+  word-break: break-word !important;
+}
+.msg-time-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
+  margin-left: 8px !important;
+  vertical-align: baseline !important;
+  float: right !important;
+  padding-top: 4px !important;
+  user-select: none !important;
+  font-size: 0.68rem !important;
+  opacity: 0.85 !important;
+}
+.msg-bubble.sent .msg-time-badge {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+.msg-bubble.received .msg-time-badge {
+  color: var(--txt-muted, #9E97AA) !important;
+}
+[data-theme="light"] .msg-bubble.received .msg-time-badge {
+  color: #8C8498 !important;
+}
+.msg-receipt-ticks {
+  font-weight: 700 !important;
+  font-size: 0.72rem !important;
+  letter-spacing: -1px !important;
+  color: rgba(255, 255, 255, 0.75) !important;
+}
+.msg-receipt-ticks.read {
+  color: #4BB0FF !important;
+}
+[data-theme="light"] .msg-bubble.sent .msg-receipt-ticks.read {
+  color: #2690FF !important;
+}
+
+/* --- Quoted Message Preview inside Bubbles --- */
+.msg-quote-preview {
+  background: rgba(0, 0, 0, 0.22) !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  margin-bottom: 6px !important;
+  overflow: hidden !important;
+  cursor: pointer !important;
+  border-left: 4px solid var(--flame-1) !important;
+  transition: opacity 0.15s ease !important;
+}
+.msg-quote-preview:hover {
+  opacity: 0.9 !important;
+}
+[data-theme="light"] .msg-quote-preview {
+  background: rgba(0, 0, 0, 0.05) !important;
+}
+.msg-bubble.sent .msg-quote-preview {
+  background: rgba(0, 0, 0, 0.28) !important;
+  border-left-color: #E3B34D !important;
+}
+.quote-text-col {
+  padding: 4px 8px !important;
+  font-size: 0.76rem !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.quote-author {
+  font-weight: 700 !important;
+  color: var(--flame-1) !important;
+  font-size: 0.74rem !important;
+  margin-bottom: 1px !important;
+}
+.msg-bubble.sent .quote-author {
+  color: #E3B34D !important;
+}
+.quote-content {
+  color: var(--txt-secondary, #D4CCBC) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  font-size: 0.76rem !important;
+}
+[data-theme="light"] .quote-content {
+  color: #4D4655 !important;
+}
+
+/* --- WhatsApp-Style Quoted Reply Bar above Input --- */
+.chat-reply-bar {
+  background: rgba(22, 16, 30, 0.95) !important;
+  backdrop-filter: blur(20px) !important;
+  -webkit-backdrop-filter: blur(20px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-left: 4px solid var(--flame-1) !important;
+  padding: 8px 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 10px !important;
+  position: relative !important;
+  z-index: 80 !important;
+  animation: slideUpReply 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+@keyframes slideUpReply {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+[data-theme="light"] .chat-reply-bar {
+  background: #F4F1F8 !important;
+  border-top-color: #E5DFEC !important;
+}
+.chat-reply-content {
+  flex: 1 !important;
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+}
+.chat-reply-sender {
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  color: var(--flame-1) !important;
+}
+.chat-reply-text {
+  font-size: 0.8rem !important;
+  color: var(--txt-secondary, #D4CCBC) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+[data-theme="light"] .chat-reply-text {
+  color: #4D4655 !important;
+}
+.chat-reply-close-btn {
+  background: none !important;
+  border: none !important;
+  color: var(--txt-muted, #9E97AA) !important;
+  font-size: 1.3rem !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  padding: 4px 6px !important;
+  border-radius: 50% !important;
+  transition: color 0.15s ease !important;
+}
+.chat-reply-close-btn:hover {
+  color: var(--txt-primary, #FFFFFF) !important;
+}
+
+/* --- Swipe to Reply Indicator --- */
+.msg-row {
+  position: relative !important;
+  touch-action: pan-y !important;
+  transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+.swipe-reply-icon {
+  position: absolute !important;
+  left: -38px !important;
+  top: 50% !important;
+  transform: translateY(-50%) scale(0.8) !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: rgba(209, 58, 99, 0.25) !important;
+  color: var(--flame-1) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0 !important;
+  transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
+  pointer-events: none !important;
+}
+.msg-row.swiping .swipe-reply-icon {
+  opacity: 1 !important;
+  transform: translateY(-50%) scale(1) !important;
+}
+
+/* --- In-Header WhatsApp Chat Search Bar --- */
+.chat-search-bar {
+  position: absolute !important;
+  inset: 0 !important;
+  background: var(--bg-elevated, #140F1B) !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 0 12px !important;
+  padding-top: env(safe-area-inset-top, 0px) !important;
+  gap: 8px !important;
+  z-index: 120 !important;
+  box-sizing: border-box !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3) !important;
+  animation: fadeInSearch 0.18s ease !important;
+}
+@keyframes fadeInSearch {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+[data-theme="light"] .chat-search-bar {
+  background: #FFFFFF !important;
+  border-bottom: 1px solid #E5DFEC !important;
+}
+.chat-search-close-btn {
+  background: none !important;
+  border: none !important;
+  color: var(--txt-primary, #FFFFFF) !important;
+  width: 36px !important;
+  height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  border-radius: 50% !important;
+}
+[data-theme="light"] .chat-search-close-btn {
+  color: #15121A !important;
+}
+.chat-search-input-wrap {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+.chat-search-input-wrap input {
+  width: 100% !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 20px !important;
+  padding: 7px 14px !important;
+  color: var(--txt-primary, #FFFFFF) !important;
+  font-size: 0.86rem !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+}
+[data-theme="light"] .chat-search-input-wrap input {
+  background: #F3F0F6 !important;
+  border-color: #E2DACB !important;
+  color: #15121A !important;
+}
+.chat-search-controls {
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+.chat-search-count {
+  font-size: 0.74rem !important;
+  color: var(--txt-muted, #9E97AA) !important;
+  white-space: nowrap !important;
+  margin-right: 4px !important;
+}
+.chat-search-nav-btn {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: none !important;
+  color: var(--txt-primary, #FFFFFF) !important;
+  width: 30px !important;
+  height: 30px !important;
+  border-radius: 50% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 0.72rem !important;
+}
+[data-theme="light"] .chat-search-nav-btn {
+  background: #F3F0F6 !important;
+  color: #15121A !important;
+}
+
+/* --- Search Result Highlight Pulse Effect --- */
+.chat-highlight-pulse {
+  animation: highlightGlow 2.2s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+@keyframes highlightGlow {
+  0% { box-shadow: 0 0 0 4px rgba(227, 179, 77, 0.85), 0 0 25px rgba(227, 179, 77, 0.6); }
+  50% { box-shadow: 0 0 0 3px rgba(227, 179, 77, 0.6), 0 0 15px rgba(227, 179, 77, 0.4); }
+  100% { box-shadow: none; }
+}
+
