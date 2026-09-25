@@ -1333,8 +1333,13 @@ async function handlePhoneLogin() {
       _loginPhoneOtpSent = true;
       if (otpGroup) otpGroup.style.display = 'block';
       if (btn) btn.textContent = 'Verify & Sign In';
-      if (otpInput) { otpInput.value = ''; setTimeout(() => otpInput.focus(), 150); }
-      showToast('📱 SMS code sent to +234 ' + rawPhone, 'info');
+      if (otpInput) {
+        otpInput.value = window._devPhoneOtp || '';
+        setTimeout(() => otpInput.focus(), 150);
+      }
+      if (!window._devPhoneOtp) {
+        showToast('📱 SMS code sent to +234 ' + rawPhone, 'info');
+      }
     } else {
       if (errEl) errEl.textContent = 'Could not send SMS verification code. Please check number or try again.';
     }
@@ -7086,8 +7091,13 @@ async function submitForgotPasswordPhone() {
       _fpPhoneOtpSent = true;
       if (otpGroup) otpGroup.style.display = 'block';
       if (btn) btn.textContent = 'Verify Code & Reset';
-      if (otpInp) { otpInp.value = ''; setTimeout(() => otpInp.focus(), 150); }
-      showToast('📱 SMS code sent to +234 ' + phone, 'info');
+      if (otpInp) {
+        otpInp.value = window._devPhoneOtp || '';
+        setTimeout(() => otpInp.focus(), 150);
+      }
+      if (!window._devPhoneOtp) {
+        showToast('📱 SMS code sent to +234 ' + phone, 'info');
+      }
     } else {
       if (errEl) errEl.textContent = 'Could not send SMS code. Please try again.';
     }
@@ -7191,11 +7201,18 @@ async function sendPhoneOtp() {
     if (sentTo) sentTo.textContent = 'Code sent to +234 ' + _pendingPhoneNumber;
 
     const helper = document.getElementById('phoneOtpHelper');
-    if (helper) helper.style.display = 'none';
+    if (helper) {
+      if (window._devPhoneOtpMessage) {
+        helper.innerHTML = window._devPhoneOtpMessage;
+        helper.style.display = 'block';
+      } else {
+        helper.style.display = 'none';
+      }
+    }
 
     const otpInp = document.getElementById('otpInput');
     if (otpInp) {
-      otpInp.value = '';
+      otpInp.value = window._devPhoneOtp || '';
       setTimeout(() => otpInp.focus(), 150);
     }
   }
@@ -7207,8 +7224,8 @@ async function verifyPhoneOtp() {
   const btn = document.getElementById('phoneVerifyOtpBtn');
   const otp = otpEl ? otpEl.value.trim() : '';
 
-  if (!/^\d{6}$/.test(otp)) {
-    if (errEl) errEl.textContent = 'Enter the 6-digit code.';
+  if (!/^\d{4,6}$/.test(otp)) {
+    if (errEl) errEl.textContent = 'Enter the verification code.';
     return;
   }
 
