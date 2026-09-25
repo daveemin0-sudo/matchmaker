@@ -72,12 +72,16 @@ function initBackend() {
             console.log("🔥 Google redirect sign-in success:", result.user.email);
             if (typeof handleGoogleLoginSuccess === 'function') {
               handleGoogleLoginSuccess(result.user);
+            } else if (typeof window.handleGoogleLoginSuccess === 'function') {
+              window.handleGoogleLoginSuccess(result.user);
             }
           }
         }).catch((err) => {
           console.warn("Google redirect auth error:", err);
           if (typeof handleGoogleAuthError === 'function') {
             handleGoogleAuthError(err);
+          } else if (typeof window.handleGoogleAuthError === 'function') {
+            window.handleGoogleAuthError(err);
           }
         });
       }
@@ -220,7 +224,9 @@ function listenToAuthChanges() {
       if (isChatHash && chatPartnerId && typeof openChat === 'function') {
         openChat(chatPartnerId);
       } else if (typeof showScreen === 'function' && window.appState?.currentScreen !== 'chat') {
-        showScreen(window.appState?.currentScreen || 'discovery');
+        const cur = (typeof appState !== 'undefined' ? appState.currentScreen : null) || window.appState?.currentScreen;
+        const targetScreen = (!cur || cur === 'login' || cur === 'signup') ? 'discovery' : cur;
+        showScreen(targetScreen);
       }
       if (typeof initMainApp === 'function') initMainApp();
       if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();

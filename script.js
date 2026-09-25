@@ -191,15 +191,38 @@ function bootApplication() {
   loadFromStorage();
   setTheme(localStorage.getItem('hookmebysam_theme') || 'dark');
 
+  const isRedirecting = (typeof sessionStorage !== 'undefined') && sessionStorage.getItem('hmbs_google_redirecting') === 'true';
+
   if (appState.isLoggedIn) {
     showScreen('discovery');
     initMainApp();
+  } else if (isRedirecting) {
+    showScreen('login');
+    updateHeaderForAuth();
+    const btn = document.getElementById('googleLoginBtn');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Signing in with Google...';
+    }
   } else {
     showScreen('login');
     updateHeaderForAuth();
     if (typeof getLockoutSecondsRemaining === 'function' && getLockoutSecondsRemaining() > 0) {
       startLockoutTimer();
     }
+  }
+
+  // Ensure redirect auth result is processed after page returns from Google
+  if (typeof fbAuth !== 'undefined' && fbAuth && typeof fbAuth.getRedirectResult === 'function') {
+    fbAuth.getRedirectResult().then((result) => {
+      if (result && result.user) {
+        handleGoogleLoginSuccess(result.user);
+      }
+    }).catch((err) => {
+      if (err && err.code) {
+        handleGoogleAuthError(err);
+      }
+    });
   }
 }
 
@@ -1387,6 +1410,7 @@ async function handlePhoneLogin() {
 // GOOGLE AUTH HANDLERS
 function handleGoogleLoginSuccess(user) {
   if (!user) return;
+  try { sessionStorage.removeItem('hmbs_google_redirecting'); } catch (_) {}
   resetFailedLoginAttempts();
   currentUser.email = user.email || '';
   currentUser.id = user.uid;
@@ -1401,9 +1425,11 @@ function handleGoogleLoginSuccess(user) {
   initMainApp();
   showToast('Welcome back, ' + (user.displayName || 'User') + '! ✨', 'gold');
 }
+window.handleGoogleLoginSuccess = handleGoogleLoginSuccess;
 
 function handleGoogleAuthError(err) {
   console.warn("Google Auth Error:", err);
+  try { sessionStorage.removeItem('hmbs_google_redirecting'); } catch (_) {}
   const code = err ? err.code : '';
   const currentHost = window.location.hostname || 'localhost';
   let message = 'Google sign-in failed. Please try again.';
@@ -1413,10 +1439,17 @@ function handleGoogleAuthError(err) {
   } else if (code === 'auth/operation-not-allowed') {
     message = 'Google sign-in is not enabled in Firebase Console. Enable "Google" under Authentication > Sign-in method.';
   } else if (code === 'auth/popup-blocked') {
-    message = 'Popup blocked by browser. Retrying with direct redirect...';
+    message = 'Popup was blocked by your browser. Redirecting to Google sign-in...';
+    showToast(message, 'info');
     if (fbAuth && typeof firebase !== 'undefined') {
+      try { sessionStorage.setItem('hmbs_google_redirecting', 'true'); } catch (_) {}
       const provider = new firebase.auth.GoogleAuthProvider();
-      fbAuth.signInWithRedirect(provider).catch(() => {});
+      provider.setCustomParameters({ prompt: 'select_account' });
+      fbAuth.signInWithRedirect(provider).catch(e => {
+        try { sessionStorage.removeItem('hmbs_google_redirecting'); } catch (_) {}
+        const errEl = document.getElementById('googleLoginError') || document.getElementById('loginError');
+        if (errEl) errEl.textContent = e.message || 'Redirect failed.';
+      });
       return;
     }
   } else if (code === 'auth/popup-closed-by-user') {
@@ -1431,6 +1464,7 @@ function handleGoogleAuthError(err) {
   if (errEl) errEl.textContent = message;
   showToast(message, 'error');
 }
+window.handleGoogleAuthError = handleGoogleAuthError;
 
 function handleGoogleLogin() {
   const gErr = document.getElementById('googleLoginError');
@@ -1447,26 +1481,20 @@ function handleGoogleLogin() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
 
-    // On mobile devices (Android / Samsung A16 / iOS), popups are frequently blocked or crash:
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    if (isMobile) {
-      fbAuth.signInWithRedirect(provider).catch((err) => {
-        handleGoogleAuthError(err);
-        if (btn) { btn.disabled = false; btn.innerHTML = `${googleIconSvg} Continue with Google`; }
-      });
-      return;
-    }
-
+    // Try popup first (fast, works on desktop and modern mobile browsers when initiated by click)
     fbAuth.signInWithPopup(provider)
       .then((result) => {
         handleGoogleLoginSuccess(result.user);
       })
       .catch((err) => {
-        if (err.code === 'auth/popup-blocked') {
+        console.warn("signInWithPopup result code:", err.code, err.message);
+        if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
+          showToast('Opening Google sign-in...', 'info');
+          try { sessionStorage.setItem('hmbs_google_redirecting', 'true'); } catch (_) {}
           fbAuth.signInWithRedirect(provider).catch(e => handleGoogleAuthError(e));
-        } else {
-          handleGoogleAuthError(err);
+          return;
         }
+        handleGoogleAuthError(err);
       })
       .finally(() => {
         if (btn) { btn.disabled = false; btn.innerHTML = `${googleIconSvg} Continue with Google`; }
