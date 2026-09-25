@@ -4991,7 +4991,7 @@ label, .form-field label, .auth-form-group label {
   gap: 6px;
 }
 .wa-profile-name {
-  font-family: var(--font-display, 'Fraunces', serif);
+  font-family: var(--font-display);
   font-size: 1.38rem;
   font-weight: 800;
   color: #FFFFFF;
@@ -5210,7 +5210,7 @@ label, .form-field label, .auth-form-group label {
 }
 
 .wa-dialog-title {
-  font-family: var(--font-display, 'Fraunces', serif);
+  font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 800;
   color: #FFFFFF;
@@ -5584,7 +5584,7 @@ label, .form-field label, .auth-form-group label {
 }
 
 .auth-hero-title {
-  font-family: 'Fraunces', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-size: 2.35rem !important;
   font-weight: 700 !important;
   line-height: 1.15 !important;
@@ -5595,7 +5595,7 @@ label, .form-field label, .auth-form-group label {
 }
 
 .auth-hero-italic {
-  font-family: 'Fraunces', Georgia, serif !important;
+  font-family: var(--font-display) !important;
   font-style: italic !important;
   font-weight: 400 !important;
   color: #E2B96F !important; /* warm champagne gold */
@@ -5616,7 +5616,7 @@ label, .form-field label, .auth-form-group label {
 }
 
 .simple-profile-title {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 2rem;
   font-weight: 700;
   color: #FFFFFF;
@@ -5662,7 +5662,7 @@ label, .form-field label, .auth-form-group label {
 }
 
 .simple-avatar-initial {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 3rem;
   font-weight: 700;
   color: #FFFFFF;
@@ -5697,7 +5697,7 @@ label, .form-field label, .auth-form-group label {
 }
 
 .simple-profile-name {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 1.45rem;
   font-weight: 700;
   color: #FFFFFF;
@@ -5740,7 +5740,7 @@ label, .form-field label, .auth-form-group label {
 }
 
 .simple-stat-number {
-  font-family: 'Fraunces', Georgia, serif;
+  font-family: var(--font-display);
   font-size: 1.45rem;
   font-weight: 700;
   color: #F4C550; /* warm gold from mockup */

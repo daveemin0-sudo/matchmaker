@@ -2325,22 +2325,30 @@ function clearCurrentChatHistory() {
   }
 }
 
-function formatWhatsAppTime(timestamp) {
-  if (!timestamp) return '';
-  const date = (typeof timestamp === 'number') ? new Date(timestamp) : (timestamp?.toDate ? timestamp.toDate() : new Date(timestamp));
-  if (isNaN(date.getTime())) return '';
-  let hours = date.getHours();
-  const minutes = date.getMinutes().toString().padStart(2, '0');
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
-  return `${hours}:${minutes} ${ampm}`;
+function formatWhatsAppTime(timestamp, fallbackTime) {
+  if (timestamp) {
+    const date = (typeof timestamp === 'number') ? new Date(timestamp) : (timestamp?.toDate ? timestamp.toDate() : new Date(timestamp));
+    if (!isNaN(date.getTime())) {
+      let hours = date.getHours();
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12;
+      return `${hours}:${minutes} ${ampm}`;
+    }
+  }
+  if (fallbackTime && typeof fallbackTime === 'string') return fallbackTime;
+  return new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
 }
 
-function getWhatsAppDateHeader(timestamp) {
-  if (!timestamp) return null;
-  const msgDate = (typeof timestamp === 'number') ? new Date(timestamp) : (timestamp?.toDate ? timestamp.toDate() : new Date(timestamp));
-  if (isNaN(msgDate.getTime())) return null;
+function getWhatsAppDateHeader(timestamp, fallbackTime) {
+  let msgDate = null;
+  if (timestamp) {
+    msgDate = (typeof timestamp === 'number') ? new Date(timestamp) : (timestamp?.toDate ? timestamp.toDate() : new Date(timestamp));
+  }
+  if (!msgDate || isNaN(msgDate.getTime())) {
+    msgDate = new Date();
+  }
 
   const today = new Date();
   const yesterday = new Date();
@@ -2384,10 +2392,10 @@ function renderChatThread() {
     const isLast = idx === hist.length - 1;
     const isSent = msg.sender === 'me';
     const msgId = msg.firestoreId || `local_${idx}`;
-    const timeStr = formatWhatsAppTime(msg.timestamp);
+    const timeStr = formatWhatsAppTime(msg.timestamp, msg.time);
 
     // Date separator pill (Today, Yesterday, or Month Day, Year)
-    const dateHeader = getWhatsAppDateHeader(msg.timestamp);
+    const dateHeader = getWhatsAppDateHeader(msg.timestamp, msg.time);
     if (dateHeader && dateHeader !== lastDateHeader) {
       lastDateHeader = dateHeader;
       html += `<div class="chat-date-separator" data-date="${escHtml(dateHeader)}"><span>${escHtml(dateHeader)}</span></div>`;
@@ -2431,14 +2439,22 @@ function renderChatThread() {
 
     // Detect if this message is a call
     const rawText = typeof msg.text === 'string' ? msg.text : '';
-    const isCallMsg = msg.isCall || rawText.startsWith('Voice call') || rawText.startsWith('Video call') || rawText.startsWith('Missed') || rawText.startsWith('Declined') || rawText.startsWith('Cancelled');
+    const isCallMsg = msg.isCall || 
+      rawText.startsWith('Voice call') || 
+      rawText.startsWith('Video call') || 
+      rawText.startsWith('Missed') || 
+      rawText.startsWith('Declined') || 
+      rawText.startsWith('Cancelled') ||
+      rawText.toLowerCase().includes('voice call') ||
+      rawText.toLowerCase().includes('video call') ||
+      rawText.toLowerCase().includes('call (');
 
     if (isCallMsg) {
       const isVideo = msg.callType === 'video' || rawText.toLowerCase().includes('video');
-      const isMissed = msg.callStatus === 'missed' || msg.callStatus === 'declined' || rawText.toLowerCase().includes('missed') || rawText.toLowerCase().includes('declined') || rawText.toLowerCase().includes('cancelled');
+      const isMissed = msg.callStatus === 'missed' || msg.callStatus === 'declined' || rawText.toLowerCase().includes('missed') || rawText.toLowerCase().includes('declined') || rawText.toLowerCase().includes('cancelled') || rawText.toLowerCase().includes('no answer');
       
       let title = isVideo ? (isMissed ? 'Missed video call' : 'Video call') : (isMissed ? 'Missed voice call' : 'Voice call');
-      let subText = isMissed ? 'Tap to call back' : (msg.duration || (rawText.match(/\((.*?)\)/)?.[1]) || 'Completed');
+      let subText = isMissed ? 'Tap to call back' : (msg.duration || (rawText.match(/\((.*?)\)/)?.[1]) || 'No answer');
 
       const phoneIconSvg = isMissed
         ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><path d="m23 7-6 6"/><path d="m17 7h6v6"/></svg>`
@@ -2493,6 +2509,7 @@ function renderChatThread() {
         ontouchstart="handleMsgTouchStart(event, '${msgId}')"
         ontouchmove="handleMsgTouchMove(event, '${msgId}')"
         ontouchend="handleMsgTouchEnd(event, '${msgId}')"
+        onmousedown="handleMsgMouseDown(event, '${msgId}')"
         style="display:flex;flex-direction:column;align-self:${isSent ? 'flex-end' : 'flex-start'};align-items:${isSent ? 'flex-end' : 'flex-start'};max-width:78%;gap:3px">
         <div class="swipe-reply-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -2560,7 +2577,7 @@ function handleMsgTouchEnd(e, msgId) {
   const dx = touch ? (touch.clientX - _swipeState.startX) : 0;
 
   if (_swipeState.isSwiping && dx >= 38) {
-    if (navigator.vibrate) navigator.vibrate(30);
+    if (navigator.vibrate) try { navigator.vibrate(30); } catch (_) {}
     startReplyToMessage(msgId);
   }
 
@@ -2573,6 +2590,67 @@ function handleMsgTouchEnd(e, msgId) {
     }, 200);
   }
   _swipeState = null;
+}
+
+function handleMsgMouseDown(e, msgId) {
+  if (e.button !== 0) return;
+  const row = e.currentTarget;
+  _swipeState = {
+    msgId,
+    startX: e.clientX,
+    startY: e.clientY,
+    el: row,
+    isSwiping: false
+  };
+
+  const onMouseMove = (moveEvent) => {
+    if (!_swipeState) {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      return;
+    }
+    const dx = moveEvent.clientX - _swipeState.startX;
+    const dy = moveEvent.clientY - _swipeState.startY;
+
+    if (!_swipeState.isSwiping) {
+      if (dx > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+        _swipeState.isSwiping = true;
+        _swipeState.el.classList.add('swiping');
+      } else if (Math.abs(dy) > 10 || dx < -10) {
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+        _swipeState = null;
+        return;
+      }
+    }
+
+    if (_swipeState?.isSwiping && dx > 0) {
+      const clamped = Math.min(65, dx * 0.55);
+      _swipeState.el.style.transform = `translateX(${clamped}px)`;
+    }
+  };
+
+  const onMouseUp = (upEvent) => {
+    window.removeEventListener('mousemove', onMouseMove);
+    window.removeEventListener('mouseup', onMouseUp);
+    if (!_swipeState) return;
+    const dx = upEvent.clientX - _swipeState.startX;
+    if (_swipeState.isSwiping && dx >= 35) {
+      if (navigator.vibrate) try { navigator.vibrate(30); } catch (_) {}
+      startReplyToMessage(msgId);
+    }
+    const el = _swipeState.el;
+    if (el) {
+      el.classList.remove('swiping');
+      el.style.transition = 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1)';
+      el.style.transform = 'translateX(0)';
+      setTimeout(() => { if (el) el.style.transition = ''; }, 200);
+    }
+    _swipeState = null;
+  };
+
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
 }
 
 function startReplyToMessage(msgId) {
@@ -3822,13 +3900,26 @@ function sendMessage() {
     conversations[appState.currentChatId] = { messages: [] };
   }
 
-  conversations[appState.currentChatId].messages.push({
+  const replyPayload = _replyingToState ? {
+    id: _replyingToState.id,
+    senderName: _replyingToState.senderName,
+    text: _replyingToState.text
+  } : null;
+
+  const newMsgObj = {
     sender: 'me',
     text,
     read: true,
     timestamp: Date.now()
-  });
+  };
+  if (replyPayload) {
+    newMsgObj.replyTo = replyPayload;
+  }
+
+  conversations[appState.currentChatId].messages.push(newMsgObj);
   input.value = '';
+  cancelReplyMessage();
+
   movePartnerToTop(appState.currentChatId);
   renderChatThread();
   renderConversationList();
@@ -3839,7 +3930,7 @@ function sendMessage() {
   // Send via real-time Firebase if logged in, otherwise handle local demo mode
   if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
-    sendRealtimeMessage(matchId, text);
+    sendRealtimeMessage(matchId, text, false, "", "", replyPayload);
 
     // Trigger push notification to partner (fire-and-forget)
     const myName = currentUser.name || 'Your match';
@@ -6197,7 +6288,14 @@ function showReactionPicker(event, matchId, msgId) {
   const actionsList = document.createElement('div');
   actionsList.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding-top:2px;';
 
-  let actionsHtml = '';
+  let actionsHtml = `
+    <button class="msg-menu-btn" onclick="event.stopPropagation();startReplyToMessage('${msgId}');closeReactionPicker();">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 14 4 9 9 4"/>
+        <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
+      </svg>
+      <span>Reply</span>
+    </button>`;
 
   if (isSent && isText) {
     actionsHtml += `

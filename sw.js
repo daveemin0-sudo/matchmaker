@@ -8,7 +8,7 @@
    - Static assets (images/fonts/icons): CACHE-FIRST. These are rarely
      edited, so serving from cache first saves bandwidth and is safe.
    ------------------------------------------------------------------ */
-const SW_VERSION = "v13";
+const SW_VERSION = "v20";
 const CACHE_NAME = `hmbs-${SW_VERSION}`;
 
 const APP_SHELL = [
@@ -23,16 +23,16 @@ const APP_SHELL = [
 const CACHE_FIRST_EXT = /\.(png|jpe?g|webp|gif|svg|woff2?|ttf|ico)$/i;
 
 self.addEventListener("install", (e) => {
+  self.skipWaiting();
   e.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(APP_SHELL))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+      Promise.all(keys.map((k) => caches.delete(k)))
     )
   );
   self.clients.claim();
