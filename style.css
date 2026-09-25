@@ -91,6 +91,14 @@
   margin: 0; padding: 0;
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 html { font-size: 16px; height: 100%; }
@@ -1766,6 +1774,140 @@ body {
 }
 .settings-workspace::-webkit-scrollbar { display: none; }
 
+/* Settings Profile Card */
+.settings-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+}
+
+.settings-profile-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  border: 2px solid var(--flame-1);
+  background-color: var(--bg-card);
+  flex-shrink: 0;
+}
+
+.settings-profile-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-profile-name {
+  font-weight: 800;
+  font-size: 1.08rem;
+  font-family: var(--font-display);
+  color: var(--txt-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.settings-online-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: #21B06B;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #21B06B;
+  display: inline-block;
+  box-shadow: 0 0 6px rgba(33, 176, 107, 0.6);
+}
+
+.settings-profile-edit-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--txt-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all var(--t-fast);
+  flex-shrink: 0;
+}
+
+.settings-profile-edit-btn:hover {
+  color: var(--flame-1);
+  border-color: var(--flame-1);
+  background: rgba(209, 58, 99, 0.1);
+}
+
+/* VIP Banner */
+.settings-vip-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(244, 197, 80, 0.12) 0%, rgba(184, 132, 43, 0.08) 100%);
+  border: 1.5px solid rgba(244, 197, 80, 0.35);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+  transition: transform var(--t-fast), border-color var(--t-fast), box-shadow var(--t-fast);
+}
+
+.settings-vip-banner:hover {
+  transform: translateY(-1px);
+  border-color: rgba(244, 197, 80, 0.6);
+  box-shadow: 0 6px 20px rgba(244, 197, 80, 0.15);
+}
+
+.settings-vip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.settings-vip-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-vip-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1rem;
+  background: var(--gold-grad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.settings-vip-sub {
+  font-size: 0.78rem;
+  color: var(--txt-secondary);
+  margin-top: 3px;
+}
+
+.settings-vip-arrow {
+  color: var(--gold-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
 .settings-section { display: flex; flex-direction: column; gap: 4px; }
 
 .settings-section-label {
@@ -1775,6 +1917,16 @@ body {
   text-transform: uppercase;
   letter-spacing: 1px;
   padding: 10px 4px 6px;
+  display: flex;
+  align-items: center;
+}
+
+.section-label-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
 }
 
 .settings-card {
@@ -1795,6 +1947,70 @@ body {
 }
 .settings-row:last-child { border-bottom: none; }
 .settings-row:hover { background: rgba(255,255,255,0.03); }
+
+/* Settings Icon Wrap & Chevrons & Chips */
+.settings-row-icon-wrap {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: var(--icon-bg, rgba(209, 58, 99, 0.1));
+  color: var(--icon-color, var(--flame-1));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.settings-chevron {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--txt-muted);
+  flex-shrink: 0;
+}
+
+.settings-badge-chip {
+  background: rgba(33, 176, 107, 0.15);
+  color: #21B06B;
+  border: 1px solid rgba(33, 176, 107, 0.3);
+  padding: 4px 10px;
+  border-radius: var(--r-pill);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+/* Settings Sliders */
+.settings-slider-row {
+  cursor: default;
+  align-items: flex-start;
+  padding: 16px;
+}
+
+.settings-slider-group {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-slider-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.settings-slider-value {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--flame-1);
+}
 
 .settings-row-icon {
   width: 36px; height: 36px;
@@ -1908,6 +2124,97 @@ body {
   letter-spacing: 0.1px;
 }
 .danger-btn:hover { background: rgba(209,58,99,0.07); border-color: rgba(209,58,99,0.45); }
+
+/* Green switch */
+.green-switch input:checked + .toggle-slider {
+  background: #21B06B !important;
+  border-color: #21B06B !important;
+}
+.green-switch input:checked + .toggle-slider::before {
+  box-shadow: 0 2px 8px rgba(33, 176, 107, 0.4) !important;
+}
+
+/* Sign out & Delete */
+.settings-signout-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-signout-btn {
+  background: var(--flame-grad);
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  padding: 14px 20px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: opacity var(--t-fast), transform var(--t-fast);
+}
+
+.settings-signout-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.settings-privacy-link {
+  color: var(--txt-muted);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+  padding: 0 4px;
+}
+
+.settings-privacy-link:hover {
+  color: var(--flame-1);
+  text-decoration: underline;
+}
+
+.settings-delete-btn {
+  background: var(--bg-card);
+  color: #FF4D6D;
+  border: 1.5px solid rgba(255, 77, 109, 0.25);
+  border-radius: 16px;
+  padding: 13px 20px;
+  font-weight: 700;
+  font-size: 0.92rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all var(--t-fast);
+}
+
+.settings-delete-btn:hover {
+  background: rgba(255, 77, 109, 0.08);
+  border-color: #FF4D6D;
+}
+
+/* Paywall Renewal Terms */
+.paywall-renewal-terms {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.65);
+  text-align: center;
+  line-height: 1.6;
+  padding: 14px 16px;
+  margin-top: 6px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.paywall-renewal-terms strong {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.paywall-renewal-terms a {
+  color: #FF2D78;
+  text-decoration: underline;
+}
 
 /* ============================================================
    BOTTOM NAVIGATION — Tinder-style clean tabs
@@ -6153,52 +6460,191 @@ body[data-theme="light"],
 [data-theme="light"] #editProfileModal > .edit-modal-sheet,
 [data-theme="light"] #forgotPasswordModal > div,
 [data-theme="light"] #forwardModal > div,
+[data-theme="light"] #phoneVerifyModal > div,
 [data-theme="light"] #phoneVerificationModal > div,
-[data-theme="light"] #languageModal > div {
+[data-theme="light"] #languageModal > div,
+[data-theme="light"] #legalModalInner {
   background: #FFFFFF !important;
   color: #15121A !important;
   border-color: #E1DCE5 !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12) !important;
 }
 
 [data-theme="light"] #editProfileModal h2,
 [data-theme="light"] #forgotPasswordModal h2,
 [data-theme="light"] #forwardModal h2,
+[data-theme="light"] #phoneVerifyModal h2,
 [data-theme="light"] #phoneVerificationModal h2,
-[data-theme="light"] #languageModal h2 {
+[data-theme="light"] #languageModal h2,
+[data-theme="light"] #legalModalTitle {
   color: #15121A !important;
 }
 
 [data-theme="light"] #editProfileModal p,
 [data-theme="light"] #forgotPasswordModal p,
 [data-theme="light"] #forwardModal p,
+[data-theme="light"] #phoneVerifyModal p,
 [data-theme="light"] #phoneVerificationModal p,
-[data-theme="light"] #languageModal p {
-  color: #5B5364 !important;
+[data-theme="light"] #languageModal p,
+[data-theme="light"] #legalModalBody,
+[data-theme="light"] #legalModalBody * {
+  color: #4D4655 !important;
+}
+
+[data-theme="light"] #legalModalBody strong {
+  color: #15121A !important;
 }
 
 [data-theme="light"] #editProfileModal button,
 [data-theme="light"] #forgotPasswordModal button,
 [data-theme="light"] #forwardModal button,
+[data-theme="light"] #phoneVerifyModal button,
 [data-theme="light"] #phoneVerificationModal button,
-[data-theme="light"] #languageModal button {
+[data-theme="light"] #languageModal button,
+[data-theme="light"] #legalModalInner button {
   color: #3F3747 !important;
 }
 
 [data-theme="light"] #editProfileModal .form-field label,
 [data-theme="light"] #forgotPasswordModal label,
 [data-theme="light"] #forwardModal label,
+[data-theme="light"] #phoneVerifyModal label,
 [data-theme="light"] #phoneVerificationModal label,
 [data-theme="light"] #languageModal label {
   color: #3F3747 !important;
 }
 
+[data-theme="light"] #phoneVerifyModal .auth-input-icon,
 [data-theme="light"] #phoneVerificationModal .auth-input-icon {
   color: #5B5364 !important;
 }
 
-/* Preserve intentionally dark/image-based experiences. */
+[data-theme="light"] #languageOptionsList button {
+  background: #F8F6FA !important;
+  color: #15121A !important;
+  border: 1px solid #E1DCE5 !important;
+}
+[data-theme="light"] #languageOptionsList button:hover {
+  background: #F0EBF5 !important;
+}
+
+/* Restored Settings Screen Elements (Light Mode) */
+[data-theme="light"] .settings-profile-card {
+  background: #FFFFFF !important;
+  border: 1px solid #E5DFEC !important;
+  box-shadow: 0 4px 16px rgba(21, 18, 26, 0.04) !important;
+}
+
+[data-theme="light"] .settings-profile-name {
+  color: #15121A !important;
+}
+
+[data-theme="light"] .settings-profile-edit-btn {
+  background: #F8F6FA !important;
+  border: 1px solid #DDD5E7 !important;
+  color: #4D4655 !important;
+}
+
+[data-theme="light"] .settings-profile-edit-btn:hover {
+  background: #FFE8F0 !important;
+  color: #F32670 !important;
+  border-color: #F32670 !important;
+}
+
+[data-theme="light"] .settings-vip-banner {
+  background: linear-gradient(135deg, #FFFDF0 0%, #FFF5D6 100%) !important;
+  border: 1.5px solid #F4C550 !important;
+  box-shadow: 0 4px 16px rgba(244, 197, 80, 0.2) !important;
+}
+
+[data-theme="light"] .settings-vip-title {
+  color: #7A5500 !important;
+  -webkit-text-fill-color: #7A5500 !important;
+}
+
+[data-theme="light"] .settings-vip-sub {
+  color: #6C5520 !important;
+}
+
+[data-theme="light"] .settings-vip-arrow {
+  color: #B8842B !important;
+}
+
+[data-theme="light"] .settings-section-label {
+  color: #554D60 !important;
+}
+
+[data-theme="light"] .settings-chevron {
+  background: #F3EEF8 !important;
+  color: #6E647C !important;
+}
+
+[data-theme="light"] .settings-slider-value {
+  color: #F32670 !important;
+}
+
+[data-theme="light"] .settings-delete-btn {
+  background: #FFF5F7 !important;
+  color: #D91F62 !important;
+  border-color: #F8B4C9 !important;
+}
+
+[data-theme="light"] .settings-delete-btn:hover {
+  background: #FFE8EF !important;
+  border-color: #D91F62 !important;
+}
+
+[data-theme="light"] .settings-privacy-link {
+  color: #6E647C !important;
+}
+
+[data-theme="light"] .settings-privacy-link:hover {
+  color: #D91F62 !important;
+}
+
+/* Paywall Modal Light Mode Precision */
+[data-theme="light"] .paywall-inner {
+  background: #FFFFFF !important;
+  color: #15121A !important;
+  border: 1px solid rgba(244, 197, 80, 0.45) !important;
+  box-shadow: 0 -20px 60px rgba(70, 40, 90, 0.18), 0 0 40px rgba(244, 197, 80, 0.25) !important;
+}
+
+[data-theme="light"] .paywall-hero h2 {
+  color: #15121A !important;
+}
+
+[data-theme="light"] #paywallReason {
+  color: #554D60 !important;
+}
+
+[data-theme="light"] .benefit-row span {
+  color: #15121A !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="light"] .benefit-icon-chip {
+  background: rgba(244, 197, 80, 0.22) !important;
+  color: #8C6400 !important;
+  border: 1px solid rgba(244, 197, 80, 0.4) !important;
+}
+
+[data-theme="light"] .paywall-renewal-terms {
+  color: #554D60 !important;
+  border-top: 1px solid #E5DFEC !important;
+}
+
+[data-theme="light"] .paywall-renewal-terms strong {
+  color: #1A1424 !important;
+}
+
+[data-theme="light"] .paywall-renewal-terms a {
+  color: #D91F62 !important;
+  font-weight: 700 !important;
+}
+
+/* Preserve intentionally dark/image-based experiences only. */
 [data-theme="light"] .story-header-area,
-[data-theme="light"] .story-viewer,
-[data-theme="light"] .paywall-modal {
+[data-theme="light"] .story-viewer {
   color: #FFFFFF;
 }
