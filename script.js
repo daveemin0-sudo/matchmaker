@@ -1185,6 +1185,8 @@ async function handleLogin() {
   const password = document.getElementById('loginPassword')?.value || '';
   const errorEl = document.getElementById('loginError');
   if (errorEl) errorEl.textContent = '';
+  const googleErrEl = document.getElementById('googleLoginError');
+  if (googleErrEl) googleErrEl.textContent = '';
 
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
   if (!email || !password) {
@@ -1420,12 +1422,17 @@ function handleGoogleAuthError(err) {
     message = err.message;
   }
 
-  const errEl = document.getElementById('loginError') || document.getElementById('loginPhoneError');
+  const errEl = document.getElementById('googleLoginError') || document.getElementById('loginError') || document.getElementById('loginPhoneError');
   if (errEl) errEl.textContent = message;
   showToast(message, 'error');
 }
 
 function handleGoogleLogin() {
+  const gErr = document.getElementById('googleLoginError');
+  if (gErr) gErr.textContent = '';
+  const loginErr = document.getElementById('loginError');
+  if (loginErr) loginErr.textContent = '';
+
   const btn = document.getElementById('googleLoginBtn');
   if (btn) btn.disabled = true;
   const googleIconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 4.5C13.8 4.5 15.4 5.2 16.6 6.3L19.9 3C17.9 1.1 15.1 0 12 0C7.4 0 3.4 2.6 1.4 6.4L5.2 9.3C6.2 6.5 8.8 4.5 12 4.5Z" fill="#EA4335"/><path d="M23.5 12.3C23.5 11.4 23.4 10.6 23.3 9.8H12V14.5H18.5C18.2 16 17.4 17.2 16.2 18L19.9 20.8C22.1 18.8 23.5 15.8 23.5 12.3Z" fill="#4285F4"/><path d="M5.2 14.7C4.9 13.9 4.8 13 4.8 12C4.8 11 5 10.1 5.2 9.3L1.4 6.4C0.5 8.1 0 10 0 12C0 14 0.5 15.9 1.4 17.6L5.2 14.7Z" fill="#FBBC05"/><path d="M12 24C15.1 24 17.8 23 19.9 20.8L16.2 18C15.1 18.7 13.7 19.2 12 19.2C8.8 19.2 6.2 17.2 5.2 14.4L1.4 17.3C3.4 21.4 7.4 24 12 24Z" fill="#34A853"/></svg>`;
