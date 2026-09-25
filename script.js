@@ -2076,30 +2076,69 @@ function updateMatchesNotificationBadge() {
   }
 }
 
-function movePartnerToTop(partnerId) {
-  if (!partnerId) return;
-  const index = matchedUsers.findIndex(u => u.id === partnerId);
-  if (index > 0) {
-    const [partner] = matchedUsers.splice(index, 1);
-    matchedUsers.unshift(partner);
-  } else if (index === -1) {
-    const p = PROFILES_DATA.find(u => u.id === partnerId);
-    if (p) {
-      matchedUsers.unshift({ ...p });
+function getLatestChatTimestamp(user) {
+  if (!user || !user.id) return 0;
+  const hist = conversations[user.id]?.messages;
+  let latestMsgTime = 0;
+  if (Array.isArray(hist) && hist.length > 0) {
+    for (let i = hist.length - 1; i >= 0; i--) {
+      const m = hist[i];
+      if (m && m.timestamp) {
+        let t = 0;
+        if (typeof m.timestamp === 'number') {
+          t = m.timestamp;
+        } else if (m.timestamp?.toMillis && typeof m.timestamp.toMillis === 'function') {
+          t = m.timestamp.toMillis();
+        } else if (m.timestamp?.seconds) {
+          t = m.timestamp.seconds * 1000;
+        } else if (typeof m.timestamp === 'string') {
+          t = new Date(m.timestamp).getTime();
+        }
+        if (!isNaN(t) && t > 0) {
+          latestMsgTime = t;
+          break;
+        }
+      }
     }
   }
+
+  let fallbackTime = 0;
+  const rawPTime = user.lastUpdated || user.matchedAt || user.timestamp || 0;
+  if (rawPTime) {
+    if (typeof rawPTime === 'number') {
+      fallbackTime = rawPTime;
+    } else if (rawPTime?.toMillis && typeof rawPTime.toMillis === 'function') {
+      fallbackTime = rawPTime.toMillis();
+    } else if (rawPTime?.seconds) {
+      fallbackTime = rawPTime.seconds * 1000;
+    } else if (typeof rawPTime === 'string') {
+      fallbackTime = new Date(rawPTime).getTime();
+    }
+    if (isNaN(fallbackTime)) fallbackTime = 0;
+  }
+
+  return Math.max(latestMsgTime, fallbackTime);
 }
 
 function sortMatchedUsersByLatest() {
   matchedUsers.sort((a, b) => {
-    const aHist = conversations[a.id]?.messages || [];
-    const bHist = conversations[b.id]?.messages || [];
-    const aLast = aHist[aHist.length - 1];
-    const bLast = bHist[bHist.length - 1];
-    const aTime = aLast?.timestamp || (a.lastUpdated || a.matchedAt || 0);
-    const bTime = bLast?.timestamp || (b.lastUpdated || b.matchedAt || 0);
+    const aTime = getLatestChatTimestamp(a);
+    const bTime = getLatestChatTimestamp(b);
     return bTime - aTime;
   });
+}
+
+function movePartnerToTop(partnerId) {
+  if (!partnerId) return;
+  const index = matchedUsers.findIndex(u => u.id === partnerId);
+  if (index === -1) {
+    const p = PROFILES_DATA.find(u => u.id === partnerId) || (typeof PREMIUM_MATCHES !== 'undefined' ? PREMIUM_MATCHES.find(u => u.id === partnerId) : null);
+    if (p) {
+      matchedUsers.push({ ...p });
+    }
+  }
+  // Order strictly by latest message / activity timestamp (WhatsApp style)
+  sortMatchedUsersByLatest();
 }
 
 function markConversationAsRead(partnerId) {
@@ -2261,8 +2300,15 @@ function _buildConvoItemHtml(u, filterQuery) {
   const isOnline = Math.random() > 0.5;
 
   let timeDisplay = '';
+  let lastTimeMs = 0;
   if (last?.timestamp) {
-    const diffSec = Math.floor((Date.now() - last.timestamp) / 1000);
+    if (typeof last.timestamp === 'number') lastTimeMs = last.timestamp;
+    else if (last.timestamp?.toMillis) lastTimeMs = last.timestamp.toMillis();
+    else if (last.timestamp?.seconds) lastTimeMs = last.timestamp.seconds * 1000;
+    else if (typeof last.timestamp === 'string') lastTimeMs = new Date(last.timestamp).getTime();
+  }
+  if (lastTimeMs > 0) {
+    const diffSec = Math.floor((Date.now() - lastTimeMs) / 1000);
     if (diffSec < 60) timeDisplay = 'Just now';
     else if (diffSec < 3600) timeDisplay = `${Math.floor(diffSec / 60)}m`;
     else if (diffSec < 86400) timeDisplay = `${Math.floor(diffSec / 3600)}h`;
@@ -2301,6 +2347,8 @@ function renderConversationList() {
     return;
   }
 
+  // Strictly order by latest incoming and outgoing messages (WhatsApp behavior)
+  sortMatchedUsersByLatest();
   col.innerHTML = matchedUsers.map(u => _buildConvoItemHtml(u, '')).join('');
 }
 
@@ -2309,6 +2357,9 @@ function renderConversationList() {
 // ==========================================================
 
 function renderChatsInbox(filterQuery) {
+  // Strictly order by latest incoming and outgoing messages (WhatsApp behavior)
+  sortMatchedUsersByLatest();
+
   // New matches row in inbox
   const matchesRow = document.getElementById('chatsNewMatchesRow');
   if (matchesRow) {
@@ -2571,6 +2622,9 @@ function openChat(profileId, { fromHistory = false } = {}) {
           !remoteMsgs.some(rm => (rm.audioUrl && rm.audioUrl === m.audioUrl) || (rm.text && rm.text === m.text && Math.abs(rm.timestamp - m.timestamp) < 3000))
         );
 
+        const prevMsgs = conversations[profileId]?.messages || [];
+        const prevLastTime = prevMsgs.length > 0 ? (prevMsgs[prevMsgs.length - 1].timestamp || 0) : 0;
+
         conversations[profileId] = {
           messages: [...remoteMsgs, ...pendingLocal].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
         };
@@ -2578,7 +2632,15 @@ function openChat(profileId, { fromHistory = false } = {}) {
         if (typeof markMessagesReadInFirestore === 'function') {
           markMessagesReadInFirestore(matchId);
         }
-        movePartnerToTop(profileId);
+
+        // Only sort chats to top if a genuinely new incoming/outgoing message arrived while listening
+        // Merely opening an existing chat to read old messages must NOT move it to the top!
+        const newMsgs = conversations[profileId].messages;
+        const newLastTime = newMsgs.length > 0 ? (newMsgs[newMsgs.length - 1].timestamp || 0) : 0;
+        if (prevLastTime > 0 && newLastTime > prevLastTime) {
+          sortMatchedUsersByLatest();
+        }
+
         renderChatThread();
         renderConversationList();
         renderChatsInbox();
