@@ -863,22 +863,28 @@
           <!-- Rendered by JS -->
         </div>
 
-        <!-- Smart Auto-Suggest While Typing (appears dynamically) -->
-        <div class="chat-auto-suggest-box" id="chatAutoSuggestBox" style="display:none">
-          <!-- Populated dynamically as user types -->
-        </div>
-
         <!-- Comprehensive WhatsApp/iOS Style Emoji Picker Panel -->
         <div class="emoji-picker-panel" id="emojiPickerPanel" style="display:none">
           <div class="emoji-category-tabs" id="emojiCategoryTabs">
-            <button class="emoji-cat-btn active" onclick="switchEmojiCategory('smileys', this)">😃</button>
-            <button class="emoji-cat-btn" onclick="switchEmojiCategory('gestures', this)">👋</button>
-            <button class="emoji-cat-btn" onclick="switchEmojiCategory('love', this)">❤️</button>
-            <button class="emoji-cat-btn" onclick="switchEmojiCategory('party', this)">🎉</button>
-            <button class="emoji-cat-btn" onclick="switchEmojiCategory('food', this)">🍕</button>
-            <button class="emoji-cat-btn" onclick="switchEmojiCategory('activities', this)">⚽</button>
+            <button type="button" class="emoji-cat-btn active" onclick="switchEmojiCategory('smileys', this)" title="Smileys & People">😀</button>
+            <button type="button" class="emoji-cat-btn" onclick="switchEmojiCategory('gestures', this)" title="Gestures">👋</button>
+            <button type="button" class="emoji-cat-btn" onclick="switchEmojiCategory('love', this)" title="Love & Hearts">❤️</button>
+            <button type="button" class="emoji-cat-btn" onclick="switchEmojiCategory('animals', this)" title="Animals & Nature">🐶</button>
+            <button type="button" class="emoji-cat-btn" onclick="switchEmojiCategory('food', this)" title="Food & Drink">🍕</button>
+            <button type="button" class="emoji-cat-btn" onclick="switchEmojiCategory('activities', this)" title="Activities">⚽</button>
+            <button type="button" class="emoji-cat-btn" onclick="switchEmojiCategory('objects', this)" title="Objects">💡</button>
+            <button type="button" class="emoji-cat-btn" onclick="switchEmojiCategory('symbols', this)" title="Symbols">🔣</button>
           </div>
           <div class="emoji-grid" id="emojiGrid"></div>
+          <div class="emoji-bottom-bar">
+            <div class="emoji-search-box">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 14.67 11 15.5 11zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+              <input type="text" id="emojiSearchInput" placeholder="Search emoji..." oninput="searchEmojis(this.value)">
+            </div>
+            <button type="button" class="emoji-backspace-btn" onclick="backspaceEmoji()" title="Backspace" aria-label="Backspace">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M22 3H7c-.69 0-1.23.35-1.59.88L0 12l5.41 8.11c.36.53.9.89 1.59.89h15c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-3 12.59L17.59 17 14 13.41 10.41 17 9 15.59 12.59 12 9 8.41 10.41 7 14 10.59 17.59 7 19 8.41 15.41 12 19 15.59z"/></svg>
+            </button>
+          </div>
         </div>
 
         <!-- WhatsApp-Style Quoted Reply Preview Bar -->
@@ -900,21 +906,23 @@
           <button onclick="cancelEditMessage()" style="background:none;border:none;color:rgba(255,255,255,0.6);font-size:1.1rem;cursor:pointer">✕</button>
         </div>
 
-        <!-- Chat Input Bar -->
+        <!-- Chat Input Bar (WhatsApp-style Pill + Floating Action Button) -->
         <div class="chat-input-bar">
-          <button class="chat-icon-btn" id="emojiToggleBtn" onclick="toggleEmojiPicker()" aria-label="Emoji" title="Emoji">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5 14.67 11 15.5 11zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
-            </svg>
-          </button>
-          <button class="chat-icon-btn" onclick="document.getElementById('chatImageInput').click()" aria-label="Attach image" title="Send image">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-            </svg>
-          </button>
-          <input type="file" id="chatImageInput" accept="image/*" style="display:none" onchange="sendImageMessage(event)">
-          <input class="chat-field" id="chatInput" type="text" placeholder="Type a message..." onkeydown="handleChatKeydown(event)" oninput="onChatInputChange()" autocomplete="off">
-          <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" aria-label="Send" style="display:none">
+          <div class="chat-input-pill">
+            <button class="chat-icon-btn" id="emojiToggleBtn" onclick="toggleEmojiPicker()" aria-label="Emoji" title="Emoji">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5 14.67 11 15.5 11zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+              </svg>
+            </button>
+            <input class="chat-field" id="chatInput" type="text" placeholder="Message" onkeydown="handleChatKeydown(event)" oninput="onChatInputChange()" onfocus="closeEmojiPicker()" autocomplete="on" autocorrect="on" autocapitalize="sentences" spellcheck="true" enterkeyhint="send" inputmode="text">
+            <button class="chat-icon-btn chat-attach-btn" onclick="document.getElementById('chatImageInput').click()" aria-label="Attach photo" title="Send photo">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+              </svg>
+            </button>
+            <input type="file" id="chatImageInput" accept="image/*" style="display:none" onchange="sendImageMessage(event)">
+          </div>
+          <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" aria-label="Send message" style="display:none">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
               <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
             </svg>
@@ -938,6 +946,18 @@
           <button class="voice-send-btn" onclick="sendVoiceNote()" aria-label="Send voice note">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
           </button>
+        </div>
+
+        <!-- Full-screen WhatsApp-Style Image Lightbox -->
+        <div class="chat-image-lightbox" id="chatImageLightbox" style="display:none" onclick="closeImageLightbox()">
+          <div class="lightbox-header" onclick="event.stopPropagation()">
+            <button type="button" class="lightbox-close-btn" onclick="closeImageLightbox()" aria-label="Close">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="lightbox-body" onclick="event.stopPropagation()">
+            <img id="lightboxImg" src="" alt="Full size photo">
+          </div>
         </div>
 
       </div>

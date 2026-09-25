@@ -2429,86 +2429,50 @@ const CATEGORIZED_EMOJIS = {
     '👀','👁️','👅','👄','🫦'
   ],
   love: [
-    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖',
-    '💘','💝','💟','💌','🫀','💋','🫂','👩‍❤️‍👨','👩‍❤️‍👩','👨‍❤️‍👨','👩‍❤️‍💋‍👨','💏','💑',
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓',
+    '💗','💖','💘','💝','💟','💌','🫀','💋','🫂','👩‍❤️‍👨','👩‍❤️‍👩','👨‍❤️‍👨','👩‍❤️‍💋‍👨','💏','💑',
     '💍','💎','💐','🌹','🥀','🌺','🌷','🌸','💮','🪷','🕯️','✨','💫','⭐','🌟','🔥'
   ],
-  party: [
-    '🎉','🎊','🥳','🍾','🥂','🍻','🍺','🍷','🍸','🍹','🥃','🎂','🍰','🧁','🎈','🎁',
-    '🎀','🪅','🎇','🎆','🧨','✨','🪄','💃','🕺','👯','🎶','🎵','🎤','🎧','📻','🎷',
-    '🎸','🎹','🎺','🎻','🪘','🥁','🪩','🎪','🎭','🎨','🎬','🎟️'
+  animals: [
+    '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐽','🐸',
+    '🐵','🙈','🙉','🙊','🐒','🐔','🐧','🐦','🐤','🦆','🦅','🦉','🦇','🐺','🐗','🐴',
+    '🦄','🐝','🪱','🐛','🦋','🐌','🐞','🐜','🪲','🦟','🦗','🕷️','🦂','🐢','🐍','🦎',
+    '🐙','🦑','🦐','🦞','🦀','🐡','🐠','🐟','🐬','🐳','🐋','🦈','🐊','🐅','🐆','🦓',
+    '🦍','🦧','🐘','🦛','🦏','🐪','🦒','🦘','🐎','🐖','🐑','🐐','🦌','🐕','🐩','🐈'
   ],
   food: [
-    '🍕','🍔','🍟','🌭','🍿','🥓','🥞','🧇','🥐','🥖','🥨','🥯','🧀','🥗','🥙','🥪',
-    '🌮','🌯','🥫','🍝','🍜','🍲','🍛','🍣','🍱','🥟','🍤','🍙','🍚','🍘','🍥','🥠',
-    '🍢','🍧','🍨','🍦','🥧','🧁','🍰','🎂','🍮','🍭','🍬','🍫','🍩','🍪','🌰','🥜',
-    '🍯','🥛','☕','🍵','🧃','🥤','🧋','🍶','🍺','🍻','🥂','🍷','🥃','🍸','🍹','🧉'
+    '🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥',
+    '🥝','🍅','🥑','🥦','🥒','🌶️','🌽','🥕','🥔','🥐','🥖','🍞','🥨','🥯','🧀','🥚',
+    '🍳','🥞','🧇','🥓','🍗','🍖','🌭','🍔','🍟','🍕','🥪','🌮','🌯','🥗','🍲','🍛',
+    '🍜','🍝','🍣','🍱','🥟','🍤','🍙','🍚','🍘','🍢','🍡','🍧','🍨','🍦','🍰','🎂',
+    '🍮','🍭','🍬','🍫','🍿','🍩','🍪','🥜','🍯','🥛','☕','🍵','🧃','🥤','🧋','🍺',
+    '🍻','🥂','🍷','🥃','🍸','🍹','🍾'
   ],
   activities: [
     '⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🏒','🏑','🥍',
     '🏏','🪃','🥅','⛳','🪁','🏹','🎣','🤿','🥊','🥋','🎽','🛹','🛼','🛷','⛸️','🥌',
     '🎿','⛷️','🏂','🪂','🏋️','🤼','🤸','🤺','⛹️','🤾','🧗','🧘','🏄','🏊','🤽','🚣',
     '🚴','🚵','🏆','🥇','🥈','🥉','🎯','🎮','🎲','🎳','🚗','🚕','✈️','🚀','🏖️','🏝️'
+  ],
+  objects: [
+    '⌚','📱','📲','💻','⌨️','🖥️','🖨️','🖱️','🕹️','💾','💿','📼','📷','📸','📹','🎥',
+    '📽️','📞','☎️','📺','📻','🎙️','⏱️','⏰','🕰️','⏳','📡','🔋','🔌','💡','🔦','🕯️',
+    '💸','💵','💶','💷','🪙','💰','💳','💎','⚖️','🪜','🧰','🔧','🔨','🛠️','🪚','🔩',
+    '⚙️','🧱','⛓️','🧲','💣','🧨','🔪','🗡️','⚔️','🛡️','🚬','⚰️','🔮','🧿','💈','🔬'
+  ],
+  symbols: [
+    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖',
+    '💘','💝','💟','☮️','✝️','☪️','🕉️','☸️','✡️','🔯','🕎','☯️','☦️','🛐','⛎','♈',
+    '♉','♊','♋','♌','♍','♎','♏','♐','♑','♒','♓','🆔','💯','💢','♨️','❗','❕',
+    '❓','❔','‼️','⁉️','⚠️','🔱','⚜️','🔰','♻️','✅','❌','⭕','🛑','⛔','🚫','🌐',
+    'Ⓜ️','💤','🏧','🚾','♿','🅿️','📶','🈁','🆖','🆗','🆙','🆒','🆕','🆓','🔢','🔟'
   ]
 };
 
+const SMILEY_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5 14.67 11 15.5 11zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>`;
+const KEYBOARD_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>`;
+
 let currentEmojiCategory = 'smileys';
-
-// ==========================================================
-// SMART CHAT AUTO-SUGGESTIONS (Real-time while typing)
-// ==========================================================
-const CHAT_AUTO_SUGGESTIONS = [
-  { trigger: ['h', 'he', 'hey', 'hi', 'hel', 'hello'], suggestions: ['Hey! How are you doing today? 😊', 'Hello! So great to connect with you ✨', 'Hey there, how was your weekend?'] },
-  { trigger: ['yo', 'sup', 'whatsup', 'whats up'], suggestions: ['What\'s up! Having a good day so far?', 'Hey! Just chilling, what about you?'] },
-  { trigger: ['gm', 'good m', 'morning'], suggestions: ['Good morning! Hope you have an awesome day ☀️', 'Good morning! Up early today? ☕'] },
-  { trigger: ['ge', 'good e', 'evening'], suggestions: ['Good evening! How was your day? 🌙', 'Good evening! Any fun plans tonight?'] },
-  { trigger: ['are', 'are y', 'are you', 'free', 'weekend'], suggestions: ['Are you free for coffee sometime this week? ☕', 'Are you doing anything fun this weekend?', 'Are you more of an indoor or outdoor person?'] },
-  { trigger: ['would', 'would y', 'wanna', 'want to'], suggestions: ['Would you like to grab drinks or dinner? 🥂', 'Wanna go check out a live music spot together? 🎵', 'Would love to get to know you more!'] },
-  { trigger: ['let', 'lets', 'let\'s'], suggestions: ['Let\'s plan something fun together soon! ✨', 'Let\'s exchange playlists 🎶', 'Let\'s grab lunch this Saturday 🍕'] },
-  { trigger: ['lag', 'lagos', 'where', 'spot', 'place'], suggestions: ['What\'s your favorite spot in Lagos? 🌴', 'Where do you usually like to hang out?', 'Have you been to any nice beach houses lately?'] },
-  { trigger: ['food', 'eat', 'dinner', 'lunch', 'brunch'], suggestions: ['What\'s your absolute favorite food spot? 🌮', 'I know an amazing brunch place we should try 🥞'] },
-  { trigger: ['music', 'song', 'listen', 'playlist', 'track'], suggestions: ['What playlist are you listening to right now? 🎵', 'Are you into Amapiano or Afrobeats? 💫'] },
-  { trigger: ['ha', 'haha', 'lol', 'lmao'], suggestions: ['Haha that\'s hilarious! 😂', 'Haha you have such a great sense of humor! 💫', 'Haha right?! I knew it!'] },
-  { trigger: ['sound', 'sounds'], suggestions: ['Sounds like a plan! 🙌', 'Sounds amazing, let\'s make it happen!', 'Sounds super fun! 😊'] },
-  { trigger: ['love', 'i love', 'like'], suggestions: ['I love that so much! ❤️', 'Love your style in your pictures! ✨', 'I\'d love that! When are you free?'] },
-  { trigger: ['cool', 'nice', 'awesome', 'sweet'], suggestions: ['That\'s so cool! Tell me more about it 🤩', 'That sounds really awesome!', 'Super nice!'] },
-  { trigger: ['thank', 'thanks', 'thx'], suggestions: ['Thank you! You\'re very sweet 😊', 'Thanks a lot! Hope your day is going well'] }
-];
-
-function getSmartChatSuggestions(text) {
-  const clean = text.trim().toLowerCase();
-  if (!clean) return [];
-
-  const matched = [];
-  for (const item of CHAT_AUTO_SUGGESTIONS) {
-    const hits = item.trigger.some(trig => clean.startsWith(trig) || clean.includes(trig) || trig.startsWith(clean));
-    if (hits) {
-      for (const s of item.suggestions) {
-        if (!matched.includes(s) && matched.length < 3) {
-          matched.push(s);
-        }
-      }
-    }
-  }
-
-  if (matched.length === 0 && clean.length > 0) {
-    if (clean.endsWith('?')) {
-      matched.push('Haha let me think about that! 🤔', 'Definitely! What about you?', 'That\'s a great question! 😊');
-    } else {
-      matched.push('I totally agree! ✨', 'Tell me more about it! 😊', 'That\'s so interesting! 🙌');
-    }
-  }
-
-  return matched.slice(0, 3);
-}
-
-function applyChatSuggestion(suggestionText) {
-  const input = document.getElementById('chatInput');
-  if (!input) return;
-  input.value = suggestionText;
-  onChatInputChange();
-  input.focus();
-}
 
 // ==========================================================
 // CHAT NAVIGATION & HEADER (WhatsApp Style)
@@ -2544,11 +2508,8 @@ function openChat(profileId, { fromHistory = false } = {}) {
     statusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
   }
 
-  // Clear typing suggestions and emoji panel
-  const suggestBox = document.getElementById('chatAutoSuggestBox');
-  if (suggestBox) { suggestBox.style.display = 'none'; suggestBox.innerHTML = ''; }
-  const emojiPanel = document.getElementById('emojiPickerPanel');
-  if (emojiPanel) emojiPanel.style.display = 'none';
+  // Reset emoji panel and input
+  closeEmojiPicker();
   const chatInput = document.getElementById('chatInput');
   if (chatInput) chatInput.value = '';
   onChatInputChange();
@@ -3040,10 +3001,14 @@ function renderChatThread() {
         </div>`;
     } else if (msg.imageUrl) {
       bubbleHtml = `
-        <div class="msg-bubble ${isSent ? 'sent' : 'received'}" style="padding:4px;max-width:240px;overflow:hidden;cursor:pointer" ${pressEvents}>
+        <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'}" onclick="openImageLightbox('${escHtml(msg.imageUrl)}')" title="Tap to view photo" ${pressEvents}>
           ${quoteHtml}
-          <img src="${msg.imageUrl}" style="width:100%;border-radius:14px;display:block">
-          <div style="padding:4px 6px;text-align:right">${timeBadgeHtml}</div>
+          <div class="msg-image-wrap">
+            <img src="${msg.imageUrl}" class="msg-chat-img" loading="lazy" alt="Photo">
+            <div class="msg-img-overlay-meta">
+              ${timeBadgeHtml}
+            </div>
+          </div>
         </div>`;
     } else if (msg.isVoice) {
       const audioSrc = msg.audioUrl || '';
@@ -3408,59 +3373,67 @@ function onChatInputChange() {
   const input = document.getElementById('chatInput');
   const sendBtn = document.getElementById('chatSendBtn');
   const micBtn = document.getElementById('micBtn');
-  const suggestBox = document.getElementById('chatAutoSuggestBox');
   if (!input) return;
 
   const text = input.value;
   const hasText = text.trim().length > 0;
   if (sendBtn) sendBtn.style.display = hasText ? 'flex' : 'none';
   if (micBtn) micBtn.style.display = hasText ? 'none' : 'flex';
-
-  if (!suggestBox) return;
-
-  if (!hasText) {
-    suggestBox.style.display = 'none';
-    suggestBox.innerHTML = '';
-    return;
-  }
-
-  // Dynamic auto-suggestions while typing
-  const suggestions = getSmartChatSuggestions(text);
-  if (suggestions.length > 0) {
-    suggestBox.innerHTML = suggestions.map(s => {
-      const safeText = s.replace(/'/g, "\\'");
-      return `<button type="button" class="chat-suggest-chip" onclick="applyChatSuggestion('${safeText}')"><span class="suggest-sparkle">✨</span> ${escHtml(s)}</button>`;
-    }).join('');
-    suggestBox.style.display = 'flex';
-  } else {
-    suggestBox.style.display = 'none';
-    suggestBox.innerHTML = '';
-  }
 }
+window.onChatInputChange = onChatInputChange;
 
 function toggleEmojiPicker() {
   const panel = document.getElementById('emojiPickerPanel');
-  const toggleBtn = document.getElementById('emojiToggleBtn');
+  const input = document.getElementById('chatInput');
   if (!panel) return;
   const isOpen = panel.style.display === 'flex';
-  panel.style.display = isOpen ? 'none' : 'flex';
-
-  if (toggleBtn) {
-    if (!isOpen) toggleBtn.classList.add('active-emoji');
-    else toggleBtn.classList.remove('active-emoji');
-  }
-
-  if (!isOpen) {
-    renderEmojiCategory(currentEmojiCategory);
+  if (isOpen) {
+    closeEmojiPicker();
+    if (input) input.focus();
+  } else {
+    openEmojiPicker();
   }
 }
+window.toggleEmojiPicker = toggleEmojiPicker;
+
+function openEmojiPicker() {
+  const panel = document.getElementById('emojiPickerPanel');
+  const toggleBtn = document.getElementById('emojiToggleBtn');
+  if (!panel) return;
+  panel.style.display = 'flex';
+  if (toggleBtn) {
+    toggleBtn.classList.add('active-emoji');
+    toggleBtn.innerHTML = KEYBOARD_SVG;
+    toggleBtn.title = 'Keyboard';
+    toggleBtn.setAttribute('aria-label', 'Keyboard');
+  }
+  renderEmojiCategory(currentEmojiCategory);
+}
+window.openEmojiPicker = openEmojiPicker;
+
+function closeEmojiPicker() {
+  const panel = document.getElementById('emojiPickerPanel');
+  const toggleBtn = document.getElementById('emojiToggleBtn');
+  if (!panel) return;
+  panel.style.display = 'none';
+  if (toggleBtn) {
+    toggleBtn.classList.remove('active-emoji');
+    toggleBtn.innerHTML = SMILEY_SVG;
+    toggleBtn.title = 'Emoji';
+    toggleBtn.setAttribute('aria-label', 'Emoji');
+  }
+}
+window.closeEmojiPicker = closeEmojiPicker;
 
 function switchEmojiCategory(cat, btn) {
   currentEmojiCategory = cat;
   document.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
+  const searchInput = document.getElementById('emojiSearchInput');
+  if (searchInput) searchInput.value = '';
   renderEmojiCategory(cat);
 }
+window.switchEmojiCategory = switchEmojiCategory;
 
 function renderEmojiCategory(cat) {
   const grid = document.getElementById('emojiGrid');
@@ -3470,47 +3443,152 @@ function renderEmojiCategory(cat) {
     <button type="button" class="emoji-cell" onclick="insertEmoji('${e}')" title="${e}">${e}</button>
   `).join('');
 }
+window.renderEmojiCategory = renderEmojiCategory;
+
+function searchEmojis(query) {
+  const q = (query || '').trim().toLowerCase();
+  const grid = document.getElementById('emojiGrid');
+  if (!grid) return;
+  if (!q) {
+    renderEmojiCategory(currentEmojiCategory);
+    return;
+  }
+  const all = Object.values(CATEGORIZED_EMOJIS).flat();
+  const unique = Array.from(new Set(all));
+  grid.innerHTML = unique.map(e => `
+    <button type="button" class="emoji-cell" onclick="insertEmoji('${e}')" title="${e}">${e}</button>
+  `).join('');
+}
+window.searchEmojis = searchEmojis;
 
 function insertEmoji(emoji) {
   const input = document.getElementById('chatInput');
   if (!input) return;
-  input.value += emoji;
+  const start = input.selectionStart ?? input.value.length;
+  const end = input.selectionEnd ?? input.value.length;
+  input.setRangeText(emoji, start, end, 'end');
   onChatInputChange();
-  input.focus();
+}
+window.insertEmoji = insertEmoji;
+
+function backspaceEmoji() {
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  const val = input.value;
+  if (!val) return;
+  const start = input.selectionStart ?? val.length;
+  const end = input.selectionEnd ?? val.length;
+  if (start !== end) {
+    input.setRangeText('', start, end, 'end');
+  } else if (start > 0) {
+    const chars = Array.from(val.slice(0, start));
+    chars.pop();
+    const remainingBefore = chars.join('');
+    const after = val.slice(start);
+    input.value = remainingBefore + after;
+    input.setSelectionRange(remainingBefore.length, remainingBefore.length);
+  }
+  onChatInputChange();
+}
+window.backspaceEmoji = backspaceEmoji;
+
+function openImageLightbox(src) {
+  const modal = document.getElementById('chatImageLightbox');
+  const img = document.getElementById('lightboxImg');
+  if (!modal || !img || !src) return;
+  img.src = src;
+  modal.style.display = 'flex';
+}
+window.openImageLightbox = openImageLightbox;
+
+function closeImageLightbox() {
+  const modal = document.getElementById('chatImageLightbox');
+  if (modal) modal.style.display = 'none';
+}
+window.closeImageLightbox = closeImageLightbox;
+
+function compressImageForChat(file, maxWidth = 1280, quality = 0.8) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth || height > maxWidth) {
+          if (width > height) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxWidth) / height);
+            height = maxWidth;
+          }
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => resolve(e.target.result);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
 }
 
-function sendImageMessage(event) {
+async function sendImageMessage(event) {
   const file = event.target.files?.[0];
   if (!file || !appState.currentChatId) return;
+  event.target.value = '';
 
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const imageUrl = e.target.result;
-    if (!conversations[appState.currentChatId]) {
-      conversations[appState.currentChatId] = { messages: [] };
+  const partnerId = appState.currentChatId;
+  const compressedUrl = await compressImageForChat(file);
+  if (!compressedUrl) return;
+
+  if (!conversations[partnerId]) {
+    conversations[partnerId] = { messages: [] };
+  }
+
+  const localMsgId = 'local_img_' + Date.now();
+  const newMsg = {
+    id: localMsgId,
+    sender: 'me',
+    imageUrl: compressedUrl,
+    read: true,
+    timestamp: Date.now()
+  };
+
+  conversations[partnerId].messages.push(newMsg);
+  movePartnerToTop(partnerId);
+  renderChatThread();
+  renderConversationList();
+  renderChatsInbox();
+  updateMatchesNotificationBadge();
+  saveToStorage();
+  showToast('📷 Photo sent!', 'gold');
+
+  // Background upload & dispatch
+  (async () => {
+    let finalUrl = compressedUrl;
+    if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
+      try {
+        const uploadedUrl = await uploadFileToBackend(file, 'chat_images', false, 'image/jpeg');
+        if (uploadedUrl) finalUrl = uploadedUrl;
+      } catch (err) {
+        console.warn('Image upload fallback to dataUrl:', err);
+      }
     }
-    conversations[appState.currentChatId].messages.push({
-      sender: 'me',
-      imageUrl: imageUrl,
-      read: true,
-      timestamp: Date.now()
-    });
-    movePartnerToTop(appState.currentChatId);
-    renderChatThread();
-    renderConversationList();
-    renderChatsInbox();
-    updateMatchesNotificationBadge();
-    saveToStorage();
-    showToast('📷 Image sent!', 'gold');
 
     if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-      const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
-      sendRealtimeMessage(matchId, '', false, '', imageUrl);
+      const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+      sendRealtimeMessage(matchId, '', false, '', finalUrl);
     }
-  };
-  reader.readAsDataURL(file);
-  event.target.value = '';
+  })();
 }
+window.sendImageMessage = sendImageMessage;
 
 // ==========================================================
 // REAL LIVE VOICE & VIDEO CALLING (WebRTC + Metered TURN/STUN)
@@ -4657,7 +4735,10 @@ function sendMessage() {
 }
 
 function handleChatKeydown(e) {
-  if (e.key === 'Enter') sendMessage();
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
 }
 
 function sendIcebreaker(text) {
