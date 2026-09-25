@@ -1757,27 +1757,43 @@ body[data-theme="light"]::before {
    LUXURY CHAT SUITE & MESSAGING EXPERIENCE
    ================================================================ */
 
-/* Chat Screen Shell */
+/* Chat Screen Shell: Static Header & Independent Message Scrolling */
 #chatScreen {
-  background: var(--bg-void, #0A0612) !important;
+  background: var(--bg) !important;
+  position: absolute !important;
+  inset: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  display: none !important;
+  flex-direction: column !important;
+  z-index: 10 !important;
 }
 
 #chatScreen.active {
   display: flex !important;
-  flex-direction: column !important;
 }
 
-/* Partner Info Header Bar */
+/* Partner Info Header Bar: STRICTLY STATIC AT TOP */
 .chat-partner-bar {
-  background: rgba(18, 11, 26, 0.85) !important;
+  background: rgba(18, 11, 26, 0.95) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  padding: 12px 18px !important;
+  padding: 10px 16px !important;
   display: flex !important;
   align-items: center !important;
-  gap: 12px !important;
-  z-index: 10 !important;
+  gap: 10px !important;
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 100 !important;
+  flex-shrink: 0 !important;
+}
+
+[data-theme="light"] .chat-partner-bar {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 
 .chat-partner-avatar {
@@ -2509,11 +2525,29 @@ body[data-theme="light"]::before {
   font-weight: 800 !important;
   font-size: 0.98rem !important;
   letter-spacing: -0.1px !important;
+  color: var(--txt-primary) !important;
+}
+
+[data-theme="light"] .convo-name {
+  color: #15121A !important;
 }
 
 .convo-preview {
   font-size: 0.84rem !important;
-  color: rgba(255,255,255,0.5) !important;
+  color: var(--txt-secondary, rgba(255,255,255,0.7)) !important;
+}
+
+[data-theme="light"] .convo-preview {
+  color: #4A4458 !important;
+}
+
+[data-theme="light"] .convo-preview-unread {
+  color: #120D1A !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .convo-time {
+  color: #7B7289 !important;
 }
 
 /* --- VIP BLUR CARD: More dramatic --- */

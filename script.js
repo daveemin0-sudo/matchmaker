@@ -171,10 +171,10 @@ function rejectAgeGate() {
 }
 
 // ==========================================================
-// INIT
+// INIT — Fast Instant Boot (no waiting for external assets)
 // ==========================================================
 
-window.addEventListener('load', () => {
+function bootApplication() {
   loadFromStorage();
   setTheme(localStorage.getItem('hookmebysam_theme') || 'dark');
 
@@ -185,7 +185,13 @@ window.addEventListener('load', () => {
     showScreen('login');
     updateHeaderForAuth();
   }
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootApplication);
+} else {
+  bootApplication();
+}
 
 function initMainApp() {
   if (isRealUserLoggedIn()) {
@@ -702,11 +708,14 @@ function setTheme(theme) {
     localStorage.setItem('hookmebysam_theme', theme);
   } catch (e) {}
 
-  const targets = [document.body, document.querySelector('.app-shell')].filter(Boolean);
+  const targets = [document.documentElement, document.body, document.querySelector('.app-shell')].filter(Boolean);
   targets.forEach(el => {
     if (theme === 'light') el.setAttribute('data-theme', 'light');
     else el.removeAttribute('data-theme');
   });
+
+  const metaTheme = document.getElementById('metaThemeColor');
+  if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#FAF5EC' : '#07040C');
 
   const darkBtn = document.getElementById('themeBtnDark');
   const lightBtn = document.getElementById('themeBtnLight');
@@ -1764,10 +1773,23 @@ function renderNewMatchesBubbles() {
 function _buildConvoItemHtml(u, filterQuery) {
   const hist = conversations[u.id]?.messages || [];
   const last = hist[hist.length - 1];
-  const lastMsgRaw = last
-    ? (last.isVoice ? '🎤 Voice note' : (last.imageUrl ? '📷 Photo' : (last.text || '')))
-    : 'Say hi! 👋';
-  const lastText = last?.sender === 'me' ? `You: ${lastMsgRaw}` : lastMsgRaw;
+  let lastMsgRaw = 'Say hi! 👋';
+  if (last) {
+    if (last.isCall) {
+      const isVideo = last.callType === 'video';
+      const isMissed = last.callStatus === 'missed' || last.callStatus === 'declined';
+      lastMsgRaw = isVideo
+        ? (isMissed ? '📹 Missed video call' : `📹 Video call ${last.duration ? `(${last.duration})` : ''}`)
+        : (isMissed ? '📞 Missed voice call' : `📞 Voice call ${last.duration ? `(${last.duration})` : ''}`);
+    } else if (last.isVoice) {
+      lastMsgRaw = '🎤 Voice note';
+    } else if (last.imageUrl) {
+      lastMsgRaw = '📷 Photo';
+    } else {
+      lastMsgRaw = last.text || '';
+    }
+  }
+  const lastText = (last && last.sender === 'me' && !last.isCall) ? `You: ${lastMsgRaw}` : lastMsgRaw;
 
   if (filterQuery) {
     const q = filterQuery.toLowerCase();
@@ -2337,6 +2359,43 @@ function renderChatThread() {
           </div>
           ${receiptHtml}
         </div>`;
+    } else if (msg.isCall) {
+      const isVideo = msg.callType === 'video';
+      const isOutgoing = msg.callDirection === 'outgoing' || msg.sender === 'me';
+      const isMissed = msg.callStatus === 'missed' || msg.callStatus === 'declined';
+      const iconClass = isMissed ? 'call-missed' : (isOutgoing ? 'call-outgoing' : 'call-incoming');
+      
+      const arrowSvg = isOutgoing
+        ? `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:${isMissed ? '#EF4444' : '#21B06B'};flex-shrink:0"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>`
+        : `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color:${isMissed ? '#EF4444' : '#21B06B'};flex-shrink:0"><path d="M17 7L7 17M7 17H17M7 17V7"/></svg>`;
+
+      const callIconSvg = isVideo
+        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`
+        : `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>`;
+
+      let title = isVideo ? 'Video call' : 'Voice call';
+      if (isMissed) {
+        title = isOutgoing ? 'Cancelled call' : 'Missed call';
+      }
+
+      let subText = msg.duration || (isMissed ? (isOutgoing ? 'Unanswered' : 'Missed') : 'Connected');
+
+      bubbleHtml = `
+        <div class="msg-call-bubble" onclick="${isVideo ? 'startVideoCall()' : 'startVoiceCall()'}" title="Tap to call back" style="cursor:pointer">
+          <div class="call-icon-wrap ${iconClass}">
+            ${callIconSvg}
+          </div>
+          <div class="call-bubble-info">
+            <div class="call-bubble-title ${isMissed ? 'call-missed' : ''}">
+              ${arrowSvg}
+              <span>${title}</span>
+            </div>
+            <div class="call-bubble-sub">${subText}</div>
+          </div>
+          <button class="call-callback-btn" onclick="event.stopPropagation();${isVideo ? 'startVideoCall()' : 'startVoiceCall()'}" title="Call back">
+            ${isVideo ? '📹' : '📞'}
+          </button>
+        </div>`;
     } else {
       bubbleHtml = `
         <div class="msg-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" ${pressEvents}>
@@ -2491,10 +2550,71 @@ let activeCallPartnerId = null;
 let activeCallId = null;
 let activeCallMatchId = null;
 let activeCallIsRinging = false;
+let activeCallType = 'audio';
+let activeCallDirection = 'outgoing';
 let isFlippingCamera = false;
 let currentCameraDeviceId = null;
 let callRingtoneInterval = null;
 let ringtoneAudioContext = null;
+
+function logCallInChat({ partnerId, callType, direction, status, durationSeconds = 0 }) {
+  if (!partnerId) return;
+  const isVideo = callType === 'video';
+  const durationText = durationSeconds > 0
+    ? (durationSeconds < 60 ? `${durationSeconds}s` : `${Math.floor(durationSeconds / 60)}m ${durationSeconds % 60}s`)
+    : '';
+
+  let displayText = '';
+  if (status === 'completed') {
+    displayText = `${isVideo ? 'Video' : 'Voice'} call (${durationText || '0s'})`;
+  } else if (status === 'missed') {
+    displayText = `Missed ${isVideo ? 'video' : 'voice'} call`;
+  } else if (status === 'declined') {
+    displayText = `Declined ${isVideo ? 'video' : 'voice'} call`;
+  } else {
+    displayText = `Cancelled ${isVideo ? 'video' : 'voice'} call`;
+  }
+
+  const callMsg = {
+    sender: direction === 'outgoing' ? 'me' : 'them',
+    isCall: true,
+    callType: isVideo ? 'video' : 'audio',
+    callDirection: direction,
+    callStatus: status,
+    duration: durationText,
+    durationSeconds: durationSeconds,
+    text: displayText,
+    timestamp: Date.now()
+  };
+
+  if (!conversations[partnerId]) {
+    conversations[partnerId] = { messages: [] };
+  }
+  conversations[partnerId].messages.push(callMsg);
+  saveToStorage();
+
+  if (appState.currentChatId === partnerId) {
+    renderChatThread();
+  }
+  renderConversationList();
+
+  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    const uid = fbAuth.currentUser.uid;
+    const matchId = [uid, partnerId].sort().join('_');
+    fbDb.collection('matches').doc(matchId).collection('messages').add({
+      senderId: uid,
+      recipientId: partnerId,
+      isCall: true,
+      callType: isVideo ? 'video' : 'audio',
+      callDirection: direction,
+      callStatus: status,
+      duration: durationText,
+      durationSeconds: durationSeconds,
+      text: displayText,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(err => console.warn('Could not sync call log to Firestore:', err));
+  }
+}
 
 function playRingtone() {
   try {
@@ -2764,6 +2884,8 @@ async function startPeerCall(type) {
     activeCallId = callRef.id;
     activeCallMatchId = matchId;
     activeCallIsRinging = true;
+    activeCallType = type;
+    activeCallDirection = 'outgoing';
     pendingRemoteCandidates = [];
 
     const overlay = document.getElementById(type === 'video' ? 'videoCallOverlay' : 'voiceCallOverlay');
@@ -2874,6 +2996,8 @@ async function acceptIncomingCall(incomingOverride) {
     activeCallId = incoming.callId;
     activeCallMatchId = incoming.matchId;
     activeCallIsRinging = false;
+    activeCallType = type;
+    activeCallDirection = 'incoming';
     pendingRemoteCandidates = [];
 
     const overlay = document.getElementById(type === 'video' ? 'videoCallOverlay' : 'voiceCallOverlay');
@@ -2911,7 +3035,19 @@ async function declineIncomingCall(incomingOverride) {
   stopRingtone();
   document.getElementById('incomingCallPrompt')?.remove();
   pendingIncomingCall = null;
-  if (!incoming || !fbDb) return;
+  if (!incoming) return;
+
+  if (incoming.callerId) {
+    logCallInChat({
+      partnerId: incoming.callerId,
+      callType: incoming.type === 'video' ? 'video' : 'audio',
+      direction: 'incoming',
+      status: 'declined',
+      durationSeconds: 0
+    });
+  }
+
+  if (!fbDb) return;
   try {
     await fbDb.collection('matches').doc(incoming.matchId).collection('calls').doc(incoming.callId).update({
       status: 'ended',
@@ -2963,6 +3099,22 @@ async function startVideoCall() {
 function endCall(showToastMessage = true) {
   stopRingtone();
   const seconds = activeCallSeconds;
+  const partnerId = activeCallPartnerId || appState.currentChatId;
+  const callType = activeCallType || 'audio';
+  const direction = activeCallDirection || 'outgoing';
+  const wasRinging = activeCallIsRinging;
+
+  if (partnerId) {
+    const status = (seconds > 0) ? 'completed' : (wasRinging ? (direction === 'outgoing' ? 'cancelled' : 'missed') : 'completed');
+    logCallInChat({
+      partnerId,
+      callType,
+      direction,
+      status,
+      durationSeconds: seconds
+    });
+  }
+
   if (activeCallDocRef && fbAuth?.currentUser) {
     activeCallDocRef.update({
       status: 'ended',
@@ -3680,6 +3832,11 @@ function renderProfileScreen() {
 function openEditProfileModal() {
   const modal = document.getElementById('editProfileModal');
   if (modal) {
+    const avatarEl = document.getElementById('editModalAvatarPreview');
+    const displayPhoto = currentUser.avatar || currentUser.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+    if (avatarEl) {
+      avatarEl.style.backgroundImage = `url("${displayPhoto}")`;
+    }
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
   }
@@ -3706,6 +3863,11 @@ async function handleProfilePhotoUpload(event) {
   try {
     const dataUrl = await compressImage(file, 600, 0.82);
     currentUser.image = dataUrl;
+    currentUser.avatar = dataUrl;
+    saveToStorage();
+    renderProfileScreen();
+    const modalAvatar = document.getElementById('editModalAvatarPreview');
+    if (modalAvatar) modalAvatar.style.backgroundImage = `url("${dataUrl}")`;
     currentUser.avatar = dataUrl;
     saveToStorage();
     renderProfileScreen();
@@ -4576,21 +4738,13 @@ function getAllCommunityStories() {
   const seenIds = new Set();
   const nowMs = Date.now();
 
-  // 1. Stories from real users fetched via Firestore
+  // Stories only from real users fetched via Firestore (real matched/chatting users)
   (communityStories || []).forEach(s => {
     if (s && s.id && !seenIds.has(s.id)) {
       if (!s.expiresAt || s.expiresAt > nowMs) {
         seenIds.add(s.id);
         combined.push(s);
       }
-    }
-  });
-
-  // 2. Preset community stories
-  (STORY_DATA || []).forEach(s => {
-    if (s && s.id && !seenIds.has(s.id)) {
-      seenIds.add(s.id);
-      combined.push(s);
     }
   });
 

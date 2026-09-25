@@ -32,11 +32,33 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=9.8">
-  <link rel="stylesheet" href="premium.css?v=9.8">
+  <link rel="stylesheet" href="style.css?v=9.9">
+  <link rel="stylesheet" href="premium.css?v=9.9">
+  <meta name="theme-color" content="#07040C" id="metaThemeColor">
   <script>
+    (function() {
+      try {
+        var isAgePassed = localStorage.getItem('ageGateConfirmed') === 'true';
+        var savedState = localStorage.getItem('hookmebysam_state');
+        var parsed = savedState ? JSON.parse(savedState) : null;
+        var isLoggedIn = !!(parsed && parsed.isLoggedIn);
+        
+        if (isAgePassed || isLoggedIn) {
+          document.documentElement.classList.add('age-gate-passed');
+        }
+        if (isLoggedIn) {
+          document.documentElement.classList.add('user-logged-in');
+        }
+        var savedTheme = localStorage.getItem('hookmebysam_theme') || 'dark';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        var metaTheme = document.getElementById('metaThemeColor');
+        if (metaTheme) metaTheme.setAttribute('content', savedTheme === 'light' ? '#FAF5EC' : '#07040C');
+      } catch(e) {}
+    })();
+
     window.confirmAgeGate = function() {
       try { localStorage.setItem('ageGateConfirmed', 'true'); } catch(e){}
+      document.documentElement.classList.add('age-gate-passed');
       var g = document.getElementById('ageGateOverlay');
       if (g) { g.style.opacity = '0'; setTimeout(function(){ g.style.display = 'none'; }, 200); }
     };
@@ -49,10 +71,10 @@
 
   <!-- =========================================================
        AGE GATE — 18+ consent required for a dating app
-       Must be shown BEFORE any content loads (COPPA / 18+ law)
+       Shown only for first-time visitors before confirmation
        ========================================================= -->
   <div id="ageGateOverlay" style="
-    display:flex;position:fixed;inset:0;z-index:999999;
+    display:none;position:fixed;inset:0;z-index:999999;
     background:#0A0710;align-items:center;justify-content:center;
     flex-direction:column;padding:32px;text-align:center;
     font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -60,7 +82,7 @@
     <div style="max-width:380px;width:100%">
       <div style="font-size:3.5rem;margin-bottom:16px">🔞</div>
       <h1 style="font-size:1.6rem;font-weight:800;color:#FFF;margin:0 0 10px">Adults Only</h1>
-      <p style="color:rgba(255,255,255,0.65);font-size:0.92rem;line-height:1.6;margin:0 0 28px">
+      <p style="color:rgba(255,255,255,0.65);font-size:0.92rem;line-height:1.6;margin:0 0 24px">
         <strong style="color:#FF2D78">hookmebysam</strong> is a dating platform exclusively for adults aged
         <strong style="color:#FFF">18 years and older.</strong><br><br>
         By continuing, you confirm that you are at least 18 years old and agree to our
@@ -83,12 +105,18 @@
       ">
         I am under 18 — Exit
       </button>
-      <p style="margin-top:16px;font-size:0.72rem;color:rgba(255,255,255,0.35);line-height:1.5">
+      <p style="margin-top:20px;font-size:0.72rem;color:rgba(255,255,255,0.35);line-height:1.5">
         hookmebysam · Lagos, Nigeria · contact@hookmebysam.com<br>
         🔒 We never share your data. NDPR &amp; GDPR compliant.
       </p>
     </div>
   </div>
+  <script>
+    if (!document.documentElement.classList.contains('age-gate-passed') && localStorage.getItem('ageGateConfirmed') !== 'true') {
+      var _ag = document.getElementById('ageGateOverlay');
+      if (_ag) _ag.style.display = 'flex';
+    }
+  </script>
 
   <!-- =========================================================
        APP SHELL
@@ -150,7 +178,7 @@
       <!-- =====================================================
            SCREEN: LOGIN
            ===================================================== -->
-      <div class="screen auth-screen active" id="loginScreen">
+      <div class="screen auth-screen" id="loginScreen">
         <div class="auth-hero">
           <!-- Amber Heart Badge (Mockup Design) -->
           <div class="auth-amber-badge">
@@ -908,16 +936,16 @@
             </div>
           </div>
 
-          <!-- Quick Action Buttons -->
+          <!-- Quick Action Buttons (Moderate & Balanced) -->
           <div class="simple-actions-wrap">
             <button class="simple-edit-profile-btn" onclick="openEditProfileModal()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
               </svg>
-              Edit Profile
+              <span>Edit Profile</span>
             </button>
             <button class="simple-vip-banner-btn" onclick="openPaywall('profile_screen')">
-              <span>👑 VIP Gold Membership</span>
+              <span>👑 VIP Gold</span>
             </button>
           </div>
 
@@ -925,22 +953,35 @@
       </div>
 
       <!-- =====================================================
-           MODAL: EDIT PROFILE
+           MODAL: EDIT PROFILE (Moderate Card with Photo + Pencil Badge)
            ===================================================== -->
-      <div class="modal-overlay" id="editProfileModal" style="display:none;align-items:center;justify-content:center;z-index:9000;background:rgba(8,5,14,0.85);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)">
-        <div class="edit-modal-sheet" style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:440px;max-height:85vh;overflow-y:auto;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,0.8);position:relative">
+      <div class="modal-overlay" id="editProfileModal" style="display:none;align-items:center;justify-content:center;z-index:9000;background:rgba(8,5,14,0.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)">
+        <div class="edit-modal-sheet" style="border-radius:24px;width:92%;max-width:390px;max-height:82vh;overflow-y:auto;padding:22px;position:relative">
           
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
-            <h2 style="font-family:'Fraunces',serif;font-size:1.4rem;color:#FFF;margin:0">Edit Profile</h2>
-            <button onclick="closeEditProfileModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <h2 style="font-family:'Fraunces',serif;font-size:1.3rem;margin:0">Edit Profile</h2>
+            <button onclick="closeEditProfileModal()" class="edit-modal-close-btn" aria-label="Close">✕</button>
+          </div>
+
+          <!-- Avatar with Edit Pencil Badge at Top Center -->
+          <div class="edit-modal-avatar-box">
+            <div class="edit-modal-avatar-wrap" onclick="document.getElementById('profilePhotoFile').click()" title="Change photo" role="button" tabindex="0">
+              <div class="edit-modal-avatar" id="editModalAvatarPreview"></div>
+              <div class="edit-modal-pencil-badge">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="#0A0710">
+                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+              </div>
+            </div>
+            <span class="edit-modal-photo-hint" onclick="document.getElementById('profilePhotoFile').click()">Tap avatar to change photo</span>
           </div>
 
           <div class="profile-form">
             <div class="form-field">
               <label>Display Name</label>
-              <input class="form-input" id="editName" type="text" placeholder="Dave">
+              <input class="form-input" id="editName" type="text" placeholder="Your name">
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
               <div class="form-field">
                 <label>Age</label>
                 <input class="form-input" id="editAge" type="number" min="18" max="80" placeholder="24">
@@ -952,46 +993,15 @@
             </div>
             <div class="form-field">
               <label>Bio</label>
-              <textarea class="form-textarea" id="editBio" placeholder="Software engineer and builder. Love beach hangouts in Lekki and good vibes." rows="3"></textarea>
+              <textarea class="form-textarea" id="editBio" placeholder="Tell people about yourself..." rows="3"></textarea>
             </div>
             <div class="form-field">
               <label>Interests (comma separated)</label>
               <input class="form-input" id="editInterests" type="text" placeholder="Tech 💻, Fitness 💪, Music 🎵">
             </div>
-            <div class="form-field">
-              <label>Profile Photo</label>
-              <div class="photo-upload-area" onclick="document.getElementById('profilePhotoFile').click()">
-                <div class="photo-upload-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/>
-                  </svg>
-                </div>
-                <div class="photo-upload-text-wrap">
-                  <span class="photo-upload-label">Upload Custom Photo</span>
-                  <small class="photo-upload-hint">JPG, PNG or HEIC</small>
-                </div>
-              </div>
-            </div>
-
-            <!-- Collapsible AI Avatar Lab -->
-            <details style="margin:16px 0;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:12px">
-              <summary style="font-weight:600;font-size:0.88rem;color:#E5BA73;cursor:pointer;outline:none">✨ AI Avatar Laboratory (Optional)</summary>
-              <div style="margin-top:12px">
-                <div class="ai-picker-grid" id="aiPickerGrid"></div>
-                <textarea class="ai-prompt-input" id="aiPromptInput" placeholder="Describe the portrait you want to generate..." style="margin-top:10px"></textarea>
-                <div class="ai-btns-row" style="margin-top:10px">
-                  <button class="accent-btn" style="font-size:0.82rem;padding:8px" id="aiGenBtn" onclick="generateAiImage()">Generate</button>
-                  <button class="secondary-btn" style="font-size:0.82rem;padding:8px" id="aiGenAllBtn" onclick="generateAllAiImages()">✨ All</button>
-                </div>
-                <div class="ai-status" style="margin-top:8px">
-                  <div class="ai-spinner" id="aiSpinner"></div>
-                  <span id="aiStatusText" style="font-size:0.75rem">AI Model ready ✨</span>
-                </div>
-              </div>
-            </details>
 
             <div class="save-feedback" id="profileSaveFeedback">✓ Profile saved successfully!</div>
-            <button class="accent-btn" onclick="saveProfile()" style="margin-top:12px;width:100%">Save Changes</button>
+            <button class="accent-btn" onclick="saveProfile()" style="margin-top:10px;width:100%">Save Changes</button>
           </div>
 
         </div>
