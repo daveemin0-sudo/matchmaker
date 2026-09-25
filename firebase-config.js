@@ -624,15 +624,19 @@ async function reactRealtimeMessage(matchId, messageId, emoji) {
 // CLOUD FILE UPLOADS (Profile Photo, Voice Note, Chat Image)
 // ----------------------------------------------------------
 
-async function uploadFileToBackend(file, path, returnMetadata = false) {
+async function uploadFileToBackend(file, path, returnMetadata = false, customContentType = '') {
   if (!fbStorage) return null;
   try {
     const allowedRoots = new Set(['stories', 'voicenotes']);
     if (!allowedRoots.has(path) || !fbAuth?.currentUser) return null;
     const uid = fbAuth.currentUser.uid;
-    const safeName = String(file.name || 'file').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+    const ext = path === 'voicenotes' ? '.webm' : '.jpg';
+    const safeName = String(file.name || ('file' + ext)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
     const storageRef = fbStorage.ref(`${path}/${uid}/${Date.now()}_${safeName}`);
-    const snapshot = await storageRef.put(file);
+    const metadata = {
+      contentType: customContentType || file.type || (path === 'voicenotes' ? 'audio/webm' : 'image/jpeg')
+    };
+    const snapshot = await storageRef.put(file, metadata);
     const downloadUrl = await snapshot.ref.getDownloadURL();
     return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
   } catch (err) {

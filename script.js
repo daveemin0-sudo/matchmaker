@@ -570,6 +570,10 @@ function loadFromStorage() {
         currentUser.image = '';
         currentUser.avatar = '';
       }
+      // Purge legacy hardcoded default username daveemin0
+      if (currentUser.username === 'daveemin0' || currentUser.username === '@daveemin0') {
+        currentUser.username = '';
+      }
     }
     const savedSettings = localStorage.getItem('hmbs_settings');
     if (savedSettings) {
@@ -2855,7 +2859,7 @@ function renderChatThread() {
         ).join('')}</div>`
       : '';
 
-    const pressEvents = `onmousedown="startLongPress(event,'${matchId}','${msgId}')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchstart="startLongPress(event,'${matchId}','${msgId}')" ontouchend="cancelLongPress()" oncontextmenu="event.preventDefault();showReactionPicker(event,'${matchId}','${msgId}')"`;
+    const pressEvents = `onmousedown="startLongPress(event,'${matchId}','${msgId}')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchstart="startLongPress(event,'${matchId}','${msgId}')" ontouchmove="handleTouchMove(event)" ontouchend="cancelLongPress()" oncontextmenu="event.preventDefault();showReactionPicker(event,'${matchId}','${msgId}')"`;
 
     let bubbleHtml = '';
     const receiptHtml = isSent ? `<span class="msg-receipt-ticks ${isLast ? 'read' : ''}">✓✓</span>` : '';
@@ -2896,12 +2900,24 @@ function renderChatThread() {
 
     if (isCallMsg) {
       const isVideo = msg.callType === 'video' || rawText.toLowerCase().includes('video');
-      const isMissed = msg.callStatus === 'missed' || msg.callStatus === 'declined' || rawText.toLowerCase().includes('missed') || rawText.toLowerCase().includes('declined') || rawText.toLowerCase().includes('cancelled') || rawText.toLowerCase().includes('no answer');
-      
-      let title = isVideo ? (isMissed ? 'Missed video call' : 'Video call') : (isMissed ? 'Missed voice call' : 'Voice call');
-      let subText = isMissed ? 'Tap to call back' : (msg.duration || (rawText.match(/\((.*?)\)/)?.[1]) || 'No answer');
+      const isDeclined = msg.callStatus === 'declined' || rawText.toLowerCase().includes('declined');
+      const isNoAnswer = msg.callStatus === 'no_answer' || msg.callStatus === 'cancelled' || rawText.toLowerCase().includes('cancelled') || rawText.toLowerCase().includes('no answer');
+      const isMissed = msg.callStatus === 'missed' || rawText.toLowerCase().includes('missed');
+      const isUnanswered = isDeclined || isNoAnswer || isMissed;
 
-      const phoneIconSvg = isMissed
+      let title = '';
+      let subText = 'Tap to call back';
+
+      if (isDeclined) {
+        title = isSent ? 'No answer' : `Declined ${isVideo ? 'video' : 'voice'} call`;
+      } else if (isNoAnswer || isMissed) {
+        title = isSent ? 'No answer' : `Missed ${isVideo ? 'video' : 'voice'} call`;
+      } else {
+        title = isVideo ? 'Video call' : 'Voice call';
+        subText = msg.duration || (rawText.match(/\((.*?)\)/)?.[1]) || 'Completed';
+      }
+
+      const phoneIconSvg = isUnanswered
         ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><path d="m23 7-6 6"/><path d="m17 7h6v6"/></svg>`
         : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/><path d="M16 3l5 5"/><path d="M21 3v5h-5"/></svg>`;
 
@@ -2909,11 +2925,11 @@ function renderChatThread() {
 
       bubbleHtml = `
         <div class="msg-call-card ${isSent ? 'sent' : 'received'}" onclick="${isVideo ? 'startVideoCall()' : 'startVoiceCall()'}" title="Tap to call back" ${pressEvents}>
-          <div class="call-card-icon-circle ${isMissed ? 'missed' : 'normal'}">
+          <div class="call-card-icon-circle ${isUnanswered ? 'missed' : 'normal'}">
             ${isVideo ? videoIconSvg : phoneIconSvg}
           </div>
           <div class="call-card-body">
-            <div class="call-card-title ${isMissed ? 'missed' : ''}">${title}</div>
+            <div class="call-card-title ${isUnanswered ? 'missed' : ''}">${title}</div>
             <div class="call-card-sub">${subText}</div>
           </div>
           <div class="call-card-meta">${timeStr}</div>
@@ -2926,11 +2942,12 @@ function renderChatThread() {
           <div style="padding:4px 6px;text-align:right">${timeBadgeHtml}</div>
         </div>`;
     } else if (msg.isVoice) {
+      const audioSrc = msg.audioUrl || '';
       bubbleHtml = `
-        <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" ${pressEvents}>
+        <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" onclick="playVoiceNote('${audioSrc}', this.querySelector('.voice-play-icon'))" ${pressEvents}>
           ${quoteHtml}
           <div style="display:flex;align-items:center;gap:10px;width:170px">
-            <span style="cursor:pointer;font-size:14px">▶️</span>
+            <span class="voice-play-icon" style="cursor:pointer;font-size:16px;line-height:1">▶️</span>
             <div style="flex:1;height:4px;background:rgba(255,255,255,0.3);border-radius:2px;position:relative">
               <div style="width:55%;height:100%;background:#fff;border-radius:2px"></div>
             </div>
@@ -3415,7 +3432,7 @@ let currentCameraDeviceId = null;
 let callRingtoneInterval = null;
 let ringtoneAudioContext = null;
 
-function logCallInChat({ partnerId, callType, direction, status, durationSeconds = 0 }) {
+function logCallInChat({ partnerId, callType, direction, status, durationSeconds = 0, callId = null }) {
   if (!partnerId) return;
   const isVideo = callType === 'video';
   const durationText = durationSeconds > 0
@@ -3425,17 +3442,18 @@ function logCallInChat({ partnerId, callType, direction, status, durationSeconds
   let displayText = '';
   if (status === 'completed') {
     displayText = `${isVideo ? 'Video' : 'Voice'} call (${durationText || '0s'})`;
-  } else if (status === 'missed') {
-    displayText = `Missed ${isVideo ? 'video' : 'voice'} call`;
   } else if (status === 'declined') {
     displayText = `Declined ${isVideo ? 'video' : 'voice'} call`;
+  } else if (status === 'no_answer' || status === 'cancelled') {
+    displayText = (direction === 'outgoing') ? 'No answer' : `Missed ${isVideo ? 'video' : 'voice'} call`;
   } else {
-    displayText = `Cancelled ${isVideo ? 'video' : 'voice'} call`;
+    displayText = (direction === 'outgoing') ? 'No answer' : `Missed ${isVideo ? 'video' : 'voice'} call`;
   }
 
   const callMsg = {
     sender: direction === 'outgoing' ? 'me' : 'them',
     isCall: true,
+    callId: callId || '',
     callType: isVideo ? 'video' : 'audio',
     callDirection: direction,
     callStatus: status,
@@ -3448,7 +3466,20 @@ function logCallInChat({ partnerId, callType, direction, status, durationSeconds
   if (!conversations[partnerId]) {
     conversations[partnerId] = { messages: [] };
   }
-  conversations[partnerId].messages.push(callMsg);
+
+  // Deduplicate: check if this call was already logged in local messages within the last 15 seconds
+  const existingIdx = conversations[partnerId].messages.findIndex(m =>
+    m.isCall && ((callId && m.callId === callId) || (Math.abs(m.timestamp - callMsg.timestamp) < 15000 && m.callType === callMsg.callType))
+  );
+
+  if (existingIdx !== -1) {
+    conversations[partnerId].messages[existingIdx] = Object.assign(
+      conversations[partnerId].messages[existingIdx],
+      callMsg
+    );
+  } else {
+    conversations[partnerId].messages.push(callMsg);
+  }
   saveToStorage();
 
   if (appState.currentChatId === partnerId) {
@@ -3459,10 +3490,13 @@ function logCallInChat({ partnerId, callType, direction, status, durationSeconds
   if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     const uid = fbAuth.currentUser.uid;
     const matchId = [uid, partnerId].sort().join('_');
-    fbDb.collection('matches').doc(matchId).collection('messages').add({
-      senderId: uid,
-      recipientId: partnerId,
+    const docId = callId ? `call_${callId}` : `call_${matchId}_${Math.floor(Date.now() / 15000)}`;
+
+    fbDb.collection('matches').doc(matchId).collection('messages').doc(docId).set({
+      senderId: direction === 'outgoing' ? uid : partnerId,
+      recipientId: direction === 'outgoing' ? partnerId : uid,
       isCall: true,
+      callId: callId || '',
       callType: isVideo ? 'video' : 'audio',
       callDirection: direction,
       callStatus: status,
@@ -3470,7 +3504,7 @@ function logCallInChat({ partnerId, callType, direction, status, durationSeconds
       durationSeconds: durationSeconds,
       text: displayText,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(err => console.warn('Could not sync call log to Firestore:', err));
+    }, { merge: true }).catch(err => console.warn('Could not sync call log to Firestore:', err));
   }
 }
 
@@ -3798,7 +3832,11 @@ async function startPeerCall(type) {
           endCall(false);
         }
       }
-      if (data.status === 'ended') endCall(false);
+      if (data.status === 'declined') {
+        endCall(true, 'declined');
+      } else if (data.status === 'ended') {
+        endCall(false);
+      }
     }, err => console.warn('Call listener error:', err.message));
 
     showToast('Calling ' + (partner.name || 'your match') + '... 📞', 'info');
@@ -3895,20 +3933,23 @@ async function declineIncomingCall(incomingOverride) {
   pendingIncomingCall = null;
   if (!incoming) return;
 
+  const callId = incoming.callId || activeCallId;
+
   if (incoming.callerId) {
     logCallInChat({
       partnerId: incoming.callerId,
       callType: incoming.type === 'video' ? 'video' : 'audio',
       direction: 'incoming',
       status: 'declined',
-      durationSeconds: 0
+      durationSeconds: 0,
+      callId
     });
   }
 
   if (!fbDb) return;
   try {
     await fbDb.collection('matches').doc(incoming.matchId).collection('calls').doc(incoming.callId).update({
-      status: 'ended',
+      status: 'declined',
       endedAt: firebase.firestore.FieldValue.serverTimestamp()
     });
   } catch (_) {}
@@ -3954,22 +3995,31 @@ async function startVideoCall() {
   await startPeerCall('video');
 }
 
-function endCall(showToastMessage = true) {
+function endCall(showToastMessage = true, explicitStatus = null) {
   stopRingtone();
   const seconds = activeCallSeconds;
   const partnerId = activeCallPartnerId || appState.currentChatId;
   const callType = activeCallType || 'audio';
   const direction = activeCallDirection || 'outgoing';
   const wasRinging = activeCallIsRinging;
+  const callId = activeCallId;
 
   if (partnerId) {
-    const status = (seconds > 0) ? 'completed' : (wasRinging ? (direction === 'outgoing' ? 'cancelled' : 'missed') : 'completed');
+    let status = 'completed';
+    if (explicitStatus) {
+      status = explicitStatus;
+    } else if (seconds > 0) {
+      status = 'completed';
+    } else if (wasRinging) {
+      status = (direction === 'outgoing') ? 'no_answer' : 'missed';
+    }
     logCallInChat({
       partnerId,
       callType,
       direction,
       status,
-      durationSeconds: seconds
+      durationSeconds: seconds,
+      callId
     });
   }
 
@@ -4066,7 +4116,11 @@ function endCall(showToastMessage = true) {
   if (pipCamOff) pipCamOff.style.display = 'none';
 
   if (showToastMessage) {
-    showToast(seconds > 0 ? `Call ended (${Math.floor(seconds / 60)}m ${seconds % 60}s)` : 'Call ended', 'info');
+    if (explicitStatus === 'declined') {
+      showToast('Call declined 📵', 'info');
+    } else {
+      showToast(seconds > 0 ? `Call ended (${Math.floor(seconds / 60)}m ${seconds % 60}s)` : 'Call ended', 'info');
+    }
   }
   activeCallSeconds = 0;
 }
@@ -4516,14 +4570,69 @@ async function toggleVoiceRecording() {
   }
 }
 
+let _activeAudioInstance = null;
+let _activeAudioIcon = null;
+
+function playVoiceNote(audioUrl, iconEl) {
+  if (!audioUrl) {
+    showToast('Voice note is not available.', 'error');
+    return;
+  }
+
+  // Toggle pause if clicking same playing audio
+  if (_activeAudioInstance && !_activeAudioInstance.paused) {
+    _activeAudioInstance.pause();
+    if (_activeAudioIcon) _activeAudioIcon.textContent = '▶️';
+    if (_activeAudioInstance.src === audioUrl) {
+      _activeAudioInstance = null;
+      _activeAudioIcon = null;
+      return;
+    }
+  }
+
+  const audio = new Audio(audioUrl);
+  _activeAudioInstance = audio;
+  _activeAudioIcon = iconEl;
+  if (iconEl) iconEl.textContent = '⏸️';
+
+  audio.onended = () => {
+    if (iconEl) iconEl.textContent = '▶️';
+    _activeAudioInstance = null;
+    _activeAudioIcon = null;
+  };
+  audio.onerror = (e) => {
+    console.warn('Voice note playback error:', e);
+    if (iconEl) iconEl.textContent = '▶️';
+    _activeAudioInstance = null;
+    _activeAudioIcon = null;
+    showToast('Could not play voice note.', 'error');
+  };
+  audio.play().catch(e => {
+    console.warn('Audio play failed:', e);
+    if (iconEl) iconEl.textContent = '▶️';
+  });
+}
+window.playVoiceNote = playVoiceNote;
+
 async function startVoiceRecording() {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioChunks = [];
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
-    mediaRecorder = new MediaRecorder(stream, { mimeType });
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-    mediaRecorder.start();
+
+    let mimeType = '';
+    if (typeof MediaRecorder.isTypeSupported === 'function') {
+      if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) mimeType = 'audio/webm;codecs=opus';
+      else if (MediaRecorder.isTypeSupported('audio/webm')) mimeType = 'audio/webm';
+      else if (MediaRecorder.isTypeSupported('audio/mp4')) mimeType = 'audio/mp4';
+      else if (MediaRecorder.isTypeSupported('audio/aac')) mimeType = 'audio/aac';
+      else if (MediaRecorder.isTypeSupported('audio/ogg')) mimeType = 'audio/ogg';
+    }
+
+    mediaRecorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data && e.data.size > 0) audioChunks.push(e.data);
+    };
+    mediaRecorder.start(250);
 
     appState.isRecording = true;
     voiceRecSeconds = 0;
@@ -4539,30 +4648,30 @@ async function startVoiceRecording() {
     voiceRecTimerInterval = setInterval(() => {
       voiceRecSeconds++;
       if (timerEl) timerEl.textContent = `${Math.floor(voiceRecSeconds/60)}:${String(voiceRecSeconds%60).padStart(2,'0')}`;
-      // Max 3 min recording
       if (voiceRecSeconds >= 180) sendVoiceNote();
     }, 1000);
 
   } catch (err) {
+    console.warn('Microphone access error:', err);
     showToast('Microphone access denied. Please allow mic access.', 'error');
   }
 }
 
 async function sendVoiceNote() {
   if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
-
   clearInterval(voiceRecTimerInterval);
 
   return new Promise(resolve => {
-    mediaRecorder.onstop = () => {
+    mediaRecorder.onstop = async () => {
       const mimeType = mediaRecorder.mimeType || 'audio/webm';
       const audioBlob = new Blob(audioChunks, { type: mimeType });
-      const audioUrl = URL.createObjectURL(audioBlob);
-      const duration = voiceRecSeconds;
+      const duration = Math.max(1, voiceRecSeconds);
       const durationStr = `${Math.floor(duration/60)}:${String(duration%60).padStart(2,'0')}`;
 
       // Stop all tracks
-      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      try {
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+      } catch (_) {}
 
       appState.isRecording = false;
 
@@ -4573,16 +4682,35 @@ async function sendVoiceNote() {
       if (recordBar) recordBar.style.display = 'none';
 
       if (!appState.currentChatId) { resolve(); return; }
-      if (!conversations[appState.currentChatId]) conversations[appState.currentChatId] = { messages: [] };
-      conversations[appState.currentChatId].messages.push({
+
+      // Convert audioBlob to Base64 data URL so it works reliably across all devices
+      const base64Audio = await new Promise(res => {
+        const reader = new FileReader();
+        reader.onloadend = () => res(reader.result);
+        reader.readAsDataURL(audioBlob);
+      });
+
+      const partnerId = appState.currentChatId;
+      if (!conversations[partnerId]) conversations[partnerId] = { messages: [] };
+
+      // Attempt cloud storage upload with explicit contentType
+      let finalAudioUrl = base64Audio;
+      if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
+        try {
+          const uploadedUrl = await uploadFileToBackend(audioBlob, 'voicenotes', false, mimeType);
+          if (uploadedUrl) finalAudioUrl = uploadedUrl;
+        } catch (_) {}
+      }
+
+      conversations[partnerId].messages.push({
         sender: 'me',
         isVoice: true,
         duration: durationStr,
-        audioUrl,
+        audioUrl: finalAudioUrl,
         read: true,
         timestamp: Date.now()
       });
-      movePartnerToTop(appState.currentChatId);
+      movePartnerToTop(partnerId);
       renderChatThread();
       renderConversationList();
       renderChatsInbox();
@@ -4590,21 +4718,15 @@ async function sendVoiceNote() {
       saveToStorage();
 
       if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-        const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
-        if (typeof uploadFileToBackend === 'function') {
-          uploadFileToBackend(audioBlob, 'voicenotes').then(uploadedUrl => {
-            sendRealtimeMessage(matchId, '', true, uploadedUrl || audioUrl);
-          }).catch(() => {
-            sendRealtimeMessage(matchId, '', true, audioUrl);
-          });
-        } else {
-          sendRealtimeMessage(matchId, '', true, audioUrl);
-        }
+        const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+        sendRealtimeMessage(matchId, '', true, finalAudioUrl);
       } else {
         triggerAutoReply();
       }
       resolve();
     };
+
+    try { mediaRecorder.requestData(); } catch (_) {}
     mediaRecorder.stop();
   });
 }
@@ -5150,6 +5272,16 @@ function renderSettingsScreen() {
   const emailRow = document.getElementById('settingsEmailValue');
   if (emailRow) emailRow.textContent = currentUser.email;
 
+  // Custom or auto-derived Username
+  const usernameRow = document.getElementById('settingsUsernameValue');
+  if (usernameRow) {
+    const defaultHandle = (currentUser.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const userHandle = (currentUser.username && currentUser.username !== 'daveemin0' && currentUser.username !== '@daveemin0')
+      ? currentUser.username.replace(/^@/, '')
+      : defaultHandle;
+    usernameRow.textContent = `@${userHandle}`;
+  }
+
   // Phone number status
   const phoneSub = document.getElementById('settingsPhoneSub');
   if (phoneSub) {
@@ -5169,6 +5301,68 @@ function renderSettingsScreen() {
     blockedSub.textContent = count === 1 ? '1 contact blocked' : `${count} contacts blocked`;
   }
 }
+
+function openEditUsernameModal() {
+  const modal = document.getElementById('editUsernameModal');
+  const input = document.getElementById('customUsernameInput');
+  const errorEl = document.getElementById('usernameModalError');
+  if (!modal || !input) return;
+
+  const defaultHandle = (currentUser.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const current = (currentUser.username && currentUser.username !== 'daveemin0' && currentUser.username !== '@daveemin0')
+    ? currentUser.username.replace(/^@/, '')
+    : defaultHandle;
+
+  input.value = current;
+  if (errorEl) errorEl.textContent = '';
+  modal.style.display = 'flex';
+  setTimeout(() => input.focus(), 150);
+}
+window.openEditUsernameModal = openEditUsernameModal;
+
+function closeEditUsernameModal() {
+  const modal = document.getElementById('editUsernameModal');
+  if (modal) modal.style.display = 'none';
+}
+window.closeEditUsernameModal = closeEditUsernameModal;
+
+async function saveCustomUsername() {
+  const input = document.getElementById('customUsernameInput');
+  const errorEl = document.getElementById('usernameModalError');
+  if (!input) return;
+
+  const rawVal = input.value.trim().replace(/^@/, '').toLowerCase();
+
+  if (!rawVal) {
+    if (errorEl) errorEl.textContent = 'Please enter a username.';
+    return;
+  }
+  if (!/^[a-z0-9_]{3,20}$/.test(rawVal)) {
+    if (errorEl) errorEl.textContent = 'Username must be 3–20 characters and contain only letters, numbers, and underscores.';
+    return;
+  }
+
+  currentUser.username = rawVal;
+  saveToStorage();
+
+  const usernameRow = document.getElementById('settingsUsernameValue');
+  if (usernameRow) usernameRow.textContent = `@${rawVal}`;
+
+  // Sync to Firestore user profile if authenticated
+  if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser && typeof fbDb !== 'undefined' && fbDb) {
+    try {
+      await fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+        username: rawVal
+      }, { merge: true });
+    } catch (e) {
+      console.warn('Could not sync username to Firestore:', e);
+    }
+  }
+
+  closeEditUsernameModal();
+  showToast(`Username updated to @${rawVal} ✨`, 'success');
+}
+window.saveCustomUsername = saveCustomUsername;
 
 function updateDistanceSetting() {
   const slider = document.getElementById('distanceSlider');
@@ -6695,16 +6889,44 @@ function getMessageInfo(msgId) {
   return { msg: idx !== -1 ? hist[idx] : null, idx, hist };
 }
 
+let _longPressStartX = 0;
+let _longPressStartY = 0;
+
 function startLongPress(event, matchId, msgId) {
   clearTimeout(_longPressTimer);
+  if (event && event.touches && event.touches[0]) {
+    _longPressStartX = event.touches[0].clientX;
+    _longPressStartY = event.touches[0].clientY;
+  } else if (event && typeof event.clientX === 'number') {
+    _longPressStartX = event.clientX;
+    _longPressStartY = event.clientY;
+  }
   _longPressTimer = setTimeout(() => {
+    if (navigator.vibrate) {
+      try { navigator.vibrate(35); } catch (_) {}
+    }
     showReactionPicker(event, matchId, msgId);
-  }, 480);
+  }, 550);
+}
+
+function handleTouchMove(event) {
+  if (!_longPressTimer) return;
+  if (event && event.touches && event.touches[0]) {
+    const dx = Math.abs(event.touches[0].clientX - _longPressStartX);
+    const dy = Math.abs(event.touches[0].clientY - _longPressStartY);
+    if (dx > 10 || dy > 10) {
+      cancelLongPress();
+    }
+  }
 }
 
 function cancelLongPress() {
   clearTimeout(_longPressTimer);
+  _longPressTimer = null;
 }
+window.startLongPress = startLongPress;
+window.handleTouchMove = handleTouchMove;
+window.cancelLongPress = cancelLongPress;
 
 function showReactionPicker(event, matchId, msgId) {
   clearTimeout(_longPressTimer);
