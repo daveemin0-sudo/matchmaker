@@ -7412,10 +7412,10 @@ body[data-theme="light"],
 
 /* --- In-Header WhatsApp Chat Search Bar --- */
 .chat-search-bar {
+  display: none !important;
   position: absolute !important;
   inset: 0 !important;
   background: var(--bg-elevated, #140F1B) !important;
-  display: flex !important;
   align-items: center !important;
   padding: 0 12px !important;
   padding-top: env(safe-area-inset-top, 0px) !important;
@@ -7424,6 +7424,9 @@ body[data-theme="light"],
   box-sizing: border-box !important;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.3) !important;
   animation: fadeInSearch 0.18s ease !important;
+}
+.chat-search-bar.active {
+  display: flex !important;
 }
 @keyframes fadeInSearch {
   from { opacity: 0; transform: translateY(-8px); }

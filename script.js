@@ -2059,6 +2059,11 @@ function openChat(profileId, { fromHistory = false } = {}) {
   if (chatInput) chatInput.value = '';
   onChatInputChange();
 
+  // Ensure WhatsApp search bar and 3-dots menu are reset closed
+  if (typeof closeChatSearch === 'function') closeChatSearch();
+  const menu = document.getElementById('chatDropdownMenu');
+  if (menu) menu.style.display = 'none';
+
   renderChatThread();
 
   // Unsubscribe from any previous Firestore chat listener
@@ -2730,6 +2735,7 @@ function openChatSearch() {
   const menu = document.getElementById('chatDropdownMenu');
   if (menu) menu.style.display = 'none';
   if (!bar || !input) return;
+  bar.classList.add('active');
   bar.style.display = 'flex';
   input.value = '';
   input.focus();
@@ -2740,7 +2746,10 @@ function openChatSearch() {
 
 function closeChatSearch() {
   const bar = document.getElementById('chatSearchBar');
-  if (bar) bar.style.display = 'none';
+  if (bar) {
+    bar.classList.remove('active');
+    bar.style.display = 'none';
+  }
   clearChatSearchHighlights();
   _chatSearchResults = [];
   _chatSearchIndex = -1;
