@@ -7320,19 +7320,22 @@ body[data-theme="light"],
 
 /* --- WhatsApp-Style Quoted Reply Bar above Input --- */
 .chat-reply-bar {
+  display: none !important;
   background: rgba(22, 16, 30, 0.95) !important;
   backdrop-filter: blur(20px) !important;
   -webkit-backdrop-filter: blur(20px) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-left: 4px solid var(--flame-1) !important;
   padding: 8px 14px !important;
-  display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
   gap: 10px !important;
   position: relative !important;
   z-index: 80 !important;
   animation: slideUpReply 0.18s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+}
+.chat-reply-bar.active {
+  display: flex !important;
 }
 @keyframes slideUpReply {
   from { transform: translateY(100%); opacity: 0; }

@@ -2391,7 +2391,8 @@ function renderChatThread() {
   hist.forEach((msg, idx) => {
     const isLast = idx === hist.length - 1;
     const isSent = msg.sender === 'me';
-    const msgId = msg.firestoreId || `local_${idx}`;
+    const msgId = msg.firestoreId || msg.id || `local_${idx}`;
+    if (!msg.firestoreId) msg.firestoreId = msgId;
     const timeStr = formatWhatsAppTime(msg.timestamp, msg.time);
 
     // Date separator pill (Today, Yesterday, or Month Day, Year)
@@ -2510,6 +2511,7 @@ function renderChatThread() {
         ontouchmove="handleMsgTouchMove(event, '${msgId}')"
         ontouchend="handleMsgTouchEnd(event, '${msgId}')"
         onmousedown="handleMsgMouseDown(event, '${msgId}')"
+        ondblclick="startReplyToMessage('${msgId}')"
         style="display:flex;flex-direction:column;align-self:${isSent ? 'flex-end' : 'flex-start'};align-items:${isSent ? 'flex-end' : 'flex-start'};max-width:78%;gap:3px">
         <div class="swipe-reply-icon">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -2536,11 +2538,12 @@ let _replyingToState = null;
 function handleMsgTouchStart(e, msgId) {
   if (!e.touches || e.touches.length === 0) return;
   const touch = e.touches[0];
+  const row = e.currentTarget || document.querySelector(`.msg-row[data-msg-id="${msgId}"]`);
   _swipeState = {
     msgId,
     startX: touch.clientX,
     startY: touch.clientY,
-    el: e.currentTarget,
+    el: row,
     isSwiping: false
   };
 }
@@ -2552,10 +2555,10 @@ function handleMsgTouchMove(e, msgId) {
   const dy = touch.clientY - _swipeState.startY;
 
   if (!_swipeState.isSwiping) {
-    if (dx > 12 && Math.abs(dx) > Math.abs(dy) * 1.4) {
+    if (dx > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) {
       _swipeState.isSwiping = true;
-      _swipeState.el.classList.add('swiping');
-    } else if (Math.abs(dy) > 10) {
+      if (_swipeState.el) _swipeState.el.classList.add('swiping');
+    } else if (Math.abs(dy) > 12 || dx < -10) {
       _swipeState = null;
       return;
     }
@@ -2563,7 +2566,7 @@ function handleMsgTouchMove(e, msgId) {
 
   if (_swipeState?.isSwiping && dx > 0) {
     const clamped = Math.min(65, dx * 0.55);
-    _swipeState.el.style.transform = `translateX(${clamped}px)`;
+    if (_swipeState.el) _swipeState.el.style.transform = `translateX(${clamped}px)`;
   }
 }
 
@@ -2576,7 +2579,7 @@ function handleMsgTouchEnd(e, msgId) {
   const touch = e.changedTouches ? e.changedTouches[0] : null;
   const dx = touch ? (touch.clientX - _swipeState.startX) : 0;
 
-  if (_swipeState.isSwiping && dx >= 38) {
+  if (_swipeState.isSwiping && dx >= 22) {
     if (navigator.vibrate) try { navigator.vibrate(30); } catch (_) {}
     startReplyToMessage(msgId);
   }
@@ -2594,7 +2597,9 @@ function handleMsgTouchEnd(e, msgId) {
 
 function handleMsgMouseDown(e, msgId) {
   if (e.button !== 0) return;
-  const row = e.currentTarget;
+  if (e.target.closest('.msg-reaction-pill, .msg-quote-preview, .audio-play-btn, button, a')) return;
+
+  const row = e.currentTarget || document.querySelector(`.msg-row[data-msg-id="${msgId}"]`);
   _swipeState = {
     msgId,
     startX: e.clientX,
@@ -2607,35 +2612,40 @@ function handleMsgMouseDown(e, msgId) {
     if (!_swipeState) {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.userSelect = '';
       return;
     }
     const dx = moveEvent.clientX - _swipeState.startX;
     const dy = moveEvent.clientY - _swipeState.startY;
 
     if (!_swipeState.isSwiping) {
-      if (dx > 10 && Math.abs(dx) > Math.abs(dy) * 1.3) {
+      if (dx > 10 && Math.abs(dx) > Math.abs(dy) * 1.2) {
         _swipeState.isSwiping = true;
-        _swipeState.el.classList.add('swiping');
-      } else if (Math.abs(dy) > 10 || dx < -10) {
+        document.body.style.userSelect = 'none';
+        if (_swipeState.el) _swipeState.el.classList.add('swiping');
+      } else if (Math.abs(dy) > 12 || dx < -10) {
         window.removeEventListener('mousemove', onMouseMove);
         window.removeEventListener('mouseup', onMouseUp);
+        document.body.style.userSelect = '';
         _swipeState = null;
         return;
       }
     }
 
     if (_swipeState?.isSwiping && dx > 0) {
+      moveEvent.preventDefault();
       const clamped = Math.min(65, dx * 0.55);
-      _swipeState.el.style.transform = `translateX(${clamped}px)`;
+      if (_swipeState.el) _swipeState.el.style.transform = `translateX(${clamped}px)`;
     }
   };
 
   const onMouseUp = (upEvent) => {
     window.removeEventListener('mousemove', onMouseMove);
     window.removeEventListener('mouseup', onMouseUp);
+    document.body.style.userSelect = '';
     if (!_swipeState) return;
     const dx = upEvent.clientX - _swipeState.startX;
-    if (_swipeState.isSwiping && dx >= 35) {
+    if (_swipeState.isSwiping && dx >= 22) {
       if (navigator.vibrate) try { navigator.vibrate(30); } catch (_) {}
       startReplyToMessage(msgId);
     }
@@ -2655,11 +2665,18 @@ function handleMsgMouseDown(e, msgId) {
 
 function startReplyToMessage(msgId) {
   const info = getMessageInfo(msgId);
-  if (!info || !info.msg) return;
+  if (!info || !info.msg) {
+    console.warn('Could not find message for reply:', msgId);
+    return;
+  }
   const msg = info.msg;
   const isSent = msg.sender === 'me';
-  const partner = conversations[appState.currentChatId]?.partner || getProfileById(appState.currentChatId) || {};
-  const senderName = isSent ? 'You' : (partner.name || 'Match');
+  const partner = matchedUsers.find(u => u.id === appState.currentChatId) ||
+                  PROFILES_DATA.find(u => u.id === appState.currentChatId) ||
+                  conversations[appState.currentChatId]?.partner ||
+                  {};
+  const partnerName = partner.name || document.getElementById('chatPartnerName')?.textContent?.trim() || 'Match';
+  const senderName = isSent ? 'You' : partnerName;
   const previewText = msg.imageUrl ? '📷 Photo' : (msg.isVoice ? '🎤 Voice note' : (msg.isCall ? (msg.callType === 'video' ? '📹 Video call' : '📞 Voice call') : (msg.text || '')));
 
   _replyingToState = {
@@ -2674,6 +2691,7 @@ function startReplyToMessage(msgId) {
   if (replyBar && replySender && replyText) {
     replySender.textContent = `Replying to ${senderName}`;
     replyText.textContent = previewText;
+    replyBar.classList.add('active');
     replyBar.style.display = 'flex';
   }
 
@@ -2684,7 +2702,10 @@ function startReplyToMessage(msgId) {
 function cancelReplyMessage() {
   _replyingToState = null;
   const replyBar = document.getElementById('chatReplyBar');
-  if (replyBar) replyBar.style.display = 'none';
+  if (replyBar) {
+    replyBar.classList.remove('active');
+    replyBar.style.display = 'none';
+  }
 }
 
 function scrollToQuotedMessage(msgId) {
@@ -6214,11 +6235,15 @@ function getMessageInfo(msgId) {
   const currentChatId = appState.currentChatId;
   const hist = (currentChatId && conversations[currentChatId]?.messages) ? conversations[currentChatId].messages : [];
   if (!msgId) return { msg: null, idx: -1, hist };
-  if (msgId.startsWith('local_')) {
-    const idx = parseInt(msgId.replace('local_', ''), 10);
+  const sId = String(msgId);
+  if (sId.startsWith('local_')) {
+    const idx = parseInt(sId.replace('local_', ''), 10);
     return { msg: hist[idx] || null, idx, hist };
   }
-  const idx = hist.findIndex(m => m.firestoreId === msgId);
+  let idx = hist.findIndex(m => m.firestoreId === msgId || m.id === msgId);
+  if (idx === -1) {
+    idx = hist.findIndex((m, i) => `local_${i}` === sId);
+  }
   return { msg: idx !== -1 ? hist[idx] : null, idx, hist };
 }
 
