@@ -2525,9 +2525,8 @@ function openChat(profileId, { fromHistory = false } = {}) {
     }
     if (typeof listenToRealtimeMessages === 'function') {
       activeRealtimeListener = listenToRealtimeMessages(matchId, (msgs) => {
-        conversations[profileId] = {
-          messages: (msgs || []).map(m => {
-            const senderId = m.sender || m.senderId;
+        const remoteMsgs = (msgs || []).map(m => {
+          const senderId = m.sender || m.senderId;
             let isMe = false;
             if (m.isCall) {
               if (senderId) {
@@ -2563,7 +2562,17 @@ function openChat(profileId, { fromHistory = false } = {}) {
               reactions: m.reactions || {},
               firestoreId: m.id || null
             };
-          })
+          });
+
+        // Retain recently added local pending messages (e.g. voice notes being uploaded)
+        const currentMsgs = conversations[profileId]?.messages || [];
+        const pendingLocal = currentMsgs.filter(m =>
+          m.id && String(m.id).startsWith('local_') && (Date.now() - (m.timestamp || 0) < 60000) &&
+          !remoteMsgs.some(rm => (rm.audioUrl && rm.audioUrl === m.audioUrl) || (rm.text && rm.text === m.text && Math.abs(rm.timestamp - m.timestamp) < 3000))
+        );
+
+        conversations[profileId] = {
+          messages: [...remoteMsgs, ...pendingLocal].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
         };
         // Mark newly received messages as read
         if (typeof markMessagesReadInFirestore === 'function') {
@@ -2957,7 +2966,7 @@ function renderChatThread() {
       const videoIconSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`;
 
       bubbleHtml = `
-        <div class="msg-call-card ${isSent ? 'sent' : 'received'}" onclick="${isVideo ? 'startVideoCall()' : 'startVoiceCall()'}" title="Tap to call back" ${pressEvents}>
+        <div class="msg-call-card ${isSent ? 'sent' : 'received'}" onclick="openCallConfirmDialog('${isVideo ? 'video' : 'voice'}')" title="Tap to call back" ${pressEvents}>
           <div class="call-card-icon-circle ${isUnanswered ? 'missed' : 'normal'}">
             ${isVideo ? videoIconSvg : phoneIconSvg}
           </div>
@@ -2977,7 +2986,7 @@ function renderChatThread() {
     } else if (msg.isVoice) {
       const audioSrc = msg.audioUrl || '';
       bubbleHtml = `
-        <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" onclick="playVoiceNote('${audioSrc}', this.querySelector('.voice-play-icon'))" ${pressEvents}>
+        <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" data-audiosrc="${escHtml(audioSrc)}" onclick="playVoiceNote(this.dataset.audiosrc, this.querySelector('.voice-play-icon'))" ${pressEvents}>
           ${quoteHtml}
           <div style="display:flex;align-items:center;gap:10px;width:170px">
             <span class="voice-play-icon" style="cursor:pointer;font-size:16px;line-height:1">▶️</span>
@@ -4027,6 +4036,63 @@ async function listenForIncomingCalls() {
     });
 }
 
+function openCallConfirmDialog(type = 'voice') {
+  if (typeof _reactionPickerOpen !== 'undefined' && _reactionPickerOpen) return;
+
+  const partnerId = appState.currentChatId;
+  const partner = (typeof matchedUsers !== 'undefined' && matchedUsers.find(u => u.id === partnerId)) || (typeof PROFILES_DATA !== 'undefined' && PROFILES_DATA.find(u => u.id === partnerId));
+  const name = partner ? partner.name : 'your match';
+  const isVideo = type === 'video';
+
+  document.getElementById('callConfirmDialog')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.id = 'callConfirmDialog';
+  overlay.className = 'whatsapp-dialog-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.68);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn 0.15s ease;';
+  overlay.onclick = (e) => {
+    if (e.target === overlay) closeCallConfirmDialog();
+  };
+
+  overlay.innerHTML = `
+    <div class="whatsapp-dialog-card" style="text-align:center;max-width:320px;width:100%;border-radius:24px;padding:24px 20px;background:#1E1530;border:1px solid rgba(255,255,255,0.15);box-shadow:0 16px 40px rgba(0,0,0,0.85);">
+      <div style="width:58px;height:58px;border-radius:50%;background:rgba(209,58,99,0.18);color:#FF2E70;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:26px;">
+        ${isVideo ? '📹' : '📞'}
+      </div>
+      <h3 style="margin:0 0 6px;font-size:1.15rem;font-weight:700;color:#fff;">Call back ${escHtml(name)}?</h3>
+      <p style="margin:0 0 20px;font-size:0.85rem;color:rgba(255,255,255,0.65);line-height:1.4;">
+        Do you want to start a ${isVideo ? 'video' : 'voice'} call with ${escHtml(name)}?
+      </p>
+      <div style="display:flex;gap:10px;justify-content:center;">
+        <button onclick="closeCallConfirmDialog()" style="flex:1;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#fff;font-weight:600;font-size:0.9rem;cursor:pointer;">
+          Cancel
+        </button>
+        <button onclick="executeCallFromConfirm('${isVideo ? 'video' : 'voice'}')" style="flex:1;padding:12px;border-radius:14px;background:linear-gradient(135deg,#D13A63,#E0567F);color:#fff;border:none;font-weight:700;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
+          <span>${isVideo ? '📹 Call' : '📞 Call'}</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+window.openCallConfirmDialog = openCallConfirmDialog;
+
+function closeCallConfirmDialog() {
+  document.getElementById('callConfirmDialog')?.remove();
+}
+window.closeCallConfirmDialog = closeCallConfirmDialog;
+
+function executeCallFromConfirm(type) {
+  closeCallConfirmDialog();
+  if (type === 'video') {
+    startVideoCall();
+  } else {
+    startVoiceCall();
+  }
+}
+window.executeCallFromConfirm = executeCallFromConfirm;
+
 async function startVoiceCall() {
   await startPeerCall('audio');
 }
@@ -4703,11 +4769,6 @@ async function sendVoiceNote() {
 
   return new Promise(resolve => {
     mediaRecorder.onstop = async () => {
-      const mimeType = mediaRecorder.mimeType || 'audio/webm';
-      const audioBlob = new Blob(audioChunks, { type: mimeType });
-      const duration = Math.max(1, voiceRecSeconds);
-      const durationStr = `${Math.floor(duration/60)}:${String(duration%60).padStart(2,'0')}`;
-
       // Stop all tracks
       try {
         mediaRecorder.stream.getTracks().forEach(t => t.stop());
@@ -4721,69 +4782,112 @@ async function sendVoiceNote() {
       if (inputBar) inputBar.style.display = 'flex';
       if (recordBar) recordBar.style.display = 'none';
 
-      if (!appState.currentChatId) { resolve(); return; }
-
-      // Convert audioBlob to Base64 data URL so it works reliably across all devices
-      const base64Audio = await new Promise(res => {
-        const reader = new FileReader();
-        reader.onloadend = () => res(reader.result);
-        reader.readAsDataURL(audioBlob);
-      });
-
       const partnerId = appState.currentChatId;
+      if (!partnerId) { resolve(); return; }
+
+      const mimeType = mediaRecorder.mimeType || 'audio/webm';
+      const audioBlob = new Blob(audioChunks, { type: mimeType });
+      const duration = Math.max(1, voiceRecSeconds);
+      const durationStr = `${Math.floor(duration/60)}:${String(duration%60).padStart(2,'0')}`;
+
+      // 1. Instant local object URL for immediate UI display
+      const localAudioUrl = URL.createObjectURL(audioBlob);
+      const msgId = `local_vn_${Date.now()}`;
+
       if (!conversations[partnerId]) conversations[partnerId] = { messages: [] };
 
-      // Attempt cloud storage upload with explicit contentType
-      let finalAudioUrl = base64Audio;
-      if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
-        try {
-          const uploadedUrl = await uploadFileToBackend(audioBlob, 'voicenotes', false, mimeType);
-          if (uploadedUrl) finalAudioUrl = uploadedUrl;
-        } catch (_) {}
-      }
-
-      conversations[partnerId].messages.push({
+      const newMsg = {
+        id: msgId,
         sender: 'me',
         isVoice: true,
         duration: durationStr,
-        audioUrl: finalAudioUrl,
+        audioUrl: localAudioUrl,
         read: true,
         timestamp: Date.now()
-      });
+      };
+
+      // Push and render IMMEDIATELY so user sees the message bubble right away!
+      conversations[partnerId].messages.push(newMsg);
       movePartnerToTop(partnerId);
       renderChatThread();
       renderConversationList();
       renderChatsInbox();
       updateMatchesNotificationBadge();
       saveToStorage();
-
-      if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-        const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-        sendRealtimeMessage(matchId, '', true, finalAudioUrl);
-      } else {
-        triggerAutoReply();
-      }
       resolve();
+
+      // 2. BACKGROUND UPLOAD & FIRESTORE DISPATCH (Non-blocking)
+      (async () => {
+        let finalRemoteUrl = null;
+        const cleanMime = (mimeType.split(';')[0] || 'audio/webm').trim();
+
+        if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
+          try {
+            const uploadPromise = uploadFileToBackend(audioBlob, 'voicenotes', false, cleanMime);
+            const timeoutPromise = new Promise(res => setTimeout(() => res(null), 12000));
+            finalRemoteUrl = await Promise.race([uploadPromise, timeoutPromise]);
+          } catch (err) {
+            console.warn('Voice upload error:', err);
+          }
+        }
+
+        // Base64 fallback if storage was unreachable and audio is reasonably sized (< 450KB)
+        if (!finalRemoteUrl && audioBlob.size < 450000) {
+          try {
+            finalRemoteUrl = await new Promise(res => {
+              const reader = new FileReader();
+              reader.onloadend = () => res(reader.result);
+              reader.readAsDataURL(audioBlob);
+            });
+          } catch (_) {}
+        }
+
+        if (finalRemoteUrl) {
+          newMsg.audioUrl = finalRemoteUrl;
+          saveToStorage();
+        }
+
+        const urlToSend = finalRemoteUrl || localAudioUrl;
+        if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+          const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+          sendRealtimeMessage(matchId, '', true, urlToSend);
+        } else {
+          triggerAutoReply();
+        }
+      })();
     };
 
     try { mediaRecorder.requestData(); } catch (_) {}
-    mediaRecorder.stop();
+    setTimeout(() => {
+      try {
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+          mediaRecorder.stop();
+        }
+      } catch (_) {}
+    }, 50);
   });
 }
+window.sendVoiceNote = sendVoiceNote;
 
 function cancelVoiceRecording() {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-    mediaRecorder.stream.getTracks().forEach(t => t.stop());
-    mediaRecorder.stop();
-  }
   clearInterval(voiceRecTimerInterval);
   appState.isRecording = false;
+
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    try {
+      mediaRecorder.stream.getTracks().forEach(t => t.stop());
+    } catch (_) {}
+    mediaRecorder.onstop = null;
+    try { mediaRecorder.stop(); } catch (_) {}
+  }
 
   const inputBar = document.querySelector('.chat-input-bar');
   const recordBar = document.getElementById('voiceRecordBar');
   if (inputBar) inputBar.style.display = 'flex';
   if (recordBar) recordBar.style.display = 'none';
+  audioChunks = [];
 }
+window.cancelVoiceRecording = cancelVoiceRecording;
 
 // ==========================================================
 // PROFILE SCREEN
@@ -4803,10 +4907,10 @@ function renderProfileScreen() {
   const locInput = document.getElementById('editLocation');
   const interestsInput = document.getElementById('editInterests');
 
-  const displayName = currentUser.name || currentUser.displayName || 'Dave';
+  const displayName = currentUser.name || currentUser.displayName || 'User';
   const displayAge = currentUser.age || 24;
   const displayLoc = currentUser.location || 'Lagos, Nigeria';
-  const displayBio = currentUser.bio || 'Software engineer and builder. Love beach hangouts in Lekki and good vibes.';
+  const displayBio = currentUser.bio || 'Living life with good energy, positive vibes only! ✨';
   const displayInterests = (currentUser.interests && currentUser.interests.length > 0)
     ? currentUser.interests
     : ['Tech 💻', 'Fitness 💪', 'Music 🎵'];
