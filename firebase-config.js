@@ -64,6 +64,24 @@ function initBackend() {
       fbStorage = firebase.storage();
       console.log("🔥 Firebase initialized — project:", firebaseConfig.projectId);
       listenToAuthChanges();
+
+      // Check for Google redirect result (crucial for mobile browsers)
+      if (fbAuth && typeof fbAuth.getRedirectResult === 'function') {
+        fbAuth.getRedirectResult().then((result) => {
+          if (result && result.user) {
+            console.log("🔥 Google redirect sign-in success:", result.user.email);
+            if (typeof handleGoogleLoginSuccess === 'function') {
+              handleGoogleLoginSuccess(result.user);
+            }
+          }
+        }).catch((err) => {
+          console.warn("Google redirect auth error:", err);
+          if (typeof handleGoogleAuthError === 'function') {
+            handleGoogleAuthError(err);
+          }
+        });
+      }
+
       // Sync VIP status shortly after auth resolves
       setTimeout(() => checkAndSyncVipStatus(), 3000);
     } catch (e) {
@@ -76,6 +94,11 @@ function initBackend() {
       window.addEventListener("load", () => initBackend(), { once: true });
     }
   }
+}
+
+// Auto-run if Firebase SDK is already loaded synchronously
+if (typeof firebase !== "undefined") {
+  initBackend();
 }
 
 // ----------------------------------------------------------

@@ -197,6 +197,9 @@ function bootApplication() {
   } else {
     showScreen('login');
     updateHeaderForAuth();
+    if (typeof getLockoutSecondsRemaining === 'function' && getLockoutSecondsRemaining() > 0) {
+      startLockoutTimer();
+    }
   }
 }
 
@@ -980,123 +983,487 @@ function switchTab(tabId) {
 }
 
 // ==========================================================
-// AUTH — LOGIN
+// AUTH — LOGIN, PHONE AUTH & SECURITY INFRASTRUCTURE
 // ==========================================================
 
-function handleLogin() {
-  const email = document.getElementById('loginEmail').value.trim();
-  const password = document.getElementById('loginPassword').value;
-  const errorEl = document.getElementById('loginError');
+// Rate-limiting / Brute-force protection
+let _rateLimitTimer = null;
 
-  errorEl.textContent = '';
+function getLockoutSecondsRemaining() {
+  const until = parseInt(sessionStorage.getItem('auth_lockout_until') || '0', 10);
+  const now = Date.now();
+  if (until > now) {
+    return Math.ceil((until - now) / 1000);
+  }
+  return 0;
+}
 
-  if (!email || !password) { errorEl.textContent = 'Please fill in all fields.'; return; }
-  if (!email.includes('@')) { errorEl.textContent = 'Please enter a valid email address.'; return; }
-  if (password.length < 6) { errorEl.textContent = 'Password must be at least 6 characters.'; return; }
+function recordFailedLoginAttempt() {
+  let attempts = parseInt(sessionStorage.getItem('auth_failed_attempts') || '0', 10) + 1;
+  sessionStorage.setItem('auth_failed_attempts', attempts);
+  if (attempts >= 5) {
+    const lockoutDuration = 60 * 1000; // 60-second lockout
+    const lockoutUntil = Date.now() + lockoutDuration;
+    sessionStorage.setItem('auth_lockout_until', lockoutUntil);
+    startLockoutTimer();
+  }
+}
 
+function resetFailedLoginAttempts() {
+  sessionStorage.removeItem('auth_failed_attempts');
+  sessionStorage.removeItem('auth_lockout_until');
+  if (_rateLimitTimer) {
+    clearInterval(_rateLimitTimer);
+    _rateLimitTimer = null;
+  }
+  const banner = document.getElementById('loginRateLimitBanner');
+  if (banner) banner.style.display = 'none';
   const btn = document.getElementById('loginBtn');
-  btn.disabled = true;
-  btn.innerHTML = '<span>Signing in...</span>';
+  if (btn) btn.disabled = false;
+  const phoneBtn = document.getElementById('loginPhoneBtn');
+  if (phoneBtn) phoneBtn.disabled = false;
+}
 
-  // ---- FIREBASE LIVE MODE ----
-  if (typeof fbAuth !== 'undefined' && fbAuth) {
-    fbAuth.signInWithEmailAndPassword(email, password)
-      .then(async (userCredential) => {
-        currentUser.email = userCredential.user.email;
-        currentUser.id = userCredential.user.uid;
-        if (typeof fbDb !== 'undefined' && fbDb) {
-          try {
-            const userDoc = await fbDb.collection('users').doc(userCredential.user.uid).get();
-            if (userDoc && userDoc.exists) {
-              const uData = userDoc.data();
-              if (uData.name || uData.displayName) currentUser.name = uData.displayName || uData.name;
-              if (uData.age) currentUser.age = uData.age;
-              if (uData.bio) currentUser.bio = uData.bio;
-              if (uData.gender) currentUser.gender = uData.gender;
-              if (uData.interests) currentUser.interests = uData.interests;
-              if (uData.location) currentUser.location = uData.location;
-              if (uData.image || uData.avatar) {
-                currentUser.image = uData.image || uData.avatar;
-                currentUser.avatar = currentUser.image;
-              }
-               const vipExpiryMs = uData.vipExpiry?.toMillis ? uData.vipExpiry.toMillis() : 0;
-               appState.isVip = Boolean(uData.isVip && (!vipExpiryMs || vipExpiryMs > Date.now()));
-            }
-          } catch (e) {
-            console.warn("Could not fetch user profile from Firestore:", e);
-          }
-        }
-        appState.isLoggedIn = true;
-        saveToStorage();
-        showScreen('discovery');
-        initMainApp();
-      })
-      .catch((err) => {
-        console.warn("Firebase sign-in error code:", err.code, "message:", err.message);
-        const msgs = {
-          'auth/user-not-found': 'No account found with this email. Click "Sign Up Free" below to create one!',
-          'auth/wrong-password': 'Wrong password. Please check your password and try again.',
-          'auth/invalid-credential': 'Incorrect email or password. Click "Sign Up Free" below to register!',
-          'auth/invalid-login-credentials': 'Incorrect email or password. Click "Sign Up Free" below to register!',
-          'auth/invalid-email': 'Please enter a valid email address.',
-          'auth/user-disabled': 'This account has been disabled.',
-          'auth/too-many-requests': 'Too many attempts. Please wait a moment or reset your password.'
-        };
-        errorEl.textContent = msgs[err.code] || 'Incorrect email or password. Click "Sign Up Free" below to register.';
-      })
-      .finally(() => { btn.disabled = false; btn.innerHTML = 'Sign In'; });
+function startLockoutTimer() {
+  if (_rateLimitTimer) clearInterval(_rateLimitTimer);
+  const banner = document.getElementById('loginRateLimitBanner');
+  const msg = document.getElementById('loginRateLimitMsg');
+  const btn = document.getElementById('loginBtn');
+  const phoneBtn = document.getElementById('loginPhoneBtn');
+
+  const update = () => {
+    const remaining = getLockoutSecondsRemaining();
+    if (remaining > 0) {
+      if (banner) banner.style.display = 'flex';
+      if (msg) msg.textContent = `Too many failed attempts. Security lockout active: please wait ${remaining}s.`;
+      if (btn) btn.disabled = true;
+      if (phoneBtn) phoneBtn.disabled = true;
+    } else {
+      if (banner) banner.style.display = 'none';
+      if (btn) btn.disabled = false;
+      if (phoneBtn) phoneBtn.disabled = false;
+      sessionStorage.removeItem('auth_failed_attempts');
+      sessionStorage.removeItem('auth_lockout_until');
+      clearInterval(_rateLimitTimer);
+      _rateLimitTimer = null;
+    }
+  };
+  update();
+  _rateLimitTimer = setInterval(update, 1000);
+}
+
+// Local registered accounts store (prevents random fake emails from signing in)
+function getRegisteredUsers() {
+  try {
+    return JSON.parse(localStorage.getItem('hookme_registered_users') || '[]');
+  } catch (_) {
+    return [];
+  }
+}
+
+function saveRegisteredUser(record) {
+  const users = getRegisteredUsers();
+  const existingIdx = users.findIndex(u => (record.email && u.email && u.email.toLowerCase() === record.email.toLowerCase()) || (record.phone && u.phone === record.phone));
+  if (existingIdx >= 0) {
+    users[existingIdx] = Object.assign({}, users[existingIdx], record);
+  } else {
+    users.push(record);
+  }
+  localStorage.setItem('hookme_registered_users', JSON.stringify(users));
+}
+
+// Toggle between Email and Phone login tabs
+function switchLoginMethod(method) {
+  const emailTab = document.getElementById('loginTabEmail');
+  const phoneTab = document.getElementById('loginTabPhone');
+  const emailSection = document.getElementById('loginEmailSection');
+  const phoneSection = document.getElementById('loginPhoneSection');
+  const errEmail = document.getElementById('loginError');
+  const errPhone = document.getElementById('loginPhoneError');
+
+  if (errEmail) errEmail.textContent = '';
+  if (errPhone) errPhone.textContent = '';
+
+  if (method === 'phone') {
+    if (emailTab) { emailTab.classList.remove('active'); emailTab.setAttribute('aria-selected', 'false'); }
+    if (phoneTab) { phoneTab.classList.add('active'); phoneTab.setAttribute('aria-selected', 'true'); }
+    if (emailSection) emailSection.style.display = 'none';
+    if (phoneSection) phoneSection.style.display = 'block';
+  } else {
+    if (phoneTab) { phoneTab.classList.remove('active'); phoneTab.setAttribute('aria-selected', 'false'); }
+    if (emailTab) { emailTab.classList.add('active'); emailTab.setAttribute('aria-selected', 'true'); }
+    if (phoneSection) phoneSection.style.display = 'none';
+    if (emailSection) emailSection.style.display = 'block';
+  }
+}
+
+// Toggle between Email and Phone in Forgot Password modal
+function switchForgotMethod(method) {
+  const emailTab = document.getElementById('fpTabEmail');
+  const phoneTab = document.getElementById('fpTabPhone');
+  const emailSec = document.getElementById('fpEmailSection');
+  const phoneSec = document.getElementById('fpPhoneSection');
+
+  if (method === 'phone') {
+    if (emailTab) emailTab.classList.remove('active');
+    if (phoneTab) phoneTab.classList.add('active');
+    if (emailSec) emailSec.style.display = 'none';
+    if (phoneSec) phoneSec.style.display = 'block';
+  } else {
+    if (phoneTab) phoneTab.classList.remove('active');
+    if (emailTab) emailTab.classList.add('active');
+    if (phoneSec) phoneSec.style.display = 'none';
+    if (emailSec) emailSec.style.display = 'block';
+  }
+}
+
+// Real-time password strength validation rules
+function evaluatePasswordStrength(password) {
+  const pwd = password || '';
+  const hasLength = pwd.length >= 8;
+  const hasUpper = /[A-Z]/.test(pwd);
+  const hasNumber = /[0-9]/.test(pwd);
+  const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~`]/.test(pwd);
+
+  const reqLength = document.getElementById('reqLength');
+  const reqUpper = document.getElementById('reqUpper');
+  const reqNumber = document.getElementById('reqNumber');
+  const reqSymbol = document.getElementById('reqSymbol');
+
+  const updateReq = (el, met, text) => {
+    if (!el) return;
+    el.classList.toggle('met', met);
+    el.innerHTML = `<span>${met ? '✓' : '○'}</span> ${text}`;
+  };
+
+  updateReq(reqLength, hasLength, '8+ characters');
+  updateReq(reqUpper, hasUpper, 'Uppercase letter (A-Z)');
+  updateReq(reqNumber, hasNumber, 'Number (0-9)');
+  updateReq(reqSymbol, hasSymbol, 'Symbol (!@#$...)');
+
+  const score = [hasLength, hasUpper, hasNumber, hasSymbol].filter(Boolean).length;
+  const bar1 = document.getElementById('pwBar1');
+  const bar2 = document.getElementById('pwBar2');
+  const bar3 = document.getElementById('pwBar3');
+  const bar4 = document.getElementById('pwBar4');
+  const label = document.getElementById('pwStrengthLabel');
+  const percent = document.getElementById('pwStrengthPercent');
+
+  const bars = [bar1, bar2, bar3, bar4];
+  const colors = ['#E53935', '#FB8C00', '#FDD835', '#21B06B'];
+  const labels = ['Too Weak', 'Weak', 'Fair', 'Good', 'Strong'];
+
+  bars.forEach((bar, i) => {
+    if (!bar) return;
+    if (i < score) {
+      bar.style.background = colors[Math.min(score - 1, colors.length - 1)];
+    } else {
+      bar.style.background = 'rgba(255, 255, 255, 0.12)';
+    }
+  });
+
+  if (label) {
+    label.textContent = labels[score];
+    label.style.color = score > 0 ? colors[Math.min(score - 1, colors.length - 1)] : 'var(--txt-muted)';
+  }
+  if (percent) {
+    percent.textContent = `${score * 25}%`;
+  }
+
+  return score === 4;
+}
+
+// EMAIL LOGIN HANDLER
+async function handleLogin() {
+  const remaining = getLockoutSecondsRemaining();
+  if (remaining > 0) {
+    startLockoutTimer();
     return;
   }
 
-  // ---- LOCAL FALLBACK (no Firebase yet) ----
-  setTimeout(() => {
+  const email = (document.getElementById('loginEmail')?.value || '').trim();
+  const password = document.getElementById('loginPassword')?.value || '';
+  const errorEl = document.getElementById('loginError');
+  if (errorEl) errorEl.textContent = '';
+
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!email || !password) {
+    if (errorEl) errorEl.textContent = 'Please fill in all fields.';
+    return;
+  }
+  if (!emailRegex.test(email)) {
+    if (errorEl) errorEl.textContent = 'Please enter a valid email address (e.g. name@domain.com).';
+    return;
+  }
+  if (password.length < 8) {
+    if (errorEl) errorEl.textContent = 'Password must be at least 8 characters.';
+    return;
+  }
+
+  const btn = document.getElementById('loginBtn');
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>Signing in...</span>';
+  }
+
+  // Generic error message for security (prevents user account enumeration)
+  const genericErrorMessage = 'Invalid email or password. Please check your credentials and try again.';
+
+  // ---- FIREBASE LIVE MODE ----
+  if (typeof fbAuth !== 'undefined' && fbAuth) {
+    try {
+      const userCredential = await fbAuth.signInWithEmailAndPassword(email, password);
+      resetFailedLoginAttempts();
+      currentUser.email = userCredential.user.email;
+      currentUser.id = userCredential.user.uid;
+
+      if (typeof fbDb !== 'undefined' && fbDb) {
+        try {
+          const userDoc = await fbDb.collection('users').doc(userCredential.user.uid).get();
+          if (userDoc && userDoc.exists) {
+            const uData = userDoc.data();
+            if (uData.name || uData.displayName) currentUser.name = uData.displayName || uData.name;
+            if (uData.age) currentUser.age = uData.age;
+            if (uData.bio) currentUser.bio = uData.bio;
+            if (uData.gender) currentUser.gender = uData.gender;
+            if (uData.interests) currentUser.interests = uData.interests;
+            if (uData.location) currentUser.location = uData.location;
+            if (uData.phone) currentUser.phone = uData.phone;
+            if (uData.image || uData.avatar) {
+              currentUser.image = uData.image || uData.avatar;
+              currentUser.avatar = currentUser.image;
+            }
+            const vipExpiryMs = uData.vipExpiry?.toMillis ? uData.vipExpiry.toMillis() : 0;
+            appState.isVip = Boolean(uData.isVip && (!vipExpiryMs || vipExpiryMs > Date.now()));
+          }
+        } catch (e) {
+          console.warn("Could not fetch user profile from Firestore:", e);
+        }
+      }
+
+      appState.isLoggedIn = true;
+      saveToStorage();
+      showScreen('discovery');
+      initMainApp();
+      return;
+    } catch (err) {
+      console.warn("Firebase sign-in error:", err.code);
+      recordFailedLoginAttempt();
+      if (err.code === 'auth/too-many-requests') {
+        if (errorEl) errorEl.textContent = 'Too many attempts. Please wait a moment or reset your password.';
+      } else if (err.code === 'auth/user-disabled') {
+        if (errorEl) errorEl.textContent = 'This account has been disabled. Please contact support.';
+      } else {
+        if (errorEl) errorEl.textContent = genericErrorMessage;
+      }
+      if (btn) { btn.disabled = false; btn.innerHTML = 'Sign In'; }
+      return;
+    }
+  }
+
+  // ---- LOCAL VERIFIED STORAGE MODE ----
+  // NEVER blindly log in an unknown/random email!
+  const registeredUsers = getRegisteredUsers();
+  const matchedUser = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+  if (matchedUser && (!matchedUser.passwordHash || matchedUser.passwordHash === btoa(password))) {
+    resetFailedLoginAttempts();
     currentUser.email = email;
+    currentUser.name = matchedUser.name || currentUser.name || 'User';
+    currentUser.phone = matchedUser.phone || '';
     appState.isLoggedIn = true;
     saveToStorage();
     showScreen('discovery');
     initMainApp();
-    btn.disabled = false;
-    btn.innerHTML = 'Sign In';
-  }, 900);
+  } else {
+    recordFailedLoginAttempt();
+    if (errorEl) errorEl.textContent = genericErrorMessage;
+  }
+
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Sign In'; }
+}
+
+// PHONE NUMBER SIGN-IN HANDLER
+let _loginPendingPhone = '';
+let _loginPhoneOtpSent = false;
+
+async function handlePhoneLogin() {
+  const remaining = getLockoutSecondsRemaining();
+  if (remaining > 0) {
+    startLockoutTimer();
+    return;
+  }
+
+  const phoneInput = document.getElementById('loginPhoneNumber');
+  const otpInput = document.getElementById('loginPhoneOtp');
+  const otpGroup = document.getElementById('loginPhoneOtpGroup');
+  const btn = document.getElementById('loginPhoneBtn');
+  const errEl = document.getElementById('loginPhoneError');
+  if (errEl) errEl.textContent = '';
+
+  let rawPhone = (phoneInput?.value || '').replace(/\D/g, '');
+  if (rawPhone.startsWith('0')) rawPhone = rawPhone.slice(1);
+
+  if (!rawPhone || rawPhone.length < 10) {
+    if (errEl) errEl.textContent = 'Please enter a valid 10-digit Nigerian phone number.';
+    return;
+  }
+
+  const fullPhone = '+234' + rawPhone;
+
+  // STEP 1: SEND CODE
+  if (!_loginPhoneOtpSent) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending code...'; }
+    _loginPendingPhone = rawPhone;
+
+    let sent = false;
+    if (typeof sendOtpToPhone === 'function') {
+      try {
+        sent = await sendOtpToPhone(fullPhone);
+      } catch (_) {
+        sent = false;
+      }
+    }
+
+    if (btn) btn.disabled = false;
+
+    if (sent) {
+      _loginPhoneOtpSent = true;
+      if (otpGroup) otpGroup.style.display = 'block';
+      if (btn) btn.textContent = 'Verify & Sign In';
+      if (otpInput) { otpInput.value = ''; setTimeout(() => otpInput.focus(), 150); }
+      showToast('📱 SMS code sent to +234 ' + rawPhone, 'info');
+    } else {
+      if (errEl) errEl.textContent = 'Could not send SMS verification code. Please check number or try again.';
+    }
+    return;
+  }
+
+  // STEP 2: VERIFY CODE
+  const otpCode = (otpInput?.value || '').trim();
+  if (!/^\d{4,6}$/.test(otpCode)) {
+    if (errEl) errEl.textContent = 'Please enter the verification code received via SMS.';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying...'; }
+
+  let verified = false;
+  if (typeof verifyOtp === 'function') {
+    try {
+      const res = await verifyOtp(fullPhone, otpCode);
+      verified = res && res.success;
+    } catch (_) {
+      verified = false;
+    }
+  }
+
+  if (btn) btn.disabled = false;
+
+  if (verified) {
+    resetFailedLoginAttempts();
+    _loginPhoneOtpSent = false;
+    currentUser.phone = _loginPendingPhone;
+    currentUser.phoneVerified = true;
+    appState.isLoggedIn = true;
+    saveToStorage();
+    showToast('Signed in with phone! Welcome to hookmebysam. 🌟', 'gold');
+    showScreen('discovery');
+    initMainApp();
+  } else {
+    recordFailedLoginAttempt();
+    if (errEl) errEl.textContent = 'Invalid verification code. Please check your SMS or request a new code.';
+    if (btn) btn.textContent = 'Verify & Sign In';
+  }
+}
+
+// GOOGLE AUTH HANDLERS
+function handleGoogleLoginSuccess(user) {
+  if (!user) return;
+  resetFailedLoginAttempts();
+  currentUser.email = user.email || '';
+  currentUser.id = user.uid;
+  currentUser.name = user.displayName || currentUser.name || 'User';
+  if (user.photoURL) {
+    currentUser.image = user.photoURL;
+    currentUser.avatar = user.photoURL;
+  }
+  appState.isLoggedIn = true;
+  saveToStorage();
+  showScreen('discovery');
+  initMainApp();
+  showToast('Welcome back, ' + (user.displayName || 'User') + '! ✨', 'gold');
+}
+
+function handleGoogleAuthError(err) {
+  console.warn("Google Auth Error:", err);
+  const code = err ? err.code : '';
+  const currentHost = window.location.hostname || 'localhost';
+  let message = 'Google sign-in failed. Please try again.';
+
+  if (code === 'auth/unauthorized-domain') {
+    message = `Google Sign-in failed: domain "${currentHost}" is not authorized in Firebase Console. Please add "${currentHost}" under Firebase Console > Authentication > Settings > Authorized domains.`;
+  } else if (code === 'auth/operation-not-allowed') {
+    message = 'Google sign-in is not enabled in Firebase Console. Enable "Google" under Authentication > Sign-in method.';
+  } else if (code === 'auth/popup-blocked') {
+    message = 'Popup blocked by browser. Retrying with direct redirect...';
+    if (fbAuth && typeof firebase !== 'undefined') {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      fbAuth.signInWithRedirect(provider).catch(() => {});
+      return;
+    }
+  } else if (code === 'auth/popup-closed-by-user') {
+    message = 'Google sign-in window was closed.';
+  } else if (code === 'auth/network-request-failed') {
+    message = 'Network connection problem. Please verify your internet connection.';
+  } else if (err && err.message) {
+    message = err.message;
+  }
+
+  const errEl = document.getElementById('loginError') || document.getElementById('loginPhoneError');
+  if (errEl) errEl.textContent = message;
+  showToast(message, 'error');
 }
 
 function handleGoogleLogin() {
   const btn = document.getElementById('googleLoginBtn');
-  btn.disabled = true;
+  if (btn) btn.disabled = true;
   const googleIconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 4.5C13.8 4.5 15.4 5.2 16.6 6.3L19.9 3C17.9 1.1 15.1 0 12 0C7.4 0 3.4 2.6 1.4 6.4L5.2 9.3C6.2 6.5 8.8 4.5 12 4.5Z" fill="#EA4335"/><path d="M23.5 12.3C23.5 11.4 23.4 10.6 23.3 9.8H12V14.5H18.5C18.2 16 17.4 17.2 16.2 18L19.9 20.8C22.1 18.8 23.5 15.8 23.5 12.3Z" fill="#4285F4"/><path d="M5.2 14.7C4.9 13.9 4.8 13 4.8 12C4.8 11 5 10.1 5.2 9.3L1.4 6.4C0.5 8.1 0 10 0 12C0 14 0.5 15.9 1.4 17.6L5.2 14.7Z" fill="#FBBC05"/><path d="M12 24C15.1 24 17.8 23 19.9 20.8L16.2 18C15.1 18.7 13.7 19.2 12 19.2C8.8 19.2 6.2 17.2 5.2 14.4L1.4 17.3C3.4 21.4 7.4 24 12 24Z" fill="#34A853"/></svg>`;
-  btn.innerHTML = `${googleIconSvg} Signing in...`;
+  if (btn) btn.innerHTML = `${googleIconSvg} Signing in...`;
 
-  // ---- FIREBASE GOOGLE LOGIN ----
   if (typeof fbAuth !== 'undefined' && fbAuth && typeof firebase !== 'undefined') {
     const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+
+    // On mobile devices (Android / Samsung A16 / iOS), popups are frequently blocked or crash:
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile) {
+      fbAuth.signInWithRedirect(provider).catch((err) => {
+        handleGoogleAuthError(err);
+        if (btn) { btn.disabled = false; btn.innerHTML = `${googleIconSvg} Continue with Google`; }
+      });
+      return;
+    }
+
     fbAuth.signInWithPopup(provider)
       .then((result) => {
-        currentUser.email = result.user.email;
-        currentUser.id = result.user.uid;
-        currentUser.displayName = result.user.displayName;
-        if (result.user.photoURL) currentUser.avatar = result.user.photoURL;
-        appState.isLoggedIn = true;
-        saveToStorage();
-        showScreen('discovery');
-        initMainApp();
+        handleGoogleLoginSuccess(result.user);
       })
       .catch((err) => {
-        showToast(err.code === 'auth/popup-closed-by-user' ? 'Google sign-in cancelled.' : 'Google sign-in failed. Try again.', 'error');
+        if (err.code === 'auth/popup-blocked') {
+          fbAuth.signInWithRedirect(provider).catch(e => handleGoogleAuthError(e));
+        } else {
+          handleGoogleAuthError(err);
+        }
       })
-      .finally(() => { btn.disabled = false; btn.innerHTML = `${googleIconSvg} Continue with Google`; });
+      .finally(() => {
+        if (btn) { btn.disabled = false; btn.innerHTML = `${googleIconSvg} Continue with Google`; }
+      });
     return;
   }
 
-  // ---- LOCAL FALLBACK ----
-  setTimeout(() => {
-    appState.isLoggedIn = true;
-    currentUser.email = 'google@user.com';
-    saveToStorage();
-    showScreen('discovery');
-    initMainApp();
-    btn.disabled = false;
-    btn.innerHTML = `${googleIconSvg} Continue with Google`;
-  }, 1100);
+  showToast('Firebase Authentication is not available. Please verify your internet connection.', 'error');
+  if (btn) { btn.disabled = false; btn.innerHTML = `${googleIconSvg} Continue with Google`; }
 }
 
 function handleGuestLogin() {
@@ -1252,16 +1619,27 @@ async function syncPublicProfileToFirestore(fields = {}) {
 }
 
 function completeSignup() {
-  const email = document.getElementById('signupEmail').value.trim();
-  const password = document.getElementById('signupPassword').value;
+  const email = (document.getElementById('signupEmail')?.value || '').trim();
+  let phone = (document.getElementById('signupPhone')?.value || '').replace(/\D/g, '');
+  if (phone.startsWith('0')) phone = phone.slice(1);
+  const password = document.getElementById('signupPassword')?.value || '';
   const errorEl = document.getElementById('signupError4');
+  if (errorEl) errorEl.textContent = '';
 
-  if (!email || !email.includes('@')) {
-    if (errorEl) errorEl.textContent = 'Please enter a valid email.';
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!email || !emailRegex.test(email)) {
+    if (errorEl) errorEl.textContent = 'Please enter a valid, real email address (e.g. name@gmail.com).';
     return;
   }
-  if (password.length < 6) {
-    if (errorEl) errorEl.textContent = 'Password must be at least 6 characters.';
+
+  if (!phone || phone.length < 10) {
+    if (errorEl) errorEl.textContent = 'Please enter a valid 10-digit Nigerian phone number.';
+    return;
+  }
+
+  const isStrong = evaluatePasswordStrength(password);
+  if (!isStrong) {
+    if (errorEl) errorEl.textContent = 'Password must meet all 4 requirements: 8+ characters, uppercase letter, number, and symbol.';
     return;
   }
 
@@ -1274,71 +1652,92 @@ function completeSignup() {
   const btn = document.getElementById('signupCompleteBtn');
   if (btn) { btn.disabled = true; btn.innerHTML = 'Creating account...'; }
 
+  currentUser.email = email;
+  currentUser.phone = phone;
+
   // ---- FIREBASE LIVE SIGNUP ----
   if (typeof fbAuth !== 'undefined' && fbAuth) {
     fbAuth.createUserWithEmailAndPassword(email, password)
       .then(async (userCredential) => {
         const user = userCredential.user;
-        currentUser.email = email;
         currentUser.id = user.uid;
         appState.isLoggedIn = true;
-        saveToStorage();
 
-        // Save complete profile to Firestore with their real uploaded photo
-        if (typeof fbDb !== 'undefined' && fbDb) {
-          const userName = currentUser.name || currentUser.displayName || email.split('@')[0];
-          await fbDb.collection('users').doc(user.uid).set({
-            id: user.uid,
-            email: email,
-            name: userName,
-            displayName: userName,
-            age: currentUser.age || 24,
-            bio: currentUser.bio || 'Looking for real connections on hookmebysam!',
-            gender: currentUser.gender || 'Female',
-            interests: currentUser.interests || ['Music 🎵', 'Vibes ✨'],
-            image: userPhoto,
-            avatar: userPhoto,
-            isVip: false,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
-           await syncPublicProfileToFirestore({
-             name: userName,
-             displayName: userName,
-             age: currentUser.age || 24,
-             bio: currentUser.bio || 'Looking for real connections on hookmebysam!',
-             gender: currentUser.gender || 'Female',
-             interests: currentUser.interests || ['Music 🎵', 'Vibes ✨'],
-             location: currentUser.location || '',
-             image: userPhoto,
-             avatar: userPhoto
-           });
+        // Dispatch real Firebase email verification
+        try {
+          await user.sendEmailVerification();
+          showToast('✉️ Verification email sent! Please check your inbox and spam folder.', 'info');
+        } catch (e) {
+          console.warn("Could not dispatch email verification:", e);
         }
 
+        const userName = currentUser.name || currentUser.displayName || email.split('@')[0];
+        const profileData = {
+          id: user.uid,
+          email: email,
+          phone: '+234' + phone,
+          phoneVerified: false,
+          name: userName,
+          displayName: userName,
+          age: currentUser.age || 24,
+          bio: currentUser.bio || 'Looking for real connections on hookmebysam!',
+          gender: currentUser.gender || 'Female',
+          interests: currentUser.interests || ['Music 🎵', 'Vibes ✨'],
+          image: userPhoto,
+          avatar: userPhoto,
+          isVip: false,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (typeof fbDb !== 'undefined' && fbDb) {
+          await fbDb.collection('users').doc(user.uid).set(profileData);
+          await syncPublicProfileToFirestore(profileData);
+        }
+
+        saveRegisteredUser({
+          email: email.toLowerCase(),
+          phone: phone,
+          passwordHash: btoa(password),
+          name: userName,
+          uid: user.uid,
+          createdAt: Date.now()
+        });
+
+        saveToStorage();
         if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
         showScreen('signupSuccess');
         initMainApp();
       })
       .catch((err) => {
+        console.warn("Signup error code:", err.code, err.message);
         const msgs = {
-          'auth/email-already-in-use': 'An account with this email already exists.',
-          'auth/weak-password': 'Password must be at least 6 characters.',
-          'auth/invalid-email': 'Please enter a valid email address.'
+          'auth/email-already-in-use': 'An account with this email address already exists. Please Sign In instead.',
+          'auth/weak-password': 'Password is too weak. Please use at least 8 characters with uppercase, numbers, and symbols.',
+          'auth/invalid-email': 'Please enter a valid, real email address.'
         };
-        if (errorEl) errorEl.textContent = msgs[err.code] || 'Signup failed. Try again.';
+        if (errorEl) errorEl.textContent = msgs[err.code] || err.message || 'Signup failed. Please try again.';
         if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
       });
     return;
   }
 
-  // ---- LOCAL FALLBACK ----
-  currentUser.email = email;
+  // ---- LOCAL VERIFIED STORAGE MODE ----
+  saveRegisteredUser({
+    email: email.toLowerCase(),
+    phone: phone,
+    passwordHash: btoa(password),
+    name: currentUser.name || 'User',
+    uid: 'local_' + Date.now(),
+    createdAt: Date.now()
+  });
+
   appState.isLoggedIn = true;
   saveToStorage();
   setTimeout(() => {
     if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
     showScreen('signupSuccess');
     initMainApp();
-  }, 900);
+  }, 600);
 }
 
 // ==========================================================
@@ -6606,35 +7005,113 @@ async function submitForgotPassword() {
   const btn = document.getElementById('forgotPasswordBtn');
   const email = emailEl ? emailEl.value.trim() : '';
 
-  if (!email || !/^[^@]+@[^@]+\.[^@]+$/.test(email)) {
-    if (errEl) errEl.textContent = 'Please enter a valid email address.';
+  const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+  if (!email || !emailRegex.test(email)) {
+    if (errEl) errEl.textContent = 'Please enter a valid, real email address.';
     return;
   }
 
   if (errEl) errEl.textContent = '';
-  btn.disabled = true;
-  btn.textContent = 'Sending...';
+  if (btn) { btn.disabled = true; btn.textContent = 'Sending...'; }
 
   if (typeof fbAuth !== 'undefined' && fbAuth) {
     try {
       await fbAuth.sendPasswordResetEmail(email);
-      showToast('\u2709\uFE0F Reset email sent! Check your inbox.', 'info');
+      showToast('✉️ Password reset email sent! Check your inbox and spam folder.', 'info');
       closeForgotPasswordModal();
     } catch (err) {
-      let msg = 'Could not send reset email. Try again.';
-      if (err.code === 'auth/user-not-found') msg = 'No account found with this email.';
-      if (err.code === 'auth/invalid-email') msg = 'Invalid email address.';
+      console.warn("Forgot password error:", err.code, err.message);
+      let msg = 'Could not send reset email. Please try again.';
+      if (err.code === 'auth/user-not-found') {
+        msg = 'No account found with this email. Please check spelling or sign up.';
+      } else if (err.code === 'auth/invalid-email') {
+        msg = 'Invalid email address format.';
+      } else if (err.code === 'auth/too-many-requests') {
+        msg = 'Too many requests. Please wait a few minutes before trying again.';
+      } else if (err.message) {
+        msg = err.message;
+      }
       if (errEl) errEl.textContent = msg;
     }
   } else {
-    setTimeout(() => {
-      showToast('\u2709\uFE0F Password reset link sent to ' + email, 'info');
-      closeForgotPasswordModal();
-    }, 1000);
+    if (errEl) {
+      errEl.textContent = 'Authentication service is offline. Please check your internet connection.';
+    }
+    showToast('Cannot connect to authentication service right now.', 'error');
   }
 
-  btn.disabled = false;
-  btn.textContent = 'Send Reset Email';
+  if (btn) { btn.disabled = false; btn.textContent = 'Send Reset Email'; }
+}
+
+let _fpPhoneOtpSent = false;
+let _fpPendingPhone = '';
+
+async function submitForgotPasswordPhone() {
+  const phoneInp = document.getElementById('forgotPasswordPhone');
+  const otpInp = document.getElementById('forgotPasswordOtp');
+  const otpGroup = document.getElementById('fpPhoneOtpGroup');
+  const errEl = document.getElementById('forgotPasswordPhoneError');
+  const btn = document.getElementById('forgotPasswordPhoneBtn');
+  if (errEl) errEl.textContent = '';
+
+  let phone = (phoneInp?.value || '').replace(/\D/g, '');
+  if (phone.startsWith('0')) phone = phone.slice(1);
+
+  if (!phone || phone.length < 10) {
+    if (errEl) errEl.textContent = 'Please enter a valid 10-digit Nigerian phone number.';
+    return;
+  }
+
+  const fullPhone = '+234' + phone;
+
+  if (!_fpPhoneOtpSent) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending SMS...'; }
+    _fpPendingPhone = phone;
+
+    let sent = false;
+    if (typeof sendOtpToPhone === 'function') {
+      try { sent = await sendOtpToPhone(fullPhone); } catch (_) { sent = false; }
+    }
+
+    if (btn) btn.disabled = false;
+
+    if (sent) {
+      _fpPhoneOtpSent = true;
+      if (otpGroup) otpGroup.style.display = 'block';
+      if (btn) btn.textContent = 'Verify Code & Reset';
+      if (otpInp) { otpInp.value = ''; setTimeout(() => otpInp.focus(), 150); }
+      showToast('📱 SMS code sent to +234 ' + phone, 'info');
+    } else {
+      if (errEl) errEl.textContent = 'Could not send SMS code. Please try again.';
+    }
+    return;
+  }
+
+  const otp = (otpInp?.value || '').trim();
+  if (!/^\d{4,6}$/.test(otp)) {
+    if (errEl) errEl.textContent = 'Enter the verification code from your SMS.';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying...'; }
+
+  let verified = false;
+  if (typeof verifyOtp === 'function') {
+    try {
+      const res = await verifyOtp(fullPhone, otp);
+      verified = res && res.success;
+    } catch (_) { verified = false; }
+  }
+
+  if (btn) btn.disabled = false;
+
+  if (verified) {
+    _fpPhoneOtpSent = false;
+    showToast('✅ Phone identity verified! Please create your new password.', 'gold');
+    closeForgotPasswordModal();
+  } else {
+    if (errEl) errEl.textContent = 'Invalid verification code. Please try again.';
+  }
 }
 
 // ==========================================================

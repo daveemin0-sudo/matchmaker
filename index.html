@@ -243,36 +243,88 @@
         </div>
 
         <div class="auth-body">
-          <div class="auth-form-group">
-            <label for="loginEmail">Email</label>
-            <div class="auth-input-wrap">
-              <span class="auth-input-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-              </span>
-              <input class="auth-input" id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
-            </div>
+          <!-- Rate Limit / Brute-Force Lockout Banner (Dynamic) -->
+          <div class="auth-rate-limit-banner" id="loginRateLimitBanner" style="display:none">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+            <span id="loginRateLimitMsg">Too many failed attempts. Please wait 60s.</span>
           </div>
 
-          <div class="auth-form-group">
-            <label for="loginPassword">Password</label>
-            <div class="auth-input-wrap">
-              <span class="auth-input-icon">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-              </span>
-              <input class="auth-input" id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password">
-              <button class="auth-toggle-password" type="button" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Toggle password">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-              </button>
-            </div>
+          <!-- Auth Mode Tabs: Email vs Phone -->
+          <div class="auth-tabs" role="tablist">
+            <button type="button" class="auth-tab active" id="loginTabEmail" onclick="switchLoginMethod('email')" role="tab" aria-selected="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+              Email
+            </button>
+            <button type="button" class="auth-tab" id="loginTabPhone" onclick="switchLoginMethod('phone')" role="tab" aria-selected="false">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+              Phone Number
+            </button>
           </div>
 
-          <span class="auth-forgot" onclick="handleForgotPassword()">Forgot Password?</span>
+          <!-- EMAIL LOGIN SECTION -->
+          <div id="loginEmailSection">
+            <div class="auth-form-group">
+              <label for="loginEmail">Email Address</label>
+              <div class="auth-input-wrap">
+                <span class="auth-input-icon">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+                </span>
+                <input class="auth-input" id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
+              </div>
+            </div>
 
-          <div class="auth-error" id="loginError"></div>
+            <div class="auth-form-group">
+              <label for="loginPassword">Password</label>
+              <div class="auth-input-wrap">
+                <span class="auth-input-icon">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                </span>
+                <input class="auth-input" id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password">
+                <button class="auth-toggle-password" type="button" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Toggle password">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+                </button>
+              </div>
+            </div>
 
-          <button class="accent-btn" id="loginBtn" onclick="handleLogin()">
-            Sign In
-          </button>
+            <span class="auth-forgot" onclick="handleForgotPassword()">Forgot Password?</span>
+
+            <div class="auth-error" id="loginError"></div>
+
+            <button class="accent-btn" id="loginBtn" onclick="handleLogin()">
+              Sign In
+            </button>
+          </div>
+
+          <!-- PHONE LOGIN SECTION -->
+          <div id="loginPhoneSection" style="display:none">
+            <div class="auth-form-group">
+              <label for="loginPhoneNumber">Phone Number</label>
+              <div class="phone-input-wrap">
+                <div class="phone-country-code">🇳🇬 +234</div>
+                <div class="auth-input-wrap" style="flex:1">
+                  <input class="auth-input" id="loginPhoneNumber" type="tel" placeholder="801 234 5678" inputmode="tel" autocomplete="tel-national">
+                </div>
+              </div>
+            </div>
+
+            <div id="loginPhoneOtpGroup" style="display:none">
+              <div class="auth-form-group">
+                <label for="loginPhoneOtp">6-Digit Verification Code</label>
+                <div class="auth-input-wrap">
+                  <span class="auth-input-icon">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
+                  </span>
+                  <input class="auth-input" id="loginPhoneOtp" type="text" placeholder="123456" maxlength="6" inputmode="numeric" style="letter-spacing:5px;font-weight:700">
+                </div>
+              </div>
+            </div>
+
+            <div class="auth-error" id="loginPhoneError"></div>
+
+            <button class="accent-btn" id="loginPhoneBtn" onclick="handlePhoneLogin()">
+              Send Login Code
+            </button>
+          </div>
 
           <div class="auth-divider">or</div>
 
@@ -423,13 +475,13 @@
             <div class="auth-error" id="signupError3"></div>
           </div>
 
-          <!-- Step 4: Email & Password -->
+          <!-- Step 4: Account Credentials (Email, Phone & Password) -->
           <div class="signup-step" id="signupStep4">
             <div class="signup-step-title">Secure Your Account 🔐</div>
-            <p class="signup-step-sub">Create your login credentials. We'll never share your email.</p>
+            <p class="signup-step-sub">Create your login credentials. We verify real contact details.</p>
 
             <div class="auth-form-group">
-              <label>Email Address</label>
+              <label for="signupEmail">Email Address <span style="color:var(--flame-1)">*</span></label>
               <div class="auth-input-wrap">
                 <span class="auth-input-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></span>
                 <input class="auth-input" id="signupEmail" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
@@ -437,13 +489,43 @@
             </div>
 
             <div class="auth-form-group">
-              <label>Password</label>
+              <label for="signupPhone">Phone Number <span style="color:var(--flame-1)">*</span></label>
+              <div class="phone-input-wrap">
+                <div class="phone-country-code">🇳🇬 +234</div>
+                <div class="auth-input-wrap" style="flex:1">
+                  <input class="auth-input" id="signupPhone" type="tel" placeholder="801 234 5678" inputmode="tel" autocomplete="tel-national">
+                </div>
+              </div>
+            </div>
+
+            <div class="auth-form-group">
+              <label for="signupPassword">Password <span style="color:var(--flame-1)">*</span></label>
               <div class="auth-input-wrap">
                 <span class="auth-input-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></span>
-                <input class="auth-input" id="signupPassword" type="password" placeholder="Min 6 characters" autocomplete="new-password">
+                <input class="auth-input" id="signupPassword" type="password" placeholder="Min 8 chars (uppercase, numbers, symbols)" autocomplete="new-password" oninput="evaluatePasswordStrength(this.value)">
                 <button class="auth-toggle-password" type="button" onclick="togglePasswordVisibility('signupPassword', this)" aria-label="Toggle password">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
                 </button>
+              </div>
+
+              <!-- Password Strength Meter & Checklist -->
+              <div class="pw-strength-container" id="pwStrengthContainer">
+                <div class="pw-strength-bars">
+                  <div class="pw-strength-bar" id="pwBar1"></div>
+                  <div class="pw-strength-bar" id="pwBar2"></div>
+                  <div class="pw-strength-bar" id="pwBar3"></div>
+                  <div class="pw-strength-bar" id="pwBar4"></div>
+                </div>
+                <div class="pw-strength-text">
+                  <span>Strength: <strong id="pwStrengthLabel">Too Weak</strong></span>
+                  <span id="pwStrengthPercent">0%</span>
+                </div>
+                <div class="pw-req-list">
+                  <div class="pw-req-item" id="reqLength"><span>○</span> 8+ characters</div>
+                  <div class="pw-req-item" id="reqUpper"><span>○</span> Uppercase letter (A-Z)</div>
+                  <div class="pw-req-item" id="reqNumber"><span>○</span> Number (0-9)</div>
+                  <div class="pw-req-item" id="reqSymbol"><span>○</span> Symbol (!@#$...)</div>
+                </div>
               </div>
             </div>
 
@@ -1637,23 +1719,51 @@
   </div><!-- end .app-shell -->
 
   <!-- =========================================================
-       MODAL: FORGOT PASSWORD
+       MODAL: FORGOT PASSWORD (Email or Phone SMS)
        ========================================================= -->
   <div class="modal-overlay" id="forgotPasswordModal" style="display:none;align-items:center;justify-content:center;z-index:10000;background:rgba(8,5,14,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:fixed;inset:0">
-    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:420px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.85);position:relative">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:420px;padding:26px;box-shadow:0 20px 60px rgba(0,0,0,0.85);position:relative">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
         <h2 style="font-size:1.35rem;font-weight:700;color:#FFF;margin:0">Reset Password</h2>
         <button onclick="closeForgotPasswordModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
       </div>
-      <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin:0 0 20px">Enter your email address and we'll send you a link to reset your password.</p>
-      <div class="auth-input-wrap" style="margin-bottom:16px">
-        <span class="auth-input-icon">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-        </span>
-        <input class="auth-input" id="forgotPasswordEmail" type="email" placeholder="your@email.com" autocomplete="email" inputmode="email">
+
+      <!-- Mode Selector -->
+      <div class="auth-tabs" style="margin-bottom:14px">
+        <button type="button" class="auth-tab active" id="fpTabEmail" onclick="switchForgotMethod('email')">Via Email</button>
+        <button type="button" class="auth-tab" id="fpTabPhone" onclick="switchForgotMethod('phone')">Via Phone SMS</button>
       </div>
-      <div id="forgotPasswordError" style="color:#FF2E70;font-size:0.83rem;margin-bottom:12px;min-height:18px"></div>
-      <button class="accent-btn" id="forgotPasswordBtn" onclick="submitForgotPassword()" style="width:100%">Send Reset Email</button>
+
+      <!-- Reset Via Email -->
+      <div id="fpEmailSection">
+        <p style="color:rgba(255,255,255,0.6);font-size:0.86rem;margin:0 0 16px;line-height:1.5">Enter your registered email. We will send a secure password reset link to your inbox (check spam/junk folder too).</p>
+        <div class="auth-input-wrap" style="margin-bottom:16px">
+          <span class="auth-input-icon">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+          </span>
+          <input class="auth-input" id="forgotPasswordEmail" type="email" placeholder="your@email.com" autocomplete="email" inputmode="email">
+        </div>
+        <div id="forgotPasswordError" style="color:#FF2E70;font-size:0.83rem;margin-bottom:12px;min-height:18px"></div>
+        <button class="accent-btn" id="forgotPasswordBtn" onclick="submitForgotPassword()" style="width:100%">Send Reset Email</button>
+      </div>
+
+      <!-- Reset Via Phone SMS -->
+      <div id="fpPhoneSection" style="display:none">
+        <p style="color:rgba(255,255,255,0.6);font-size:0.86rem;margin:0 0 16px;line-height:1.5">Enter your registered Nigerian phone number to receive a verification OTP code via SMS.</p>
+        <div class="phone-input-wrap" style="margin-bottom:14px">
+          <div class="phone-country-code">🇳🇬 +234</div>
+          <div class="auth-input-wrap" style="flex:1">
+            <input class="auth-input" id="forgotPasswordPhone" type="tel" placeholder="801 234 5678" inputmode="tel">
+          </div>
+        </div>
+        <div id="fpPhoneOtpGroup" style="display:none;margin-bottom:14px">
+          <div class="auth-input-wrap">
+            <input class="auth-input" id="forgotPasswordOtp" type="text" placeholder="Enter 6-digit SMS code" maxlength="6" inputmode="numeric" style="letter-spacing:4px;font-weight:700">
+          </div>
+        </div>
+        <div id="forgotPasswordPhoneError" style="color:#FF2E70;font-size:0.83rem;margin-bottom:12px;min-height:18px"></div>
+        <button class="accent-btn" id="forgotPasswordPhoneBtn" onclick="submitForgotPasswordPhone()" style="width:100%">Send SMS Code</button>
+      </div>
     </div>
   </div>
 

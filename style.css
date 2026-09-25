@@ -7510,3 +7510,142 @@ body[data-theme="light"],
   100% { box-shadow: none; }
 }
 
+/* ==========================================================
+   AUTHENTICATION UPGRADES: PHONE LOGIN, PASSWORD STRENGTH & SECURITY
+   ========================================================== */
+.auth-tabs {
+  display: flex;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--r-full, 9999px);
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 18px;
+}
+.auth-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: var(--r-full, 9999px);
+  background: transparent;
+  border: none;
+  color: var(--txt-muted, #A29DB0);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.auth-tab:hover {
+  color: var(--txt-primary, #FFFFFF);
+}
+.auth-tab.active {
+  background: var(--grad-flame, linear-gradient(135deg, #FF2E70 0%, #FF6584 100%));
+  color: #FFFFFF;
+  box-shadow: 0 4px 14px rgba(255, 46, 112, 0.35);
+}
+[data-theme="light"] .auth-tabs {
+  background: #F3EEF8;
+  border-color: #E2DAEC;
+}
+[data-theme="light"] .auth-tab {
+  color: #6F677A;
+}
+[data-theme="light"] .auth-tab.active {
+  color: #FFFFFF;
+}
+
+/* Phone input styling */
+.phone-input-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+.phone-country-code {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--r-md, 14px);
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.88rem;
+  color: var(--txt-primary, #FFFFFF);
+  flex-shrink: 0;
+  user-select: none;
+}
+[data-theme="light"] .phone-country-code {
+  background: #F8F5FB;
+  border-color: #E2DAEC;
+  color: #1F1929;
+}
+
+/* Password strength meter */
+.pw-strength-container {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pw-strength-bars {
+  display: flex;
+  gap: 4px;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.pw-strength-bar {
+  flex: 1;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 2px;
+  transition: background 0.3s ease;
+}
+.pw-strength-text {
+  font-size: 0.75rem;
+  font-weight: 600;
+  display: flex;
+  justify-content: space-between;
+  color: var(--txt-muted, #A29DB0);
+}
+.pw-req-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-size: 0.73rem;
+  color: var(--txt-muted, #A29DB0);
+}
+.pw-req-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 0.2s ease;
+}
+.pw-req-item.met {
+  color: #21B06B;
+  font-weight: 600;
+}
+.pw-req-item.met span {
+  color: #21B06B;
+}
+
+/* Rate limit warning banner */
+.auth-rate-limit-banner {
+  background: rgba(255, 46, 112, 0.12);
+  border: 1px solid rgba(255, 46, 112, 0.35);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: #FF5A8D;
+  font-size: 0.83rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
