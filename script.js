@@ -3839,6 +3839,9 @@ function openEditProfileModal() {
     }
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('edit-profile-modal-open');
+    const bgPencil = document.querySelector('.simple-avatar-pencil-badge');
+    if (bgPencil) bgPencil.style.display = 'none';
   }
 }
 
@@ -3847,6 +3850,9 @@ function closeEditProfileModal() {
   if (modal) {
     modal.style.display = 'none';
     document.body.style.overflow = '';
+    document.body.classList.remove('edit-profile-modal-open');
+    const bgPencil = document.querySelector('.simple-avatar-pencil-badge');
+    if (bgPencil) bgPencil.style.display = '';
   }
 }
 
@@ -6549,3 +6555,36 @@ if (document.readyState === 'loading') {
 } else {
   initNavigationHistory();
 }
+
+// Mobile Keyboard Behavior: Lock chat header at top (WhatsApp style) and keep messages visible
+(function initMobileKeyboardChatHandler() {
+  const chatInputEl = document.getElementById('chatInput');
+  const chatMessagesEl = document.getElementById('chatMessages');
+
+  function alignChatViewport() {
+    if (appState.currentScreen === 'chat') {
+      window.scrollTo(0, 0);
+      document.body.scrollTop = 0;
+      if (chatMessagesEl) {
+        chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
+      }
+    }
+  }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', alignChatViewport);
+    window.visualViewport.addEventListener('scroll', () => {
+      if (appState.currentScreen === 'chat') {
+        window.scrollTo(0, 0);
+      }
+    });
+  }
+
+  if (chatInputEl) {
+    chatInputEl.addEventListener('focus', () => {
+      window.scrollTo(0, 0);
+      setTimeout(alignChatViewport, 100);
+      setTimeout(alignChatViewport, 300);
+    });
+  }
+})();
