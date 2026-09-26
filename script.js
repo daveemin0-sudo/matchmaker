@@ -1,4 +1,4 @@
-/* ==========================================================
+﻿/* ==========================================================
    hookmebysam — Full Application Logic
    ========================================================== */
 
@@ -2411,6 +2411,7 @@ function _buildConvoItemHtml(u, filterQuery) {
   }
 
   const isArchived = Boolean(archivedChatIds.has(u.id));
+  const isMuted = Boolean(typeof mutedChatIds !== 'undefined' && mutedChatIds && mutedChatIds.has(u.id));
   return `
     <div class="convo-swipe-wrapper" id="convoSwipe_${u.id}" data-partner-id="${u.id}">
       <div class="convo-swipe-actions">
@@ -2440,7 +2441,7 @@ function _buildConvoItemHtml(u, filterQuery) {
           <div class="convo-preview ${isUnread ? 'convo-preview-unread' : ''}">${escHtml(lastText).substring(0, 46)}${lastText.length > 46 ? '…' : ''}</div>
         </div>
         <div class="convo-meta">
-          <span class="convo-time ${isUnread ? 'convo-time-unread' : ''}">${timeDisplay}</span>
+          <span class="convo-time ${isUnread ? 'convo-time-unread' : ''}">${isMuted ? '<span class="convo-muted-icon" style="opacity:0.6;font-size:11px;margin-right:3px;">🔇</span>' : ''}${timeDisplay}</span>
           ${isUnread ? `<span class="convo-unread-pill">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''}
         </div>
       </div>
@@ -2570,6 +2571,7 @@ function openConvoActionSheet(partnerId, partnerName) {
   document.getElementById('convoActionSheetOverlay')?.remove();
   const partner = matchedUsers.find(u => u.id === partnerId) || {};
   const isArchived = archivedChatIds.has(partnerId);
+  const isMuted = Boolean(typeof mutedChatIds !== 'undefined' && mutedChatIds && mutedChatIds.has(partnerId));
   const avatar = partner.image || '';
 
   const overlay = document.createElement('div');
@@ -2593,7 +2595,7 @@ function openConvoActionSheet(partnerId, partnerName) {
 
       <div class="convo-sheet-list">
         <button class="convo-sheet-item" onclick="closeConvoActionSheet();toggleArchiveConversation('${partnerId}')">
-          <div class="convo-sheet-icon" style="color:#5b51d8">
+          <div class="convo-sheet-icon" style="color:#8696a0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
           </div>
           <div class="convo-sheet-label">${isArchived ? 'Unarchive chat' : 'Archive chat'}</div>
@@ -2607,17 +2609,20 @@ function openConvoActionSheet(partnerId, partnerName) {
         </button>
 
         <button class="convo-sheet-item" onclick="closeConvoActionSheet();toggleMuteConversation('${partnerId}')">
-          <div class="convo-sheet-icon" style="color:#F4C550">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+          <div class="convo-sheet-icon" style="color:#8696a0">
+            ${isMuted ?
+              `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>` :
+              `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
+            }
           </div>
-          <div class="convo-sheet-label">Mute notifications</div>
+          <div class="convo-sheet-label">${isMuted ? 'Unmute notifications' : 'Mute notifications'}</div>
         </button>
 
-        <button class="convo-sheet-item danger-item" onclick="closeConvoActionSheet();confirmDeleteConversation('${partnerId}', '${escHtml(partnerName)}')">
-          <div class="convo-sheet-icon" style="color:#FF3B30">
+        <button class="convo-sheet-item" onclick="closeConvoActionSheet();confirmDeleteConversation('${partnerId}', '${escHtml(partnerName)}')">
+          <div class="convo-sheet-icon" style="color:#8696a0">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
           </div>
-          <div class="convo-sheet-label" style="color:#FF3B30">Delete conversation</div>
+          <div class="convo-sheet-label" style="color:#cfd8dc">Delete conversation</div>
         </button>
       </div>
     </div>
@@ -2700,8 +2705,23 @@ function toggleArchiveConversation(partnerId) {
   renderChatsInbox();
 }
 
+// Persisted muted chat IDs
+let mutedChatIds = (function() {
+  try { return new Set(JSON.parse(localStorage.getItem('hmbs_muted_chats') || '[]')); } catch(_) { return new Set(); }
+})();
+
 function toggleMuteConversation(partnerId) {
-  showToast('Notifications muted 🔇', 'info');
+  if (!partnerId) return;
+  if (mutedChatIds.has(partnerId)) {
+    mutedChatIds.delete(partnerId);
+    showToast('Notifications unmuted', 'info');
+  } else {
+    mutedChatIds.add(partnerId);
+    showToast('Notifications muted', 'info');
+  }
+  try { localStorage.setItem('hmbs_muted_chats', JSON.stringify(Array.from(mutedChatIds))); } catch(_) {}
+  renderConversationList();
+  renderChatsInbox();
 }
 
 function openArchivedChatsModal() {
@@ -2998,18 +3018,23 @@ function openChat(profileId, { fromHistory = false } = {}) {
         const clearedAt = parseInt(localStorage.getItem('hmbs_cleared_' + profileId) || '0', 10);
         const validRemoteMsgs = remoteMsgs.filter(m => (m.timestamp || 0) > clearedAt);
 
-        // Retain recently added local pending messages (e.g. voice notes/videos being uploaded)
+        // Retain recently added local pending messages (e.g. photos/videos being uploaded)
         const currentMsgs = conversations[profileId]?.messages || [];
-        const pendingLocal = currentMsgs.filter(m =>
-          m.id && String(m.id).startsWith('local_') && (Date.now() - (m.timestamp || 0) < 60000) &&
-          (m.timestamp || 0) > clearedAt &&
-          !validRemoteMsgs.some(rm =>
+        const pendingLocal = currentMsgs.filter(m => {
+          if (!m.id || !String(m.id).startsWith('local_')) return false;
+          if ((m.timestamp || 0) <= clearedAt) return false;
+          // Retain if still uploading or created within the last 15 minutes
+          const isFresh = Boolean(m._uploading) || (Date.now() - (m.timestamp || 0) < 15 * 60 * 1000);
+          if (!isFresh) return false;
+          const alreadyInRemote = validRemoteMsgs.some(rm =>
+            (rm.localId && rm.localId === m.id) ||
             (rm.videoUrl && (rm.videoUrl === m.videoUrl || rm.videoUrl === m.imageUrl)) ||
             (rm.imageUrl && (rm.imageUrl === m.imageUrl || rm.imageUrl === m.videoUrl)) ||
             (rm.audioUrl && rm.audioUrl === m.audioUrl) ||
-            (rm.text && rm.text === m.text && Math.abs((rm.timestamp || 0) - (m.timestamp || 0)) < 4000)
-          )
-        );
+            (rm.text && rm.text === m.text && Math.abs((rm.timestamp || 0) - (m.timestamp || 0)) < 6000)
+          );
+          return !alreadyInRemote;
+        });
 
         const prevMsgs = conversations[profileId]?.messages || [];
         const prevLastTime = prevMsgs.length > 0 ? (prevMsgs[prevMsgs.length - 1].timestamp || 0) : 0;
@@ -4487,35 +4512,32 @@ async function sendImageMessage(event) {
   event.target.value = '';
 
   const partnerId = appState.currentChatId;
-  const isVideo = file.type.startsWith('video/');
+  const isVideo = Boolean(
+    (file.type && file.type.startsWith('video/')) ||
+    (file.name && file.name.match(/\.(mp4|mov|webm|m4v|3gp|mkv)$/i))
+  );
+
+  if (isVideo && file.size > 30 * 1024 * 1024) {
+    showToast('Video exceeds 30MB limit. Please choose a smaller video.', 'error');
+    return;
+  }
 
   if (!conversations[partnerId]) {
     conversations[partnerId] = { messages: [] };
   }
 
   const localMsgId = (isVideo ? 'local_vid_' : 'local_img_') + Date.now();
-
-  let mediaUrl = '';
-  if (isVideo) {
-    mediaUrl = await new Promise((res) => {
-      const r = new FileReader();
-      r.onload = e => res(e.target.result);
-      r.onerror = () => res(URL.createObjectURL(file));
-      r.readAsDataURL(file);
-    });
-  } else {
-    mediaUrl = await compressImageForChat(file);
-  }
-  if (!mediaUrl) return;
+  const localPreviewUrl = URL.createObjectURL(file);
 
   const newMsg = {
     id: localMsgId,
     sender: 'me',
-    imageUrl: isVideo ? '' : mediaUrl,
-    videoUrl: isVideo ? mediaUrl : '',
+    imageUrl: isVideo ? '' : localPreviewUrl,
+    videoUrl: isVideo ? localPreviewUrl : '',
     isVideo: isVideo,
     read: true,
-    timestamp: Date.now()
+    timestamp: Date.now(),
+    _uploading: true
   };
 
   conversations[partnerId].messages.push(newMsg);
@@ -4525,46 +4547,83 @@ async function sendImageMessage(event) {
   renderChatsInbox();
   updateMatchesNotificationBadge();
   saveToStorage();
-  showToast(isVideo ? '📹 Sending video...' : '📷 Photo sent!', 'gold');
+  showToast(isVideo ? 'Uploading video...' : 'Uploading photo...', 'gold');
 
-  // Background upload & dispatch
   (async () => {
-    let finalUrl = mediaUrl;
-    if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
+    let cloudUrl = null;
+    let fileToUpload = file;
+
+    // For photos: compress before upload for instant delivery
+    if (!isVideo) {
       try {
-        const uploadedUrl = await uploadFileToBackend(file, 'chat_media', false, file.type);
-        if (uploadedUrl) {
-          finalUrl = uploadedUrl;
-          const targetMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId);
-          if (targetMsg) {
-            if (isVideo) targetMsg.videoUrl = uploadedUrl;
-            else targetMsg.imageUrl = uploadedUrl;
-            saveToStorage();
-          }
+        const compressedDataUrl = await compressImageForChat(file, 1280, 0.82);
+        if (compressedDataUrl && compressedDataUrl.startsWith('data:')) {
+          const resp = await fetch(compressedDataUrl);
+          const compressedBlob = await resp.blob();
+          fileToUpload = new File([compressedBlob], file.name ? file.name.replace(/\.[^.]+$/, '.jpg') : 'photo.jpg', { type: 'image/jpeg' });
         }
-      } catch (err) {
-        console.warn('Media upload fallback to dataUrl:', err);
+      } catch (cErr) {
+        console.warn('Image compression fallback:', cErr);
+        fileToUpload = file;
       }
     }
 
-    // Safety check: Videos cannot be saved as raw multi-megabyte base64 strings in Firestore (1MB max doc limit)
-    if (isVideo && (!finalUrl || finalUrl.startsWith('data:') || finalUrl.startsWith('blob:'))) {
-      console.error('Video cloud upload failed — cannot write raw video to Firestore due to 1MB size limit');
-      showToast('❌ Video upload failed. Please ensure file is under 30MB and check connection.', 'error');
+    if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+      try {
+        const uploadPromise = uploadFileToBackend(
+          fileToUpload,
+          'chat_media',
+          false,
+          isVideo ? (file.type || 'video/mp4') : 'image/jpeg'
+        );
+        const timeoutPromise = new Promise(res => setTimeout(() => res(null), 60000));
+        cloudUrl = await Promise.race([uploadPromise, timeoutPromise]);
+      } catch (err) {
+        console.warn('sendImageMessage: uploadFileToBackend threw:', err);
+      }
+    }
+
+    if (!cloudUrl) {
+      showToast(isVideo ? 'Video upload failed. Check connection.' : 'Photo upload failed. Check connection.', 'error');
       const msgIndex = conversations[partnerId]?.messages?.findIndex(m => m.id === localMsgId);
-      if (msgIndex !== -1 && msgIndex !== undefined) {
+      if (msgIndex !== undefined && msgIndex !== -1) {
         conversations[partnerId].messages.splice(msgIndex, 1);
         renderChatThread();
         saveToStorage();
       }
+      try { URL.revokeObjectURL(localPreviewUrl); } catch (_) {}
       return;
     }
 
+    // Update local message to permanent cloud URL
+    const targetMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId);
+    if (targetMsg) {
+      if (isVideo) targetMsg.videoUrl = cloudUrl;
+      else targetMsg.imageUrl = cloudUrl;
+      delete targetMsg._uploading;
+      renderChatThread();
+      saveToStorage();
+    }
+    try { URL.revokeObjectURL(localPreviewUrl); } catch (_) {}
+
+    // Dispatch to Firestore so partner receives it
     if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-      const sent = await sendRealtimeMessage(matchId, isVideo ? '📹 Video' : '', false, '', isVideo ? '' : finalUrl, null, isVideo ? finalUrl : '', isVideo);
-      if (sent && isVideo) {
-        showToast('📹 Video delivered!', 'gold');
+      const sent = await sendRealtimeMessage(
+        matchId,
+        isVideo ? 'Video' : 'Photo',
+        false,
+        '',
+        isVideo ? '' : cloudUrl,
+        null,
+        isVideo ? cloudUrl : '',
+        isVideo,
+        localMsgId
+      );
+      if (sent) {
+        showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
+      } else {
+        showToast('Could not deliver to partner right now.', 'info');
       }
     }
   })();
@@ -7291,9 +7350,14 @@ function renderStoriesRow() {
         </div>
       </div>`;
   } else if (hasStory && latestUserStory) {
+    const isMyVid = Boolean(latestUserStory.isVideo || latestUserStory.video);
+    const myMedia = latestUserStory.video || latestUserStory.thumb || latestUserStory.image;
     html += `
       <div class="wa-status-card your-status-card has-story" onclick="viewYourStory(0)">
-        <div class="wa-status-card-bg" style="background-image:url('${latestUserStory.thumb || latestUserStory.image}')"></div>
+        ${isMyVid && myMedia
+          ? `<video class="wa-status-card-video" src="${escHtml(myMedia)}#t=0.5" preload="metadata" muted playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;"></video>`
+          : `<div class="wa-status-card-bg" style="background-image:url('${latestUserStory.thumb || latestUserStory.image}')"></div>`
+        }
         <div class="wa-status-card-overlay"></div>
         <div class="wa-status-avatar-wrap">
           <div class="wa-status-avatar active-ring" style="background-image:url('${userAvatar}')"></div>
@@ -7323,12 +7387,25 @@ function renderStoriesRow() {
   html += list.map((s) => {
     const seen = seenStories.has(s.id);
     const contactAvatar = s.avatar || s.thumb || s.image;
+    const isVid = Boolean(s.isVideo || s.video);
+    const mediaUrl = s.video || s.image || '';
+
+    let mediaBgHtml = '';
+    if (isVid && mediaUrl) {
+      mediaBgHtml = `<video class="wa-status-card-video" src="${escHtml(mediaUrl)}#t=0.5" preload="metadata" muted playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;"></video>`;
+    } else if (mediaUrl) {
+      mediaBgHtml = `<div class="wa-status-card-bg" style="background-image:url('${escHtml(mediaUrl)}')"></div>`;
+    } else {
+      mediaBgHtml = `<div class="wa-status-card-bg" style="background-image:url('${escHtml(contactAvatar)}')"></div>`;
+    }
+
     return `
       <div class="wa-status-card contact-status-card ${seen ? 'seen' : ''}" onclick="viewStory('${s.id}')">
-        <div class="wa-status-card-bg" style="background-image:url('${s.thumb || s.image}')"></div>
+        ${mediaBgHtml}
         <div class="wa-status-card-overlay"></div>
         <div class="wa-status-avatar-wrap">
           <div class="wa-status-avatar ${seen ? 'seen-ring' : 'active-ring'}" style="background-image:url('${contactAvatar}')"></div>
+          ${isVid ? `<span class="wa-status-vid-icon" style="position:absolute;bottom:-2px;right:-2px;background:#111b21;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;">📹</span>` : ''}
         </div>
         <div class="wa-status-card-info">
           <span class="wa-status-card-name">${escHtml(s.name)}</span>
@@ -7405,7 +7482,18 @@ function showStoryAtIndex(idx) {
       storyVid.style.display = 'block';
       storyVid.src = story.video || story.image;
       storyVid.currentTime = 0;
-      storyVid.play().catch(() => {});
+      storyVid.play().catch(() => {
+        storyVid.muted = true;
+        storyVid.play().catch(() => {});
+      });
+      storyVid.onended = () => {
+        nextStory();
+      };
+      storyVid.onloadedmetadata = () => {
+        clearTimeout(storyTimer);
+        const durationSec = Math.min(30, Math.max(5, storyVid.duration || 6));
+        storyTimer = setTimeout(() => { nextStory(); }, durationSec * 1000);
+      };
     }
   } else {
     if (storyVid) {
@@ -7417,43 +7505,6 @@ function showStoryAtIndex(idx) {
       bgImg.style.display = 'block';
       bgImg.style.backgroundImage = `url('${story.image}')`;
     }
-  }
-
-  if (avatar) avatar.style.backgroundImage = `url('${isOwn ? (currentUser.avatar || story.thumb || story.image) : (story.thumb || story.image)}')`;
-  if (nameEl) nameEl.textContent = isOwn ? (userStories.length > 1 ? `Your Story (${currentStoryIndex + 1}/${userStories.length})` : 'Your Story') : story.name;
-  if (ageEl) ageEl.textContent = isOwn ? '' : (story.age ? `, ${story.age}` : '');
-  if (locEl) locEl.textContent = `📍 ${story.location || 'Lagos'}${isOwn ? ' • Active for 24h' : ''}`;
-  if (captionEl) captionEl.textContent = story.bio || '';
-  if (captionOverlay) captionOverlay.style.display = story.bio ? 'block' : 'none';
-
-  // Strict ownership: only story author can see Delete & Add
-  if (deleteBtn) {
-    deleteBtn.style.setProperty('display', isOwn ? 'flex' : 'none', 'important');
-    deleteBtn.classList.toggle('is-hidden', !isOwn);
-  }
-  if (addMoreBtn) {
-    addMoreBtn.style.setProperty('display', isOwn ? 'flex' : 'none', 'important');
-    addMoreBtn.classList.toggle('is-hidden', !isOwn);
-  }
-  if (ownActionBar) {
-    ownActionBar.style.setProperty('display', isOwn ? 'flex' : 'none', 'important');
-    ownActionBar.classList.toggle('is-hidden', !isOwn);
-  }
-  if (commActionRow) {
-    commActionRow.style.setProperty('display', isOwn ? 'none' : 'flex', 'important');
-  }
-
-  if (inputEl) inputEl.placeholder = `Reply to ${story.name}...`;
-
-  // Render Story Progress Indicators
-  const progressBars = document.getElementById('storyProgressBars');
-  if (progressBars) {
-    progressBars.innerHTML = activeList.map((_, i) => {
-      let cls = 'story-progress-bar';
-      if (i < currentStoryIndex) cls += ' completed';
-      else if (i === currentStoryIndex) cls += ' active';
-      return `<div class="${cls}"><div class="story-progress-fill"></div></div>`;
-    }).join('');
   }
 
   if (overlay) {
@@ -7609,7 +7660,11 @@ function deleteCurrentUserStory() {
 
   // 1. Remove from local userStories
   if (Array.isArray(userStories)) {
-    userStories = userStories.filter(s => (s.id && s.id !== storyId) && (s.docId && s.docId !== storyId) && s.image !== mediaUrl && s.video !== mediaUrl);
+    userStories = userStories.filter(s => {
+      if (storyId && (s.id === storyId || s.docId === storyId)) return false;
+      if (mediaUrl && (s.image === mediaUrl || s.video === mediaUrl || s.mediaUrl === mediaUrl)) return false;
+      return true;
+    });
     if (userStories.length === 0) {
       try { localStorage.setItem('hmbs_user_stories_cleared', 'true'); } catch (_) {}
     }
@@ -7620,7 +7675,11 @@ function deleteCurrentUserStory() {
 
   // 2. Remove from communityStories
   if (Array.isArray(communityStories)) {
-    communityStories = communityStories.filter(s => (s.id && s.id !== storyId) && (s.docId && s.docId !== storyId) && s.image !== mediaUrl && s.video !== mediaUrl);
+    communityStories = communityStories.filter(s => {
+      if (storyId && (s.id === storyId || s.docId === storyId)) return false;
+      if (mediaUrl && (s.image === mediaUrl || s.video === mediaUrl || s.mediaUrl === mediaUrl)) return false;
+      return true;
+    });
   }
 
   // 3. Delete from Firestore with batch/orphan cleanup
@@ -9461,9 +9520,13 @@ async function handleStoryPhotoSelected(event) {
   const file = event.target.files && event.target.files[0];
   if (event.target) event.target.value = '';
   if (!file) return;
-  const isVideo = Boolean(file.type && file.type.startsWith('video/'));
-  if (!file.type.startsWith('image/') && !isVideo) {
-    showToast('Please select a photo or video.', 'error');
+  const isVideo = Boolean(
+    (file.type && file.type.startsWith('video/')) ||
+    (file.name && file.name.match(/\.(mp4|mov|webm|m4v|3gp|mkv)$/i))
+  );
+
+  if (isVideo && file.size > 30 * 1024 * 1024) {
+    showToast('Video exceeds 30MB limit. Please choose a shorter video.', 'error');
     return;
   }
 
@@ -9494,13 +9557,18 @@ async function handleStoryPhotoSelected(event) {
     // 2. Upload directly to Firebase Storage
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       try {
-        const uploadPromise = uploadFileToBackend(blobToUpload, 'stories', true);
-        // Generous 60s timeout for video uploads on mobile connections
+        const uploadPromise = uploadFileToBackend(
+          blobToUpload,
+          'stories',
+          true,
+          isVideo ? (file.type || 'video/mp4') : 'image/jpeg'
+        );
         const timeoutPromise = new Promise(res => setTimeout(() => res(null), 60000));
         const uploaded = await Promise.race([uploadPromise, timeoutPromise]);
-        if (uploaded?.url) {
-          finalUrl = uploaded.url;
-          storagePath = uploaded.storagePath || '';
+        const cloudUrl = typeof uploaded === 'string' ? uploaded : (uploaded?.url || null);
+        if (cloudUrl) {
+          finalUrl = cloudUrl;
+          storagePath = uploaded?.storagePath || '';
         } else {
           console.warn('Story upload timed out or returned no URL');
         }
@@ -9512,7 +9580,6 @@ async function handleStoryPhotoSelected(event) {
     // Fallback URL for local display if offline/no storage
     if (!finalUrl) {
       if (isVideo) {
-        // Can't upload video to Firestore without Cloud Storage (exceeds 1MB doc limit)
         window._isUploadingStory = false;
         window._uploadingStoryPreview = null;
         renderStoriesRow();
@@ -9529,7 +9596,7 @@ async function handleStoryPhotoSelected(event) {
       id: storyDocId,
       docId: storyDocId,
       name: currentUser.name || 'You',
-      image: isVideo ? (currentUser.avatar || currentUser.image || finalUrl) : finalUrl,
+      image: finalUrl,
       thumb: currentUser.avatar || currentUser.image || finalUrl,
       video: isVideo ? finalUrl : null,
       isVideo: isVideo,
@@ -9550,18 +9617,6 @@ async function handleStoryPhotoSelected(event) {
         await uploadStoryToFirestore(story);
       } catch (fErr) {
         console.warn('uploadStoryToFirestore error:', fErr);
-      }
-
-      // Purge any previous/deleted stories for this user from Firestore so old pictures don't linger
-      if (typeof fbDb !== 'undefined' && fbDb && myUid) {
-        fbDb.collection('stories').where('ownerId', '==', myUid).get().then(snap => {
-          snap.forEach(d => {
-            if (d.id !== storyDocId) {
-              console.log('Purging previous/old story doc from Firestore:', d.id);
-              d.ref.delete().catch(() => {});
-            }
-          });
-        }).catch(() => {});
       }
     }
 

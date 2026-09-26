@@ -534,7 +534,7 @@ function listenToRealtimeMessages(matchId, callback) {
   }
 }
 
-async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "", replyTo = null, videoUrl = "", isVideo = false) {
+async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "", replyTo = null, videoUrl = "", isVideo = false, localId = "") {
   if (!fbDb || !fbAuth?.currentUser) return;
   const currentUserId = fbAuth.currentUser.uid;
 
@@ -552,6 +552,7 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     };
     if (replyTo) msgData.replyTo = replyTo;
+    if (localId) msgData.localId = localId;
 
     await fbDb.collection('matches').doc(matchId).collection('messages').add(msgData);
 
@@ -658,9 +659,18 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
   try {
     const allowedRoots = new Set(['stories', 'voicenotes', 'chat_media', 'chat_images', 'chat_videos']);
     if (!allowedRoots.has(path) || !fbAuth?.currentUser) return null;
-    const uid = fbAuth.currentUser.uid;
-    const isVid = (file.type && file.type.startsWith('video/')) || path === 'chat_videos';
-    const isAud = (file.type && file.type.startsWith('audio/')) || path === 'voicenotes';
+    const isVid = Boolean(
+      (file.type && file.type.startsWith('video/')) ||
+      (file.name && file.name.match(/\.(mp4|mov|webm|m4v|3gp|mkv)$/i)) ||
+      (customContentType && customContentType.startsWith('video/')) ||
+      path === 'chat_videos'
+    );
+    const isAud = Boolean(
+      (file.type && file.type.startsWith('audio/')) ||
+      (file.name && file.name.match(/\.(webm|mp3|m4a|wav|ogg|aac)$/i)) ||
+      (customContentType && customContentType.startsWith('audio/')) ||
+      path === 'voicenotes'
+    );
     const defaultExt = isAud ? '.webm' : (isVid ? '.mp4' : '.jpg');
     const safeName = String(file.name || ('file' + defaultExt)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
     const storagePath = (path === 'chat_images' || path === 'chat_videos') ? 'chat_media' : path;
@@ -1221,8 +1231,14 @@ async function uploadStoryToFirestore(storyData) {
   const docId = storyData.docId || storyData.id || ('story_' + uid + '_' + Date.now());
 
   try {
-    const isVid = Boolean(storyData.isVideo || storyData.video || storyData.mediaType === 'video');
-    const mediaUrl = storyData.video || storyData.image || storyData.mediaUrl || '';
+    const isVid = Boolean(
+      storyData.isVideo ||
+      storyData.video ||
+      storyData.mediaType === 'video' ||
+      (storyData.mediaUrl && storyData.mediaUrl.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i)) ||
+      (storyData.image && storyData.image.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i))
+    );
+    const mediaUrl = storyData.video || storyData.mediaUrl || storyData.image || '';
     if (!mediaUrl || mediaUrl.startsWith('blob:')) {
       console.warn('Cannot upload local blob URL to Firestore stories feed');
       return null;
@@ -1232,6 +1248,7 @@ async function uploadStoryToFirestore(storyData) {
       console.warn('Media payload too large for Firestore document (>500KB). Must use Cloud Storage HTTPS URL.');
       return null;
     }
+
     await fbDb.collection('stories').doc(docId).set({
       ownerId: uid,
       ownerName: storyData.name || currentUser?.name || 'You',
@@ -1247,6 +1264,26 @@ async function uploadStoryToFirestore(storyData) {
       viewCount: 0
     });
     console.log('✅ Story uploaded to Firestore:', docId);
+
+    // Automatically purge older story docs for this user so old deleted pictures NEVER linger for other users
+    try {
+      const snap = await fbDb.collection('stories').where('ownerId', '==', uid).get();
+      if (!snap.empty && snap.size > 1) {
+        const batch = fbDb.batch();
+        let purged = 0;
+        snap.forEach(d => {
+          if (d.id !== docId) {
+            batch.delete(d.ref);
+            purged++;
+          }
+        });
+        if (purged > 0) {
+          await batch.commit();
+          console.log(`Cleaned up ${purged} older story doc(s) from Firestore for user ${uid}`);
+        }
+      }
+    } catch (_) {}
+
     return docId;
   } catch (e) {
     console.error('Story upload error:', e);
@@ -1268,9 +1305,13 @@ async function deleteStoryFromFirestore(storyId, storyData = null, deleteAllForU
       snap.forEach(doc => {
         const d = doc.data() || {};
         const matchesId = doc.id === storyId || (storyData && (doc.id === storyData.id || doc.id === storyData.docId));
-        const matchesMedia = storyData && (d.mediaUrl === storyData.image || d.mediaUrl === storyData.video || d.mediaUrl === storyData.mediaUrl);
+        const matchesMedia = storyData && (
+          (storyData.image && d.mediaUrl === storyData.image) ||
+          (storyData.video && d.mediaUrl === storyData.video) ||
+          (storyData.mediaUrl && d.mediaUrl === storyData.mediaUrl)
+        );
         const matchesPath = storyData && storyData.storagePath && d.storagePath === storyData.storagePath;
-        if (deleteAllForUser || matchesId || matchesMedia || matchesPath) {
+        if (deleteAllForUser || matchesId || matchesMedia || matchesPath || snap.size === 1) {
           batch.delete(doc.ref);
           deleteCount++;
         }
@@ -1298,15 +1339,16 @@ async function fetchActiveStoriesFromFirestore() {
       const d = doc.data() || {};
       const exp = d.expiresAt?.toMillis ? d.expiresAt.toMillis() : null;
       if (!exp || exp > nowMs) {
-        const isVid = d.mediaType === 'video';
+        const isVid = d.mediaType === 'video' || Boolean(d.mediaUrl && d.mediaUrl.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i));
+        const userAvatar = d.ownerAvatar || '';
         stories.push({
           id: doc.id,
           ownerId: d.ownerId,
           name: d.ownerName || 'HookMe Member',
-          image: d.mediaUrl || d.image,
-          video: isVid ? (d.mediaUrl || d.image) : '',
+          image: d.mediaUrl || d.image || userAvatar,
+          video: isVid ? (d.mediaUrl || d.image || '') : '',
           isVideo: isVid,
-          thumb: d.ownerAvatar || d.thumb || d.mediaUrl || d.image,
+          thumb: userAvatar || d.thumb || (isVid ? '' : (d.mediaUrl || d.image)) || '',
           location: d.location || 'Lagos',
           bio: d.bio || '',
           tags: d.tags || [],
@@ -1333,15 +1375,16 @@ function listenToCommunityStories(callback) {
         const d = doc.data() || {};
         const exp = d.expiresAt?.toMillis ? d.expiresAt.toMillis() : null;
         if (!exp || exp > nowMs) {
-          const isVid = d.mediaType === 'video';
+          const isVid = d.mediaType === 'video' || Boolean(d.mediaUrl && d.mediaUrl.match(/\.(mp4|webm|mov|m4v)(\?.*)?$/i));
+          const userAvatar = d.ownerAvatar || '';
           stories.push({
             id: doc.id,
             ownerId: d.ownerId,
             name: d.ownerName || 'HookMe Member',
-            image: d.mediaUrl || d.image,
-            video: isVid ? (d.mediaUrl || d.image) : '',
+            image: d.mediaUrl || d.image || userAvatar,
+            video: isVid ? (d.mediaUrl || d.image || '') : '',
             isVideo: isVid,
-            thumb: d.ownerAvatar || d.thumb || d.mediaUrl || d.image,
+            thumb: userAvatar || d.thumb || (isVid ? '' : (d.mediaUrl || d.image)) || '',
             location: d.location || 'Lagos',
             bio: d.bio || '',
             tags: d.tags || [],

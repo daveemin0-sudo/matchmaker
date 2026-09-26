@@ -1367,10 +1367,10 @@ html.age-gate-passed #ageGateOverlay {
   opacity: 0.8;
 }
 .convo-archive-btn {
-  background: #5b51d8;
+  background: #1f2c34;
 }
 .convo-delete-btn {
-  background: #e53935;
+  background: #262d31;
 }
 .convo-swipe-wrapper .convo-item {
   border-bottom: none !important;
@@ -1565,11 +1565,11 @@ html.age-gate-passed #ageGateOverlay {
   transition: color var(--t-fast) var(--ease);
 }
 .convo-time-unread {
-  color: var(--flame-1, #FF2E70) !important;
+  color: var(--txt-secondary, #aaa) !important;
   font-weight: 700;
 }
 .convo-item.convo-unread {
-  background: rgba(255, 46, 112, 0.05);
+  background: rgba(255, 255, 255, 0.03);
 }
 .convo-name-unread {
   font-weight: 800 !important;
@@ -1580,7 +1580,7 @@ html.age-gate-passed #ageGateOverlay {
   color: var(--txt-primary) !important;
 }
 .convo-unread-pill {
-  background: linear-gradient(135deg, #FF2E70, #FF6584);
+  background: rgba(255, 255, 255, 0.18);
   color: #ffffff;
   font-size: 0.65rem;
   font-weight: 800;
@@ -1592,7 +1592,6 @@ html.age-gate-passed #ageGateOverlay {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 6px rgba(255, 46, 112, 0.45);
 }
 
 /* ============================================================
