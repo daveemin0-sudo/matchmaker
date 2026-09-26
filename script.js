@@ -676,6 +676,17 @@ function showScreen(screenId, { fromHistory = false } = {}) {
   }
 }
 
+function setHeaderBtnVisible(btn, visible) {
+  if (!btn) return;
+  if (visible) {
+    btn.style.setProperty('display', 'flex', 'important');
+    btn.classList.remove('is-hidden');
+  } else {
+    btn.style.setProperty('display', 'none', 'important');
+    btn.classList.add('is-hidden');
+  }
+}
+
 function updateHeader(screenId) {
   const backBtn = document.getElementById('backBtn');
   const headerTitle = document.getElementById('headerTitle');
@@ -689,23 +700,27 @@ function updateHeader(screenId) {
 
   if (!backBtn || !headerTitle) return;
 
-  // Ensure headerRight is visible on all main screens
+  // Ensure headerRight is visible on main screens
   if (headerRight) headerRight.style.display = 'flex';
 
-  const searchBtn = document.getElementById('headerSearchBtn');
-  const reportBtn = document.getElementById('chatReportBtn');
+  const searchBtn  = document.getElementById('headerSearchBtn');
+  const reportBtn  = document.getElementById('chatReportBtn');
   const upgradeBtn = document.getElementById('upgradeHeaderBtn');
-  const matchBtn  = document.getElementById('matchesQuickBtn');
+  const matchBtn   = document.getElementById('matchesQuickBtn');
 
-  // Precise header icons visibility per screen
-  if (searchBtn)  searchBtn.style.display  = (screenId === 'discovery' || screenId === 'matches') ? 'flex' : 'none';
-  if (matchBtn)   matchBtn.style.display   = (screenId === 'discovery') ? 'flex' : 'none';
-  if (upgradeBtn) upgradeBtn.style.display = (screenId === 'discovery' || screenId === 'matches') ? 'flex' : 'none';
-  if (reportBtn)  reportBtn.style.display  = (screenId === 'chat') ? 'flex' : 'none';
+  // Exact icon scoping requested by user:
+  // - Heart (matches): Discovery only
+  // - Report & Block (exclamation): Discovery only (in middle of heart & crown for reporting profiles), strictly hidden on settings, profile, chatsList, matches
+  // - Crown (upgrade): Discovery & Matches
+  // - Search: Discovery & Matches
+  setHeaderBtnVisible(searchBtn, screenId === 'discovery' || screenId === 'matches');
+  setHeaderBtnVisible(matchBtn, screenId === 'discovery');
+  setHeaderBtnVisible(reportBtn, screenId === 'discovery');
+  setHeaderBtnVisible(upgradeBtn, screenId === 'discovery' || screenId === 'matches');
 
   switch (screenId) {
     case 'discovery':
-      backBtn.style.display = 'none';
+      setHeaderBtnVisible(backBtn, false);
       headerTitle.className = 'main-header-logo';
       headerTitle.innerHTML = '<span class="header-flame-icon">🔥</span><span class="brand-hook">hookme</span><span class="brand-by">by</span><span class="brand-sam">sam</span>';
       headerTitle.style.background = '';
@@ -713,25 +728,25 @@ function updateHeader(screenId) {
       headerTitle.style.webkitTextFillColor = '';
       break;
     case 'matches':
-      backBtn.style.display = 'flex';
+      setHeaderBtnVisible(backBtn, true);
       setHeaderTitle('Matches');
       break;
     case 'chatsList':
-      backBtn.style.display = 'none';
+      setHeaderBtnVisible(backBtn, false);
       setHeaderTitle('Messages 💬');
       break;
     case 'chat': {
-      backBtn.style.display = 'flex';
+      setHeaderBtnVisible(backBtn, true);
       const partner = matchedUsers.find(u => u.id === appState.currentChatId);
       setHeaderTitle(partner ? `${escHtml(partner.name)} <span style="color:var(--green-match);font-size:0.7rem;margin-left:6px">●</span>` : 'Chat');
       break;
     }
     case 'profile':
-      backBtn.style.display = 'flex';
+      setHeaderBtnVisible(backBtn, true);
       setHeaderTitle('Profile');
       break;
     case 'settings':
-      backBtn.style.display = 'flex';
+      setHeaderBtnVisible(backBtn, true);
       setHeaderTitle('Settings');
       break;
   }
@@ -7344,7 +7359,20 @@ function formatBoostTime(seconds) {
 // ==========================================================
 
 function reportUser() {
-  const partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
+  let partner = null;
+  if (appState.currentScreen === 'chat' && appState.currentChatId) {
+    partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
+  }
+  if (!partner && appState.currentScreen === 'discovery') {
+    if (typeof profileStack !== 'undefined' && profileStack.length > 0) {
+      partner = profileStack[0];
+    } else if (typeof PROFILES_DATA !== 'undefined' && PROFILES_DATA.length > 0) {
+      partner = PROFILES_DATA[0];
+    }
+  }
+  if (!partner && appState.currentChatId) {
+    partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
+  }
   const name = partner ? escHtml(partner.name) : 'this user';
   const userId = partner?.id || '';
 
@@ -7484,7 +7512,11 @@ async function blockUser(userId, name) {
   renderSettingsScreen();
   updateMatchesNotificationBadge();
   showToast(`${name || 'User'} has been blocked.`, 'info');
-  showScreen('matches');
+  if (appState.currentScreen === 'discovery') {
+    renderCardStack();
+  } else {
+    showScreen('matches');
+  }
 }
 
 async function executeReportAndBlock(userId, name) {

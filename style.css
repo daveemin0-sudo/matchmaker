@@ -323,6 +323,16 @@ html.age-gate-passed #ageGateOverlay {
 }
 .header-btn:hover { background: var(--bg-elevated); color: var(--txt-primary); }
 
+.header-btn.is-hidden,
+.header-btn[style*="display: none"],
+.header-btn[style*="display:none"],
+#chatReportBtn.is-hidden,
+#upgradeHeaderBtn.is-hidden,
+#matchesQuickBtn.is-hidden,
+#headerSearchBtn.is-hidden {
+  display: none !important;
+}
+
 .notif-dot {
   position: absolute;
   top: 8px; right: 8px;

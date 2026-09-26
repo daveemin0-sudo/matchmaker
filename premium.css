@@ -98,12 +98,22 @@ body::before {
   height: 42px !important;
   border-radius: 50% !important;
   color: var(--txt-primary) !important;
-  display: flex !important;
+  display: flex;
   align-items: center !important;
   justify-content: center !important;
   cursor: pointer !important;
   transition: all var(--t-fast) var(--spring) !important;
   position: relative;
+}
+
+.header-btn.is-hidden,
+.header-btn[style*="display: none"],
+.header-btn[style*="display:none"],
+#chatReportBtn.is-hidden,
+#upgradeHeaderBtn.is-hidden,
+#matchesQuickBtn.is-hidden,
+#headerSearchBtn.is-hidden {
+  display: none !important;
 }
 
 .header-btn:hover {
