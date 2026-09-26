@@ -563,8 +563,10 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
       lastSender: currentUserId,
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
+    return true;
   } catch (err) {
-    console.warn("sendRealtimeMessage fallback:", err.message);
+    console.error("sendRealtimeMessage failed:", err);
+    return false;
   }
 }
 
@@ -665,11 +667,24 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     const metadata = {
       contentType: customContentType || file.type || (isAud ? 'audio/webm' : (isVid ? 'video/mp4' : 'image/jpeg'))
     };
-    const snapshot = await storageRef.put(file, metadata);
+
+    let snapshot;
+    try {
+      snapshot = await storageRef.put(file, metadata);
+    } catch (putErr) {
+      console.warn(`uploadFileToBackend primary put to ${storagePath} failed (${putErr.message}). Retrying in stories path...`);
+      if (storagePath === 'chat_media') {
+        const fallbackRef = fbStorage.ref(`stories/${uid}/chat_${Date.now()}_${safeName}`);
+        snapshot = await fallbackRef.put(file, metadata);
+      } else {
+        throw putErr;
+      }
+    }
+
     const downloadUrl = await snapshot.ref.getDownloadURL();
     return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
   } catch (err) {
-    console.warn("uploadFileToBackend warning:", err.message);
+    console.error("uploadFileToBackend failed:", err);
     return null;
   }
 }

@@ -2339,6 +2339,8 @@ function _buildConvoItemHtml(u, filterQuery) {
         : (isMissed ? '📞 Missed voice call' : `📞 Voice call ${last.duration ? `(${last.duration})` : ''}`);
     } else if (last.isVoice) {
       lastMsgRaw = '🎤 Voice note';
+    } else if (last.videoUrl || last.isVideo) {
+      lastMsgRaw = '📹 Video';
     } else if (last.imageUrl) {
       lastMsgRaw = '📷 Photo';
     } else {
@@ -2613,6 +2615,7 @@ function openChat(profileId, { fromHistory = false } = {}) {
               isMe = (senderId === uid) || (m.sender === 'me');
             }
             return {
+              id: m.id || null,
               sender: isMe ? 'me' : 'them',
               senderId: senderId || (isMe ? uid : profileId),
               recipientId: m.recipientId || (isMe ? profileId : uid),
@@ -2625,6 +2628,8 @@ function openChat(profileId, { fromHistory = false } = {}) {
               replyTo: m.replyTo || null,
               audioUrl: m.audioUrl || '',
               imageUrl: m.imageUrl || '',
+              videoUrl: m.videoUrl || '',
+              isVideo: Boolean(m.isVideo || m.videoUrl),
               duration: m.duration || '0:05',
               read: true,
               timestamp: m.timestamp?.toMillis ? m.timestamp.toMillis() : (typeof m.timestamp === 'number' ? m.timestamp : Date.now()),
@@ -4164,7 +4169,7 @@ async function sendImageMessage(event) {
   renderChatsInbox();
   updateMatchesNotificationBadge();
   saveToStorage();
-  showToast(isVideo ? '📹 Video sent!' : '📷 Photo sent!', 'gold');
+  showToast(isVideo ? '📹 Sending video...' : '📷 Photo sent!', 'gold');
 
   // Background upload & dispatch
   (async () => {
@@ -4186,9 +4191,25 @@ async function sendImageMessage(event) {
       }
     }
 
+    // Safety check: Videos cannot be saved as raw multi-megabyte base64 strings in Firestore (1MB max doc limit)
+    if (isVideo && (!finalUrl || finalUrl.startsWith('data:') || finalUrl.startsWith('blob:'))) {
+      console.error('Video cloud upload failed — cannot write raw video to Firestore due to 1MB size limit');
+      showToast('❌ Video upload failed. Please ensure file is under 30MB and check connection.', 'error');
+      const msgIndex = conversations[partnerId]?.messages?.findIndex(m => m.id === localMsgId);
+      if (msgIndex !== -1 && msgIndex !== undefined) {
+        conversations[partnerId].messages.splice(msgIndex, 1);
+        renderChatThread();
+        saveToStorage();
+      }
+      return;
+    }
+
     if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-      sendRealtimeMessage(matchId, isVideo ? '📹 Video' : '', false, '', isVideo ? '' : finalUrl, null, isVideo ? finalUrl : '', isVideo);
+      const sent = await sendRealtimeMessage(matchId, isVideo ? '📹 Video' : '', false, '', isVideo ? '' : finalUrl, null, isVideo ? finalUrl : '', isVideo);
+      if (sent && isVideo) {
+        showToast('📹 Video delivered!', 'gold');
+      }
     }
   })();
 }
