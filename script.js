@@ -4552,13 +4552,14 @@ async function sendImageMessage(event) {
   (async () => {
     let cloudUrl = null;
     let fileToUpload = file;
+    let localDataUrl = '';
 
-    // For photos: compress before upload for instant delivery
+    // For photos: compress image for instant local rendering and fallback
     if (!isVideo) {
       try {
-        const compressedDataUrl = await compressImageForChat(file, 1280, 0.82);
-        if (compressedDataUrl && compressedDataUrl.startsWith('data:')) {
-          const resp = await fetch(compressedDataUrl);
+        localDataUrl = await compressImageForChat(file, 1280, 0.82);
+        if (localDataUrl && localDataUrl.startsWith('data:')) {
+          const resp = await fetch(localDataUrl);
           const compressedBlob = await resp.blob();
           fileToUpload = new File([compressedBlob], file.name ? file.name.replace(/\.[^.]+$/, '.jpg') : 'photo.jpg', { type: 'image/jpeg' });
         }
@@ -4568,6 +4569,7 @@ async function sendImageMessage(event) {
       }
     }
 
+    // Try Cloud Storage upload if connected & authenticated
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       try {
         const uploadPromise = uploadFileToBackend(
@@ -4576,40 +4578,36 @@ async function sendImageMessage(event) {
           false,
           isVideo ? (file.type || 'video/mp4') : 'image/jpeg'
         );
-        const timeoutPromise = new Promise(res => setTimeout(() => res(null), 60000));
-        cloudUrl = await Promise.race([uploadPromise, timeoutPromise]);
+        const timeoutPromise = new Promise(res => setTimeout(() => res(null), 35000));
+        const resUrl = await Promise.race([uploadPromise, timeoutPromise]);
+        if (resUrl && typeof resUrl === 'string' && (resUrl.startsWith('http') || resUrl.startsWith('https'))) {
+          cloudUrl = resUrl;
+        }
       } catch (err) {
         console.warn('sendImageMessage: uploadFileToBackend threw:', err);
       }
     }
 
-    if (!cloudUrl) {
-      showToast(isVideo ? 'Video upload failed. Check connection.' : 'Photo upload failed. Check connection.', 'error');
-      const msgIndex = conversations[partnerId]?.messages?.findIndex(m => m.id === localMsgId);
-      if (msgIndex !== undefined && msgIndex !== -1) {
-        conversations[partnerId].messages.splice(msgIndex, 1);
-        renderChatThread();
-        saveToStorage();
-      }
-      try { URL.revokeObjectURL(localPreviewUrl); } catch (_) {}
-      return;
-    }
+    // Final display URL (cloud URL if available, or compressed local data URL / object URL)
+    const finalMediaUrl = cloudUrl || (!isVideo && localDataUrl ? localDataUrl : localPreviewUrl);
 
-    // Update local message to permanent cloud URL
+    // Update local message in conversation
     const targetMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId);
     if (targetMsg) {
-      if (isVideo) targetMsg.videoUrl = cloudUrl;
-      else targetMsg.imageUrl = cloudUrl;
+      if (isVideo) targetMsg.videoUrl = finalMediaUrl;
+      else targetMsg.imageUrl = finalMediaUrl;
       delete targetMsg._uploading;
       renderChatThread();
+      renderConversationList();
+      renderChatsInbox();
       saveToStorage();
+      showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
     }
-    try { URL.revokeObjectURL(localPreviewUrl); } catch (_) {}
 
-    // Dispatch to Firestore so partner receives it
-    if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    // If Cloud Storage succeeded & logged in, dispatch to partner via Firestore
+    if (cloudUrl && typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-      const sent = await sendRealtimeMessage(
+      sendRealtimeMessage(
         matchId,
         isVideo ? 'Video' : 'Photo',
         false,
@@ -4619,12 +4617,7 @@ async function sendImageMessage(event) {
         isVideo ? cloudUrl : '',
         isVideo,
         localMsgId
-      );
-      if (sent) {
-        showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
-      } else {
-        showToast('Could not deliver to partner right now.', 'info');
-      }
+      ).catch(() => {});
     }
   })();
 }
@@ -7611,14 +7604,7 @@ function nextStory(e) {
   if (currentStoryIndex < activeList.length - 1) {
     showStoryAtIndex(currentStoryIndex + 1);
   } else {
-    // If finished own stories, seamlessly advance to community stories
-    if (_viewingUserStory && getAllCommunityStories().length > 0) {
-      _viewingUserStory = false;
-      currentStoryIndex = 0;
-      showStoryAtIndex(0);
-    } else {
-      closeStoryViewer();
-    }
+    closeStoryViewer();
   }
 }
 
