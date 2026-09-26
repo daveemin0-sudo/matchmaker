@@ -533,17 +533,20 @@ function listenToRealtimeMessages(matchId, callback) {
   }
 }
 
-async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "", replyTo = null) {
+async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "", replyTo = null, videoUrl = "", isVideo = false) {
   if (!fbDb || !fbAuth?.currentUser) return;
   const currentUserId = fbAuth.currentUser.uid;
 
   try {
+    const isVideoMsg = Boolean(isVideo || videoUrl);
     const msgData = {
       sender: currentUserId,
       text: text || "",
       isVoice: isVoice,
       audioUrl: audioUrl,
-      imageUrl: imageUrl,
+      imageUrl: isVideoMsg ? '' : (imageUrl || ''),
+      videoUrl: isVideoMsg ? (videoUrl || imageUrl || '') : '',
+      isVideo: isVideoMsg,
       read: false,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     };
@@ -552,7 +555,7 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
     await fbDb.collection('matches').doc(matchId).collection('messages').add(msgData);
 
     // Update parent match doc so partner gets instant real-time notification & re-ordering to top
-    const previewText = text || (isVoice ? '🎤 Voice note' : (imageUrl ? '📷 Photo' : 'New message'));
+    const previewText = text || (isVoice ? '🎤 Voice note' : (isVideoMsg ? '📹 Video' : (imageUrl ? '📷 Photo' : 'New message')));
     const uids = matchId.split('_');
     await fbDb.collection('matches').doc(matchId).set({
       users: uids,
@@ -562,6 +565,29 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
     }, { merge: true });
   } catch (err) {
     console.warn("sendRealtimeMessage fallback:", err.message);
+  }
+}
+
+async function clearChatMessagesInFirestore(matchId) {
+  if (!fbDb || !matchId) return;
+  try {
+    const msgsRef = fbDb.collection('matches').doc(matchId).collection('messages');
+    const snapshot = await msgsRef.limit(200).get();
+    if (!snapshot.empty) {
+      const batch = fbDb.batch();
+      snapshot.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      await batch.commit();
+    }
+    await fbDb.collection('matches').doc(matchId).set({
+      lastMessage: '',
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    return true;
+  } catch (err) {
+    console.warn("clearChatMessagesInFirestore error:", err.message);
+    return false;
   }
 }
 
@@ -621,20 +647,23 @@ async function reactRealtimeMessage(matchId, messageId, emoji) {
 }
 
 // ----------------------------------------------------------
-// CLOUD FILE UPLOADS (Profile Photo, Voice Note, Chat Image)
+// CLOUD FILE UPLOADS (Profile Photo, Voice Note, Chat Media)
 // ----------------------------------------------------------
 
 async function uploadFileToBackend(file, path, returnMetadata = false, customContentType = '') {
   if (!fbStorage) return null;
   try {
-    const allowedRoots = new Set(['stories', 'voicenotes']);
+    const allowedRoots = new Set(['stories', 'voicenotes', 'chat_media', 'chat_images', 'chat_videos']);
     if (!allowedRoots.has(path) || !fbAuth?.currentUser) return null;
     const uid = fbAuth.currentUser.uid;
-    const ext = path === 'voicenotes' ? '.webm' : '.jpg';
-    const safeName = String(file.name || ('file' + ext)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
-    const storageRef = fbStorage.ref(`${path}/${uid}/${Date.now()}_${safeName}`);
+    const isVid = (file.type && file.type.startsWith('video/')) || path === 'chat_videos';
+    const isAud = (file.type && file.type.startsWith('audio/')) || path === 'voicenotes';
+    const defaultExt = isAud ? '.webm' : (isVid ? '.mp4' : '.jpg');
+    const safeName = String(file.name || ('file' + defaultExt)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+    const storagePath = (path === 'chat_images' || path === 'chat_videos') ? 'chat_media' : path;
+    const storageRef = fbStorage.ref(`${storagePath}/${uid}/${Date.now()}_${safeName}`);
     const metadata = {
-      contentType: customContentType || file.type || (path === 'voicenotes' ? 'audio/webm' : 'image/jpeg')
+      contentType: customContentType || file.type || (isAud ? 'audio/webm' : (isVid ? 'video/mp4' : 'image/jpeg'))
     };
     const snapshot = await storageRef.put(file, metadata);
     const downloadUrl = await snapshot.ref.getDownloadURL();

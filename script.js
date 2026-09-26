@@ -2633,18 +2633,28 @@ function openChat(profileId, { fromHistory = false } = {}) {
             };
           });
 
-        // Retain recently added local pending messages (e.g. voice notes being uploaded)
+        // Filter out any messages older than user's last chat clear timestamp
+        const clearedAt = parseInt(localStorage.getItem('hmbs_cleared_' + profileId) || '0', 10);
+        const validRemoteMsgs = remoteMsgs.filter(m => (m.timestamp || 0) > clearedAt);
+
+        // Retain recently added local pending messages (e.g. voice notes/videos being uploaded)
         const currentMsgs = conversations[profileId]?.messages || [];
         const pendingLocal = currentMsgs.filter(m =>
           m.id && String(m.id).startsWith('local_') && (Date.now() - (m.timestamp || 0) < 60000) &&
-          !remoteMsgs.some(rm => (rm.audioUrl && rm.audioUrl === m.audioUrl) || (rm.text && rm.text === m.text && Math.abs(rm.timestamp - m.timestamp) < 3000))
+          (m.timestamp || 0) > clearedAt &&
+          !validRemoteMsgs.some(rm =>
+            (rm.videoUrl && (rm.videoUrl === m.videoUrl || rm.videoUrl === m.imageUrl)) ||
+            (rm.imageUrl && (rm.imageUrl === m.imageUrl || rm.imageUrl === m.videoUrl)) ||
+            (rm.audioUrl && rm.audioUrl === m.audioUrl) ||
+            (rm.text && rm.text === m.text && Math.abs((rm.timestamp || 0) - (m.timestamp || 0)) < 4000)
+          )
         );
 
         const prevMsgs = conversations[profileId]?.messages || [];
         const prevLastTime = prevMsgs.length > 0 ? (prevMsgs[prevMsgs.length - 1].timestamp || 0) : 0;
 
         conversations[profileId] = {
-          messages: [...remoteMsgs, ...pendingLocal].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+          messages: [...validRemoteMsgs, ...pendingLocal].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
         };
         // Mark newly received messages as read
         if (typeof markMessagesReadInFirestore === 'function') {
@@ -2870,11 +2880,26 @@ function clearCurrentChatHistory() {
   if (menu) menu.style.display = 'none';
   if (!appState.currentChatId) return;
   if (confirm('Clear chat conversation?')) {
-    if (conversations[appState.currentChatId]) {
-      conversations[appState.currentChatId].messages = [];
+    const chatId = appState.currentChatId;
+    const now = Date.now();
+    try {
+      localStorage.setItem('hmbs_cleared_' + chatId, String(now));
+    } catch (_) {}
+
+    if (conversations[chatId]) {
+      conversations[chatId].messages = [];
     }
+
+    // Clear from Firestore so it never re-appears on reload or other device
+    const uid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || currentUser?.id || currentUser?.uid;
+    if (uid && typeof clearChatMessagesInFirestore === 'function') {
+      const matchId = [uid, chatId].sort().join('_');
+      clearChatMessagesInFirestore(matchId).catch(() => {});
+    }
+
     renderChatThread();
     renderConversationList();
+    renderChatsInbox();
     saveToStorage();
     showToast('Chat cleared', 'info');
   }
@@ -3109,7 +3134,7 @@ function renderChatThread() {
             ${quoteHtml}
             <div class="msg-image-wrap">
               ${isVideoMsg ?
-                `<video src="${escHtml(mediaSrc)}" class="msg-chat-img" playsinline preload="metadata" style="max-height:240px;object-fit:cover;"></video>
+                `<video src="${escHtml(mediaSrc)}" class="msg-chat-img" playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:12px;"></video>
                  <div class="msg-img-hd-badge">▶ Video</div>` :
                 `<img src="${escHtml(mediaSrc)}" class="msg-chat-img" loading="lazy" alt="Photo">
                  <div class="msg-img-hd-badge">HD</div>`
@@ -4146,8 +4171,16 @@ async function sendImageMessage(event) {
     let finalUrl = mediaUrl;
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
       try {
-        const uploadedUrl = await uploadFileToBackend(file, isVideo ? 'chat_videos' : 'chat_images', false, file.type);
-        if (uploadedUrl) finalUrl = uploadedUrl;
+        const uploadedUrl = await uploadFileToBackend(file, 'chat_media', false, file.type);
+        if (uploadedUrl) {
+          finalUrl = uploadedUrl;
+          const targetMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId);
+          if (targetMsg) {
+            if (isVideo) targetMsg.videoUrl = uploadedUrl;
+            else targetMsg.imageUrl = uploadedUrl;
+            saveToStorage();
+          }
+        }
       } catch (err) {
         console.warn('Media upload fallback to dataUrl:', err);
       }
@@ -4155,7 +4188,7 @@ async function sendImageMessage(event) {
 
     if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-      sendRealtimeMessage(matchId, isVideo ? '📹 Video' : '', false, '', finalUrl);
+      sendRealtimeMessage(matchId, isVideo ? '📹 Video' : '', false, '', isVideo ? '' : finalUrl, null, isVideo ? finalUrl : '', isVideo);
     }
   })();
 }
@@ -6934,7 +6967,7 @@ let _storyPressStartTime = 0;
 let _storyHoldTimer = null;
 
 function showStoryAtIndex(idx) {
-  const myUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || '';
+  const myUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || currentUser?.id || currentUser?.uid || '';
   const activeList = _viewingUserStory ? userStories : getAllCommunityStories();
 
   if (!activeList || activeList.length === 0 || idx < 0 || idx >= activeList.length) {
@@ -6947,8 +6980,8 @@ function showStoryAtIndex(idx) {
 
   // Airtight ownership verification
   const isOwn = Boolean(
-    (story && story.ownerId && myUid && story.ownerId === myUid) ||
-    (_viewingUserStory && (!story?.ownerId || (myUid && story.ownerId === myUid)))
+    (story && story.ownerId && myUid && String(story.ownerId) === String(myUid)) ||
+    (_viewingUserStory && (!story?.ownerId || (myUid && String(story.ownerId) === String(myUid))))
   );
 
   if (!isOwn) seenStories.add(story.id);
@@ -6999,10 +7032,21 @@ function showStoryAtIndex(idx) {
   if (captionOverlay) captionOverlay.style.display = story.bio ? 'block' : 'none';
 
   // Strict ownership: only story author can see Delete & Add
-  if (deleteBtn) deleteBtn.style.display = isOwn ? 'flex' : 'none';
-  if (addMoreBtn) addMoreBtn.style.display = isOwn ? 'flex' : 'none';
-  if (ownActionBar) ownActionBar.style.display = isOwn ? 'flex' : 'none';
-  if (commActionRow) commActionRow.style.display = isOwn ? 'none' : 'flex';
+  if (deleteBtn) {
+    deleteBtn.style.setProperty('display', isOwn ? 'flex' : 'none', 'important');
+    deleteBtn.classList.toggle('is-hidden', !isOwn);
+  }
+  if (addMoreBtn) {
+    addMoreBtn.style.setProperty('display', isOwn ? 'flex' : 'none', 'important');
+    addMoreBtn.classList.toggle('is-hidden', !isOwn);
+  }
+  if (ownActionBar) {
+    ownActionBar.style.setProperty('display', isOwn ? 'flex' : 'none', 'important');
+    ownActionBar.classList.toggle('is-hidden', !isOwn);
+  }
+  if (commActionRow) {
+    commActionRow.style.setProperty('display', isOwn ? 'none' : 'flex', 'important');
+  }
 
   if (inputEl) inputEl.placeholder = `Reply to ${story.name}...`;
 
@@ -7160,24 +7204,37 @@ function closeStoryViewer() {
 
 function deleteCurrentUserStory() {
   if (!confirm('Are you sure you want to delete this status?')) return;
-  if (!userStories || userStories.length === 0) return;
+  const activeList = _viewingUserStory ? userStories : getAllCommunityStories();
+  const storyToDelete = activeList && activeList[currentStoryIndex];
+  if (!storyToDelete) return;
 
-  const removed = userStories.splice(currentStoryIndex, 1)[0];
-  try {
-    localStorage.setItem('hmbs_user_stories', JSON.stringify(userStories));
-  } catch (e) {}
+  const storyId = storyToDelete.id;
+  const mediaUrl = storyToDelete.image || storyToDelete.video;
+  const myUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || currentUser?.id || currentUser?.uid || '';
 
-  // Delete from Firestore directly with deterministic sync
-  if (removed && typeof fbDb !== 'undefined' && fbDb) {
-    const myUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || '';
-    if (removed.id) {
-      fbDb.collection('stories').doc(removed.id).delete().catch(() => {});
+  // 1. Remove from local userStories
+  if (Array.isArray(userStories)) {
+    userStories = userStories.filter(s => s.id !== storyId && s.image !== mediaUrl && s.video !== mediaUrl);
+    try {
+      localStorage.setItem('hmbs_user_stories', JSON.stringify(userStories));
+    } catch (_) {}
+  }
+
+  // 2. Remove from communityStories
+  if (Array.isArray(communityStories)) {
+    communityStories = communityStories.filter(s => s.id !== storyId && s.image !== mediaUrl && s.video !== mediaUrl);
+  }
+
+  // 3. Delete from Firestore directly with deterministic sync
+  if (typeof fbDb !== 'undefined' && fbDb) {
+    if (storyId) {
+      fbDb.collection('stories').doc(storyId).delete().catch(() => {});
     }
     if (myUid) {
       fbDb.collection('stories').where('ownerId', '==', myUid).get().then(snap => {
         snap.forEach(doc => {
           const d = doc.data() || {};
-          if (doc.id === removed.id || (removed.image && (d.mediaUrl === removed.image || d.image === removed.image))) {
+          if (doc.id === storyId || (mediaUrl && (d.mediaUrl === mediaUrl || d.image === mediaUrl))) {
             doc.ref.delete().catch(() => {});
           }
         });
@@ -7188,8 +7245,9 @@ function deleteCurrentUserStory() {
   showToast('Status deleted 🗑️', 'info');
   renderStoriesRow();
 
-  if (userStories.length > 0) {
-    currentStoryIndex = Math.min(currentStoryIndex, userStories.length - 1);
+  const nextList = _viewingUserStory ? userStories : getAllCommunityStories();
+  if (nextList.length > 0) {
+    currentStoryIndex = Math.min(currentStoryIndex, nextList.length - 1);
     showStoryAtIndex(currentStoryIndex);
   } else {
     closeStoryViewer();
@@ -9062,6 +9120,7 @@ async function handleStoryPhotoSelected(event) {
       }
     }
 
+    const myUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || currentUser?.id || currentUser?.uid || '';
     const story = {
       id: 'user_story_' + Date.now(),
       name: currentUser.name || 'You',
@@ -9072,9 +9131,10 @@ async function handleStoryPhotoSelected(event) {
       mediaType: isVideo ? 'video' : 'image',
       storagePath,
       location: currentUser.location || 'Lagos',
-      bio: isVideo ? 'Video status 🎬' : 'My latest story ✨',
+      bio: isVideo ? 'Video status' : 'My latest story',
       tags: currentUser.interests || [],
       isUserStory: true,
+      ownerId: myUid,
       createdAt: Date.now(),
       expiresAt: Date.now() + 24 * 60 * 60 * 1000
     };
