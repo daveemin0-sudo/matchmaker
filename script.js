@@ -2920,7 +2920,7 @@ function renderChatThread() {
     const reactionKeys = Object.keys(reactions).filter(k => reactions[k]?.length > 0);
     const reactionBar = reactionKeys.length > 0
       ? `<div class="msg-reaction-bar">${reactionKeys.map(emoji =>
-          `<span class="msg-reaction-pill" onclick="toggleMsgReaction('${matchId}','${msgId}','${emoji}')">${emoji} <span>${reactions[emoji].length}</span></span>`
+          `<span class="msg-reaction-pill" onclick="event.stopPropagation();openReactionSheet('${matchId}','${msgId}','${emoji}')">${emoji} <span>${reactions[emoji].length}</span></span>`
         ).join('')}</div>`
       : '';
 
@@ -2939,6 +2939,9 @@ function renderChatThread() {
       const qAuthor = escHtml(msg.replyTo.senderName || 'You');
       const qText = escHtml(msg.replyTo.text || '');
       const qId = msg.replyTo.id || '';
+      const qThumb = msg.replyTo.imageUrl
+        ? `<img src="${escHtml(msg.replyTo.imageUrl)}" class="quote-thumb-img" alt="Photo">`
+        : '';
       quoteHtml = `
         <div class="msg-quote-preview" onclick="scrollToQuotedMessage('${qId}')">
           <div class="quote-stripe"></div>
@@ -2946,6 +2949,7 @@ function renderChatThread() {
             <div class="quote-author">${qAuthor}</div>
             <div class="quote-content">${qText}</div>
           </div>
+          ${qThumb}
         </div>`;
     }
 
@@ -3001,14 +3005,19 @@ function renderChatThread() {
         </div>`;
     } else if (msg.imageUrl) {
       bubbleHtml = `
-        <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'}" onclick="openImageLightbox('${escHtml(msg.imageUrl)}')" title="Tap to view photo" ${pressEvents}>
-          ${quoteHtml}
-          <div class="msg-image-wrap">
-            <img src="${msg.imageUrl}" class="msg-chat-img" loading="lazy" alt="Photo">
-            <div class="msg-img-overlay-meta">
-              ${timeBadgeHtml}
+        <div class="msg-image-card-container ${isSent ? 'sent' : 'received'}">
+          ${isSent ? `<button class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg></button>` : ''}
+          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'}" onclick="openImageLightbox('${escHtml(msg.imageUrl)}')" title="Tap to view photo" ${pressEvents}>
+            ${quoteHtml}
+            <div class="msg-image-wrap">
+              <img src="${msg.imageUrl}" class="msg-chat-img" loading="lazy" alt="Photo">
+              <div class="msg-img-hd-badge">HD</div>
+              <div class="msg-img-overlay-meta">
+                ${timeBadgeHtml}
+              </div>
             </div>
           </div>
+          ${!isSent ? `<button class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg></button>` : ''}
         </div>`;
     } else if (msg.isVoice) {
       const audioSrc = msg.audioUrl || '';
@@ -3223,15 +3232,25 @@ function startReplyToMessage(msgId) {
   _replyingToState = {
     id: msgId,
     senderName,
-    text: previewText
+    text: previewText,
+    imageUrl: msg.imageUrl || ''
   };
 
   const replyBar = document.getElementById('chatReplyBar');
   const replySender = document.getElementById('chatReplySender');
   const replyText = document.getElementById('chatReplyText');
+  const replyThumbBox = document.getElementById('chatReplyThumbBox');
+  const replyThumbImg = document.getElementById('chatReplyThumbImg');
+
   if (replyBar && replySender && replyText) {
     replySender.textContent = `Replying to ${senderName}`;
     replyText.textContent = previewText;
+    if (msg.imageUrl && replyThumbBox && replyThumbImg) {
+      replyThumbImg.src = msg.imageUrl;
+      replyThumbBox.style.display = 'block';
+    } else if (replyThumbBox) {
+      replyThumbBox.style.display = 'none';
+    }
     replyBar.classList.add('active');
     replyBar.style.display = 'flex';
   }
@@ -3243,6 +3262,8 @@ function startReplyToMessage(msgId) {
 function cancelReplyMessage() {
   _replyingToState = null;
   const replyBar = document.getElementById('chatReplyBar');
+  const replyThumbBox = document.getElementById('chatReplyThumbBox');
+  if (replyThumbBox) replyThumbBox.style.display = 'none';
   if (replyBar) {
     replyBar.classList.remove('active');
     replyBar.style.display = 'none';
@@ -4683,7 +4704,8 @@ function sendMessage() {
   const replyPayload = _replyingToState ? {
     id: _replyingToState.id,
     senderName: _replyingToState.senderName,
-    text: _replyingToState.text
+    text: _replyingToState.text,
+    imageUrl: _replyingToState.imageUrl || ''
   } : null;
 
   const newMsgObj = {
@@ -6209,6 +6231,24 @@ function getAllCommunityStories() {
     }
   });
 
+  // If no live community stories yet, load active status cards from matches/profiles
+  if (combined.length === 0 && Array.isArray(PROFILES_DATA)) {
+    PROFILES_DATA.slice(0, 5).forEach((p, idx) => {
+      combined.push({
+        id: 'contact_status_' + p.id,
+        name: p.name,
+        image: p.image,
+        thumb: p.image,
+        avatar: p.image,
+        location: p.distance || 'Nearby',
+        bio: p.bio || 'Status update',
+        isUserStory: false,
+        createdAt: Date.now() - (idx + 1) * 3600000,
+        expiresAt: Date.now() + 24 * 3600000
+      });
+    });
+  }
+
   return combined;
 }
 
@@ -6232,27 +6272,76 @@ function renderStoriesRow() {
   const scroll = document.getElementById('storiesScroll');
   if (!scroll) return;
 
+  const isUploading = Boolean(window._isUploadingStory);
+  const uploadPreview = window._uploadingStoryPreview;
   const hasStory = (typeof userStories !== 'undefined' && Array.isArray(userStories) && userStories.length > 0);
   const userAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
+  const latestUserStory = hasStory ? userStories[userStories.length - 1] : null;
 
-  let html = `
-    <div class="story-bubble your-story" onclick="${hasStory ? 'viewYourStory(0)' : 'openYourStoryUpload()'}">
-      <div class="story-avatar-ring ${hasStory ? 'your-story-active-ring' : 'your-story-ring'}">
-        <div class="story-avatar-img" style="background-image:url('${userAvatar}')"></div>
-        <span class="story-add-badge" onclick="event.stopPropagation();openYourStoryUpload(event);" title="${hasStory ? 'Add photo' : 'Upload story'}">+</span>
-      </div>
-      <span class="story-name">${hasStory ? (userStories.length > 1 ? `You (${userStories.length})` : 'Your Story') : 'Add Story'}</span>
-    </div>`;
+  let html = '';
 
+  // 1. User Status Card (WhatsApp Style)
+  if (isUploading) {
+    html += `
+      <div class="wa-status-card your-status-card uploading" onclick="event.stopPropagation()">
+        <div class="wa-status-card-bg" style="background-image:url('${uploadPreview || userAvatar}')"></div>
+        <div class="wa-status-card-overlay"></div>
+        <div class="wa-status-avatar-wrap">
+          <div class="wa-status-avatar" style="background-image:url('${userAvatar}')"></div>
+          <div class="wa-status-upload-ring">
+            <svg viewBox="0 0 44 44" class="wa-status-spinner-svg">
+              <circle class="wa-status-spinner-track" cx="22" cy="22" r="19" fill="none" stroke-width="3.5"/>
+              <circle class="wa-status-spinner-circle" cx="22" cy="22" r="19" fill="none" stroke-width="3.5"/>
+            </svg>
+          </div>
+        </div>
+        <div class="wa-status-card-info">
+          <span class="wa-status-card-name">Sending...</span>
+        </div>
+      </div>`;
+  } else if (hasStory && latestUserStory) {
+    html += `
+      <div class="wa-status-card your-status-card has-story" onclick="viewYourStory(0)">
+        <div class="wa-status-card-bg" style="background-image:url('${latestUserStory.thumb || latestUserStory.image}')"></div>
+        <div class="wa-status-card-overlay"></div>
+        <div class="wa-status-avatar-wrap">
+          <div class="wa-status-avatar active-ring" style="background-image:url('${userAvatar}')"></div>
+          <span class="wa-status-add-badge" onclick="event.stopPropagation();openYourStoryUpload(event);" title="Add status">+</span>
+        </div>
+        <div class="wa-status-card-info">
+          <span class="wa-status-card-name">${escHtml(currentUser.name || 'My status')}</span>
+        </div>
+      </div>`;
+  } else {
+    html += `
+      <div class="wa-status-card your-status-card empty" onclick="openYourStoryUpload(event)">
+        <div class="wa-status-card-bg empty-bg"></div>
+        <div class="wa-status-card-overlay"></div>
+        <div class="wa-status-avatar-wrap empty-avatar-wrap">
+          <div class="wa-status-avatar" style="background-image:url('${userAvatar}')"></div>
+          <span class="wa-status-add-badge" title="Add status">+</span>
+        </div>
+        <div class="wa-status-card-info">
+          <span class="wa-status-card-name">Add status</span>
+        </div>
+      </div>`;
+  }
+
+  // 2. Contact Status Cards (WhatsApp Style)
   const list = getAllCommunityStories();
   html += list.map((s) => {
     const seen = seenStories.has(s.id);
+    const contactAvatar = s.avatar || s.thumb || s.image;
     return `
-      <div class="story-bubble ${seen ? 'seen' : ''}" onclick="viewStory('${s.id}')">
-        <div class="story-avatar-ring">
-          <div class="story-avatar-img" style="background-image:url('${s.thumb || s.image}')"></div>
+      <div class="wa-status-card contact-status-card ${seen ? 'seen' : ''}" onclick="viewStory('${s.id}')">
+        <div class="wa-status-card-bg" style="background-image:url('${s.thumb || s.image}')"></div>
+        <div class="wa-status-card-overlay"></div>
+        <div class="wa-status-avatar-wrap">
+          <div class="wa-status-avatar ${seen ? 'seen-ring' : 'active-ring'}" style="background-image:url('${contactAvatar}')"></div>
         </div>
-        <span class="story-name">${escHtml(s.name)}</span>
+        <div class="wa-status-card-info">
+          <span class="wa-status-card-name">${escHtml(s.name)}</span>
+        </div>
       </div>`;
   }).join('');
 
@@ -7631,6 +7720,137 @@ async function toggleMsgReaction(matchId, msgId, emoji) {
 }
 
 // ==========================================================
+// WHATSAPP REACTION BOTTOM SHEET (Screenshot 3)
+// ==========================================================
+let _currentReactionSheetData = null;
+
+function openReactionSheet(matchId, msgId, defaultEmojiFilter = 'all') {
+  const { msg } = getMessageInfo(msgId);
+  if (!msg) return;
+
+  const reactions = msg.reactions || {};
+  const reactionKeys = Object.keys(reactions).filter(k => Array.isArray(reactions[k]) && reactions[k].length > 0);
+  if (reactionKeys.length === 0) return;
+
+  _currentReactionSheetData = {
+    matchId,
+    msgId,
+    reactions,
+    activeFilter: (defaultEmojiFilter && defaultEmojiFilter !== 'all') ? defaultEmojiFilter : 'all'
+  };
+
+  renderReactionSheetContent();
+  const modal = document.getElementById('reactionInfoModal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function filterReactionSheet(emoji) {
+  if (!_currentReactionSheetData) return;
+  _currentReactionSheetData.activeFilter = emoji;
+  renderReactionSheetContent();
+}
+
+function closeReactionSheet() {
+  const modal = document.getElementById('reactionInfoModal');
+  if (modal) modal.style.display = 'none';
+  _currentReactionSheetData = null;
+}
+
+function renderReactionSheetContent() {
+  if (!_currentReactionSheetData) return;
+  const { matchId, msgId, reactions, activeFilter } = _currentReactionSheetData;
+  const reactionKeys = Object.keys(reactions).filter(k => Array.isArray(reactions[k]) && reactions[k].length > 0);
+
+  let totalCount = 0;
+  reactionKeys.forEach(k => { totalCount += reactions[k].length; });
+
+  const countEl = document.getElementById('reactionSheetCount');
+  if (countEl) {
+    countEl.textContent = `${totalCount} reaction${totalCount !== 1 ? 's' : ''}`;
+  }
+
+  // Render Tabs
+  const tabsEl = document.getElementById('reactionSheetTabs');
+  if (tabsEl) {
+    let tabsHtml = `
+      <button class="reaction-tab-chip ${activeFilter === 'all' ? 'active' : ''}" onclick="filterReactionSheet('all')">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+        <span>All</span> <span>${totalCount}</span>
+      </button>`;
+    reactionKeys.forEach(emoji => {
+      const count = reactions[emoji].length;
+      tabsHtml += `
+        <button class="reaction-tab-chip ${activeFilter === emoji ? 'active' : ''}" onclick="filterReactionSheet('${emoji}')">
+          <span>${emoji}</span> <span>${count}</span>
+        </button>`;
+    });
+    tabsEl.innerHTML = tabsHtml;
+  }
+
+  // Render Reactors List
+  const listEl = document.getElementById('reactionSheetList');
+  if (listEl) {
+    const myId = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : 'local_me';
+    const partner = matchedUsers.find(u => u.id === appState.currentChatId) ||
+                    PROFILES_DATA.find(u => u.id === appState.currentChatId) ||
+                    conversations[appState.currentChatId]?.partner || {};
+    const partnerName = partner.name || document.getElementById('chatPartnerName')?.textContent?.trim() || 'Match';
+    const partnerAvatar = partner.avatar || partner.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
+    const myAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80';
+
+    const emojisToShow = activeFilter === 'all' ? reactionKeys : [activeFilter];
+    let rowsHtml = '';
+
+    emojisToShow.forEach(emoji => {
+      const reactors = reactions[emoji] || [];
+      reactors.forEach(reactorId => {
+        const isMe = (reactorId === myId || reactorId === 'local_me' || reactorId === 'me');
+        const name = isMe ? 'You' : partnerName;
+        const sub = isMe ? 'Tap to remove' : '';
+        const avatar = isMe ? myAvatar : partnerAvatar;
+        const clickAttr = isMe ? `onclick="removeMyReaction('${matchId}','${msgId}','${emoji}')"` : '';
+
+        rowsHtml += `
+          <div class="reaction-reactor-row" ${clickAttr}>
+            <div class="reaction-reactor-left">
+              <div class="reaction-reactor-avatar" style="background-image:url('${avatar}')"></div>
+              <div class="reaction-reactor-info">
+                <span class="reaction-reactor-name">${name}</span>
+                ${sub ? `<span class="reaction-reactor-sub">${sub}</span>` : ''}
+              </div>
+            </div>
+            <span class="reaction-reactor-emoji">${emoji}</span>
+          </div>`;
+      });
+    });
+
+    listEl.innerHTML = rowsHtml || '<div style="padding:16px;color:#8696a0;text-align:center;font-size:13px">No reactions</div>';
+  }
+}
+
+async function removeMyReaction(matchId, msgId, emoji) {
+  closeReactionSheet();
+  const { msg } = getMessageInfo(msgId);
+  const myId = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : 'local_me';
+
+  if (msg && msg.reactions && Array.isArray(msg.reactions[emoji])) {
+    msg.reactions[emoji] = msg.reactions[emoji].filter(id => id !== myId && id !== 'local_me' && id !== 'me');
+    if (msg.reactions[emoji].length === 0) {
+      delete msg.reactions[emoji];
+    }
+    saveToStorage();
+    renderChatThread();
+  }
+
+  if (!msgId.startsWith('local_') && matchId && matchId !== 'null') {
+    if (typeof reactRealtimeMessage === 'function') {
+      reactRealtimeMessage(matchId, msgId, emoji);
+    }
+  }
+  showToast('Reaction removed', 'info');
+}
+
+// ==========================================================
 // FORGOT PASSWORD — Real Firebase password reset
 // ==========================================================
 
@@ -8029,26 +8249,38 @@ function openYourStoryUpload(event) {
 
 async function handleStoryPhotoSelected(event) {
   const file = event.target.files && event.target.files[0];
+  if (event.target) event.target.value = '';
   if (!file) return;
   if (!file.type.startsWith('image/')) {
     showToast('Please select an image file.', 'error');
     return;
   }
 
-  showToast('Compressing & posting story... 📸', 'info');
+  // 1. Instantly start circular progress loader across the status card!
+  const previewUrl = URL.createObjectURL(file);
+  window._isUploadingStory = true;
+  window._uploadingStoryPreview = previewUrl;
+  renderStoriesRow();
+  showToast('Posting status update... 📸', 'info');
 
   try {
-    // 1. Fast canvas compression (< 150ms)
-    const compressedDataUrl = await compressStoryImage(file, 1080, 0.78);
-    let finalUrl = compressedDataUrl;
-    let storagePath = '';
+    // 2. Compress image (< 200ms)
+    let finalUrl = previewUrl;
+    try {
+      finalUrl = await compressStoryImage(file, 1080, 0.78);
+    } catch (cErr) {
+      console.warn('Story image compression warning, using preview:', cErr);
+    }
 
-    // 2. Upload lightweight file if storage is active.
+    // 3. Upload with strict 5-second race timeout so upload never stalls the app
+    let storagePath = '';
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
       try {
-        const blob = await (await fetch(compressedDataUrl)).blob();
+        const blob = await (await fetch(finalUrl)).blob();
         blob.name = `story_${Date.now()}.jpg`;
-        const uploaded = await uploadFileToBackend(blob, 'stories', true);
+        const uploadPromise = uploadFileToBackend(blob, 'stories', true);
+        const timeoutPromise = new Promise(res => setTimeout(() => res(null), 5000));
+        const uploaded = await Promise.race([uploadPromise, timeoutPromise]);
         if (uploaded?.url) {
           finalUrl = uploaded.url;
           storagePath = uploaded.storagePath || '';
@@ -8072,26 +8304,36 @@ async function handleStoryPhotoSelected(event) {
       expiresAt: Date.now() + 24 * 60 * 60 * 1000
     };
 
-    // 3. Save to Firestore
+    // 4. Save to Firestore in background
     if (typeof uploadStoryToFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       uploadStoryToFirestore(story).catch(() => {});
     }
 
-    // 4. Save to local multi-story array
+    // 5. Save to local user stories list
     if (!Array.isArray(userStories)) userStories = [];
     userStories.push(story);
-    if (userStories.length > 10) userStories = userStories.slice(userStories.length - 10);
-    localStorage.setItem('hmbs_user_stories', JSON.stringify(userStories));
+    if (userStories.length > 15) userStories = userStories.slice(userStories.length - 15);
+    try {
+      localStorage.setItem('hmbs_user_stories', JSON.stringify(userStories));
+    } catch (e) {
+      console.warn('Story local storage write warning:', e);
+    }
 
+    // Complete upload state and refresh UI
+    window._isUploadingStory = false;
+    window._uploadingStoryPreview = null;
     renderStoriesRow();
-    showToast('Story posted! Your status is now live. ✨', 'gold');
+    showToast('Status posted! ✨', 'gold');
 
-    // 5. Instantly open newly posted story slice
+    // 6. View story smoothly
     setTimeout(() => {
       viewYourStory(userStories.length - 1);
-    }, 200);
+    }, 250);
   } catch (err) {
     console.error('Story upload failed:', err);
+    window._isUploadingStory = false;
+    window._uploadingStoryPreview = null;
+    renderStoriesRow();
     showToast('Could not process photo. Please try again.', 'error');
   }
 }

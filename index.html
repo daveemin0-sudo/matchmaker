@@ -894,6 +894,9 @@
             <div class="chat-reply-sender" id="chatReplySender">Replying to...</div>
             <div class="chat-reply-text" id="chatReplyText">Original message preview</div>
           </div>
+          <div class="chat-reply-thumb-box" id="chatReplyThumbBox" style="display:none">
+            <img id="chatReplyThumbImg" src="" alt="Thumbnail" class="chat-reply-thumb-img">
+          </div>
           <button class="chat-reply-close-btn" type="button" onclick="cancelReplyMessage()" aria-label="Cancel reply">&times;</button>
         </div>
 
@@ -915,9 +918,15 @@
               </svg>
             </button>
             <input class="chat-field" id="chatInput" type="text" placeholder="Message" onkeydown="handleChatKeydown(event)" oninput="onChatInputChange()" onfocus="closeEmojiPicker()" autocomplete="on" autocorrect="on" autocapitalize="sentences" spellcheck="true" enterkeyhint="send" inputmode="text">
-            <button class="chat-icon-btn chat-attach-btn" onclick="document.getElementById('chatImageInput').click()" aria-label="Attach photo" title="Send photo">
+            <button class="chat-icon-btn chat-attach-btn" onclick="document.getElementById('chatImageInput').click()" aria-label="Attach photo" title="Send attachment">
               <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 015 0v10.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5V6H9v9.5a3.5 3.5 0 007 0V5c0-2.48-2.02-4.5-4.5-4.5S7 2.52 7 5v12.5C7 20.54 9.46 23 12.5 23s5.5-2.46 5.5-5.5V6h-1.5z"/>
+              </svg>
+            </button>
+            <button class="chat-icon-btn chat-camera-btn" onclick="document.getElementById('chatImageInput').click()" aria-label="Camera" title="Camera">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/>
+                <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
               </svg>
             </button>
             <input type="file" id="chatImageInput" accept="image/*" style="display:none" onchange="sendImageMessage(event)">
@@ -1870,6 +1879,22 @@
       </div>
       <div id="usernameModalError" style="color:#FF2E70;font-size:0.82rem;margin-bottom:14px;min-height:16px"></div>
       <button class="accent-btn" onclick="saveCustomUsername()" style="width:100%">Save Username</button>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       WHATSAPP REACTION INFO BOTTOM SHEET (Screenshot 3)
+       ===================================================== -->
+  <div class="reaction-sheet-overlay" id="reactionInfoModal" style="display:none" onclick="closeReactionSheet()">
+    <div class="reaction-sheet-card" onclick="event.stopPropagation()">
+      <div class="reaction-sheet-handle"></div>
+      <div class="reaction-sheet-header">
+        <span class="reaction-sheet-count" id="reactionSheetCount">1 reaction</span>
+      </div>
+      <!-- Filter tabs (All, ❤️ 1, etc.) -->
+      <div class="reaction-sheet-tabs" id="reactionSheetTabs"></div>
+      <!-- Reactors List (You - Tap to remove, etc.) -->
+      <div class="reaction-sheet-list" id="reactionSheetList"></div>
     </div>
   </div>
 
