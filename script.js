@@ -697,10 +697,11 @@ function updateHeader(screenId) {
   const upgradeBtn = document.getElementById('upgradeHeaderBtn');
   const matchBtn  = document.getElementById('matchesQuickBtn');
 
-  if (searchBtn)  searchBtn.style.display  = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
-  if (reportBtn)  reportBtn.style.display  = screenId === 'chat' ? 'flex' : 'none';
-  if (upgradeBtn) upgradeBtn.style.display = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
-  if (matchBtn)   matchBtn.style.display   = (screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
+  // Precise header icons visibility per screen
+  if (searchBtn)  searchBtn.style.display  = (screenId === 'discovery' || screenId === 'matches') ? 'flex' : 'none';
+  if (matchBtn)   matchBtn.style.display   = (screenId === 'discovery') ? 'flex' : 'none';
+  if (upgradeBtn) upgradeBtn.style.display = (screenId === 'discovery' || screenId === 'matches') ? 'flex' : 'none';
+  if (reportBtn)  reportBtn.style.display  = (screenId === 'chat') ? 'flex' : 'none';
 
   switch (screenId) {
     case 'discovery':
@@ -2909,12 +2910,30 @@ function getWhatsAppDateHeader(timestamp, fallbackTime) {
   return `${months[msgDate.getMonth()]} ${msgDate.getDate()}, ${msgDate.getFullYear()}`;
 }
 
+function applyChatCustomBackground(chatId) {
+  const container = document.getElementById('chatMessages');
+  if (!container) return;
+  const id = chatId || appState.currentChatId;
+  const bg = (id && localStorage.getItem('hmbs_chat_bg_' + id)) || localStorage.getItem('hmbs_chat_bg_global') || '';
+  if (bg) {
+    container.style.backgroundImage = `url('${bg}')`;
+    container.style.backgroundSize = 'cover';
+    container.style.backgroundPosition = 'center';
+    container.style.backgroundRepeat = 'no-repeat';
+  } else {
+    container.style.backgroundImage = '';
+  }
+}
+window.applyChatCustomBackground = applyChatCustomBackground;
+
 function renderChatThread() {
   const container = document.getElementById('chatMessages');
   if (!container) return;
 
-  const hist = conversations[appState.currentChatId]?.messages || [];
   const partnerId = appState.currentChatId;
+  applyChatCustomBackground(partnerId);
+
+  const hist = conversations[appState.currentChatId]?.messages || [];
   const matchId = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser && partnerId)
     ? [fbAuth.currentUser.uid, partnerId].sort().join('_')
     : null;
@@ -3065,15 +3084,21 @@ function renderChatThread() {
           </div>
           <div class="call-card-meta">${timeStr}</div>
         </div>`;
-    } else if (msg.imageUrl) {
+    } else if (msg.imageUrl || msg.videoUrl) {
+      const isVideoMsg = Boolean(msg.videoUrl || msg.isVideo);
+      const mediaSrc = msg.videoUrl || msg.imageUrl;
       bubbleHtml = `
         <div class="msg-image-card-container ${isSent ? 'sent' : 'received'}">
           ${isSent ? `<button class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg></button>` : ''}
-          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'}" onclick="openImageLightbox('${escHtml(msg.imageUrl)}', '${msgId}')" title="Tap to view photo" ${pressEvents}>
+          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'}" onclick="openImageLightbox('${escHtml(mediaSrc)}', '${msgId}', ${isVideoMsg})" title="Tap to view ${isVideoMsg ? 'video' : 'photo'}" ${pressEvents}>
             ${quoteHtml}
             <div class="msg-image-wrap">
-              <img src="${msg.imageUrl}" class="msg-chat-img" loading="lazy" alt="Photo">
-              <div class="msg-img-hd-badge">HD</div>
+              ${isVideoMsg ?
+                `<video src="${escHtml(mediaSrc)}" class="msg-chat-img" playsinline preload="metadata" style="max-height:240px;object-fit:cover;"></video>
+                 <div class="msg-img-hd-badge">▶ Video</div>` :
+                `<img src="${escHtml(mediaSrc)}" class="msg-chat-img" loading="lazy" alt="Photo">
+                 <div class="msg-img-hd-badge">HD</div>`
+              }
               <div class="msg-img-overlay-meta">
                 ${timeBadgeHtml}
               </div>
@@ -3588,13 +3613,22 @@ let _lightboxSwipeStartX = 0;
 let _lightboxSwipeStartTime = 0;
 let _lightboxIsSwiping = false;
 
-function openImageLightbox(src, msgId) {
+let _lightboxRotation = 0;
+let _lightboxIsVideo = false;
+
+function openImageLightbox(src, msgId, isVideo = false) {
   const modal = document.getElementById('chatImageLightbox');
   const img = document.getElementById('lightboxImg');
-  if (!modal || !img || !src) return;
+  const videoEl = document.getElementById('lightboxVideo');
+  if (!modal || !src) return;
 
   _lightboxCurrentSrc = src;
   _lightboxCurrentMsgId = msgId || '';
+  _lightboxIsVideo = Boolean(isVideo);
+  _lightboxRotation = 0;
+
+  const menu = document.getElementById('lightboxDropdownMenu');
+  if (menu) menu.style.display = 'none';
 
   // Get message info for header metadata matching WhatsApp Screenshot
   const partner = matchedUsers.find(u => u.id === appState.currentChatId) ||
@@ -3626,11 +3660,31 @@ function openImageLightbox(src, msgId) {
   if (nameEl) nameEl.textContent = senderName;
   if (metaEl) metaEl.textContent = timeMeta;
 
-  // Reset transforms & opacity
-  img.style.transform = 'translate3d(0, 0, 0) scale(1)';
-  img.style.opacity = '1';
-  img.style.transition = 'none';
-  img.src = src;
+  // Toggle image vs video
+  if (_lightboxIsVideo) {
+    if (img) img.style.display = 'none';
+    if (videoEl) {
+      videoEl.style.display = 'block';
+      videoEl.style.transform = 'translate3d(0, 0, 0) scale(1)';
+      videoEl.style.opacity = '1';
+      videoEl.style.transition = 'none';
+      videoEl.src = src;
+      videoEl.play().catch(() => {});
+    }
+  } else {
+    if (videoEl) {
+      videoEl.pause();
+      videoEl.src = '';
+      videoEl.style.display = 'none';
+    }
+    if (img) {
+      img.style.display = 'block';
+      img.style.transform = 'translate3d(0, 0, 0) scale(1)';
+      img.style.opacity = '1';
+      img.style.transition = 'none';
+      img.src = src;
+    }
+  }
 
   const topBar = document.getElementById('lightboxTopBar');
   const bottomBar = document.getElementById('lightboxBottomBar');
@@ -3650,14 +3704,24 @@ window.openImageLightbox = openImageLightbox;
 function closeImageLightbox() {
   const modal = document.getElementById('chatImageLightbox');
   const img = document.getElementById('lightboxImg');
+  const videoEl = document.getElementById('lightboxVideo');
+  const menu = document.getElementById('lightboxDropdownMenu');
   if (!modal) return;
+  if (menu) menu.style.display = 'none';
   if (img) {
     img.style.transform = 'translate3d(0, 0, 0) scale(1)';
     img.style.transition = 'none';
   }
+  if (videoEl) {
+    videoEl.pause();
+    videoEl.src = '';
+    videoEl.style.display = 'none';
+  }
   modal.style.display = 'none';
   _lightboxCurrentSrc = '';
   _lightboxCurrentMsgId = '';
+  _lightboxIsVideo = false;
+  _lightboxRotation = 0;
 }
 window.closeImageLightbox = closeImageLightbox;
 
@@ -3830,13 +3894,126 @@ function toggleLightboxStar() {
 window.toggleLightboxStar = toggleLightboxStar;
 
 function showLightboxMenu(event) {
-  event.stopPropagation();
+  if (event && event.stopPropagation) event.stopPropagation();
+  const menu = document.getElementById('lightboxDropdownMenu');
+  if (!menu) return;
+  const isShown = menu.style.display === 'block';
+  menu.style.display = isShown ? 'none' : 'block';
+}
+window.showLightboxMenu = showLightboxMenu;
+
+// Close lightbox menu when clicking outside
+window.addEventListener('click', (e) => {
+  const menu = document.getElementById('lightboxDropdownMenu');
+  if (menu && menu.style.display === 'block' && !e.target.closest('#lightboxDropdownMenu') && !e.target.closest('.lightbox-icon-btn')) {
+    menu.style.display = 'none';
+  }
+});
+
+function setLightboxAsChatBackground() {
+  const menu = document.getElementById('lightboxDropdownMenu');
+  if (menu) menu.style.display = 'none';
   if (!_lightboxCurrentSrc) return;
-  if (confirm('Save this photo to your device?')) {
+
+  const currentChatId = appState.currentChatId;
+  if (!currentChatId) {
+    showToast('Open a chat to set background', 'info');
+    return;
+  }
+
+  try {
+    localStorage.setItem('hmbs_chat_bg_' + currentChatId, _lightboxCurrentSrc);
+  } catch (e) {}
+
+  applyChatCustomBackground(currentChatId);
+  showToast('Chat background updated! 🖼️', 'gold');
+}
+window.setLightboxAsChatBackground = setLightboxAsChatBackground;
+
+function viewLightboxInChat() {
+  const menu = document.getElementById('lightboxDropdownMenu');
+  if (menu) menu.style.display = 'none';
+  const msgId = _lightboxCurrentMsgId;
+  closeImageLightbox();
+
+  if (msgId) {
+    setTimeout(() => {
+      const msgCard = document.querySelector(`[data-msgid="${msgId}"]`);
+      if (msgCard) {
+        msgCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        msgCard.style.outline = '2px solid var(--gold-1, #E3B34D)';
+        setTimeout(() => { msgCard.style.outline = 'none'; }, 1500);
+      }
+    }, 150);
+  }
+}
+window.viewLightboxInChat = viewLightboxInChat;
+
+function rotateLightboxImage() {
+  const menu = document.getElementById('lightboxDropdownMenu');
+  if (menu) menu.style.display = 'none';
+  const img = document.getElementById('lightboxImg');
+  if (!img) return;
+
+  _lightboxRotation = (_lightboxRotation + 90) % 360;
+  img.style.transition = 'transform 0.25s ease';
+  img.style.transform = `translate3d(0, 0, 0) scale(1) rotate(${_lightboxRotation}deg)`;
+}
+window.rotateLightboxImage = rotateLightboxImage;
+
+async function shareLightboxImage() {
+  const menu = document.getElementById('lightboxDropdownMenu');
+  if (menu) menu.style.display = 'none';
+  if (!_lightboxCurrentSrc) return;
+
+  if (navigator.share) {
+    try {
+      await navigator.share({
+        title: 'HookMe Media',
+        text: 'Shared from HookMe',
+        url: _lightboxCurrentSrc.startsWith('data:') ? window.location.href : _lightboxCurrentSrc
+      });
+      return;
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(_lightboxCurrentSrc);
+    showToast('Media link copied to clipboard 📋', 'info');
+  } catch (e) {
     downloadLightboxImage();
   }
 }
-window.showLightboxMenu = showLightboxMenu;
+window.shareLightboxImage = shareLightboxImage;
+
+function deleteLightboxImage() {
+  const menu = document.getElementById('lightboxDropdownMenu');
+  if (menu) menu.style.display = 'none';
+  if (!_lightboxCurrentMsgId) {
+    closeImageLightbox();
+    return;
+  }
+
+  if (!confirm('Delete this media message?')) return;
+
+  const partnerId = appState.currentChatId;
+  if (partnerId && conversations[partnerId]) {
+    const idx = conversations[partnerId].messages.findIndex(m => m.id === _lightboxCurrentMsgId);
+    if (idx !== -1) {
+      conversations[partnerId].messages.splice(idx, 1);
+      renderChatThread();
+      renderConversationList();
+      renderChatsInbox();
+      saveToStorage();
+    }
+  }
+
+  closeImageLightbox();
+  showToast('Media deleted 🗑️', 'info');
+}
+window.deleteLightboxImage = deleteLightboxImage;
 
 function quickReactLightbox(emoji) {
   if (!emoji || !_lightboxCurrentMsgId) {
@@ -3909,18 +4086,33 @@ async function sendImageMessage(event) {
   event.target.value = '';
 
   const partnerId = appState.currentChatId;
-  const compressedUrl = await compressImageForChat(file);
-  if (!compressedUrl) return;
+  const isVideo = file.type.startsWith('video/');
 
   if (!conversations[partnerId]) {
     conversations[partnerId] = { messages: [] };
   }
 
-  const localMsgId = 'local_img_' + Date.now();
+  const localMsgId = (isVideo ? 'local_vid_' : 'local_img_') + Date.now();
+
+  let mediaUrl = '';
+  if (isVideo) {
+    mediaUrl = await new Promise((res) => {
+      const r = new FileReader();
+      r.onload = e => res(e.target.result);
+      r.onerror = () => res(URL.createObjectURL(file));
+      r.readAsDataURL(file);
+    });
+  } else {
+    mediaUrl = await compressImageForChat(file);
+  }
+  if (!mediaUrl) return;
+
   const newMsg = {
     id: localMsgId,
     sender: 'me',
-    imageUrl: compressedUrl,
+    imageUrl: isVideo ? '' : mediaUrl,
+    videoUrl: isVideo ? mediaUrl : '',
+    isVideo: isVideo,
     read: true,
     timestamp: Date.now()
   };
@@ -3932,23 +4124,23 @@ async function sendImageMessage(event) {
   renderChatsInbox();
   updateMatchesNotificationBadge();
   saveToStorage();
-  showToast('📷 Photo sent!', 'gold');
+  showToast(isVideo ? '📹 Video sent!' : '📷 Photo sent!', 'gold');
 
   // Background upload & dispatch
   (async () => {
-    let finalUrl = compressedUrl;
+    let finalUrl = mediaUrl;
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
       try {
-        const uploadedUrl = await uploadFileToBackend(file, 'chat_images', false, 'image/jpeg');
+        const uploadedUrl = await uploadFileToBackend(file, isVideo ? 'chat_videos' : 'chat_images', false, file.type);
         if (uploadedUrl) finalUrl = uploadedUrl;
       } catch (err) {
-        console.warn('Image upload fallback to dataUrl:', err);
+        console.warn('Media upload fallback to dataUrl:', err);
       }
     }
 
     if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-      sendRealtimeMessage(matchId, '', false, '', finalUrl);
+      sendRealtimeMessage(matchId, isVideo ? '📹 Video' : '', false, '', finalUrl);
     }
   })();
 }
@@ -5566,15 +5758,19 @@ function renderProfileScreen() {
   if (locInput) locInput.value = displayLoc;
   if (interestsInput) interestsInput.value = displayInterests.join(', ');
 
-  // Stat numbers (12 Matches, 48 Likes, 3 Super from user mockup)
+  // Genuine stats based on actual user activity (no fake/inflated counts)
+  const realMatches = Array.isArray(matchedUsers) ? matchedUsers.filter(u => u && !DUMMY_USER_IDS.includes(u.id)).length : 0;
+  const realLikes = parseInt(localStorage.getItem('hmbs_real_likes_count') || '0', 10);
+  const realSuper = parseInt(localStorage.getItem('hmbs_real_super_count') || '0', 10);
+
   const matchesCount = document.getElementById('statMatches');
-  if (matchesCount) matchesCount.textContent = matchedUsers.length > 0 ? matchedUsers.length : 12;
+  if (matchesCount) matchesCount.textContent = realMatches;
 
   const likesCount = document.getElementById('statLikes');
-  if (likesCount) likesCount.textContent = 48;
+  if (likesCount) likesCount.textContent = realLikes;
 
   const superCount = document.getElementById('statSuper');
-  if (superCount) superCount.textContent = 3;
+  if (superCount) superCount.textContent = realSuper;
 }
 
 function openEditProfileModal() {
@@ -6598,14 +6794,23 @@ function getAllCommunityStories() {
 function initCommunityStoriesListener() {
   if (typeof listenToCommunityStories === 'function') {
     listenToCommunityStories((stories) => {
-      if (stories && stories.length > 0) {
-        communityStories = stories.filter(s => {
-          if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-            return s.ownerId !== fbAuth.currentUser.uid;
-          }
-          return true;
-        });
-        renderStoriesRow();
+      const myUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || '';
+      const list = Array.isArray(stories) ? stories : [];
+      communityStories = list.filter(s => {
+        if (myUid && s.ownerId) {
+          return s.ownerId !== myUid;
+        }
+        return true;
+      });
+      renderStoriesRow();
+
+      // If viewing a community story that was just deleted from Firestore, close viewer
+      const overlay = document.getElementById('storyViewerOverlay');
+      if (overlay && overlay.style.display !== 'none' && !_viewingUserStory) {
+        const all = getAllCommunityStories();
+        if (all.length === 0 || !all[currentStoryIndex]) {
+          closeStoryViewer();
+        }
       }
     });
   }
@@ -6710,9 +6915,12 @@ function viewStory(storyId) {
   showStoryAtIndex(currentStoryIndex);
 }
 
+let _storyPressStartTime = 0;
+let _storyHoldTimer = null;
+
 function showStoryAtIndex(idx) {
-  const isOwn = _viewingUserStory;
-  const activeList = isOwn ? userStories : getAllCommunityStories();
+  const myUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || '';
+  const activeList = _viewingUserStory ? userStories : getAllCommunityStories();
 
   if (!activeList || activeList.length === 0 || idx < 0 || idx >= activeList.length) {
     closeStoryViewer();
@@ -6721,42 +6929,67 @@ function showStoryAtIndex(idx) {
 
   currentStoryIndex = idx;
   const story = activeList[currentStoryIndex];
+
+  // Airtight ownership verification
+  const isOwn = Boolean(
+    (story && story.ownerId && myUid && story.ownerId === myUid) ||
+    (_viewingUserStory && (!story?.ownerId || (myUid && story.ownerId === myUid)))
+  );
+
   if (!isOwn) seenStories.add(story.id);
   renderStoriesRow();
 
   const overlay = document.getElementById('storyViewerOverlay');
   const bgImg = document.getElementById('storyBgImg');
+  const storyVid = document.getElementById('storyVideo');
   const avatar = document.getElementById('storyUserAvatar');
   const nameEl = document.getElementById('storyUserName');
   const ageEl = document.getElementById('storyUserAge');
   const locEl = document.getElementById('storyUserLoc');
-  const bioEl = document.getElementById('storyBioText');
-  const tagsRow = document.getElementById('storyTagsRow');
+  const captionEl = document.getElementById('storyBioText');
+  const captionOverlay = document.getElementById('storyCaptionOverlay');
   const inputEl = document.getElementById('storyMsgInput');
-  const topPickBadge = document.querySelector('.story-top-pick-badge');
   const deleteBtn = document.getElementById('storyDeleteBtn');
   const addMoreBtn = document.getElementById('storyAddMoreBtn');
   const ownActionBar = document.getElementById('storyOwnActionBar');
   const commActionRow = document.getElementById('storyCommunityActionRow');
 
-  if (bgImg) bgImg.style.backgroundImage = `url('${story.image}')`;
+  // Handle Photo vs Video Story
+  const isVideoStory = Boolean(story.video || story.isVideo);
+  if (isVideoStory) {
+    if (bgImg) bgImg.style.display = 'none';
+    if (storyVid) {
+      storyVid.style.display = 'block';
+      storyVid.src = story.video || story.image;
+      storyVid.currentTime = 0;
+      storyVid.play().catch(() => {});
+    }
+  } else {
+    if (storyVid) {
+      storyVid.pause();
+      storyVid.src = '';
+      storyVid.style.display = 'none';
+    }
+    if (bgImg) {
+      bgImg.style.display = 'block';
+      bgImg.style.backgroundImage = `url('${story.image}')`;
+    }
+  }
+
   if (avatar) avatar.style.backgroundImage = `url('${isOwn ? (currentUser.avatar || story.thumb || story.image) : (story.thumb || story.image)}')`;
   if (nameEl) nameEl.textContent = isOwn ? (userStories.length > 1 ? `Your Story (${currentStoryIndex + 1}/${userStories.length})` : 'Your Story') : story.name;
   if (ageEl) ageEl.textContent = isOwn ? '' : (story.age ? `, ${story.age}` : '');
   if (locEl) locEl.textContent = `📍 ${story.location || 'Lagos'}${isOwn ? ' • Active for 24h' : ''}`;
-  if (bioEl) bioEl.textContent = story.bio || (isOwn ? 'My latest story ✨' : '');
+  if (captionEl) captionEl.textContent = story.bio || '';
+  if (captionOverlay) captionOverlay.style.display = story.bio ? 'block' : 'none';
 
-  if (topPickBadge) topPickBadge.style.display = isOwn ? 'none' : 'inline';
+  // Strict ownership: only story author can see Delete & Add
   if (deleteBtn) deleteBtn.style.display = isOwn ? 'flex' : 'none';
   if (addMoreBtn) addMoreBtn.style.display = isOwn ? 'flex' : 'none';
   if (ownActionBar) ownActionBar.style.display = isOwn ? 'flex' : 'none';
   if (commActionRow) commActionRow.style.display = isOwn ? 'none' : 'flex';
 
-  if (inputEl) inputEl.placeholder = `Send a compliment to ${story.name}...`;
-
-  if (tagsRow) {
-    tagsRow.innerHTML = (story.tags || []).map(t => `<span class="story-tag-chip">${escHtml(t)}</span>`).join('');
-  }
+  if (inputEl) inputEl.placeholder = `Reply to ${story.name}...`;
 
   // Render Story Progress Indicators
   const progressBars = document.getElementById('storyProgressBars');
@@ -6771,8 +7004,59 @@ function showStoryAtIndex(idx) {
 
   if (overlay) {
     overlay.style.display = 'flex';
-    if (!overlay._swipeBound) {
-      overlay._swipeBound = true;
+    overlay.classList.remove('story-paused');
+
+    // Attach gestures & tap-and-hold pause
+    if (!overlay._gesturesBound) {
+      overlay._gesturesBound = true;
+
+      // Tap-and-hold pause listener
+      overlay.addEventListener('pointerdown', (e) => {
+        if (e.target.closest('input, button, textarea, a, .story-bottom-area, .story-top-bar')) return;
+        _storyPressStartTime = Date.now();
+        clearTimeout(_storyHoldTimer);
+        _storyHoldTimer = setTimeout(() => {
+          overlay.classList.add('story-paused');
+          clearTimeout(storyTimer);
+          const v = document.getElementById('storyVideo');
+          if (v && !v.paused) v.pause();
+        }, 160);
+      });
+
+      const onPointerRelease = (e) => {
+        if (!_storyPressStartTime) return;
+        clearTimeout(_storyHoldTimer);
+        const holdDuration = Date.now() - _storyPressStartTime;
+        const wasPaused = overlay.classList.contains('story-paused');
+        overlay.classList.remove('story-paused');
+        _storyPressStartTime = 0;
+
+        const v = document.getElementById('storyVideo');
+        if (v && v.style.display !== 'none' && v.paused) {
+          v.play().catch(() => {});
+        }
+
+        if (wasPaused || holdDuration >= 240) {
+          // It was a pause hold — resume timer without navigating
+          clearTimeout(storyTimer);
+          storyTimer = setTimeout(() => { nextStory(); }, 5000);
+        } else if (e.type === 'pointerup') {
+          // Short tap: navigate left or right
+          const rect = overlay.getBoundingClientRect();
+          const clientX = e.clientX;
+          if (clientX < rect.left + rect.width * 0.35) {
+            prevStory();
+          } else {
+            nextStory();
+          }
+        }
+      };
+
+      overlay.addEventListener('pointerup', onPointerRelease);
+      overlay.addEventListener('pointercancel', onPointerRelease);
+      overlay.addEventListener('pointerleave', onPointerRelease);
+
+      // Swipe down to dismiss
       let sY = 0;
       let sX = 0;
       let isSwipingDown = false;
@@ -6808,11 +7092,11 @@ function showStoryAtIndex(idx) {
     }
   }
 
-  // Auto advance after 6s
+  // Auto advance after 6s (or video duration)
   clearTimeout(storyTimer);
   storyTimer = setTimeout(() => {
     nextStory();
-  }, 6000);
+  }, isVideoStory ? 9000 : 6000);
 }
 
 function nextStory(e) {
@@ -6846,22 +7130,47 @@ function prevStory(e) {
 function closeStoryViewer() {
   clearTimeout(storyTimer);
   const overlay = document.getElementById('storyViewerOverlay');
-  if (overlay) overlay.style.display = 'none';
+  if (overlay) {
+    overlay.classList.remove('story-paused');
+    overlay.style.display = 'none';
+  }
+  const vid = document.getElementById('storyVideo');
+  if (vid) {
+    vid.pause();
+    vid.src = '';
+    vid.style.display = 'none';
+  }
   _viewingUserStory = false;
 }
 
 function deleteCurrentUserStory() {
-  if (!confirm('Are you sure you want to delete this story?')) return;
+  if (!confirm('Are you sure you want to delete this status?')) return;
   if (!userStories || userStories.length === 0) return;
 
   const removed = userStories.splice(currentStoryIndex, 1)[0];
-  localStorage.setItem('hmbs_user_stories', JSON.stringify(userStories));
+  try {
+    localStorage.setItem('hmbs_user_stories', JSON.stringify(userStories));
+  } catch (e) {}
 
-  if (removed && removed.id && typeof fbDb !== 'undefined' && fbDb) {
-    fbDb.collection('stories').doc(removed.id).delete().catch(() => {});
+  // Delete from Firestore directly with deterministic sync
+  if (removed && typeof fbDb !== 'undefined' && fbDb) {
+    const myUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || '';
+    if (removed.id) {
+      fbDb.collection('stories').doc(removed.id).delete().catch(() => {});
+    }
+    if (myUid) {
+      fbDb.collection('stories').where('ownerId', '==', myUid).get().then(snap => {
+        snap.forEach(doc => {
+          const d = doc.data() || {};
+          if (doc.id === removed.id || (removed.image && (d.mediaUrl === removed.image || d.image === removed.image))) {
+            doc.ref.delete().catch(() => {});
+          }
+        });
+      }).catch(() => {});
+    }
   }
 
-  showToast('Story deleted 🗑️', 'info');
+  showToast('Status deleted 🗑️', 'info');
   renderStoriesRow();
 
   if (userStories.length > 0) {
@@ -6872,31 +7181,67 @@ function deleteCurrentUserStory() {
   }
 }
 
+function sendStoryDirectMessage(story, replyText) {
+  if (!story) return;
+  const partnerId = story.ownerId || story.id || ('contact_' + (story.name || 'user').toLowerCase());
+  const partnerName = story.name || 'Member';
+  const partnerAvatar = story.thumb || story.image || '';
+
+  // Ensure conversation exists
+  let existingUser = matchedUsers.find(u => u.id === partnerId || u.name === partnerName);
+  if (!existingUser) {
+    existingUser = {
+      id: partnerId,
+      name: partnerName,
+      age: story.age || '',
+      bio: story.bio || '',
+      image: partnerAvatar,
+      tags: story.tags || [],
+      distance: story.location || 'Lagos',
+      isRealUser: Boolean(story.ownerId)
+    };
+    matchedUsers.unshift(existingUser);
+  }
+
+  if (!conversations[partnerId]) {
+    conversations[partnerId] = { messages: [] };
+  }
+
+  const newMsg = {
+    id: 'story_reply_' + Date.now(),
+    sender: 'me',
+    text: `Replied to your status: ${replyText}`,
+    replyTo: {
+      id: story.id,
+      author: `${partnerName}'s Status`,
+      text: replyText,
+      imageUrl: story.thumb || story.image
+    },
+    read: true,
+    timestamp: Date.now()
+  };
+
+  conversations[partnerId].messages.push(newMsg);
+  movePartnerToTop(partnerId);
+  renderConversationList();
+  renderChatsInbox();
+  saveToStorage();
+
+  // Send in real-time if Firebase is active
+  if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+    sendRealtimeMessage(matchId, `Replied to your status: ${replyText}`, false, '', '');
+  }
+}
+
 function likeStoryProfile() {
   const list = _viewingUserStory ? userStories : getAllCommunityStories();
   const story = list[currentStoryIndex];
   if (!story) return;
 
-  // Add to matches if not already
-  const existing = matchedUsers.find(u => u.name === story.name);
-  if (!existing) {
-    matchedUsers.unshift({
-      id: 'm_' + (story.id || Date.now()),
-      name: story.name,
-      age: story.age,
-      bio: story.bio,
-      image: story.image,
-      tags: story.tags,
-      distance: story.location,
-      isRealUser: false
-    });
-    renderNewMatchesRow();
-    renderConversationList();
-  }
-
-  showToast(`💖 You liked ${story.name}! It's a match!`, 'pink');
+  sendStoryDirectMessage(story, '❤️');
+  showToast(`Liked ${story.name}'s status ❤️`, 'pink');
   closeStoryViewer();
-  triggerConfetti();
 }
 
 function sendStoryReply() {
@@ -6904,38 +7249,14 @@ function sendStoryReply() {
   if (!input) return;
   const val = input.value.trim();
   if (!val) return;
-
-  const story = STORY_DATA[currentStoryIndex];
-  showToast(`💬 Compliment sent to ${story?.name || 'User'}!`, 'pink');
   input.value = '';
 
-  // Create match / conversation
-  if (story) {
-    const matchId = 'm_' + story.id;
-    if (!matchedUsers.find(u => u.name === story.name)) {
-      matchedUsers.unshift({
-        id: matchId,
-        name: story.name,
-        age: story.age,
-        bio: story.bio,
-        image: story.image,
-        tags: story.tags,
-        distance: story.location,
-        isRealUser: false
-      });
-      renderNewMatchesRow();
-      renderConversationList();
-    }
-    if (!conversations[matchId]) {
-      conversations[matchId] = { messages: [] };
-    }
-    conversations[matchId].messages.push({
-      sender: 'me',
-      text: val,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    });
-  }
+  const list = _viewingUserStory ? userStories : getAllCommunityStories();
+  const story = list[currentStoryIndex];
+  if (!story) return;
 
+  sendStoryDirectMessage(story, val);
+  showToast(`Reply sent to ${story.name} 💬`, 'gold');
   closeStoryViewer();
 }
 
@@ -8526,13 +8847,9 @@ async function verifyPhoneOtp() {
 // ==========================================================
 
 const LANGUAGES = [
-  { code: 'en-UK', label: 'English (UK)',        flag: '\uD83C\uDDEC\uD83C\uDDE7' }, // 🇬🇧
-  { code: 'en-NG', label: 'English (Nigerian)',  flag: '\uD83C\uDDF3\uD83C\uDDEC' }, // 🇳🇬
-  { code: 'pcm',   label: 'Nigerian Pidgin',     flag: '\uD83C\uDDF3\uD83C\uDDEC' }, // 🇳🇬
-  { code: 'yo',    label: 'Yoruba',              flag: '\uD83C\uDF0D' },               // 🌍
-  { code: 'ig',    label: 'Igbo',                flag: '\uD83C\uDF0D' },               // 🌍
-  { code: 'ha',    label: 'Hausa',               flag: '\uD83C\uDF0D' },               // 🌍
-  { code: 'fr',    label: 'Fran\u00E7ais',      flag: '\uD83C\uDDEB\uD83C\uDDF7' }, // 🇫🇷
+  { code: 'en-UK', label: 'English (UK)', flag: '🇬🇧' },
+  { code: 'en-US', label: 'English (US)', flag: '🇺🇸' },
+  { code: 'en-NG', label: 'English (Nigeria)', flag: '🇳🇬' }
 ];
 
 let currentLanguage = localStorage.getItem('hmbs_language') || 'en-UK';
@@ -8639,10 +8956,12 @@ function openYourStoryUpload(event) {
     fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.id = 'storyFileInput';
-    fileInput.accept = 'image/*';
+    fileInput.accept = 'image/*,video/*';
     fileInput.style.display = 'none';
     fileInput.addEventListener('change', handleStoryPhotoSelected);
     document.body.appendChild(fileInput);
+  } else {
+    fileInput.accept = 'image/*,video/*';
   }
   fileInput.value = '';
   fileInput.click();
@@ -8652,8 +8971,9 @@ async function handleStoryPhotoSelected(event) {
   const file = event.target.files && event.target.files[0];
   if (event.target) event.target.value = '';
   if (!file) return;
-  if (!file.type.startsWith('image/')) {
-    showToast('Please select an image file.', 'error');
+  const isVideo = Boolean(file.type && file.type.startsWith('video/'));
+  if (!file.type.startsWith('image/') && !isVideo) {
+    showToast('Please select a photo or video.', 'error');
     return;
   }
 
@@ -8662,25 +8982,44 @@ async function handleStoryPhotoSelected(event) {
   window._isUploadingStory = true;
   window._uploadingStoryPreview = previewUrl;
   renderStoriesRow();
-  showToast('Posting status update... 📸', 'info');
+  showToast(isVideo ? 'Posting video status... 🎬' : 'Posting status update... 📸', 'info');
 
   try {
-    // 2. Compress image (< 200ms)
     let finalUrl = previewUrl;
-    try {
-      finalUrl = await compressStoryImage(file, 1080, 0.78);
-    } catch (cErr) {
-      console.warn('Story image compression warning, using preview:', cErr);
+    if (!isVideo) {
+      // 2. Compress image (< 200ms)
+      try {
+        finalUrl = await compressStoryImage(file, 1080, 0.78);
+      } catch (cErr) {
+        console.warn('Story image compression warning, using preview:', cErr);
+      }
+    } else {
+      // For video, if within reasonable size, store as base64 dataUrl for offline/local resilience
+      if (file.size < 12 * 1024 * 1024) {
+        try {
+          finalUrl = await new Promise((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(r.result);
+            r.onerror = reject;
+            r.readAsDataURL(file);
+          });
+        } catch (e) {
+          finalUrl = previewUrl;
+        }
+      }
     }
 
-    // 3. Upload with strict 5-second race timeout so upload never stalls the app
+    // 3. Upload with strict 8-second race timeout so upload never stalls the app
     let storagePath = '';
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
       try {
-        const blob = await (await fetch(finalUrl)).blob();
-        blob.name = `story_${Date.now()}.jpg`;
-        const uploadPromise = uploadFileToBackend(blob, 'stories', true);
-        const timeoutPromise = new Promise(res => setTimeout(() => res(null), 5000));
+        let blobToUpload = file;
+        if (!isVideo && finalUrl && finalUrl.startsWith('data:')) {
+          blobToUpload = await (await fetch(finalUrl)).blob();
+          blobToUpload.name = `story_${Date.now()}.jpg`;
+        }
+        const uploadPromise = uploadFileToBackend(blobToUpload, 'stories', true);
+        const timeoutPromise = new Promise(res => setTimeout(() => res(null), 8000));
         const uploaded = await Promise.race([uploadPromise, timeoutPromise]);
         if (uploaded?.url) {
           finalUrl = uploaded.url;
@@ -8696,9 +9035,12 @@ async function handleStoryPhotoSelected(event) {
       name: currentUser.name || 'You',
       image: finalUrl,
       thumb: finalUrl,
+      video: isVideo ? finalUrl : null,
+      isVideo: isVideo,
+      mediaType: isVideo ? 'video' : 'image',
       storagePath,
       location: currentUser.location || 'Lagos',
-      bio: 'My latest story ✨',
+      bio: isVideo ? 'Video status 🎬' : 'My latest story ✨',
       tags: currentUser.interests || [],
       isUserStory: true,
       createdAt: Date.now(),
@@ -8724,7 +9066,7 @@ async function handleStoryPhotoSelected(event) {
     window._isUploadingStory = false;
     window._uploadingStoryPreview = null;
     renderStoriesRow();
-    showToast('Status posted! ✨', 'gold');
+    showToast(isVideo ? 'Video status posted! 🎬' : 'Status posted! ✨', 'gold');
 
     // 6. View story smoothly
     setTimeout(() => {
@@ -8735,7 +9077,7 @@ async function handleStoryPhotoSelected(event) {
     window._isUploadingStory = false;
     window._uploadingStoryPreview = null;
     renderStoriesRow();
-    showToast('Could not process photo. Please try again.', 'error');
+    showToast('Could not process status media. Please try again.', 'error');
   }
 }
 

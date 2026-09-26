@@ -2448,46 +2448,58 @@ html.age-gate-passed #ageGateOverlay {
    PAYWALL MODAL
    ============================================================ */
 .paywall-modal {
-  position: absolute;
+  position: fixed;
   inset: 0;
-  background: rgba(5,5,10,0.96);
+  background: rgba(4, 2, 8, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   z-index: 5000;
   display: none;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
   overflow-y: auto;
-  scrollbar-width: none;
+  box-sizing: border-box;
 }
 .paywall-modal::-webkit-scrollbar { display: none; }
-.paywall-modal.open { display: flex; animation: slideUp var(--t-slow) var(--spring) both; }
-@keyframes slideUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
+.paywall-modal.open { display: flex; animation: fadeIn var(--t-fast) ease both; }
 
 .paywall-inner {
-  padding: 18px 20px 36px;
+  max-width: 400px;
+  width: 100%;
+  background: linear-gradient(180deg, #1b1226 0%, #0d0716 100%);
+  border: 1px solid rgba(227, 179, 77, 0.35);
+  border-radius: 26px;
+  box-shadow: 0 24px 65px rgba(0, 0, 0, 0.85), 0 0 30px rgba(227, 179, 77, 0.15);
+  padding: 22px 18px 18px;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+  animation: scaleUp 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 .paywall-close {
-  align-self: flex-start;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  color: var(--txt-secondary);
-  width: 34px; height: 34px;
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.8);
+  width: 32px; height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  margin-bottom: 20px;
+  margin-bottom: 0;
+  z-index: 10;
   transition: all var(--t-fast);
 }
-.paywall-close:hover { background: var(--bg-card); color: var(--txt-primary); }
+.paywall-close:hover { background: rgba(255, 255, 255, 0.18); color: #fff; transform: scale(1.06); }
 
 .paywall-vip-badge {
   display: inline-flex;
@@ -2496,77 +2508,70 @@ html.age-gate-passed #ageGateOverlay {
   background: rgba(227,179,77,0.12);
   border: 1px solid var(--gold-1);
   color: var(--gold-1);
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   font-weight: 800;
-  letter-spacing: 1.5px;
+  letter-spacing: 1.2px;
   text-transform: uppercase;
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: var(--r-pill);
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .paywall-hero {
   text-align: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   position: relative;
-}
-
-/* Crown glow */
-.paywall-hero::before {
-  content: '';
-  position: absolute;
-  top: -10px; left: 50%;
-  transform: translateX(-50%);
-  width: 180px; height: 180px;
-  background: radial-gradient(circle, rgba(244,197,80,0.18) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.paywall-crown {
-  font-size: 3.5rem;
-  display: block;
-  margin-bottom: 10px;
-  position: relative;
-  z-index: 1;
-  animation: crownFloat 3s ease-in-out infinite;
-  filter: drop-shadow(0 0 20px rgba(244,197,80,0.5));
-}
-@keyframes crownFloat {
-  0%, 100% { transform: translateY(0) rotate(-4deg); }
-  50% { transform: translateY(-8px) rotate(4deg); }
 }
 
 .paywall-hero h2 {
   font-family: var(--font-display);
-  font-size: 2.2rem;
-  font-weight: 900;
+  font-size: 1.55rem;
+  font-weight: 800;
   background: var(--gold-grad);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  letter-spacing: -1px;
-  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+  margin: 0 0 6px 0;
   position: relative; z-index: 1;
 }
-.paywall-hero p { color: var(--txt-secondary); font-size: 0.9rem; line-height: 1.5; position: relative; z-index: 1; }
-
-.paywall-benefits {
-  background: rgba(244,197,80,0.04);
-  border: 1px solid rgba(244,197,80,0.1);
-  border-radius: var(--r-lg);
-  padding: 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-bottom: 22px;
+.paywall-hero p {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.84rem;
+  line-height: 1.4;
+  margin: 0;
+  position: relative; z-index: 1;
 }
-.benefit-row {
+
+.paywall-benefits-compact {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.benefit-chip {
   display: flex;
   align-items: center;
-  gap: 14px;
-  font-size: 0.9rem;
+  gap: 8px;
+  background: rgba(244, 197, 80, 0.06);
+  border: 1px solid rgba(244, 197, 80, 0.16);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: var(--txt-primary);
+  color: #fff;
+}
+.benefit-chip-icon {
+  font-size: 0.92rem;
+  flex-shrink: 0;
+}
+
+.paywall-secure-notice {
+  text-align: center;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 10px;
+  line-height: 1.4;
 }
 .benefit-icon { font-size: 1.1rem; flex-shrink: 0; }
 .benefit-icon-chip {
@@ -4778,6 +4783,45 @@ label, .form-field label, .auth-form-group label {
 }
 .lightbox-icon-btn:active {
   transform: scale(0.92);
+}
+.lightbox-dropdown-menu {
+  position: absolute;
+  top: 56px;
+  right: 14px;
+  background: #1f2c34;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 6px 0;
+  min-width: 220px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 100;
+  animation: fadeIn 0.15s ease;
+}
+.lightbox-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  color: #fff;
+  font-size: 14.5px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+.lightbox-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.lightbox-menu-item svg {
+  color: rgba(255, 255, 255, 0.85);
+  flex-shrink: 0;
+}
+.lightbox-menu-danger {
+  color: #FF2E70 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.lightbox-menu-danger svg {
+  color: #FF2E70 !important;
 }
 .lightbox-body {
   flex: 1;
@@ -7189,7 +7233,7 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
   flex: 1 0 auto;
   min-height: min-content;
   overflow-y: visible !important;
-  padding: 16px 16px calc(env(safe-area-inset-bottom, 20px) + 96px) !important;
+  padding: 16px 16px calc(env(safe-area-inset-bottom, 10px) + 18px) !important;
   box-sizing: border-box;
 }
 

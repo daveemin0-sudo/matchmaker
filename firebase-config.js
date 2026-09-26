@@ -1173,15 +1173,17 @@ async function uploadStoryToFirestore(storyData) {
   const uid = fbAuth.currentUser.uid;
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+  const docId = storyData.id || ('story_' + uid + '_' + Date.now());
 
   try {
-    const docRef = await fbDb.collection('stories').add({
+    const isVid = Boolean(storyData.isVideo || storyData.video);
+    await fbDb.collection('stories').doc(docId).set({
       ownerId: uid,
       ownerName: storyData.name || currentUser?.name || 'You',
       ownerAvatar: storyData.thumb || currentUser?.avatar || '',
-      mediaUrl: storyData.image,
-      mediaType: 'image',
-       storagePath: storyData.storagePath || '',
+      mediaUrl: storyData.video || storyData.image,
+      mediaType: isVid ? 'video' : 'image',
+      storagePath: storyData.storagePath || '',
       location: storyData.location || currentUser?.location || 'Lagos',
       bio: storyData.bio || '',
       tags: storyData.tags || [],
@@ -1189,8 +1191,8 @@ async function uploadStoryToFirestore(storyData) {
       expiresAt: firebase.firestore.Timestamp.fromDate(expiresAt),
       viewCount: 0
     });
-    console.log('✅ Story uploaded to Firestore:', docRef.id);
-    return docRef.id;
+    console.log('✅ Story uploaded to Firestore:', docId);
+    return docId;
   } catch (e) {
     console.warn('Story upload error:', e);
     return null;
@@ -1208,11 +1210,14 @@ async function fetchActiveStoriesFromFirestore() {
       const d = doc.data() || {};
       const exp = d.expiresAt?.toMillis ? d.expiresAt.toMillis() : null;
       if (!exp || exp > nowMs) {
+        const isVid = d.mediaType === 'video';
         stories.push({
           id: doc.id,
           ownerId: d.ownerId,
           name: d.ownerName || 'HookMe Member',
           image: d.mediaUrl || d.image,
+          video: isVid ? (d.mediaUrl || d.image) : '',
+          isVideo: isVid,
           thumb: d.ownerAvatar || d.thumb || d.mediaUrl || d.image,
           location: d.location || 'Lagos',
           bio: d.bio || '',
@@ -1240,11 +1245,14 @@ function listenToCommunityStories(callback) {
         const d = doc.data() || {};
         const exp = d.expiresAt?.toMillis ? d.expiresAt.toMillis() : null;
         if (!exp || exp > nowMs) {
+          const isVid = d.mediaType === 'video';
           stories.push({
             id: doc.id,
             ownerId: d.ownerId,
             name: d.ownerName || 'HookMe Member',
             image: d.mediaUrl || d.image,
+            video: isVid ? (d.mediaUrl || d.image) : '',
+            isVideo: isVid,
             thumb: d.ownerAvatar || d.thumb || d.mediaUrl || d.image,
             location: d.location || 'Lagos',
             bio: d.bio || '',

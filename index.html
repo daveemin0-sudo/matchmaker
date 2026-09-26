@@ -922,7 +922,7 @@
                 <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
               </svg>
             </button>
-            <input type="file" id="chatImageInput" accept="image/*" style="display:none" onchange="sendImageMessage(event)">
+            <input type="file" id="chatImageInput" accept="image/*,video/*" style="display:none" onchange="sendImageMessage(event)">
           </div>
           <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" aria-label="Send message" style="display:none">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -1014,9 +1014,34 @@
             </div>
           </div>
 
+          <!-- Lightbox Dropdown Menu (WhatsApp-style) -->
+          <div class="lightbox-dropdown-menu" id="lightboxDropdownMenu" style="display:none" onclick="event.stopPropagation()">
+            <div class="lightbox-menu-item" onclick="setLightboxAsChatBackground()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-1.96-2.36L6.5 17h11l-3.54-4.71z"/></svg>
+              <span>Set as chat background</span>
+            </div>
+            <div class="lightbox-menu-item" onclick="viewLightboxInChat()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+              <span>View in chat</span>
+            </div>
+            <div class="lightbox-menu-item" onclick="rotateLightboxImage()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M15.55 5.55L11 1v3.07C7.06 4.56 4 7.92 4 12s3.05 7.44 7 7.93v-2.02c-2.84-.48-5-2.94-5-5.91s2.16-5.43 5-5.91V10l4.55-4.45zM19.93 11c-.17-1.39-.72-2.73-1.62-3.85l-1.42 1.42c.59.78.96 1.72 1.07 2.43h1.97zM16.89 15.43l1.42 1.42c.9-1.12 1.45-2.46 1.62-3.85h-1.97c-.11.71-.48 1.65-1.07 2.43z"/></svg>
+              <span>Rotate</span>
+            </div>
+            <div class="lightbox-menu-item" onclick="shareLightboxImage()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/></svg>
+              <span>Share</span>
+            </div>
+            <div class="lightbox-menu-item lightbox-menu-danger" onclick="deleteLightboxImage()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="#FF2E70"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+              <span>Delete</span>
+            </div>
+          </div>
+
           <!-- Lightbox Body (Swipe down to dismiss) -->
           <div class="lightbox-body" id="lightboxBody">
             <img id="lightboxImg" src="" alt="Full size photo">
+            <video id="lightboxVideo" src="" controls playsinline style="display:none;max-width:100%;max-height:80vh;border-radius:12px"></video>
           </div>
 
           <!-- Lightbox Bottom Quick Reply Bar (Screenshot 4) -->
@@ -1602,59 +1627,30 @@
         <button class="paywall-close" onclick="closePaywall()" aria-label="Close">✕</button>
 
         <div class="paywall-hero">
-          <span class="paywall-vip-badge">VIP GOLD</span>
-          <span class="paywall-crown">
-            <svg width="72" height="72" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 0 24px rgba(227,179,77,0.75));animation:paywallGemPulse 2s ease-in-out infinite alternate">
-              <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="url(#paywallGrad)"/>
-              <defs>
-                <linearGradient id="paywallGrad" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
-                  <stop offset="0%" stop-color="#FFF3B0"/>
-                  <stop offset="40%" stop-color="#E3B34D"/>
-                  <stop offset="100%" stop-color="#A07628"/>
-                </linearGradient>
-              </defs>
-            </svg>
-          </span>
-          <h2>Upgrade to Gold</h2>
-          <p id="paywallReason">Unlock all VIP features and match instantly.</p>
+          <div class="paywall-vip-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="#F4C550"><path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z"/></svg>
+            <span>VIP GOLD</span>
+          </div>
+          <h2>Unlock HookMe Gold ✨</h2>
+          <p id="paywallReason">See who likes you, rewind mistakes & match without limits.</p>
         </div>
 
-        <div class="paywall-benefits">
-          <div class="benefit-row">
-            <span class="benefit-icon-chip">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5C21.27 7.61 17 4.5 12 4.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
-            </span>
-            <span>See exactly who liked you — match instantly</span>
+        <div class="paywall-benefits-compact">
+          <div class="benefit-chip">
+            <span class="benefit-chip-icon">👀</span>
+            <span>See Who Liked You</span>
           </div>
-          <div class="benefit-row">
-            <span class="benefit-icon-chip">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/></svg>
-            </span>
-            <span>Unlimited profile rewinds, never miss a match</span>
+          <div class="benefit-chip">
+            <span class="benefit-chip-icon">⚡</span>
+            <span>Unlimited Rewinds</span>
           </div>
-          <div class="benefit-row">
-            <span class="benefit-icon-chip">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 6.2L20 10l-6.2 1.8L12 18l-1.8-6.2L4 10l6.2-1.8z"/></svg>
-            </span>
-            <span>Infinite AI portrait generations via Google Imagen</span>
+          <div class="benefit-chip">
+            <span class="benefit-chip-icon">⭐</span>
+            <span>5 Daily Super Likes</span>
           </div>
-          <div class="benefit-row">
-            <span class="benefit-icon-chip">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2L9.17 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.17-.62z"/></svg>
-            </span>
-            <span>5 Super Likes per day to stand out</span>
-          </div>
-          <div class="benefit-row">
-            <span class="benefit-icon-chip">
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H7v2H2v6c0 2.21 1.79 4 4 4h.28c.35 1.61 1.53 2.9 3.09 3.39L9 21h6l-.37-2.61c1.56-.49 2.74-1.78 3.09-3.39H18c2.21 0 4-1.79 4-4V5h-5V3zM4 11V7h3v3.9c0 .04 0 .07-.01.1H6c-1.1 0-2-.9-2-2zm16 0c0 1.1-.9 2-2 2h-1c0-.03-.01-.06-.01-.1V7h3v4z"/></svg>
-            </span>
-            <span>Exclusive Gold profile badge — show you're serious</span>
-          </div>
-          <div class="benefit-row">
-            <span class="benefit-icon-chip">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5c-2.1 2-3.6 5-3.6 8.1 0 1.12.22 2.18.63 3.15L6 17.9V21l3.5-2 2.5 1.5 2.5-1.5 3.5 2v-3.1l-3.03-4.15c.41-.97.63-2.03.63-3.15 0-3.1-1.5-6.1-3.6-8.1zM12 9.3a1.6 1.6 0 110-3.2 1.6 1.6 0 010 3.2z"/></svg>
-            </span>
-            <span>Profile Boost — be seen by 10× more people</span>
+          <div class="benefit-chip">
+            <span class="benefit-chip-icon">🚀</span>
+            <span>10× Profile Boost</span>
           </div>
         </div>
 
@@ -1678,23 +1674,18 @@
         </div>
 
         <!-- Paystack-ready CTA -->
-        <!-- In production: <script src="https://js.paystack.co/v1/inline.js"></script> -->
         <button class="paywall-cta-btn gold-btn" id="paywallCta" onclick="simulatePurchase()">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-3px;margin-right:6px"><path d="M5 18h14l1.5-9-5 3-3.5-6-3.5 6-5-3z"/></svg><span id="paywallCtaLabel">Subscribe Now — Unlock VIP Gold</span>
         </button>
 
-        <!-- Renewal Terms — required by California ARL & consumer protection law -->
-        <div id="paywallRenewalTerms" class="paywall-renewal-terms">
-          🔒 Secure payment via Paystack &nbsp;·&nbsp; Prices in NGN &nbsp;·&nbsp; No hidden charges<br>
-          <strong>Subscription terms:</strong>
-          The <span id="renewalPlanName">1 Month VIP Gold</span> plan costs <span id="renewalPrice">₦7,500</span> and
-          <strong>does not auto-renew</strong> — you will not be charged again unless
-          you manually purchase again. The Lifetime plan is a one-time payment with no renewal.<br><br>
-          <strong>How to cancel:</strong> Your access expires automatically at the end
-          of the plan period. To request an early refund, email
-          <a href="mailto:contact@hookmebysam.com">contact@hookmebysam.com</a>
-          within 24 hours of purchase.<br><br>
-          hookmebysam · Lagos, Nigeria · contact@hookmebysam.com
+        <!-- Compact Secure Terms -->
+        <div class="paywall-secure-notice">
+          <span>🔒 256-bit Secure • Paystack • One-time non-recurring • Cancel anytime</span>
+        </div>
+
+        <div id="paywallRenewalTerms" class="paywall-renewal-terms" style="display:none">
+          <span id="renewalPlanName">1 Month VIP Gold</span>
+          <span id="renewalPrice">₦7,500</span>
         </div>
       </div>
     </div>
@@ -1731,8 +1722,9 @@
          TOP PICK SPOTLIGHT / STORY VIEWER
          ===================================================== -->
     <div class="story-viewer-overlay" id="storyViewerOverlay" style="display:none">
-      <!-- Background Image with Vignette -->
+      <!-- Media Viewers (Photo & Video) -->
       <div class="story-bg-img" id="storyBgImg"></div>
+      <video id="storyVideo" style="display:none;width:100%;height:100%;object-fit:contain;position:absolute;inset:0;z-index:2;background:#000" playsinline></video>
       <div class="story-vignette"></div>
 
       <!-- Top Header & Progress -->
@@ -1748,16 +1740,15 @@
               <div class="story-user-name-wrap">
                 <span class="story-user-name" id="storyUserName">Sade</span>
                 <span class="story-user-age" id="storyUserAge">, 23</span>
-                <span class="story-top-pick-badge">TOP PICK</span>
               </div>
-              <span class="story-user-loc" id="storyUserLoc">📍 Lagos, 18 km away</span>
+              <span class="story-user-loc" id="storyUserLoc">📍 Lagos</span>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
             <button class="story-close-btn" id="storyDeleteBtn" style="display:none;background:rgba(255,46,112,0.2)" onclick="deleteCurrentUserStory()" title="Delete Story" aria-label="Delete Story">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#FF2E70"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
             </button>
-            <button class="story-close-btn" id="storyAddMoreBtn" style="display:none;background:rgba(255,255,255,0.15)" onclick="openYourStoryUpload()" title="Add another photo" aria-label="Add photo">
+            <button class="story-close-btn" id="storyAddMoreBtn" style="display:none;background:rgba(255,255,255,0.15)" onclick="openYourStoryUpload()" title="Add another photo or video" aria-label="Add media">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="#fff"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
             </button>
             <button class="story-close-btn" onclick="closeStoryViewer()" aria-label="Close story">
@@ -1767,44 +1758,44 @@
         </div>
       </div>
 
-      <!-- Story Center Touch Zones (for Left/Right navigation) -->
-      <div class="story-nav-zones">
+      <!-- Story Center Touch Zones (for Left/Right navigation & Tap-and-hold pause) -->
+      <div class="story-nav-zones" id="storyNavZones">
         <div class="story-zone-left" onclick="prevStory(event)"></div>
         <div class="story-zone-right" onclick="nextStory(event)"></div>
       </div>
 
+      <!-- Optional subtle caption overlay (hidden if no caption) -->
+      <div class="story-caption-overlay" id="storyCaptionOverlay" style="display:none">
+        <span id="storyBioText"></span>
+      </div>
+
+      <!-- Hidden elements for backward compatibility -->
+      <div id="storyTagsRow" style="display:none"></div>
+
       <!-- Bottom Profile Details & Actions -->
       <div class="story-bottom-area">
-        <div class="story-bio-card">
-          <p class="story-bio-text" id="storyBioText">Bookworm and part-time content designer. Looking for honest connections only.</p>
-          <div class="story-tags-row" id="storyTagsRow">
-            <span class="story-tag-chip">Books 📚</span>
-            <span class="story-tag-chip">Nature 🌿</span>
-          </div>
-        </div>
-
-        <!-- Action Row (for other users' stories) -->
+        <!-- Action Row (for other users' stories: Reply & Like) -->
         <div class="story-action-row" id="storyCommunityActionRow">
           <div class="story-reply-wrap">
-            <input type="text" class="story-reply-input" id="storyMsgInput" placeholder="Send a message..." onkeydown="handleStoryKeydown(event)">
-            <button class="story-send-btn" onclick="sendStoryReply()" aria-label="Send message">
+            <input type="text" class="story-reply-input" id="storyMsgInput" placeholder="Reply..." onkeydown="handleStoryKeydown(event)">
+            <button class="story-send-btn" onclick="sendStoryReply()" aria-label="Send reply">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
             </button>
           </div>
-          <button class="story-like-btn" onclick="likeStoryProfile()" title="Like" aria-label="Like this profile">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <button class="story-like-btn" onclick="likeStoryProfile()" title="Like status" aria-label="Like status">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="#FF2E70"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
           </button>
         </div>
 
         <!-- Action Row (for own stories) -->
-        <div id="storyOwnActionBar" style="display:none;width:100%;align-items:center;justify-content:space-between;padding:12px 18px;background:rgba(18,10,28,0.75);border-radius:24px;border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(10px)">
+        <div id="storyOwnActionBar" style="display:none;width:100%;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(18,10,28,0.75);border-radius:20px;border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(10px)">
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:1rem">📸</span>
-            <span style="font-size:0.84rem;font-weight:600;color:rgba(255,255,255,0.85)">Your Story • Visible to matches</span>
+            <span style="font-size:0.95rem">📸</span>
+            <span style="font-size:0.82rem;font-weight:600;color:rgba(255,255,255,0.85)">Your Status • 24h</span>
           </div>
           <div style="display:flex;gap:8px">
-            <button onclick="openYourStoryUpload()" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:16px;padding:6px 14px;font-size:0.8rem;font-weight:700;cursor:pointer">➕ Add</button>
-            <button onclick="deleteCurrentUserStory()" style="background:#FF2E70;color:#fff;border:none;border-radius:16px;padding:6px 14px;font-size:0.8rem;font-weight:700;cursor:pointer">🗑️ Delete</button>
+            <button onclick="openYourStoryUpload()" style="background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:14px;padding:6px 12px;font-size:0.78rem;font-weight:700;cursor:pointer">➕ Add</button>
+            <button onclick="deleteCurrentUserStory()" style="background:#FF2E70;color:#fff;border:none;border-radius:14px;padding:6px 12px;font-size:0.78rem;font-weight:700;cursor:pointer">🗑️ Delete</button>
           </div>
         </div>
       </div>
