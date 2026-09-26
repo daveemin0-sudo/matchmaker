@@ -231,6 +231,7 @@ function listenToAuthChanges() {
       if (typeof initMainApp === 'function') initMainApp();
       if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
       if (typeof initPushNotifications === 'function') initPushNotifications();
+      if (typeof initCommunityStoriesListener === 'function') initCommunityStoriesListener();
       
       // Wire up live real-time matches & messages listener immediately upon auth
       if (typeof listenToUserMatches === 'function' && typeof applyMatchesUpdate === 'function') {
@@ -1217,15 +1218,25 @@ async function uploadStoryToFirestore(storyData) {
   const uid = fbAuth.currentUser.uid;
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
-  const docId = storyData.id || ('story_' + uid + '_' + Date.now());
+  const docId = storyData.docId || storyData.id || ('story_' + uid + '_' + Date.now());
 
   try {
-    const isVid = Boolean(storyData.isVideo || storyData.video);
+    const isVid = Boolean(storyData.isVideo || storyData.video || storyData.mediaType === 'video');
+    const mediaUrl = storyData.video || storyData.image || storyData.mediaUrl || '';
+    if (!mediaUrl || mediaUrl.startsWith('blob:')) {
+      console.warn('Cannot upload local blob URL to Firestore stories feed');
+      return null;
+    }
+    // Prevent exceeding Firestore 1MB document limit with large base64 data
+    if (mediaUrl.length > 500000 && !mediaUrl.startsWith('http')) {
+      console.warn('Media payload too large for Firestore document (>500KB). Must use Cloud Storage HTTPS URL.');
+      return null;
+    }
     await fbDb.collection('stories').doc(docId).set({
       ownerId: uid,
       ownerName: storyData.name || currentUser?.name || 'You',
-      ownerAvatar: storyData.thumb || currentUser?.avatar || '',
-      mediaUrl: storyData.video || storyData.image,
+      ownerAvatar: storyData.thumb || currentUser?.avatar || currentUser?.image || '',
+      mediaUrl: mediaUrl,
       mediaType: isVid ? 'video' : 'image',
       storagePath: storyData.storagePath || '',
       location: storyData.location || currentUser?.location || 'Lagos',
@@ -1238,8 +1249,41 @@ async function uploadStoryToFirestore(storyData) {
     console.log('✅ Story uploaded to Firestore:', docId);
     return docId;
   } catch (e) {
-    console.warn('Story upload error:', e);
+    console.error('Story upload error:', e);
     return null;
+  }
+}
+
+async function deleteStoryFromFirestore(storyId, storyData = null, deleteAllForUser = false) {
+  if (!fbDb || !fbAuth?.currentUser) return false;
+  const uid = fbAuth.currentUser.uid;
+  try {
+    if (storyId) {
+      await fbDb.collection('stories').doc(storyId).delete().catch(() => {});
+    }
+    const snap = await fbDb.collection('stories').where('ownerId', '==', uid).get();
+    if (!snap.empty) {
+      const batch = fbDb.batch();
+      let deleteCount = 0;
+      snap.forEach(doc => {
+        const d = doc.data() || {};
+        const matchesId = doc.id === storyId || (storyData && (doc.id === storyData.id || doc.id === storyData.docId));
+        const matchesMedia = storyData && (d.mediaUrl === storyData.image || d.mediaUrl === storyData.video || d.mediaUrl === storyData.mediaUrl);
+        const matchesPath = storyData && storyData.storagePath && d.storagePath === storyData.storagePath;
+        if (deleteAllForUser || matchesId || matchesMedia || matchesPath) {
+          batch.delete(doc.ref);
+          deleteCount++;
+        }
+      });
+      if (deleteCount > 0) {
+        await batch.commit();
+        console.log(`✅ Deleted ${deleteCount} story doc(s) from Firestore for user ${uid}`);
+      }
+    }
+    return true;
+  } catch (err) {
+    console.error("deleteStoryFromFirestore error:", err);
+    return false;
   }
 }
 

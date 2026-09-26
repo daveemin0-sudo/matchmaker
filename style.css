@@ -1331,6 +1331,55 @@ html.age-gate-passed #ageGateOverlay {
   gap: 0;
   width: 100%;
 }
+.convo-swipe-wrapper {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: #111b21;
+}
+.convo-swipe-actions {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: stretch;
+  z-index: 1;
+}
+.convo-action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  border: none;
+  cursor: pointer;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  gap: 4px;
+  padding: 0;
+  transition: opacity 0.15s ease;
+  user-select: none;
+}
+.convo-action-btn:active {
+  opacity: 0.8;
+}
+.convo-archive-btn {
+  background: #5b51d8;
+}
+.convo-delete-btn {
+  background: #e53935;
+}
+.convo-swipe-wrapper .convo-item {
+  border-bottom: none !important;
+  background: var(--bg-card);
+  position: relative;
+  z-index: 2;
+  transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
+}
 .convo-item {
   display: flex;
   align-items: center;
@@ -1342,12 +1391,132 @@ html.age-gate-passed #ageGateOverlay {
   cursor: pointer;
   transition: background var(--t-fast) var(--ease);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  user-select: none;
+  -webkit-user-select: none;
 }
 .convo-item:last-child {
   border-bottom: none;
 }
 .convo-item:hover { background: var(--bg-elevated); }
 .convo-item:active { background: var(--bg-card); }
+
+/* WhatsApp-style Archived banner */
+.wa-archived-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.wa-archived-banner:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.wa-archived-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.wa-archived-icon {
+  color: #00a884;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.wa-archived-title {
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--txt-primary);
+}
+.wa-archived-count {
+  font-size: 0.82rem;
+  color: #00a884;
+  font-weight: 700;
+}
+
+/* WhatsApp conversation action sheet */
+.convo-action-sheet {
+  background: #1f2c34;
+  width: 100%;
+  max-width: 480px;
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  padding: 16px 0 24px 0;
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.22s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.convo-sheet-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 18px 14px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.convo-sheet-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-size: cover;
+  background-position: center;
+  background-color: #2a3942;
+}
+.convo-sheet-info {
+  flex: 1;
+}
+.convo-sheet-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff;
+}
+.convo-sheet-sub {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+.convo-sheet-close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 6px;
+}
+.convo-sheet-list {
+  display: flex;
+  flex-direction: column;
+  padding-top: 6px;
+}
+.convo-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.convo-sheet-item:hover,
+.convo-sheet-item:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+.convo-sheet-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+}
+.convo-sheet-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #e9edef;
+}
+.convo-sheet-item.danger-item .convo-sheet-label {
+  color: #FF3B30 !important;
+}
 
 .convo-avatar-wrap {
   position: relative;
