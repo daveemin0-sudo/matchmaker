@@ -410,7 +410,6 @@ setInterval(() => {
 function initPullToRefresh() {
   const indicator = document.getElementById('ptrIndicator');
   const icon = document.getElementById('ptrIcon');
-  const text = document.getElementById('ptrText');
   if (!indicator) return;
 
   if (window._ptrBound) return;
@@ -420,13 +419,23 @@ function initPullToRefresh() {
   let startX = 0;
   let isPulling = false;
   let isRefreshing = false;
-  const PULL_THRESHOLD = 50;
-  const MAX_PULL = 82;
+  const PULL_THRESHOLD = 72;
+  const MAX_PULL = 92;
+
+  function isPtrAllowed() {
+    // Only allow pull-to-refresh on top-level matches or chats list screens, NEVER in chat threads or modals!
+    if (appState.currentScreen === 'chat') return false;
+    if (document.getElementById('chatImageLightbox')?.style.display === 'flex') return false;
+    if (document.getElementById('reactionInfoModal')?.style.display === 'flex') return false;
+    if (document.getElementById('storyViewerOverlay')?.style.display === 'flex') return false;
+    if (document.querySelector('.modal-overlay[style*="flex"]')) return false;
+    return (appState.currentScreen === 'matches' || appState.currentScreen === 'chats');
+  }
 
   function getScrollTop() {
     const activeScreen = document.querySelector('.screen.active');
     if (!activeScreen) return window.scrollY || document.documentElement.scrollTop || 0;
-    const scrollContainer = activeScreen.querySelector('.settings-workspace, .matches-workspace, .chats-inbox-wrap, .auth-screen, .profile-screen-workspace, .discovery-workspace, .chat-messages-wrap');
+    const scrollContainer = activeScreen.querySelector('.matches-workspace, .chats-inbox-wrap');
     if (scrollContainer && scrollContainer.scrollTop !== undefined) {
       return scrollContainer.scrollTop;
     }
@@ -434,8 +443,8 @@ function initPullToRefresh() {
   }
 
   document.addEventListener('touchstart', (e) => {
-    if (isRefreshing || !e.touches || e.touches.length === 0) return;
-    if (getScrollTop() <= 4) {
+    if (!isPtrAllowed() || isRefreshing || !e.touches || e.touches.length === 0) return;
+    if (getScrollTop() <= 2) {
       startY = e.touches[0].clientY;
       startX = e.touches[0].clientX;
       isPulling = false;
@@ -445,34 +454,27 @@ function initPullToRefresh() {
   }, { passive: true });
 
   document.addEventListener('touchmove', (e) => {
-    if (!startY || isRefreshing || !e.touches || e.touches.length === 0) return;
+    if (!isPtrAllowed() || !startY || isRefreshing || !e.touches || e.touches.length === 0) return;
     const currentY = e.touches[0].clientY;
     const currentX = e.touches[0].clientX;
     const diffY = currentY - startY;
     const diffX = currentX - startX;
 
-    // Ignore horizontal swipes (card swiping in discovery)
-    if (Math.abs(diffX) > Math.abs(diffY) * 0.85) {
+    // Ignore horizontal swipes
+    if (Math.abs(diffX) > Math.abs(diffY) * 0.75) {
       startY = 0;
       return;
     }
 
-    if (diffY > 8 && getScrollTop() <= 4) {
+    // Require deliberate pull (> 22px) and at top of container
+    if (diffY > 22 && getScrollTop() <= 2) {
       isPulling = true;
-      const pullDistance = Math.min(MAX_PULL, (diffY - 8) * 0.45);
+      const pullDistance = Math.min(MAX_PULL, (diffY - 22) * 0.42);
       indicator.classList.add('ptr-pulling');
       indicator.style.transform = `translate3d(-50%, ${pullDistance}px, 0)`;
 
       const rotation = Math.min(360, (pullDistance / PULL_THRESHOLD) * 360);
       if (icon) icon.style.transform = `rotate(${rotation}deg)`;
-
-      if (pullDistance >= PULL_THRESHOLD) {
-        if (text) text.textContent = 'Release to refresh';
-        indicator.style.borderColor = 'var(--gold-1, #F4C550)';
-      } else {
-        if (text) text.textContent = 'Pull down to refresh';
-        indicator.style.borderColor = 'rgba(244, 197, 80, 0.45)';
-      }
     }
   }, { passive: true });
 
@@ -492,9 +494,8 @@ function initPullToRefresh() {
       isRefreshing = true;
       indicator.classList.add('ptr-refreshing');
       indicator.style.transform = 'translate3d(-50%, 16px, 0)';
-      if (text) text.textContent = 'Updating...';
       if (navigator.vibrate) {
-        try { navigator.vibrate(12); } catch (_) {}
+        try { navigator.vibrate(10); } catch (_) {}
       }
 
       const startTime = Date.now();
@@ -504,7 +505,6 @@ function initPullToRefresh() {
         await new Promise(r => setTimeout(r, 450 - elapsed));
       }
 
-      if (text) text.textContent = 'Updated ✨';
       setTimeout(() => {
         indicator.classList.remove('ptr-refreshing');
         indicator.style.transform = 'translate3d(-50%, -90px, 0)';
@@ -512,7 +512,7 @@ function initPullToRefresh() {
         isRefreshing = false;
         isPulling = false;
         startY = 0;
-      }, 350);
+      }, 250);
     } else {
       indicator.style.transform = 'translate3d(-50%, -90px, 0)';
       if (icon) icon.style.transform = 'rotate(0deg)';
@@ -2937,13 +2937,34 @@ function renderChatThread() {
     let quoteHtml = '';
     if (msg.replyTo) {
       const qAuthor = escHtml(msg.replyTo.senderName || 'You');
-      const qText = escHtml(msg.replyTo.text || '');
+      let qText = escHtml(msg.replyTo.text || '');
       const qId = msg.replyTo.id || '';
-      const qThumb = msg.replyTo.imageUrl
-        ? `<img src="${escHtml(msg.replyTo.imageUrl)}" class="quote-thumb-img" alt="Photo">`
-        : '';
+
+      // Resolve thumbnail image from replyTo or by searching thread history
+      let qImg = msg.replyTo.imageUrl || '';
+      if (!qImg && qId) {
+        const found = hist.find(m => m.firestoreId === qId || m.id === qId || (m.timestamp && ('msg_' + m.timestamp) === qId));
+        if (found && found.imageUrl) {
+          qImg = found.imageUrl;
+        }
+      }
+      if (!qImg && (qText.toLowerCase().includes('photo') || qText.includes('📷'))) {
+        const priorPhoto = [...hist].reverse().find(m => m.imageUrl && (m.timestamp || 0) <= (msg.timestamp || Date.now()));
+        if (priorPhoto && priorPhoto.imageUrl) {
+          qImg = priorPhoto.imageUrl;
+        }
+      }
+
+      let qThumb = '';
+      if (qImg) {
+        qThumb = `<div class="quote-thumb-wrap"><img src="${escHtml(qImg)}" class="quote-thumb-img" alt="Photo"></div>`;
+        if (qText === '📷 Photo' || qText === 'Photo' || !qText) {
+          qText = `<span class="quote-photo-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:3px"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>Photo</span>`;
+        }
+      }
+
       quoteHtml = `
-        <div class="msg-quote-preview" onclick="scrollToQuotedMessage('${qId}')">
+        <div class="msg-quote-preview ${qImg ? 'has-thumb' : ''}" onclick="scrollToQuotedMessage('${qId}')">
           <div class="quote-stripe"></div>
           <div class="quote-text-col">
             <div class="quote-author">${qAuthor}</div>
@@ -3007,7 +3028,7 @@ function renderChatThread() {
       bubbleHtml = `
         <div class="msg-image-card-container ${isSent ? 'sent' : 'received'}">
           ${isSent ? `<button class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg></button>` : ''}
-          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'}" onclick="openImageLightbox('${escHtml(msg.imageUrl)}')" title="Tap to view photo" ${pressEvents}>
+          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'}" onclick="openImageLightbox('${escHtml(msg.imageUrl)}', '${msgId}')" title="Tap to view photo" ${pressEvents}>
             ${quoteHtml}
             <div class="msg-image-wrap">
               <img src="${msg.imageUrl}" class="msg-chat-img" loading="lazy" alt="Photo">
@@ -3227,7 +3248,7 @@ function startReplyToMessage(msgId) {
                   {};
   const partnerName = partner.name || document.getElementById('chatPartnerName')?.textContent?.trim() || 'Match';
   const senderName = isSent ? 'You' : partnerName;
-  const previewText = msg.imageUrl ? '📷 Photo' : (msg.isVoice ? '🎤 Voice note' : (msg.isCall ? (msg.callType === 'video' ? '📹 Video call' : '📞 Voice call') : (msg.text || '')));
+  const previewText = msg.imageUrl ? 'Photo' : (msg.isVoice ? 'Voice note' : (msg.isCall ? (msg.callType === 'video' ? 'Video call' : 'Voice call') : (msg.text || '')));
 
   _replyingToState = {
     id: msgId,
@@ -3244,7 +3265,11 @@ function startReplyToMessage(msgId) {
 
   if (replyBar && replySender && replyText) {
     replySender.textContent = `Replying to ${senderName}`;
-    replyText.textContent = previewText;
+    if (msg.imageUrl) {
+      replyText.innerHTML = `<span class="quote-photo-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:4px"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>Photo</span>`;
+    } else {
+      replyText.textContent = previewText;
+    }
     if (msg.imageUrl && replyThumbBox && replyThumbImg) {
       replyThumbImg.src = msg.imageUrl;
       replyThumbBox.style.display = 'block';
@@ -3513,20 +3538,297 @@ function backspaceEmoji() {
 }
 window.backspaceEmoji = backspaceEmoji;
 
-function openImageLightbox(src) {
+let _lightboxCurrentSrc = '';
+let _lightboxCurrentMsgId = '';
+let _lightboxSwipeBound = false;
+let _lightboxSwipeY = 0;
+let _lightboxSwipeStartY = 0;
+let _lightboxSwipeStartX = 0;
+let _lightboxSwipeStartTime = 0;
+let _lightboxIsSwiping = false;
+
+function openImageLightbox(src, msgId) {
   const modal = document.getElementById('chatImageLightbox');
   const img = document.getElementById('lightboxImg');
   if (!modal || !img || !src) return;
+
+  _lightboxCurrentSrc = src;
+  _lightboxCurrentMsgId = msgId || '';
+
+  // Get message info for header metadata matching WhatsApp Screenshot
+  const partner = matchedUsers.find(u => u.id === appState.currentChatId) ||
+                  PROFILES_DATA.find(u => u.id === appState.currentChatId) ||
+                  conversations[appState.currentChatId]?.partner ||
+                  {};
+  let senderName = partner.name || document.getElementById('chatPartnerName')?.textContent?.trim() || 'Match';
+  let timeMeta = 'HD • ' + new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  if (msgId) {
+    const { msg } = getMessageInfo(msgId);
+    if (msg) {
+      if (msg.sender === 'me') {
+        senderName = 'You';
+      }
+      const dateH = getWhatsAppDateHeader(msg.timestamp, msg.time);
+      const timeS = formatWhatsAppTime(msg.timestamp, msg.time);
+      timeMeta = `HD • ${dateH || 'Today'}, ${timeS || ''}`.trim();
+
+      const starBtn = document.getElementById('lightboxStarBtn');
+      if (starBtn) {
+        starBtn.style.color = msg.starred ? '#F4C550' : '#fff';
+      }
+    }
+  }
+
+  const nameEl = document.getElementById('lightboxUserName');
+  const metaEl = document.getElementById('lightboxTimeMeta');
+  if (nameEl) nameEl.textContent = senderName;
+  if (metaEl) metaEl.textContent = timeMeta;
+
+  // Reset transforms & opacity
+  img.style.transform = 'translate3d(0, 0, 0) scale(1)';
+  img.style.opacity = '1';
+  img.style.transition = 'none';
   img.src = src;
+
+  const topBar = document.getElementById('lightboxTopBar');
+  const bottomBar = document.getElementById('lightboxBottomBar');
+  if (topBar) topBar.style.opacity = '1';
+  if (bottomBar) bottomBar.style.opacity = '1';
+
+  modal.style.backgroundColor = '#000';
   modal.style.display = 'flex';
+
+  const replyInput = document.getElementById('lightboxReplyInput');
+  if (replyInput) replyInput.value = '';
+
+  initLightboxSwipeGestures();
 }
 window.openImageLightbox = openImageLightbox;
 
 function closeImageLightbox() {
   const modal = document.getElementById('chatImageLightbox');
-  if (modal) modal.style.display = 'none';
+  const img = document.getElementById('lightboxImg');
+  if (!modal) return;
+  if (img) {
+    img.style.transform = 'translate3d(0, 0, 0) scale(1)';
+    img.style.transition = 'none';
+  }
+  modal.style.display = 'none';
+  _lightboxCurrentSrc = '';
+  _lightboxCurrentMsgId = '';
 }
 window.closeImageLightbox = closeImageLightbox;
+
+function initLightboxSwipeGestures() {
+  if (_lightboxSwipeBound) return;
+  _lightboxSwipeBound = true;
+
+  const modal = document.getElementById('chatImageLightbox');
+  const img = document.getElementById('lightboxImg');
+  const topBar = document.getElementById('lightboxTopBar');
+  const bottomBar = document.getElementById('lightboxBottomBar');
+  if (!modal || !img) return;
+
+  function onTouchStart(e) {
+    if (e.target.closest('button, input, textarea, a, .lightbox-top-bar, .lightbox-bottom-bar')) return;
+    if (!e.touches || e.touches.length === 0) return;
+
+    _lightboxSwipeStartY = e.touches[0].clientY;
+    _lightboxSwipeStartX = e.touches[0].clientX;
+    _lightboxSwipeStartTime = Date.now();
+    _lightboxSwipeY = 0;
+    _lightboxIsSwiping = false;
+    img.style.transition = 'none';
+  }
+
+  function onTouchMove(e) {
+    if (!_lightboxSwipeStartY || !e.touches || e.touches.length === 0) return;
+    const currentY = e.touches[0].clientY;
+    const currentX = e.touches[0].clientX;
+    const dy = currentY - _lightboxSwipeStartY;
+    const dx = currentX - _lightboxSwipeStartX;
+
+    if (!_lightboxIsSwiping) {
+      if (Math.abs(dy) > 10 && Math.abs(dy) > Math.abs(dx) * 1.1) {
+        _lightboxIsSwiping = true;
+      } else if (Math.abs(dx) > 15) {
+        _lightboxSwipeStartY = 0;
+        return;
+      }
+    }
+
+    if (_lightboxIsSwiping) {
+      if (e.cancelable) e.preventDefault();
+      _lightboxSwipeY = dy;
+      const absY = Math.abs(dy);
+      const scale = Math.max(0.72, 1 - absY / 1000);
+      img.style.transform = `translate3d(0, ${dy}px, 0) scale(${scale})`;
+
+      const opacity = Math.max(0.15, 1 - absY / 380);
+      modal.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`;
+      if (topBar) topBar.style.opacity = `${opacity}`;
+      if (bottomBar) bottomBar.style.opacity = `${opacity}`;
+    }
+  }
+
+  function onTouchEnd() {
+    if (!_lightboxSwipeStartY) return;
+    const dt = Date.now() - _lightboxSwipeStartTime;
+    const absY = Math.abs(_lightboxSwipeY);
+    const velocity = absY / (dt || 1);
+
+    // If dragged > 60px vertically or flicked fast: dismiss lightbox smoothly
+    if (_lightboxIsSwiping && (absY > 60 || (velocity > 0.4 && absY > 25))) {
+      img.style.transition = 'transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.18s ease';
+      img.style.transform = `translate3d(0, ${_lightboxSwipeY > 0 ? 450 : -450}px, 0) scale(0.6)`;
+      img.style.opacity = '0';
+      modal.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+      if (topBar) topBar.style.opacity = '0';
+      if (bottomBar) bottomBar.style.opacity = '0';
+      setTimeout(() => {
+        closeImageLightbox();
+      }, 190);
+    } else if (_lightboxIsSwiping) {
+      // Spring back to center
+      img.style.transition = 'transform 0.22s ease-out, opacity 0.22s ease-out';
+      img.style.transform = 'translate3d(0, 0, 0) scale(1)';
+      img.style.opacity = '1';
+      modal.style.backgroundColor = '#000';
+      if (topBar) topBar.style.opacity = '1';
+      if (bottomBar) bottomBar.style.opacity = '1';
+    }
+
+    _lightboxSwipeStartY = 0;
+    _lightboxSwipeStartX = 0;
+    _lightboxSwipeY = 0;
+    _lightboxIsSwiping = false;
+  }
+
+  modal.addEventListener('touchstart', onTouchStart, { passive: true });
+  modal.addEventListener('touchmove', onTouchMove, { passive: false });
+  modal.addEventListener('touchend', onTouchEnd, { passive: true });
+
+  // Mouse drag support for desktop
+  let isMouseDown = false;
+  modal.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    if (e.target.closest('button, input, textarea, a, .lightbox-top-bar, .lightbox-bottom-bar')) return;
+    isMouseDown = true;
+    _lightboxSwipeStartY = e.clientY;
+    _lightboxSwipeStartX = e.clientX;
+    _lightboxSwipeStartTime = Date.now();
+    _lightboxSwipeY = 0;
+    _lightboxIsSwiping = false;
+    img.style.transition = 'none';
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isMouseDown) return;
+    const dy = e.clientY - _lightboxSwipeStartY;
+    const dx = e.clientX - _lightboxSwipeStartX;
+    if (!_lightboxIsSwiping) {
+      if (Math.abs(dy) > 8 && Math.abs(dy) > Math.abs(dx)) {
+        _lightboxIsSwiping = true;
+      }
+    }
+    if (_lightboxIsSwiping) {
+      e.preventDefault();
+      _lightboxSwipeY = dy;
+      const absY = Math.abs(dy);
+      const scale = Math.max(0.72, 1 - absY / 1000);
+      img.style.transform = `translate3d(0, ${dy}px, 0) scale(${scale})`;
+      const opacity = Math.max(0.15, 1 - absY / 380);
+      modal.style.backgroundColor = `rgba(0, 0, 0, ${opacity})`;
+      if (topBar) topBar.style.opacity = `${opacity}`;
+      if (bottomBar) bottomBar.style.opacity = `${opacity}`;
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!isMouseDown) return;
+    isMouseDown = false;
+    onTouchEnd();
+  });
+}
+
+function downloadLightboxImage() {
+  if (!_lightboxCurrentSrc) return;
+  const a = document.createElement('a');
+  a.href = _lightboxCurrentSrc;
+  a.download = `HookMe_photo_${Date.now()}.jpg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  showToast('Photo saved to gallery 📥', 'gold');
+}
+window.downloadLightboxImage = downloadLightboxImage;
+
+function forwardLightboxImage() {
+  if (!_lightboxCurrentMsgId) {
+    showToast('Select a chat to forward', 'info');
+    return;
+  }
+  closeImageLightbox();
+  forwardMessagePrompt(_lightboxCurrentMsgId);
+}
+window.forwardLightboxImage = forwardLightboxImage;
+
+function toggleLightboxStar() {
+  if (!_lightboxCurrentMsgId) return;
+  const { msg } = getMessageInfo(_lightboxCurrentMsgId);
+  if (!msg) return;
+  msg.starred = !msg.starred;
+  const starBtn = document.getElementById('lightboxStarBtn');
+  if (starBtn) {
+    starBtn.style.color = msg.starred ? '#F4C550' : '#fff';
+  }
+  saveToStorage();
+  showToast(msg.starred ? 'Starred message ⭐' : 'Unstarred message', 'info');
+}
+window.toggleLightboxStar = toggleLightboxStar;
+
+function showLightboxMenu(event) {
+  event.stopPropagation();
+  if (!_lightboxCurrentSrc) return;
+  if (confirm('Save this photo to your device?')) {
+    downloadLightboxImage();
+  }
+}
+window.showLightboxMenu = showLightboxMenu;
+
+function quickReactLightbox(emoji) {
+  if (!emoji || !_lightboxCurrentMsgId) {
+    showToast(`Reacted ${emoji}`, 'info');
+    return;
+  }
+  const chatId = appState.currentChatId;
+  toggleMsgReaction(chatId, _lightboxCurrentMsgId, emoji);
+  if (navigator.vibrate) try { navigator.vibrate(25); } catch (_) {}
+  showToast(`Reacted ${emoji}`, 'info');
+}
+window.quickReactLightbox = quickReactLightbox;
+
+function handleLightboxReplyKeydown(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    const input = document.getElementById('lightboxReplyInput');
+    const text = input ? input.value.trim() : '';
+    if (!text) return;
+
+    if (_lightboxCurrentMsgId) {
+      startReplyToMessage(_lightboxCurrentMsgId);
+    }
+    closeImageLightbox();
+
+    const chatField = document.getElementById('chatInput');
+    if (chatField) {
+      chatField.value = text;
+      sendMessage();
+    }
+  }
+}
+window.handleLightboxReplyKeydown = handleLightboxReplyKeydown;
 
 function compressImageForChat(file, maxWidth = 1280, quality = 0.8) {
   return new Promise((resolve) => {
@@ -6428,6 +6730,41 @@ function showStoryAtIndex(idx) {
 
   if (overlay) {
     overlay.style.display = 'flex';
+    if (!overlay._swipeBound) {
+      overlay._swipeBound = true;
+      let sY = 0;
+      let sX = 0;
+      let isSwipingDown = false;
+      overlay.addEventListener('touchstart', (e) => {
+        if (e.target.closest('input, button, textarea, a')) return;
+        if (!e.touches || e.touches.length === 0) return;
+        sY = e.touches[0].clientY;
+        sX = e.touches[0].clientX;
+        isSwipingDown = false;
+      }, { passive: true });
+      overlay.addEventListener('touchmove', (e) => {
+        if (!sY || !e.touches || e.touches.length === 0) return;
+        const dy = e.touches[0].clientY - sY;
+        const dx = e.touches[0].clientX - sX;
+        if (dy > 12 && Math.abs(dy) > Math.abs(dx) * 1.2) {
+          isSwipingDown = true;
+          overlay.style.transform = `translateY(${Math.min(180, dy)}px)`;
+          overlay.style.opacity = `${Math.max(0.3, 1 - dy / 400)}`;
+        }
+      }, { passive: true });
+      overlay.addEventListener('touchend', (e) => {
+        if (isSwipingDown && e.changedTouches && e.changedTouches.length > 0) {
+          const dy = e.changedTouches[0].clientY - sY;
+          if (dy > 55) {
+            closeStoryViewer();
+          }
+        }
+        overlay.style.transform = '';
+        overlay.style.opacity = '';
+        isSwipingDown = false;
+        sY = 0;
+      }, { passive: true });
+    }
   }
 
   // Auto advance after 6s
@@ -7741,7 +8078,30 @@ function openReactionSheet(matchId, msgId, defaultEmojiFilter = 'all') {
 
   renderReactionSheetContent();
   const modal = document.getElementById('reactionInfoModal');
-  if (modal) modal.style.display = 'flex';
+  if (modal) {
+    modal.style.display = 'flex';
+    const sheet = modal.querySelector('.reaction-sheet-modal');
+    if (sheet && !sheet._swipeBound) {
+      sheet._swipeBound = true;
+      let sY = 0;
+      sheet.addEventListener('touchstart', (e) => {
+        sY = e.touches[0].clientY;
+      }, { passive: true });
+      sheet.addEventListener('touchmove', (e) => {
+        const diffY = e.touches[0].clientY - sY;
+        if (diffY > 8) {
+          sheet.style.transform = `translateY(${Math.min(180, diffY)}px)`;
+        }
+      }, { passive: true });
+      sheet.addEventListener('touchend', (e) => {
+        const diffY = e.changedTouches[0].clientY - sY;
+        if (diffY > 55) {
+          closeReactionSheet();
+        }
+        sheet.style.transform = '';
+      }, { passive: true });
+    }
+  }
 }
 
 function filterReactionSheet(emoji) {

@@ -4690,34 +4690,69 @@ label, .form-field label, .auth-form-group label {
 }
 
 /* ================================================================
-   WHATSAPP FULL-SCREEN IMAGE LIGHTBOX
+   WHATSAPP FULL-SCREEN IMAGE LIGHTBOX (Screenshot 4 Style)
    ================================================================ */
 .chat-image-lightbox {
   position: fixed;
   inset: 0;
-  z-index: 99999;
-  background: rgba(0, 0, 0, 0.95);
+  z-index: 10005;
+  background: #000;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
   animation: fadeIn 0.18s ease;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
 }
-.lightbox-header {
-  height: 56px;
+.lightbox-top-bar {
+  height: 60px;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  padding: 0 16px;
+  justify-content: space-between;
+  padding: 0 14px;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0) 100%);
   position: relative;
-  z-index: 2;
+  z-index: 10;
+  transition: opacity 0.2s ease;
 }
-.lightbox-close-btn {
-  background: rgba(255, 255, 255, 0.15);
+.lightbox-top-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+.lightbox-meta-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.lightbox-user-name {
+  color: #fff;
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lightbox-time-meta {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  line-height: 1.2;
+}
+.lightbox-top-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.lightbox-icon-btn {
+  background: transparent;
   border: none;
   color: #fff;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -4725,24 +4760,89 @@ label, .form-field label, .auth-form-group label {
   cursor: pointer;
   transition: background 0.15s ease, transform 0.15s ease;
 }
-.lightbox-close-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: scale(1.05);
+.lightbox-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.08);
+}
+.lightbox-icon-btn:active {
+  transform: scale(0.92);
 }
 .lightbox-body {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  position: relative;
   overflow: hidden;
+  padding: 10px;
 }
-.lightbox-body img {
-  max-width: 95%;
-  max-height: 85vh;
+#lightboxImg {
+  max-width: 100%;
+  max-height: 80vh;
   object-fit: contain;
-  border-radius: 8px;
-  box-shadow: 0 8px 36px rgba(0, 0, 0, 0.8);
+  transition: transform 0.15s ease-out, opacity 0.15s ease-out;
+  will-change: transform, opacity;
+  cursor: grab;
+}
+#lightboxImg.swiping {
+  transition: none !important;
+}
+.lightbox-bottom-bar {
+  padding: 12px 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0) 100%);
+  position: relative;
+  z-index: 10;
+  transition: opacity 0.2s ease;
+}
+.lightbox-reply-pill {
+  flex: 1;
+  background: #1f2c34;
+  border-radius: 26px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+}
+#lightboxReplyInput {
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #fff;
+  outline: none;
+  font-size: 14.5px;
+  line-height: 1.3;
+}
+#lightboxReplyInput::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+.lightbox-quick-emojis {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.lightbox-emoji-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: none;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  font-size: 19px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+.lightbox-emoji-btn:hover {
+  background: rgba(255, 255, 255, 0.24);
+  transform: scale(1.15);
+}
+.lightbox-emoji-btn:active {
+  transform: scale(0.9);
 }
 
 /* ================================================================
@@ -6732,7 +6832,7 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 }
 
 /* ============================================================
-   PULL TO REFRESH & AUTO-REFRESH INDICATOR (PWA Optimized)
+   PULL TO REFRESH & AUTO-REFRESH INDICATOR (Icon Only - WhatsApp Style)
    ============================================================ */
 .ptr-indicator {
   position: fixed;
@@ -6742,19 +6842,17 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
   z-index: 99999;
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(19, 14, 31, 0.96);
-  border: 1px solid rgba(244, 197, 80, 0.45);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.85), 0 0 18px rgba(244, 197, 80, 0.25);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  border-radius: 999px;
-  padding: 8px 18px;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #FFF;
-  pointer-events: auto;
-  cursor: pointer;
+  justify-content: center;
+  background: rgba(30, 42, 50, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 168, 132, 0.25);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  pointer-events: none;
   opacity: 0;
   transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease, border-color 0.2s ease;
   user-select: none;
@@ -6773,12 +6871,12 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 }
 
 .ptr-icon {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--gold-1, #F4C550);
+  color: #00a884;
   transition: transform 0.1s linear;
 }
 
@@ -6792,8 +6890,7 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 }
 
 .ptr-text {
-  letter-spacing: 0.2px;
-  white-space: nowrap;
+  display: none !important;
 }
 
 /* ============================================================
@@ -7661,14 +7758,16 @@ body[data-theme="light"],
 
 /* --- Quoted Message Preview inside Bubbles --- */
 .msg-quote-preview {
-  background: rgba(0, 0, 0, 0.22) !important;
+  background: rgba(0, 0, 0, 0.25) !important;
   border-radius: 8px !important;
   display: flex !important;
+  align-items: stretch !important;
   margin-bottom: 6px !important;
   overflow: hidden !important;
   cursor: pointer !important;
-  border-left: 4px solid var(--flame-1) !important;
+  border-left: 4px solid #a78bfa !important;
   transition: opacity 0.15s ease !important;
+  min-height: 48px !important;
 }
 .msg-quote-preview:hover {
   opacity: 0.9 !important;
@@ -7678,23 +7777,25 @@ body[data-theme="light"],
 }
 .msg-bubble.sent .msg-quote-preview {
   background: rgba(0, 0, 0, 0.28) !important;
-  border-left-color: #E3B34D !important;
+  border-left-color: #25D366 !important;
 }
 .quote-text-col {
-  padding: 4px 8px !important;
+  padding: 6px 10px !important;
   font-size: 0.76rem !important;
+  flex: 1 !important;
   min-width: 0 !important;
   display: flex !important;
   flex-direction: column !important;
+  justify-content: center !important;
 }
 .quote-author {
   font-weight: 700 !important;
-  color: var(--flame-1) !important;
+  color: #a78bfa !important;
   font-size: 0.74rem !important;
-  margin-bottom: 1px !important;
+  margin-bottom: 2px !important;
 }
 .msg-bubble.sent .quote-author {
-  color: #E3B34D !important;
+  color: #25D366 !important;
 }
 .quote-content {
   color: var(--txt-secondary, #D4CCBC) !important;
@@ -7702,6 +7803,26 @@ body[data-theme="light"],
   overflow: hidden !important;
   text-overflow: ellipsis !important;
   font-size: 0.76rem !important;
+}
+.quote-thumb-wrap {
+  width: 52px !important;
+  min-width: 52px !important;
+  height: 52px !important;
+  flex-shrink: 0 !important;
+  overflow: hidden !important;
+  border-radius: 0 8px 8px 0 !important;
+  background: #111b21 !important;
+}
+.quote-thumb-img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  display: block !important;
+}
+.quote-photo-label {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 3px !important;
 }
 [data-theme="light"] .quote-content {
   color: #4D4655 !important;
