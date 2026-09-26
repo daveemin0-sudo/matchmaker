@@ -1107,13 +1107,18 @@ html.age-gate-passed #ageGateOverlay {
 }
 .matches-workspace::-webkit-scrollbar { display: none; }
 
-.matches-section { padding: 14px 16px; }
+.matches-section {
+  padding: 14px 0 0 0;
+  width: 100%;
+  box-sizing: border-box;
+}
 
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
+  padding: 0 16px;
 }
 .section-title {
   font-family: var(--font-display);
@@ -1308,16 +1313,23 @@ html.age-gate-passed #ageGateOverlay {
 .convo-list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
+  width: 100%;
 }
 .convo-item {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: 12px 14px;
-  border-radius: var(--r-md);
+  padding: 12px 16px;
+  border-radius: 0;
+  width: 100%;
+  box-sizing: border-box;
   cursor: pointer;
   transition: background var(--t-fast) var(--ease);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.convo-item:last-child {
+  border-bottom: none;
 }
 .convo-item:hover { background: var(--bg-elevated); }
 .convo-item:active { background: var(--bg-card); }

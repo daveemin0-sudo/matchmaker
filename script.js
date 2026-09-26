@@ -210,6 +210,13 @@ function bootApplication() {
     if (typeof getLockoutSecondsRemaining === 'function' && getLockoutSecondsRemaining() > 0) {
       startLockoutTimer();
     }
+    try {
+      const rememberedEmail = localStorage.getItem('hmbs_remember_email');
+      if (rememberedEmail) {
+        const emailField = document.getElementById('loginEmail');
+        if (emailField && !emailField.value) emailField.value = rememberedEmail;
+      }
+    } catch (_) {}
   }
 
   // Ensure redirect auth result is processed after page returns from Google
@@ -1200,6 +1207,26 @@ function evaluatePasswordStrength(password) {
   return score === 4;
 }
 
+function checkPasswordMatch() {
+  const pwd = document.getElementById('signupPassword')?.value || '';
+  const confirmPwd = document.getElementById('signupConfirmPassword')?.value || '';
+  const feedback = document.getElementById('pwMatchFeedback');
+  if (!feedback) return;
+  if (!confirmPwd) {
+    feedback.style.display = 'none';
+    return;
+  }
+  feedback.style.display = 'block';
+  if (pwd === confirmPwd) {
+    feedback.style.color = '#10B981';
+    feedback.textContent = '✓ Passwords match';
+  } else {
+    feedback.style.color = '#EF4444';
+    feedback.textContent = '✕ Passwords do not match';
+  }
+}
+window.checkPasswordMatch = checkPasswordMatch;
+
 // EMAIL LOGIN HANDLER
 async function handleLogin() {
   const remaining = getLockoutSecondsRemaining();
@@ -1210,6 +1237,14 @@ async function handleLogin() {
 
   const email = (document.getElementById('loginEmail')?.value || '').trim();
   const password = document.getElementById('loginPassword')?.value || '';
+
+  // Remember Me support
+  const rememberMe = document.getElementById('loginRememberMe')?.checked;
+  if (rememberMe && email) {
+    try { localStorage.setItem('hmbs_remember_email', email); } catch (_) {}
+  } else {
+    try { localStorage.removeItem('hmbs_remember_email'); } catch (_) {}
+  }
   const errorEl = document.getElementById('loginError');
   if (errorEl) errorEl.textContent = '';
   const googleErrEl = document.getElementById('googleLoginError');
@@ -1684,6 +1719,12 @@ function completeSignup() {
   const isStrong = evaluatePasswordStrength(password);
   if (!isStrong) {
     if (errorEl) errorEl.textContent = 'Password must meet all 4 requirements: 8+ characters, uppercase letter, number, and symbol.';
+    return;
+  }
+
+  const confirmPassword = document.getElementById('signupConfirmPassword')?.value || '';
+  if (password !== confirmPassword) {
+    if (errorEl) errorEl.textContent = 'Passwords do not match. Please verify your confirmation password.';
     return;
   }
 
