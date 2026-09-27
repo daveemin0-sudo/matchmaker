@@ -4474,7 +4474,7 @@ function handleLightboxReplyKeydown(event) {
 }
 window.handleLightboxReplyKeydown = handleLightboxReplyKeydown;
 
-function compressImageForChat(file, maxWidth = 1280, quality = 0.8) {
+function compressImageForChat(file, maxWidth = 960, quality = 0.72) {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -4496,7 +4496,21 @@ function compressImageForChat(file, maxWidth = 1280, quality = 0.8) {
         canvas.height = height;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', quality));
+        let result = canvas.toDataURL('image/jpeg', quality);
+
+        // Mobile photos can have high entropy; ensure output is comfortably below Firestore limit (< 450KB)
+        if (result.length > 550000) {
+          result = canvas.toDataURL('image/jpeg', 0.55);
+        }
+        if (result.length > 650000) {
+          const smallCanvas = document.createElement('canvas');
+          smallCanvas.width = Math.round(width * 0.7);
+          smallCanvas.height = Math.round(height * 0.7);
+          const sCtx = smallCanvas.getContext('2d');
+          sCtx.drawImage(canvas, 0, 0, smallCanvas.width, smallCanvas.height);
+          result = smallCanvas.toDataURL('image/jpeg', 0.5);
+        }
+        resolve(result);
       };
       img.onerror = () => resolve(e.target.result);
       img.src = e.target.result;
@@ -4557,7 +4571,7 @@ async function sendImageMessage(event) {
     // For photos: compress image for instant local rendering and fallback
     if (!isVideo) {
       try {
-        localDataUrl = await compressImageForChat(file, 1280, 0.82);
+        localDataUrl = await compressImageForChat(file, 960, 0.72);
         if (localDataUrl && localDataUrl.startsWith('data:')) {
           const resp = await fetch(localDataUrl);
           const compressedBlob = await resp.blob();
