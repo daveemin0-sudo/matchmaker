@@ -4607,7 +4607,7 @@ async function sendImageMessage(event) {
     // If Cloud Storage succeeded & logged in, dispatch to partner via Firestore
     if (cloudUrl && typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-      sendRealtimeMessage(
+      const delivered = await sendRealtimeMessage(
         matchId,
         isVideo ? 'Video' : 'Photo',
         false,
@@ -4617,7 +4617,11 @@ async function sendImageMessage(event) {
         isVideo ? cloudUrl : '',
         isVideo,
         localMsgId
-      ).catch(() => {});
+      );
+      if (!delivered) {
+        console.warn('sendImageMessage: media message was uploaded but could not be saved to the chat.');
+        showToast(isVideo ? 'Video uploaded, but could not be delivered. Please try again.' : 'Photo uploaded, but could not be delivered. Please try again.', 'error');
+      }
     }
   })();
 }
