@@ -655,8 +655,9 @@ async function reactRealtimeMessage(matchId, messageId, emoji) {
 // ----------------------------------------------------------
 
 async function uploadFileToBackend(file, path, returnMetadata = false, customContentType = '') {
-  if (!fbStorage) return null;
+  if (!fbStorage || !fbAuth?.currentUser) return null;
   try {
+    const uid = fbAuth.currentUser.uid;
     const allowedRoots = new Set(['stories', 'voicenotes', 'chat_media', 'chat_images', 'chat_videos']);
     if (!allowedRoots.has(path) || !fbAuth?.currentUser) return null;
     const isVid = Boolean(
