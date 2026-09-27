@@ -1,4 +1,4 @@
-﻿/* ==========================================================
+/* ==========================================================
    hookmebysam — Full Application Logic
    ========================================================== */
 
@@ -4612,17 +4612,21 @@ async function sendImageMessage(event) {
       showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
     }
 
-    // If Cloud Storage succeeded & logged in, dispatch to partner via Firestore
-    if (cloudUrl && typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    // Determine payload to send to partner via Firestore:
+    // Cloud Storage HTTPS URL is preferred; for photos, fall back to compressed Base64 data URL if Cloud Storage returned null/failed
+    const partnerPayloadUrl = cloudUrl || (!isVideo && localDataUrl && localDataUrl.startsWith('data:') ? localDataUrl : '');
+
+    // Dispatch to partner via Firestore so recipient receives image/video in real-time
+    if (partnerPayloadUrl && typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
       const delivered = await sendRealtimeMessage(
         matchId,
         isVideo ? 'Video' : 'Photo',
         false,
         '',
-        isVideo ? '' : cloudUrl,
+        isVideo ? '' : partnerPayloadUrl,
         null,
-        isVideo ? cloudUrl : '',
+        isVideo ? partnerPayloadUrl : '',
         isVideo,
         localMsgId
       );
@@ -7259,24 +7263,6 @@ function getAllCommunityStories() {
     }
   });
 
-  // If no live community stories yet, load active status cards from matches/profiles
-  if (combined.length === 0 && Array.isArray(PROFILES_DATA)) {
-    PROFILES_DATA.slice(0, 5).forEach((p, idx) => {
-      combined.push({
-        id: 'contact_status_' + p.id,
-        name: p.name,
-        image: p.image,
-        thumb: p.image,
-        avatar: p.image,
-        location: p.distance || 'Nearby',
-        bio: p.bio || 'Status update',
-        isUserStory: false,
-        createdAt: Date.now() - (idx + 1) * 3600000,
-        expiresAt: Date.now() + 24 * 3600000
-      });
-    });
-  }
-
   return combined;
 }
 
@@ -7457,8 +7443,9 @@ function showStoryAtIndex(idx) {
 
   // Airtight ownership verification
   const isOwn = Boolean(
-    (story && story.ownerId && myUid && String(story.ownerId) === String(myUid)) ||
-    (_viewingUserStory && (!story?.ownerId || (myUid && String(story.ownerId) === String(myUid))))
+    _viewingUserStory ||
+    story?.isUserStory ||
+    (story && story.ownerId && myUid && String(story.ownerId) === String(myUid))
   );
 
   if (!isOwn) seenStories.add(story.id);
@@ -7478,6 +7465,11 @@ function showStoryAtIndex(idx) {
   const addMoreBtn = document.getElementById('storyAddMoreBtn');
   const ownActionBar = document.getElementById('storyOwnActionBar');
   const commActionRow = document.getElementById('storyCommunityActionRow');
+
+  if (ownActionBar) ownActionBar.style.setProperty('display', isOwn ? 'flex' : 'none', 'important');
+  if (commActionRow) commActionRow.style.setProperty('display', isOwn ? 'none' : 'flex', 'important');
+  if (deleteBtn) deleteBtn.style.setProperty('display', isOwn ? 'flex' : 'none', 'important');
+  if (addMoreBtn) addMoreBtn.style.setProperty('display', isOwn ? 'flex' : 'none', 'important');
 
   // Handle Photo vs Video Story
   const isVideoStory = Boolean(story.video || story.isVideo);
