@@ -656,8 +656,8 @@ async function reactRealtimeMessage(matchId, messageId, emoji) {
 
 async function uploadFileToBackend(file, path, returnMetadata = false, customContentType = '') {
   window._lastMediaUploadError = null;
-  if (!fbStorage || !fbAuth?.currentUser) {
-    window._lastMediaUploadError = !fbStorage ? 'Firebase Storage is not initialized.' : 'You are not signed in to Firebase.';
+  if (!fbStorage || !fbAuth?.currentUser || window._firebaseStorageDisabled) {
+    window._lastMediaUploadError = !fbStorage ? 'Firebase Storage is not initialized.' : 'Firebase Storage is not provisioned on this plan.';
     return null;
   }
   try {
@@ -688,26 +688,29 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     try {
       snapshot = await storageRef.put(file, metadata);
     } catch (putErr) {
+      if (putErr?.code === 'storage/bucket-not-found' || putErr?.code === 'storage/project-not-found' || putErr?.message?.includes('CORS') || putErr?.message?.includes('preflight') || putErr?.message?.includes('network')) {
+        window._firebaseStorageDisabled = true;
+      }
       window._lastMediaUploadError = `Storage upload failed: ${putErr?.code || 'unknown'} — ${putErr?.message || 'unknown error'}`;
-      console.warn(`uploadFileToBackend primary put to ${storagePath} failed (${putErr.message}). Retrying in stories path...`);
       if (storagePath === 'chat_media') {
         try {
           const fallbackRef = fbStorage.ref(`stories/${uid}/chat_${Date.now()}_${safeName}`);
           snapshot = await fallbackRef.put(file, metadata);
         } catch (fallbackErr) {
+          window._firebaseStorageDisabled = true;
           window._lastMediaUploadError = `Storage upload failed: ${fallbackErr?.code || 'unknown'} — ${fallbackErr?.message || 'unknown error'}`;
-          throw fallbackErr;
+          return null;
         }
       } else {
-        throw putErr;
+        return null;
       }
     }
 
     const downloadUrl = await snapshot.ref.getDownloadURL();
     return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
   } catch (err) {
+    window._firebaseStorageDisabled = true;
     window._lastMediaUploadError = window._lastMediaUploadError || `Storage error: ${err?.code || 'unknown'} — ${err?.message || 'unknown error'}`;
-    console.error("uploadFileToBackend failed:", err);
     return null;
   }
 }
