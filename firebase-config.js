@@ -655,7 +655,11 @@ async function reactRealtimeMessage(matchId, messageId, emoji) {
 // ----------------------------------------------------------
 
 async function uploadFileToBackend(file, path, returnMetadata = false, customContentType = '') {
-  if (!fbStorage || !fbAuth?.currentUser) return null;
+  window._lastMediaUploadError = null;
+  if (!fbStorage || !fbAuth?.currentUser) {
+    window._lastMediaUploadError = !fbStorage ? 'Firebase Storage is not initialized.' : 'You are not signed in to Firebase.';
+    return null;
+  }
   try {
     const uid = fbAuth.currentUser.uid;
     const allowedRoots = new Set(['stories', 'voicenotes', 'chat_media', 'chat_images', 'chat_videos']);
@@ -684,10 +688,16 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     try {
       snapshot = await storageRef.put(file, metadata);
     } catch (putErr) {
+      window._lastMediaUploadError = `Storage upload failed: ${putErr?.code || 'unknown'} — ${putErr?.message || 'unknown error'}`;
       console.warn(`uploadFileToBackend primary put to ${storagePath} failed (${putErr.message}). Retrying in stories path...`);
       if (storagePath === 'chat_media') {
-        const fallbackRef = fbStorage.ref(`stories/${uid}/chat_${Date.now()}_${safeName}`);
-        snapshot = await fallbackRef.put(file, metadata);
+        try {
+          const fallbackRef = fbStorage.ref(`stories/${uid}/chat_${Date.now()}_${safeName}`);
+          snapshot = await fallbackRef.put(file, metadata);
+        } catch (fallbackErr) {
+          window._lastMediaUploadError = `Storage upload failed: ${fallbackErr?.code || 'unknown'} — ${fallbackErr?.message || 'unknown error'}`;
+          throw fallbackErr;
+        }
       } else {
         throw putErr;
       }
@@ -696,6 +706,7 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     const downloadUrl = await snapshot.ref.getDownloadURL();
     return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
   } catch (err) {
+    window._lastMediaUploadError = window._lastMediaUploadError || `Storage error: ${err?.code || 'unknown'} — ${err?.message || 'unknown error'}`;
     console.error("uploadFileToBackend failed:", err);
     return null;
   }
