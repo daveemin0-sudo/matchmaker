@@ -4578,14 +4578,22 @@ async function sendImageMessage(event) {
           false,
           isVideo ? (file.type || 'video/mp4') : 'image/jpeg'
         );
-        const timeoutPromise = new Promise(res => setTimeout(() => res(null), 35000));
+        // Give larger videos enough time to finish uploading on mobile/slow connections.
+        const timeoutPromise = new Promise(res => setTimeout(() => res(null), isVideo ? 120000 : 60000));
         const resUrl = await Promise.race([uploadPromise, timeoutPromise]);
         if (resUrl && typeof resUrl === 'string' && (resUrl.startsWith('http') || resUrl.startsWith('https'))) {
           cloudUrl = resUrl;
+        } else {
+          const uploadError = window._lastMediaUploadError || 'Firebase Storage did not return a download URL.';
+          console.error('sendImageMessage: media upload failed:', uploadError);
+          showToast(`${isVideo ? 'Video' : 'Photo'} upload failed: ${uploadError}`, 'error', 9000);
         }
       } catch (err) {
         console.warn('sendImageMessage: uploadFileToBackend threw:', err);
+        showToast(`${isVideo ? 'Video' : 'Photo'} upload failed: ${err?.message || 'Unknown error'}`, 'error', 9000);
       }
+    } else {
+      showToast(isVideo ? 'Video upload unavailable: Firebase Storage is not connected.' : 'Photo upload unavailable: Firebase Storage is not connected.', 'error', 9000);
     }
 
     // Final display URL (cloud URL if available, or compressed local data URL / object URL)
