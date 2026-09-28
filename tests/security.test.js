@@ -61,5 +61,5 @@ test('chat media never falls back to public story storage or local-only delivery
   assert.match(client, /active match not found or access denied/);
   assert.match(app, /Private chat media must be stored in Cloud Storage before it is sent/);
   assert.match(app, /Only send the stable Cloud Storage URL to the recipient/);
-  assert.match(app, /chat_media\\/\\$\\{matchId\\}/);
+  assert.ok(app.includes('chat_media/${matchId}'));
 });
