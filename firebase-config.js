@@ -293,33 +293,12 @@ async function recordSwipeInBackend(targetUserId, action) {
     console.warn("Backend swipe request failed, trying Firestore fallback:", backendErr.message);
   }
 
-  // 2. Direct Firestore fallback (resilient for local testing and offline)
-  if (fbDb) {
-    try {
-      const swipeId = `${uid}_${targetUserId}`;
-      await fbDb.collection('swipes').doc(swipeId).set({
-        fromUserId: uid,
-        toUserId: targetUserId,
-        action: action,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+  // Matching is server-authoritative. Do not create matches from the client.
+  // If the API is unavailable, fail closed rather than creating inconsistent matches.
+  showToast('Connection problem. Please try again.', 'error');
+  return { success: false, matched: false, error: 'Backend unavailable.' };
 
-      if (action === 'like' || action === 'superlike') {
-        const reverseDoc = await fbDb.collection('swipes').doc(`${targetUserId}_${uid}`).get().catch(() => null);
-        if (reverseDoc && reverseDoc.exists && ['like', 'superlike'].includes(reverseDoc.data()?.action)) {
-          const matchId = [uid, targetUserId].sort().join('_');
-          await fbDb.collection('matches').doc(matchId).set({
-            users: [uid, targetUserId],
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            lastActivity: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-          return { success: true, matched: true, matchId };
-        }
-      }
-      return { success: true, matched: false };
-    } catch (fsErr) {
-      console.warn("Direct Firestore swipe error:", fsErr.message);
-      showToast('Could not save your swipe. Please try again.', 'error');
+  showToast('Could not save your swipe. Please try again.', 'error');
       return { success: false, matched: false, error: fsErr.message };
     }
   }
