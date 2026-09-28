@@ -10,6 +10,14 @@ service cloud.firestore {
     function participant(matchData) {
       return signedIn() && request.auth.uid in matchData.users;
     }
+    function notBlockedBetween(userA, userB) {
+      return !exists(/databases/$(database)/documents/blocks/$(userA)_$(userB))
+        && !exists(/databases/$(database)/documents/blocks/$(userB)_$(userA));
+    }
+    function safeParticipant(matchData) {
+      return participant(matchData)
+        && notBlockedBetween(matchData.users[0], matchData.users[1]);
+    }
 
     // ── users ───────────────────────────────────────────────────────────────
     // All signed-in users must be able to read user profiles to discover cards,
@@ -44,35 +52,35 @@ service cloud.firestore {
     // ── matches ─────────────────────────────────────────────────────────────
     // Formed when two users mutually swipe. Messages, calls, and metadata live here.
     match /matches/{matchId} {
-      allow read: if participant(resource.data);
+      allow read: if safeParticipant(resource.data);
       allow create: if false;
-      allow update: if participant(resource.data)
+      allow update: if safeParticipant(resource.data)
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['lastMessage','lastSender','lastUpdated','lastActivity','status']);
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
-        allow create: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+        allow read: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data);
+        allow create: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && request.resource.data.sender == request.auth.uid
           && request.resource.data.keys().hasOnly([
             'sender','text','isVoice','audioUrl','imageUrl','videoUrl','isVideo',
             'read','timestamp','replyTo','localId','reactions'
           ])
           && (!('text' in request.resource.data) || request.resource.data.text.size() <= 5000);
-        allow update: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+        allow update: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && (
             (resource.data.sender == request.auth.uid
               && request.resource.data.diff(resource.data).affectedKeys()
                 .hasOnly(['text','imageUrl','videoUrl','audioUrl','isVoice','isVideo','replyTo','reactions','editedAt','read']))
             || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
           );
-        allow delete: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+        allow delete: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && resource.data.sender == request.auth.uid;
       }
 
       match /meta/{docId} {
-        allow read, write: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
+        allow read, write: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data);
       }
 
       match /calls/{callId} {
