@@ -52,3 +52,14 @@ test('account deletion removes reverse privacy relationships and match media', (
   assert.match(server, /reports.*where\('reportedUserId', '==', uid\)/);
   assert.match(server, /chat_media\/\$\{match\.id\}\//);
 });
+
+
+test('chat media never falls back to public story storage or local-only delivery', () => {
+  const client = read('firebase-config.js');
+  const app = read('script.js');
+  assert.doesNotMatch(client, /fallbackRef = fbStorage/);
+  assert.match(client, /active match not found or access denied/);
+  assert.match(app, /Private chat media must be stored in Cloud Storage before it is sent/);
+  assert.match(app, /Only send the stable Cloud Storage URL to the recipient/);
+  assert.match(app, /chat_media\\/\\$\\{matchId\\}/);
+});
