@@ -14,18 +14,18 @@ service firebase.storage {
 
     match /chat_media/{matchId}/{userId}/{fileName} {
       allow read: if request.auth != null
-        && exists(/databases/$(database)/documents/matches/$(matchId))
-        && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+        && firestore.exists(/databases/(default)/documents/matches/$(matchId))
+        && request.auth.uid in firestore.get(/databases/(default)/documents/matches/$(matchId)).data.users;
       allow create: if request.auth != null
         && request.auth.uid == userId
-        && exists(/databases/$(database)/documents/matches/$(matchId))
-        && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users
+        && firestore.exists(/databases/(default)/documents/matches/$(matchId))
+        && request.auth.uid in firestore.get(/databases/(default)/documents/matches/$(matchId)).data.users
         && request.resource.size < 30 * 1024 * 1024
         && request.resource.contentType.matches('(image|video)/.*');
       allow delete: if request.auth != null
         && request.auth.uid == userId
-        && exists(/databases/$(database)/documents/matches/$(matchId))
-        && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.users;
+        && firestore.exists(/databases/(default)/documents/matches/$(matchId))
+        && request.auth.uid in firestore.get(/databases/(default)/documents/matches/$(matchId)).data.users;
       allow update: if false;
     }
 
