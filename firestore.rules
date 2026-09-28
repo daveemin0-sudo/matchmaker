@@ -30,8 +30,8 @@ service cloud.firestore {
     // ── public_profiles (fallback collection if used) ───────────────────────
     match /public_profiles/{userId} {
       allow read: if signedIn();
-      allow create, update: if owner(userId);
-      allow delete: if owner(userId);
+      // Public profiles are published only by the trusted backend/Admin SDK.
+      allow create, update, delete: if false;
     }
 
     // ── swipes ──────────────────────────────────────────────────────────────
