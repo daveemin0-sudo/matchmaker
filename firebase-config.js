@@ -332,42 +332,20 @@ async function recordSwipeInBackend(targetUserId, action) {
 
 // Fetch all registered users from Firestore for the swipe card stack
 async function fetchRealUsersFromFirestore() {
-  if (!fbDb || !fbAuth?.currentUser) return [];
-  const currentUserId = fbAuth.currentUser.uid;
-
+  if (!fbAuth?.currentUser) return [];
   try {
-    const snapshot = await fbDb.collection('public_profiles').get().catch(() => null);
-    if (!snapshot) return [];
-
-    const users = [];
-    snapshot.forEach(doc => {
-      if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
-        const data = doc.data();
-        const userPhoto = data.image || data.avatar || '';
-        // Only show users who have uploaded their own real profile picture
-        if (!userPhoto) return;
-
-        users.push({
-          id: doc.id,
-          name: data.displayName || data.name || 'User',
-          age: data.age || 24,
-          bio: data.bio || 'New on hookmebysam! Swipe right to chat.',
-          gender: data.gender || 'Female',
-          image: userPhoto,
-          tags: data.interests || ['Music 🎵', 'Vibes ✨'],
-          distance: '2 km',
-          mutualChance: true,
-          isRealUser: true
-        });
-      }
-    });
-    return users;
+    const headers = await getBackendAuthHeaders();
+    const res = await fetch(BACKEND_URL + '/discovery?limit=60', { headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Discovery request failed.');
+    }
+    return Array.isArray(data.users) ? data.users : [];
   } catch (err) {
-    console.warn("Error fetching Firestore users:", err.message);
+    console.warn('Error fetching discovery feed:', err.message);
     return [];
   }
 }
-
 // Search registered Firestore users by name, email, or bio
 async function searchUsersInFirestore(queryText) {
   if (!fbDb || !fbAuth?.currentUser) return [];
