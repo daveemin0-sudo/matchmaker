@@ -231,8 +231,8 @@ async function verifyPaystackReference(reference) {
 async function grantVip({ reference, uid, tier, payment }) {
   const plan = VIP_PLANS[Number(tier)];
   if (!plan) throw new Error('Invalid VIP tier.');
-  if (Number(payment.amount) !== plan.amount * 100) {
-    throw new Error('Payment amount does not match the selected VIP plan.');
+  if (Number(payment.amount) !== plan.amount * 100 || String(payment.currency || '').toUpperCase() !== 'NGN') {
+    throw new Error('Payment amount or currency does not match the selected VIP plan.');
   }
 
   const ref = db.collection('paystack_transactions').doc(String(reference));
@@ -617,6 +617,22 @@ app.post('/swipes/record', requireAuth, async (req, res) => {
 });
 
 /* FCM: all public trigger endpoints require a Firebase ID token. */
+async function assertActiveMatchAccess(uid, partnerId, matchId) {
+  const matchRef = db.collection('matches').doc(String(matchId));
+  const [matchSnap, blockAB, blockBA] = await Promise.all([
+    matchRef.get(),
+    db.collection('blocks').doc(`${uid}_${partnerId}`).get(),
+    db.collection('blocks').doc(`${partnerId}_${uid}`).get()
+  ]);
+  const users = matchSnap.data()?.users;
+  if (!matchSnap.exists || !Array.isArray(users) || !users.includes(uid) || !users.includes(partnerId) || blockAB.exists || blockBA.exists) {
+    const error = new Error('Match access denied.');
+    error.code = 'MATCH_ACCESS_DENIED';
+    throw error;
+  }
+  return matchSnap;
+}
+
 async function sendPushToUser(userId, { title, body, data = {} }) {
   const snap = await db.collection('fcm_tokens').doc(userId).collection('tokens').get();
   const tokenEntries = snap.docs
@@ -731,10 +747,7 @@ app.post('/fcm/new-message', requireAuth, async (req, res) => {
   }
   try {
     const partnerId = String(toUserId);
-    const matchDoc = await db.collection('matches').doc(String(matchId)).get();
-    if (!matchDoc.exists || !Array.isArray(matchDoc.data().users) || !matchDoc.data().users.includes(req.user.uid) || !matchDoc.data().users.includes(partnerId)) {
-      return res.status(403).json({ error: 'You are not a participant in this match.' });
-    }
+    await assertActiveMatchAccess(req.user.uid, partnerId, matchId);
     const senderDoc = await db.collection('users').doc(req.user.uid).get();
     const senderName = senderDoc.data()?.displayName || senderDoc.data()?.name || 'Your match';
     const preview = req.body?.messageText ? String(messageText).slice(0, 60) : '📷 Photo';
@@ -755,6 +768,7 @@ app.post('/fcm/incoming-call', requireAuth, async (req, res) => {
   if (!toUserId || !matchId) return res.status(400).json({ error: 'toUserId and matchId are required.' });
   try {
     const partnerId = String(toUserId);
+    await assertActiveMatchAccess(req.user.uid, partnerId, matchId);
     const callerDoc = await db.collection('users').doc(req.user.uid).get();
     const callerName = callerDoc.data()?.displayName || callerDoc.data()?.name || 'Your match';
     const isVideo = callType === 'video';
@@ -785,6 +799,11 @@ app.post('/fcm/call-ended', requireAuth, async (req, res) => {
   if (!toUserId) return res.status(400).json({ error: 'toUserId is required.' });
   try {
     const partnerId = String(toUserId);
+    if (!callId) return res.status(400).json({ error: 'callId is required.' });
+    const callSnap = await db.collection('matches').where('users', 'array-contains', req.user.uid).limit(50).get();
+    const match = callSnap.docs.find(doc => doc.data()?.users?.includes(partnerId));
+    if (!match) return res.status(403).json({ error: 'You are not in an active match with this user.' });
+    await assertActiveMatchAccess(req.user.uid, partnerId, match.id);
     await sendPushToUser(partnerId, {
       title: 'Call Ended',
       body: 'The call was ended or missed.',
@@ -867,9 +886,9 @@ async function deleteDocumentTree(ref) {
   });
 }
 
-async function deleteUserStorage(uid) {
+async function deleteStoragePrefixes(prefixes) {
   const bucket = admin.storage().bucket();
-  for (const prefix of [`stories/${uid}/`, `voicenotes/${uid}/`]) {
+  for (const prefix of prefixes) {
     const [files] = await bucket.getFiles({ prefix });
     await Promise.all(files.map(file => file.delete({ ignoreNotFound: true })));
   }
@@ -887,10 +906,13 @@ app.post('/account/delete', requireAuth, async (req, res) => {
     await deleteQueryDocs(db.collection('swipes').where('fromUserId', '==', uid));
     await deleteQueryDocs(db.collection('swipes').where('toUserId', '==', uid));
     await deleteQueryDocs(db.collection('blocks').where('blockedBy', '==', uid));
+    await deleteQueryDocs(db.collection('blocks').where('blockedUserId', '==', uid));
     await deleteQueryDocs(db.collection('reports').where('reportedBy', '==', uid));
+    await deleteQueryDocs(db.collection('reports').where('reportedUserId', '==', uid));
     await deleteQueryDocs(db.collection('fcm_tokens').doc(uid).collection('tokens'));
 
     const matches = await db.collection('matches').where('users', 'array-contains', uid).get();
+    const matchMediaPrefixes = matches.docs.map(match => `chat_media/${match.id}/`);
     for (const match of matches.docs) {
       await deleteDocumentTree(match.ref);
     }
@@ -898,7 +920,7 @@ app.post('/account/delete', requireAuth, async (req, res) => {
     await Promise.all([
       db.collection('users').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
       db.collection('public_profiles').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
-      deleteUserStorage(uid)
+      deleteStoragePrefixes([`stories/${uid}/`, `voicenotes/${uid}/`, ...matchMediaPrefixes])
     ]);
 
     // Delete the Auth account last so a partial cleanup can be retried safely.
@@ -944,7 +966,7 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
         bio: String(d.bio || '').slice(0, 2000),
         gender: d.gender || '',
         interests: Array.isArray(d.interests) ? d.interests.slice(0, 30) : [],
-        location: String(d.location || '').slice(0, 200),
+        city: String(d.city || '').slice(0, 120),
         image: d.image || d.avatar || '',
         avatar: d.avatar || d.image || '',
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -1105,7 +1127,7 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
         bio: u.bio || '',
         gender: u.gender || '',
         interests: u.interests || [],
-        location: u.location || '',
+        city: u.city || '',
         image: u.image || u.avatar || '',
         avatar: u.avatar || u.image || '',
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
