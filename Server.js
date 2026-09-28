@@ -241,6 +241,7 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
       interests: Array.isArray(d.interests) ? d.interests.slice(0, 30).map(v => String(v).slice(0, 40)) : [],
       image: String(d.image || d.avatar || ''),
       ...(city ? { city } : {}),
+      active: d.accountStatus !== 'suspended' && !d.deletedAt,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
     await admin.firestore().collection('public_profiles').doc(uid).set(publicProfile, { merge: true });
@@ -253,6 +254,54 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
 
 // Lightweight abuse protection. Production deployments should back this with a shared store.
 const swipeAttempts = new Map();
+
+// ---------- Discovery feed ----------
+app.get('/discovery', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const limit = Math.min(Math.max(Number(req.query.limit) || 40, 1), 60);
+    const db = admin.firestore();
+
+    const [blockedSnap, swipesSnap, profilesSnap] = await Promise.all([
+      db.collection('blocks').where('blockedBy', '==', uid).get(),
+      db.collection('swipes').where('fromUserId', '==', uid).get(),
+      db.collection('public_profiles').where('active', '==', true).limit(200).get()
+    ]);
+
+    const excluded = new Set([uid]);
+    blockedSnap.forEach(d => {
+      const data = d.data() || {};
+      if (data.blockedUserId) excluded.add(String(data.blockedUserId));
+    });
+    swipesSnap.forEach(d => {
+      const data = d.data() || {};
+      if (data.toUserId) excluded.add(String(data.toUserId));
+    });
+
+    const users = [];
+    profilesSnap.forEach(doc => {
+      if (users.length >= limit || excluded.has(doc.id)) return;
+      const d = doc.data() || {};
+      if (!d.image || Number(d.age) < 18) return;
+      users.push({
+        id: doc.id,
+        name: d.displayName || 'User',
+        age: Number(d.age),
+        bio: d.bio || '',
+        gender: d.gender || '',
+        image: d.image,
+        tags: Array.isArray(d.interests) ? d.interests : [],
+        city: d.city || '',
+        isRealUser: true
+      });
+    });
+
+    return res.json({ success: true, users });
+  } catch (err) {
+    console.error('discovery error:', err);
+    return res.status(500).json({ success: false, error: 'Could not load discovery.' });
+  }
+});
 
 // ---------- Record swipe + atomically create match ----------
 app.post('/swipes/record', requireAuth, async (req, res) => {
