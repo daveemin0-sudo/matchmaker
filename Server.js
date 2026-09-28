@@ -50,7 +50,8 @@ try {
 }
 
 const app = express();
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(express.json({ limit: '256kb' }));
 app.use(cors({
   // In dev, if ALLOWED_ORIGINS isn't set, allow any origin so Live Server
   // (which changes ports) isn't a hassle. In production, ALWAYS set
