@@ -92,11 +92,18 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if signedIn()
         && request.resource.data.ownerId == request.auth.uid
-        && request.resource.data.keys().hasOnly(['ownerId','mediaUrl','mediaType','createdAt','expiresAt','caption']);
+        && request.resource.data.keys().hasOnly([
+          'id','docId','name','image','thumb','video','isVideo','mediaType',
+          'storagePath','location','bio','tags','isUserStory','ownerId',
+          'createdAt','expiresAt'
+        ])
+        && request.resource.data.id == storyId
+        && request.resource.data.docId == storyId
+        && request.resource.data.createdAt is timestamp == false;
       allow update: if signedIn()
         && resource.data.ownerId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['caption','expiresAt']);
+          .hasOnly(['name','image','thumb','video','isVideo','mediaType','storagePath','location','bio','tags','expiresAt']);
       allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
     }
 
