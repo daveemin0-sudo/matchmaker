@@ -287,6 +287,13 @@ app.post('/webhook/paystack', async (req, res) => {
     if (!reference || !userId || !tier) return res.status(200).json({ received: true });
 
     const payment = await verifyPaystackReference(reference);
+    const paidEmail = String(payment.customer?.email || '').trim().toLowerCase();
+    const userRecord = await admin.auth().getUser(String(userId));
+    const accountEmail = String(userRecord.email || '').trim().toLowerCase();
+    if (!paidEmail || !accountEmail || paidEmail !== accountEmail) {
+      console.warn('Paystack webhook ignored because payment customer does not match Firebase account:', reference);
+      return res.status(200).json({ received: true });
+    }
     await grantVip({ reference, uid: String(userId), tier: Number(tier), payment });
     return res.status(200).json({ received: true });
   } catch (err) {
@@ -306,6 +313,11 @@ app.post('/payment/verify', requireAuth, async (req, res) => {
   }
   try {
     const payment = await verifyPaystackReference(reference);
+    const authenticatedEmail = String(req.user.email || '').trim().toLowerCase();
+    const paidEmail = String(payment.customer?.email || '').trim().toLowerCase();
+    if (!authenticatedEmail || !paidEmail || authenticatedEmail !== paidEmail) {
+      return res.status(403).json({ success: false, error: 'Payment customer does not match the signed-in account.' });
+    }
     const granted = await grantVip({
       reference,
       uid: req.user.uid,
