@@ -625,14 +625,38 @@ async function editRealtimeMessage(matchId, messageId, newText) {
   }
 }
 
-async function reactRealtimeMessage(matchId, messageId, emoji) {
-  if (!fbDb || !fbAuth?.currentUser || !matchId || !messageId || !emoji) return;
+async function reactRealtimeMessage(matchId, messageId, emoji, fallbackLocalId) {
+  if (!fbDb || !fbAuth?.currentUser || !matchId || !emoji) return;
+  
+  let resolvedId = messageId;
+  
+  // If no direct Firestore doc ID, try to find by localId field
+  if (!resolvedId && fallbackLocalId) {
+    try {
+      const snap = await fbDb.collection('matches').doc(matchId).collection('messages')
+        .where('localId', '==', fallbackLocalId).limit(1).get();
+      if (!snap.empty) {
+        resolvedId = snap.docs[0].id;
+      }
+    } catch (e) {
+      console.warn("reactRealtimeMessage localId lookup failed:", e.message);
+    }
+  }
+  
+  if (!resolvedId) {
+    console.warn("reactRealtimeMessage: no valid messageId to react to", { matchId, messageId, fallbackLocalId });
+    return;
+  }
+  
   const uid = fbAuth.currentUser.uid;
-  const msgRef = fbDb.collection('matches').doc(matchId).collection('messages').doc(messageId);
+  const msgRef = fbDb.collection('matches').doc(matchId).collection('messages').doc(resolvedId);
   try {
     await fbDb.runTransaction(async (transaction) => {
       const doc = await transaction.get(msgRef);
-      if (!doc.exists) return;
+      if (!doc.exists) {
+        console.warn("reactRealtimeMessage: doc not found", resolvedId);
+        return;
+      }
       const data = doc.data() || {};
       const reactions = data.reactions || {};
       const currentList = Array.isArray(reactions[emoji]) ? reactions[emoji] : [];
@@ -644,6 +668,7 @@ async function reactRealtimeMessage(matchId, messageId, emoji) {
       }
       reactions[emoji] = updatedList;
       transaction.update(msgRef, { reactions: reactions });
+      console.log("reactRealtimeMessage: updated reaction", { resolvedId, emoji, count: updatedList.length });
     });
   } catch (err) {
     console.warn("reactRealtimeMessage error:", err.message);

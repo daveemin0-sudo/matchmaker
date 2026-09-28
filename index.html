@@ -37,7 +37,7 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=20.0">
+  <link rel="stylesheet" href="style.css?v=25.0">
   <link rel="stylesheet" href="premium.css?v=20.0">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
@@ -844,6 +844,10 @@
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
                   <span>View Profile</span>
                 </div>
+                <div class="chat-dropdown-item" onclick="removeChatCustomBackground()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                  <span>Remove Wallpaper</span>
+                </div>
                 <div class="chat-dropdown-item" onclick="clearCurrentChatHistory()">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
                   <span>Clear Chat</span>
@@ -1018,6 +1022,10 @@
             <div class="lightbox-menu-item" onclick="setLightboxAsChatBackground()">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V5h14v14zm-5.04-6.71l-2.75 3.54-1.96-2.36L6.5 17h11l-3.54-4.71z"/></svg>
               <span>Set as chat background</span>
+            </div>
+            <div class="lightbox-menu-item" onclick="removeChatCustomBackground()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+              <span>Remove chat background</span>
             </div>
             <div class="lightbox-menu-item" onclick="viewLightboxInChat()">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
@@ -1966,9 +1974,9 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
   <!-- Firebase & Paystack Adapter Module -->
-  <script src="firebase-config.js?v=23.0"></script>
+  <script src="firebase-config.js?v=24.0"></script>
 
   <!-- Main Application Logic -->
-  <script src="script.js?v=23.0"></script>
+  <script src="script.js?v=25.0"></script>
 </body>
 </html>

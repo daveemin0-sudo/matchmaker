@@ -676,6 +676,12 @@ const AUTH_SCREENS = ['login', 'signup', 'signupSuccess'];
 const MAIN_SCREENS = ['discovery', 'matches', 'chatsList', 'chat', 'profile', 'settings'];
 
 function showScreen(screenId, { fromHistory = false } = {}) {
+  // Dismiss any open action sheets, reaction pickers, lightboxes, or dropdowns when changing screens
+  if (typeof closeReactionPicker === 'function') closeReactionPicker();
+  if (typeof closeReactionSheet === 'function') closeReactionSheet();
+  if (typeof closeImageLightbox === 'function') closeImageLightbox();
+  document.querySelectorAll('.chat-dropdown-menu, .lightbox-dropdown-menu').forEach(m => { m.style.display = 'none'; });
+
   // Hide all screens
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
 
@@ -856,6 +862,38 @@ function updateBottomNav(screenId) {
 }
 
 function closeAnyOpenModal() {
+  // 0. Reaction picker / action sheet popup
+  if (document.getElementById('reactionPickerPopup') || document.querySelector('.msg-action-backdrop') || (typeof _reactionPickerOpen !== 'undefined' && _reactionPickerOpen)) {
+    if (typeof closeReactionPicker === 'function') closeReactionPicker();
+    return true;
+  }
+
+  // 0.1 WhatsApp reaction bottom sheet
+  const reactionModal = document.getElementById('reactionInfoModal');
+  if (reactionModal && (reactionModal.style.display === 'flex' || reactionModal.style.display === 'block')) {
+    if (typeof closeReactionSheet === 'function') closeReactionSheet();
+    return true;
+  }
+
+  // 0.2 Image / Video Lightbox
+  const lbModal = document.getElementById('chatImageLightbox');
+  if (lbModal && lbModal.style.display !== 'none') {
+    if (typeof closeImageLightbox === 'function') closeImageLightbox();
+    return true;
+  }
+
+  // 0.3 In-chat 3-dots menus
+  const chatMenu = document.getElementById('chatDropdownMenu');
+  if (chatMenu && chatMenu.style.display === 'block') {
+    chatMenu.style.display = 'none';
+    return true;
+  }
+  const lbMenu = document.getElementById('lightboxDropdownMenu');
+  if (lbMenu && lbMenu.style.display === 'block') {
+    lbMenu.style.display = 'none';
+    return true;
+  }
+
   // 1. Stories viewer
   const storyOverlay = document.getElementById('storyViewerOverlay');
   if (storyOverlay && storyOverlay.style.display !== 'none') {
@@ -3352,6 +3390,29 @@ function applyChatCustomBackground(chatId) {
 }
 window.applyChatCustomBackground = applyChatCustomBackground;
 
+function removeChatCustomBackground(chatId) {
+  const id = chatId || appState.currentChatId;
+  const menu = document.getElementById('chatDropdownMenu');
+  if (menu) menu.style.display = 'none';
+  const lbMenu = document.getElementById('lightboxDropdownMenu');
+  if (lbMenu) lbMenu.style.display = 'none';
+
+  if (!id) return;
+  const hasBg = Boolean(localStorage.getItem('hmbs_chat_bg_' + id) || localStorage.getItem('hmbs_chat_bg_global'));
+  try {
+    localStorage.removeItem('hmbs_chat_bg_' + id);
+    localStorage.removeItem('hmbs_chat_bg_global');
+  } catch (e) {}
+
+  applyChatCustomBackground(id);
+  if (hasBg) {
+    showToast('Chat background removed! Default wallpaper restored 🎨', 'gold');
+  } else {
+    showToast('Default chat wallpaper is already active.', 'info');
+  }
+}
+window.removeChatCustomBackground = removeChatCustomBackground;
+
 function renderChatThread() {
   const container = document.getElementById('chatMessages');
   if (!container) return;
@@ -4446,8 +4507,10 @@ function quickReactLightbox(emoji) {
     showToast(`Reacted ${emoji}`, 'info');
     return;
   }
-  const chatId = appState.currentChatId;
-  toggleMsgReaction(chatId, _lightboxCurrentMsgId, emoji);
+  const partnerId = appState.currentChatId;
+  const myUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || currentUser?.id || '';
+  const matchId = (myUid && partnerId) ? [myUid, partnerId].sort().join('_') : partnerId;
+  toggleMsgReaction(matchId, _lightboxCurrentMsgId, emoji);
   if (navigator.vibrate) try { navigator.vibrate(25); } catch (_) {}
   showToast(`Reacted ${emoji}`, 'info');
 }
@@ -8663,6 +8726,7 @@ window.cancelLongPress = cancelLongPress;
 
 function showReactionPicker(event, matchId, msgId) {
   clearTimeout(_longPressTimer);
+  _longPressTimer = null;
   closeReactionPicker();
 
   const msgInfo = getMessageInfo(msgId);
@@ -8670,36 +8734,67 @@ function showReactionPicker(event, matchId, msgId) {
   const isSent = msg ? (msg.sender === 'me') : false;
   const isText = msg ? (!msg.imageUrl && !msg.isVoice && msg.text) : true;
 
-  // 1. Full-screen backdrop for outside click/tap dismissal
+  const shell = document.querySelector('.app-shell') || document.body;
+  const shellRect = shell.getBoundingClientRect();
+
+  // 1. Full-screen backdrop for outside click/tap dismissal, bound to shell
   const backdrop = document.createElement('div');
   backdrop.id = 'reactionPickerBackdrop';
   backdrop.className = 'msg-action-backdrop';
-  backdrop.onclick = (e) => {
-    e.stopPropagation();
+  const dismiss = (e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
     closeReactionPicker();
   };
-  backdrop.ontouchstart = (e) => {
-    e.stopPropagation();
-    closeReactionPicker();
-  };
-  document.body.appendChild(backdrop);
+  backdrop.onclick = dismiss;
+  backdrop.ontouchstart = dismiss;
+  shell.appendChild(backdrop);
 
   // 2. Action sheet popup
   const picker = document.createElement('div');
   picker.id = 'reactionPickerPopup';
-  // Prevent any event from bubbling to the backdrop
+  picker.className = 'reaction-picker-popup';
   picker.onclick = (e) => e.stopPropagation();
   picker.ontouchstart = (e) => e.stopPropagation();
   picker.ontouchend = (e) => e.stopPropagation();
+
+  // Strict boundary containment inside the app container
+  const pickerW = Math.min(240, Math.floor(shellRect.width - 24));
+  const pickerH = 320; // safe maximum estimate for emojis + 6 action buttons
+
+  // Determine client touch/click coordinates
+  const clientX = event?.touches?.[0]?.clientX ?? event?.clientX ?? (shellRect.left + shellRect.width / 2);
+  const clientY = event?.touches?.[0]?.clientY ?? event?.clientY ?? (shellRect.top + shellRect.height / 2);
+
+  // Convert to relative coordinates inside shell
+  const relX = clientX - shellRect.left;
+  const relY = clientY - shellRect.top;
+
+  // Clamped horizontal position strictly inside shell (min 12px padding on both sides)
+  const minLeft = 12;
+  const maxLeft = Math.max(minLeft, shellRect.width - pickerW - 12);
+  const idealLeft = relX - (pickerW / 2);
+  const left = Math.max(minLeft, Math.min(idealLeft, maxLeft));
+
+  // Clamped vertical position: show above touch if in lower half, below touch if in upper half
+  const minTop = 64; // strictly below WhatsApp chat header
+  const maxTop = Math.max(minTop, shellRect.height - pickerH - 74); // strictly above chat input bar
+  let idealTop = (relY > shellRect.height * 0.52) ? (relY - pickerH - 12) : (relY + 12);
+  const top = Math.max(minTop, Math.min(idealTop, maxTop));
+
   picker.style.cssText = `
-    position:fixed;z-index:99999;
+    position:absolute;z-index:99999;
+    left:${Math.round(left)}px;top:${Math.round(top)}px;
+    width:${pickerW}px;max-width:calc(100% - 24px);
     background:#1E1530;border:1px solid rgba(255,255,255,0.18);
     border-radius:20px;padding:8px;
     display:flex;flex-direction:column;gap:6px;
     box-shadow:0 18px 50px rgba(0,0,0,0.85);
     backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-    width:240px;max-width:85vw;
     animation:reactionPickerIn 0.18s cubic-bezier(0.175,0.885,0.32,1.275);
+    box-sizing:border-box;
   `;
 
   // Top: Emojis Row
@@ -8754,23 +8849,39 @@ function showReactionPicker(event, matchId, msgId) {
   actionsList.innerHTML = actionsHtml;
   picker.appendChild(actionsList);
 
-  const x = event.touches?.[0]?.clientX ?? event.clientX ?? (window.innerWidth / 2);
-  const y = event.touches?.[0]?.clientY ?? event.clientY ?? (window.innerHeight / 2);
-  const pickerW = 240;
-  const left = Math.min(Math.max(x - pickerW / 2, 10), window.innerWidth - pickerW - 10);
-  const top = Math.min(Math.max(y - 120, 20), window.innerHeight - 260);
-  picker.style.left = left + 'px';
-  picker.style.top = top + 'px';
-
-  document.body.appendChild(picker);
+  shell.appendChild(picker);
   _reactionPickerOpen = true;
 }
 
 function closeReactionPicker() {
-  document.getElementById('reactionPickerPopup')?.remove();
-  document.getElementById('reactionPickerBackdrop')?.remove();
+  clearTimeout(_longPressTimer);
+  _longPressTimer = null;
+  document.querySelectorAll('#reactionPickerPopup, #reactionPickerBackdrop, .msg-action-backdrop').forEach(el => el.remove());
   _reactionPickerOpen = false;
 }
+
+// Global outside-dismissal listener: intercept pointerdown everywhere to cleanly dismiss reaction picker and menus
+document.addEventListener('pointerdown', (e) => {
+  if (_reactionPickerOpen) {
+    const popup = document.getElementById('reactionPickerPopup');
+    if (popup && !popup.contains(e.target)) {
+      closeReactionPicker();
+    }
+  }
+  const chatDropdown = document.getElementById('chatDropdownMenu');
+  const chatTrigger = document.getElementById('chatMenuTrigger');
+  if (chatDropdown && chatDropdown.style.display === 'block') {
+    if (!chatDropdown.contains(e.target) && (!chatTrigger || !chatTrigger.contains(e.target))) {
+      chatDropdown.style.display = 'none';
+    }
+  }
+  const lbDropdown = document.getElementById('lightboxDropdownMenu');
+  if (lbDropdown && lbDropdown.style.display === 'block') {
+    if (!lbDropdown.contains(e.target)) {
+      lbDropdown.style.display = 'none';
+    }
+  }
+}, true);
 
 function startEditMessage(matchId, msgId) {
   const { msg, idx } = getMessageInfo(msgId);
@@ -8951,7 +9062,11 @@ async function toggleMsgReaction(matchId, msgId, emoji) {
   if (!msgId || !emoji) return;
 
   const { msg } = getMessageInfo(msgId);
-  const myId = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : 'local_me';
+  const myId = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : (currentUser?.id || 'local_me');
+  const partnerId = appState.currentChatId;
+  const realMatchId = (matchId && matchId.includes('_'))
+    ? matchId
+    : ((myId && partnerId) ? [myId, partnerId].sort().join('_') : matchId);
 
   if (msg) {
     if (!msg.reactions) msg.reactions = {};
@@ -8965,11 +9080,15 @@ async function toggleMsgReaction(matchId, msgId, emoji) {
     renderChatThread();
   }
 
-  // Update in Firestore
-  if (!msgId.startsWith('local_') && matchId && matchId !== 'null') {
-    if (typeof reactRealtimeMessage === 'function') {
-      reactRealtimeMessage(matchId, msgId, emoji);
-    }
+  // Update in Firestore in real-time
+  if (realMatchId && realMatchId !== 'null' && typeof reactRealtimeMessage === 'function') {
+    const targetDocId = (msg && msg.firestoreId && !msg.firestoreId.startsWith('local_'))
+      ? msg.firestoreId
+      : (!msgId.startsWith('local_') ? msgId : '');
+    const fallbackLocalId = (msg && msg.id && msg.id.startsWith('local_'))
+      ? msg.id
+      : (msgId.startsWith('local_') ? msgId : '');
+    reactRealtimeMessage(realMatchId, targetDocId, emoji, fallbackLocalId);
   }
 }
 
