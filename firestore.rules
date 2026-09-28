@@ -112,15 +112,13 @@ service cloud.firestore {
 
     // ── reports ─────────────────────────────────────────────────────────────
     match /reports/{reportId} {
-      allow create: if signedIn() && request.resource.data.reporterId == request.auth.uid;
-      allow read, update, delete: if false;
+      allow create, read, update, delete: if false;
     }
 
     // ── blocks ──────────────────────────────────────────────────────────────
     match /blocks/{blockId} {
       allow read: if signedIn() && resource.data.blockedBy == request.auth.uid;
-      allow create: if signedIn() && request.resource.data.blockedBy == request.auth.uid;
-      allow update, delete: if signedIn() && resource.data.blockedBy == request.auth.uid;
+      allow create, update, delete: if false;
     }
 
     // ── fcm_tokens ──────────────────────────────────────────────────────────
