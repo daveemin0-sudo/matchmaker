@@ -8040,21 +8040,29 @@ function submitReport(reason, name) {
 }
 
 async function persistBlockToFirestore(userId) {
-  if (!fbDb || !fbAuth?.currentUser || !userId) return true;
+  if (!fbAuth?.currentUser || !userId) return false;
   const uid = fbAuth.currentUser.uid;
   if (uid === userId) return false;
-  await fbDb.collection('blocks').doc(uid + '_' + userId).set({
-    blockedBy: uid,
-    blockedUserId: userId,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  const token = await fbAuth.currentUser.getIdToken();
+  const res = await fetch(BACKEND_URL + '/blocks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ blockedUserId: userId })
   });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) throw new Error(data.error || 'Could not block user.');
   return true;
 }
 
 async function deleteBlockFromFirestore(userId) {
-  if (!fbDb || !fbAuth?.currentUser || !userId) return true;
-  const uid = fbAuth.currentUser.uid;
-  await fbDb.collection('blocks').doc(uid + '_' + userId).delete();
+  if (!fbAuth?.currentUser || !userId) return false;
+  const token = await fbAuth.currentUser.getIdToken();
+  const res = await fetch(BACKEND_URL + '/blocks/' + encodeURIComponent(userId), {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) throw new Error(data.error || 'Could not unblock user.');
   return true;
 }
 
