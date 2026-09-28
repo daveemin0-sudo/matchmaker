@@ -67,6 +67,8 @@ const sendAttempts = new Map();    // phone -> [timestamps]
 const verifyAttempts = new Map();  // phone -> [timestamps]
 const usedPaymentRefs = new Set(); // paystack reference -> already redeemed
 const paymentAttempts = new Map(); // uid -> [timestamps]
+const discoveryAttempts = new Map(); // uid -> [timestamps]
+const profileSyncAttempts = new Map(); // uid -> [timestamps]
 
 // Mirrors the tierPrices map in script.js's simulatePurchase(). Kept here
 // too so a tampered "amount paid" can never be trusted from the client —
@@ -259,6 +261,9 @@ const swipeAttempts = new Map();
 app.get('/discovery', requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
+    if (isRateLimited(discoveryAttempts, uid, 30, 60 * 1000)) {
+      return res.status(429).json({ success: false, error: 'Too many discovery requests. Please slow down.' });
+    }
     const limit = Math.min(Math.max(Number(req.query.limit) || 40, 1), 60);
     const db = admin.firestore();
 
