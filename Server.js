@@ -227,15 +227,20 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
     const snap = await ref.get();
     if (!snap.exists) return res.status(404).json({ success: false, error: 'Profile not found.' });
     const d = snap.data() || {};
+    const age = Number(d.age);
+    if (!Number.isFinite(age) || age < 18 || age > 100) {
+      return res.status(400).json({ success: false, error: 'An adult profile age (18+) is required.' });
+    }
+    const city = String(d.city || '').trim().slice(0, 80);
     const publicProfile = {
       id: uid,
       displayName: String(d.displayName || d.name || 'User').slice(0, 80),
-      age: Number(d.age || 0),
-      gender: String(d.gender || ''),
+      age: Math.floor(age),
+      gender: String(d.gender || '').slice(0, 40),
       bio: String(d.bio || '').slice(0, 1000),
-      interests: Array.isArray(d.interests) ? d.interests.slice(0, 30) : [],
+      interests: Array.isArray(d.interests) ? d.interests.slice(0, 30).map(v => String(v).slice(0, 40)) : [],
       image: String(d.image || d.avatar || ''),
-      location: String(d.location || '').slice(0, 120),
+      ...(city ? { city } : {}),
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     };
     await admin.firestore().collection('public_profiles').doc(uid).set(publicProfile, { merge: true });
@@ -246,9 +251,15 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
   }
 });
 
+// Lightweight abuse protection. Production deployments should back this with a shared store.
+const swipeAttempts = new Map();
+
 // ---------- Record swipe + atomically create match ----------
 app.post('/swipes/record', requireAuth, async (req, res) => {
   const uid = req.user.uid;
+  if (isRateLimited(swipeAttempts, uid, 180, 10 * 60 * 1000)) {
+    return res.status(429).json({ success: false, limited: true, error: 'Too many swipes. Please slow down and try again shortly.' });
+  }
   const targetUserId = String(req.body.targetUserId || '').trim();
   const action = String(req.body.action || '').trim().toLowerCase();
   const allowed = new Set(['like', 'pass', 'superlike']);
