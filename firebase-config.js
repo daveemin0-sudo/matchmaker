@@ -673,8 +673,15 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
   }
   try {
     const uid = fbAuth.currentUser.uid;
+    const pathParts = String(path).split('/').filter(Boolean);
+    const root = pathParts[0];
+    const matchId = root === 'chat_media' && pathParts.length > 1 ? pathParts[1] : '';
     const allowedRoots = new Set(['stories', 'voicenotes', 'chat_media', 'chat_images', 'chat_videos']);
-    if (!allowedRoots.has(path) || !fbAuth?.currentUser) return null;
+    if (!allowedRoots.has(root) || !fbAuth?.currentUser) return null;
+    if (root === 'chat_media' && !matchId) {
+      window._lastMediaUploadError = 'Chat media requires a match scope.';
+      return null;
+    }
     const isVid = Boolean(
       (file.type && file.type.startsWith('video/')) ||
       (file.name && file.name.match(/\.(mp4|mov|webm|m4v|3gp|mkv)$/i)) ||
@@ -689,7 +696,9 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     );
     const defaultExt = isAud ? '.webm' : (isVid ? '.mp4' : '.jpg');
     const safeName = String(file.name || ('file' + defaultExt)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
-    const storagePath = (path === 'chat_images' || path === 'chat_videos') ? 'chat_media' : path;
+    const storagePath = (root === 'chat_images' || root === 'chat_videos')
+      ? `chat_media/${matchId}`
+      : root;
     const storageRef = fbStorage.ref(`${storagePath}/${uid}/${Date.now()}_${safeName}`);
     const metadata = {
       contentType: customContentType || file.type || (isAud ? 'audio/webm' : (isVid ? 'video/mp4' : 'image/jpeg'))
