@@ -31,3 +31,9 @@ test('profile publication requires adult age', () => {
   assert.match(server, /age < 18/);
   assert.match(server, /age > 100/);
 });
+
+
+test('swipes are not client-writable', () => {
+  const rules = read('firestore.rules');
+  assert.match(rules, /match \/swipes\/{swipeId}[\s\S]*?allow create, update, delete: if false;/);
+});
