@@ -129,6 +129,10 @@ async function syncPublicProfileToBackend() {
 
 async function backendSignUp(email, password, userData) {
   if (!fbAuth) return { success: false, mode: 'local' };
+  const age = Number(userData?.age);
+  if (!Number.isFinite(age) || age < 18 || age > 100) {
+    return { success: false, error: 'You must be 18 or older to join.' };
+  }
   try {
     const userCredential = await fbAuth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
