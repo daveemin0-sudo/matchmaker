@@ -19,16 +19,16 @@ const firebaseConfig = {
 // Replace with your key from https://dashboard.paystack.com (e.g. pk_test_xxxx or pk_live_xxxx)
 const PAYSTACK_PUBLIC_KEY = "pk_live_REPLACE_WITH_YOUR_LIVE_PAYSTACK_PUBLIC_KEY";
 
-// 3. YOUR WEBHOOK SERVER URL (Auto-switches to local server when testing locally)
+// 3. YOUR WEBHOOK SERVER URL
+// Defaults to the deployed Render backend so local Live Server (port 5500) and production
+// both work out of the box without requiring a local Node process on port 3001.
+// To explicitly test against a local backend server on port 3001, pass ?localBackend=1
+// or run localStorage.setItem('localBackend', '1') in the browser console.
 const BACKEND_URL = (
   typeof window !== 'undefined' &&
-  (window.location.hostname === 'localhost' ||
-   window.location.hostname === '127.0.0.1' ||
-   window.location.hostname.startsWith('192.168.') ||
-   window.location.hostname.startsWith('10.') ||
-   window.location.hostname.startsWith('172.') ||
-   window.location.hostname.endsWith('.local') ||
-   new URLSearchParams(window.location.search).get('localBackend') === '1')
+  (new URLSearchParams(window.location.search).get('localBackend') === '1' ||
+   (typeof window.localStorage !== 'undefined' && window.localStorage?.getItem('localBackend') === '1') ||
+   window.__USE_LOCAL_BACKEND__ === true)
 )
   ? `http://${window.location.hostname || '127.0.0.1'}:3001`
   : 'https://matchmaker-viwb.onrender.com';

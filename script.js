@@ -6119,7 +6119,7 @@ function sendMessage() {
     // Trigger push notification to partner (fire-and-forget)
     const myName = currentUser.name || 'Your match';
     fbAuth.currentUser.getIdToken().then(token => {
-      fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : 'http://localhost:3001'}/fcm/new-message`, {
+      fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : 'https://matchmaker-viwb.onrender.com'}/fcm/new-message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

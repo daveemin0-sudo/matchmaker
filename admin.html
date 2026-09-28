@@ -80,11 +80,9 @@ const firebaseConfig = {
   measurementId: "G-XYWLF7VS28"
 };
 const BACKEND_URL = (
-  window.location.hostname === 'localhost' ||
-  window.location.hostname === '127.0.0.1' ||
-  window.location.hostname.startsWith('192.168.') ||
-  window.location.hostname.startsWith('10.') ||
-  window.location.hostname.startsWith('172.')
+  new URLSearchParams(window.location.search).get('localBackend') === '1' ||
+  (typeof window.localStorage !== 'undefined' && window.localStorage?.getItem('localBackend') === '1') ||
+  window.__USE_LOCAL_BACKEND__ === true
 )
   ? `http://${window.location.hostname || '127.0.0.1'}:3001`
   : 'https://matchmaker-viwb.onrender.com';
