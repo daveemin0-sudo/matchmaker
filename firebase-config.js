@@ -692,18 +692,7 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
         window._firebaseStorageDisabled = true;
       }
       window._lastMediaUploadError = `Storage upload failed: ${putErr?.code || 'unknown'} — ${putErr?.message || 'unknown error'}`;
-      if (storagePath === 'chat_media') {
-        try {
-          const fallbackRef = fbStorage.ref(`stories/${uid}/chat_${Date.now()}_${safeName}`);
-          snapshot = await fallbackRef.put(file, metadata);
-        } catch (fallbackErr) {
-          window._firebaseStorageDisabled = true;
-          window._lastMediaUploadError = `Storage upload failed: ${fallbackErr?.code || 'unknown'} — ${fallbackErr?.message || 'unknown error'}`;
-          return null;
-        }
-      } else {
-        return null;
-      }
+      return null;
     }
 
     const downloadUrl = await snapshot.ref.getDownloadURL();
