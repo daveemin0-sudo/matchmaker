@@ -105,6 +105,24 @@ if (typeof firebase !== "undefined") {
   initBackend();
 }
 
+// Sync only the safe, discoverable subset of the authenticated user's profile.
+// The server reads the private user document with Admin SDK and publishes a
+// sanitized copy to public_profiles.
+async function syncPublicProfileToBackend() {
+  if (!fbAuth?.currentUser) return false;
+  try {
+    const token = await fbAuth.currentUser.getIdToken();
+    const res = await fetch(BACKEND_URL + '/profiles/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('Public profile sync failed:', err.message);
+    return false;
+  }
+}
+
 // ----------------------------------------------------------
 // AUTHENTICATION
 // ----------------------------------------------------------
@@ -215,7 +233,8 @@ function listenToAuthChanges() {
       }
       window.currentUser = targetUser;
       if (typeof saveToStorage === 'function') saveToStorage();
-       await loadBlockedUsersFromFirestore();
+       await syncPublicProfileToBackend();
+            await loadBlockedUsersFromFirestore();
        if (typeof appState !== 'undefined') appState.isLoggedIn = true;
       const currentHash = window.location.hash || '';
       const isChatHash = currentHash.startsWith('#chat/');
