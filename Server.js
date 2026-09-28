@@ -69,7 +69,9 @@ const verifyAttempts = new Map();  // phone -> [timestamps]
 const usedPaymentRefs = new Set(); // paystack reference -> already redeemed
 const paymentAttempts = new Map(); // uid -> [timestamps]
 const discoveryAttempts = new Map(); // uid -> [timestamps]
-const profileSyncAttempts = new Map(); // uid -> [timestamps]
+const profileSyncAttempts = new Map();
+const reportAttempts = new Map();
+const blockAttempts = new Map(); // uid -> [timestamps]
 
 // Mirrors the tierPrices map in script.js's simulatePurchase(). Kept here
 // too so a tampered "amount paid" can never be trusted from the client —
@@ -370,6 +372,65 @@ app.post('/swipes/record', requireAuth, async (req, res) => {
     }
     console.error('swipe record error:', err);
     return res.status(500).json({ success: false, error: 'Could not save your swipe.' });
+  }
+});
+
+// ---------- Trust & safety: reports / blocks ----------
+const REPORT_REASONS = new Set(['fake','harassment','scam','sexual','underage','violence','other']);
+
+app.post('/reports', requireAuth, async (req, res) => {
+  const reporterId = req.user.uid;
+  const reportedUserId = String(req.body.reportedUserId || '').trim();
+  const reason = String(req.body.reason || 'other').trim().toLowerCase();
+  const details = String(req.body.details || '').trim().slice(0, 2000);
+  if (!reportedUserId || reportedUserId === reporterId || !REPORT_REASONS.has(reason)) {
+    return res.status(400).json({ success: false, error: 'Invalid report.' });
+  }
+  if (isRateLimited(reportAttempts, reporterId, 10, 60 * 60 * 1000)) {
+    return res.status(429).json({ success: false, error: 'Too many reports. Please try again later.' });
+  }
+  try {
+    const db = admin.firestore();
+    const target = await db.collection('users').doc(reportedUserId).get();
+    if (!target.exists) return res.status(404).json({ success: false, error: 'User not found.' });
+    const reportRef = db.collection('reports').doc();
+    await reportRef.set({ reporterId, reportedUserId, reason, ...(details ? { details } : {}), status: 'open', createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    const blockRef = db.collection('blocks').doc(reporterId + '_' + reportedUserId);
+    await blockRef.set({ blockedBy: reporterId, blockedUserId: reportedUserId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    return res.json({ success: true, reportId: reportRef.id, blocked: true });
+  } catch (err) {
+    console.error('report error:', err);
+    return res.status(500).json({ success: false, error: 'Could not submit the report.' });
+  }
+});
+
+app.post('/blocks', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const blockedUserId = String(req.body.blockedUserId || '').trim();
+  if (!blockedUserId || blockedUserId === uid) return res.status(400).json({ success: false, error: 'Invalid block.' });
+  if (isRateLimited(blockAttempts, uid, 30, 10 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many block requests.' });
+  try {
+    const db = admin.firestore();
+    const target = await db.collection('users').doc(blockedUserId).get();
+    if (!target.exists) return res.status(404).json({ success: false, error: 'User not found.' });
+    await db.collection('blocks').doc(uid + '_' + blockedUserId).set({ blockedBy: uid, blockedUserId, createdAt: admin.firestore.FieldValue.serverTimestamp() });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('block error:', err);
+    return res.status(500).json({ success: false, error: 'Could not block this user.' });
+  }
+});
+
+app.delete('/blocks/:blockedUserId', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const blockedUserId = String(req.params.blockedUserId || '').trim();
+  if (!blockedUserId || blockedUserId === uid) return res.status(400).json({ success: false, error: 'Invalid unblock.' });
+  try {
+    await admin.firestore().collection('blocks').doc(uid + '_' + blockedUserId).delete();
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('unblock error:', err);
+    return res.status(500).json({ success: false, error: 'Could not unblock this user.' });
   }
 });
 
