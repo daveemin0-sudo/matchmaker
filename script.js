@@ -1768,21 +1768,11 @@ function prevSignupStep() {
 }
 
 async function syncPublicProfileToFirestore(fields = {}) {
-  if (!fbDb || !fbAuth?.currentUser) return;
-  const uid = fbAuth.currentUser.uid;
-  await fbDb.collection('public_profiles').doc(uid).set({
-    id: uid,
-    name: fields.name ?? currentUser?.name ?? '',
-    displayName: fields.displayName ?? fields.name ?? currentUser?.name ?? '',
-    age: Number(fields.age ?? currentUser?.age ?? 24),
-    bio: fields.bio ?? currentUser?.bio ?? '',
-    gender: fields.gender ?? currentUser?.gender ?? '',
-    interests: Array.isArray(fields.interests) ? fields.interests : (currentUser?.interests || []),
-    location: fields.location ?? currentUser?.location ?? '',
-    image: fields.image ?? currentUser?.image ?? currentUser?.avatar ?? '',
-    avatar: fields.avatar ?? fields.image ?? currentUser?.avatar ?? currentUser?.image ?? '',
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge: true });
+  // Backward-compatible name retained for existing UI callers. Publication is
+  // now performed by the authenticated backend, which reads the private user
+  // record with Admin SDK and controls the public field set.
+  if (!fbAuth?.currentUser) return false;
+  return syncPublicProfileToBackend();
 }
 
 function completeSignup() {
@@ -1791,6 +1781,11 @@ function completeSignup() {
   if (phone.startsWith('0')) phone = phone.slice(1);
   const password = document.getElementById('signupPassword')?.value || '';
   const errorEl = document.getElementById('signupError4');
+  const signupAge = Number(currentUser?.age);
+  if (!Number.isFinite(signupAge) || signupAge < 18 || signupAge > 100) {
+    if (errorEl) errorEl.textContent = 'You must be 18 or older to join.';
+    return;
+  }
   if (errorEl) errorEl.textContent = '';
 
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
