@@ -379,10 +379,11 @@ app.post('/swipes/record', requireAuth, async (req, res) => {
 // browser. This is the step that actually matters: ask Paystack directly,
 // server-to-server with the secret key, whether that reference really was
 // paid, for how much, and make sure it hasn't been redeemed before.
-app.post('/payment/verify', async (req, res) => {
-  const { reference, uid, tier } = req.body;
+app.post('/payment/verify', requireAuth, async (req, res) => {
+  const { reference, tier } = req.body;
+  const uid = req.user.uid;
 
-  if (!reference || !uid || !VIP_TIER_PRICES_NGN[tier]) {
+  if (!reference || !VIP_TIER_PRICES_NGN[tier]) {
     return res.status(400).json({ success: false, error: 'Missing or invalid reference, uid, or tier.' });
   }
 
