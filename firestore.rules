@@ -56,7 +56,12 @@ service cloud.firestore {
         allow read: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
         allow create: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && request.resource.data.sender == request.auth.uid;
-        allow update, delete: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+        allow update: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+          && (
+            resource.data.sender == request.auth.uid
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+          );
+        allow delete: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && resource.data.sender == request.auth.uid;
       }
 
