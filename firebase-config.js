@@ -288,9 +288,7 @@ function listenToAuthChanges() {
 
 async function recordSwipeInBackend(targetUserId, action) {
   if (!fbAuth?.currentUser) return { success: false, matched: false, error: 'Sign in required.' };
-  const uid = fbAuth.currentUser.uid;
 
-  // 1. Try server endpoint first
   try {
     const token = await fbAuth.currentUser.getIdToken();
     const res = await fetch(BACKEND_URL + '/swipes/record', {
@@ -303,31 +301,25 @@ async function recordSwipeInBackend(targetUserId, action) {
     if (res.ok && data?.success) {
       return { success: true, matched: Boolean(data.matched), matchId: data.matchId || null };
     }
-    if (res.status === 429 && data?.limited) {
+
+    if (res.status === 429) {
       if (data.error) showToast(data.error, 'gold');
       return { success: false, matched: false, limited: true, error: data.error };
     }
+
     if (res.status === 401) {
       showToast('Your session expired. Please sign in again.', 'error');
       try { await fbAuth.signOut(); } catch (_) {}
       return { success: false, matched: false, error: 'Authentication required.' };
     }
-  } catch (backendErr) {
-    console.warn("Backend swipe request failed, trying Firestore fallback:", backendErr.message);
+
+    showToast(data.error || 'Could not save your swipe. Please try again.', 'error');
+    return { success: false, matched: false, error: data.error || 'Swipe failed.' };
+  } catch (err) {
+    console.warn('Backend swipe request failed:', err.message);
+    showToast('Connection problem. Please try again.', 'error');
+    return { success: false, matched: false, error: 'Backend unavailable.' };
   }
-
-  // Matching is server-authoritative. Do not create matches from the client.
-  // If the API is unavailable, fail closed rather than creating inconsistent matches.
-  showToast('Connection problem. Please try again.', 'error');
-  return { success: false, matched: false, error: 'Backend unavailable.' };
-
-  showToast('Could not save your swipe. Please try again.', 'error');
-      return { success: false, matched: false, error: fsErr.message };
-    }
-  }
-
-  showToast('Could not save your swipe. Please try again.', 'error');
-  return { success: false, matched: false, error: 'Offline.' };
 }
 
 // Fetch all registered users from Firestore for the swipe card stack
