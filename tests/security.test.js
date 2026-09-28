@@ -37,3 +37,18 @@ test('swipes are not client-writable', () => {
   const rules = read('firestore.rules');
   assert.match(rules, /match \/swipes\/{swipeId}[\s\S]*?allow create, update, delete: if false;/);
 });
+
+
+test('production backend binds payment currency and match notification access', () => {
+  const server = read('webhook-server/index.js');
+  assert.match(server, /payment\.currency.*NGN/);
+  assert.match(server, /async function assertActiveMatchAccess/);
+  assert.match(server, /await assertActiveMatchAccess\(req\.user\.uid, partnerId, matchId\)/);
+});
+
+test('account deletion removes reverse privacy relationships and match media', () => {
+  const server = read('webhook-server/index.js');
+  assert.match(server, /blocks.*where\('blockedUserId', '==', uid\)/);
+  assert.match(server, /reports.*where\('reportedUserId', '==', uid\)/);
+  assert.match(server, /chat_media\/\$\{match\.id\}\//);
+});
