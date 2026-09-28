@@ -104,7 +104,7 @@ app.use((req, res, next) => {
   if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
   else res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Cleanup-Secret');
   res.setHeader('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -303,6 +303,108 @@ app.post('/webhook/paystack', async (req, res) => {
 });
 
 /* Authenticated direct payment verification. Never trusts uid/amount from the browser. */
+app.post('/profiles/sync', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    if (!(await persistentRateLimit('profile-sync:' + uid, 20, 10 * 60 * 1000))) return res.status(429).json({ success:false, error:'Too many profile sync requests.' });
+    const snap = await db.collection('users').doc(uid).get();
+    if (!snap.exists) return res.status(404).json({ success:false, error:'Profile not found.' });
+    const d = snap.data() || {};
+    const age = Number(d.age);
+    if (!Number.isFinite(age) || age < 18 || age > 100) return res.status(400).json({ success:false, error:'An adult profile age (18+) is required.' });
+    const city = String(d.city || '').trim().slice(0,80);
+    await db.collection('public_profiles').doc(uid).set({
+      id: uid, displayName: String(d.displayName || d.name || 'User').slice(0,80),
+      age: Math.floor(age), gender: String(d.gender || '').slice(0,40),
+      bio: String(d.bio || '').slice(0,1000),
+      interests: Array.isArray(d.interests) ? d.interests.slice(0,30).map(v => String(v).slice(0,40)) : [],
+      image: String(d.image || d.avatar || ''), ...(city ? {city} : {}),
+      active: d.accountStatus !== 'suspended' && !d.deletedAt,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, {merge:true});
+    res.json({success:true});
+  } catch (err) {
+    console.error('profile sync error:', err.message);
+    res.status(500).json({success:false,error:'Could not sync profile.'});
+  }
+});
+
+app.get('/discovery', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    if (!(await persistentRateLimit('discovery:' + uid, 30, 60 * 1000))) return res.status(429).json({success:false,error:'Too many discovery requests. Please slow down.'});
+    const limit = Math.min(Math.max(Number(req.query.limit) || 40, 1), 60);
+    const [outgoing, incoming, swipes, profiles] = await Promise.all([
+      db.collection('blocks').where('blockedBy','==',uid).get(),
+      db.collection('blocks').where('blockedUserId','==',uid).get(),
+      db.collection('swipes').where('fromUserId','==',uid).get(),
+      db.collection('public_profiles').where('active','==',true).limit(200).get()
+    ]);
+    const excluded = new Set([uid]);
+    outgoing.forEach(s => { const d=s.data()||{}; if(d.blockedUserId) excluded.add(String(d.blockedUserId)); });
+    incoming.forEach(s => { const d=s.data()||{}; if(d.blockedBy) excluded.add(String(d.blockedBy)); });
+    swipes.forEach(s => { const d=s.data()||{}; if(d.toUserId) excluded.add(String(d.toUserId)); });
+    const users=[];
+    profiles.forEach(doc => {
+      if(users.length>=limit || excluded.has(doc.id)) return;
+      const d=doc.data()||{}, age=Number(d.age);
+      if(!d.image || !Number.isFinite(age) || age<18 || d.active!==true) return;
+      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:d.image,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',isRealUser:true});
+    });
+    res.json({success:true,users});
+  } catch (err) {
+    console.error('discovery error:', err.message);
+    res.status(500).json({success:false,error:'Could not load discovery.'});
+  }
+});
+
+app.post('/reports', requireAuth, async (req, res) => {
+  const reporterId=req.user.uid, reportedUserId=String(req.body.reportedUserId||'').trim();
+  const reason=String(req.body.reason||'other').trim().toLowerCase(), details=String(req.body.details||'').trim().slice(0,2000);
+  if(!reportedUserId || reportedUserId===reporterId || !new Set(['fake','harassment','scam','sexual','underage','violence','other']).has(reason)) return res.status(400).json({success:false,error:'Invalid report.'});
+  if(!(await persistentRateLimit('reports:'+reporterId,10,60*60*1000))) return res.status(429).json({success:false,error:'Too many reports. Please try again later.'});
+  try {
+    const target=await db.collection('users').doc(reportedUserId).get();
+    if(!target.exists) return res.status(404).json({success:false,error:'User not found.'});
+    const reportRef=db.collection('reports').doc(), blockRef=db.collection('blocks').doc(reporterId+'_'+reportedUserId), now=admin.firestore.FieldValue.serverTimestamp();
+    await db.runTransaction(async tx => {
+      tx.set(reportRef,{reporterId,reportedUserId,reason,...(details?{details}:{}),status:'open',createdAt:now});
+      tx.set(blockRef,{blockedBy:reporterId,blockedUserId:reportedUserId,createdAt:now},{merge:true});
+    });
+    res.json({success:true,reportId:reportRef.id,blocked:true});
+  } catch(err) {
+    console.error('report error:',err.message);
+    res.status(500).json({success:false,error:'Could not submit the report.'});
+  }
+});
+
+app.post('/blocks', requireAuth, async (req, res) => {
+  const uid=req.user.uid, blockedUserId=String(req.body.blockedUserId||'').trim();
+  if(!blockedUserId || blockedUserId===uid) return res.status(400).json({success:false,error:'Invalid block.'});
+  if(!(await persistentRateLimit('blocks:'+uid,30,10*60*1000))) return res.status(429).json({success:false,error:'Too many block requests.'});
+  try {
+    const target=await db.collection('users').doc(blockedUserId).get();
+    if(!target.exists) return res.status(404).json({success:false,error:'User not found.'});
+    await db.collection('blocks').doc(uid+'_'+blockedUserId).set({blockedBy:uid,blockedUserId,createdAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
+    res.json({success:true});
+  } catch(err) {
+    console.error('block error:',err.message);
+    res.status(500).json({success:false,error:'Could not block this user.'});
+  }
+});
+
+app.delete('/blocks/:blockedUserId', requireAuth, async (req, res) => {
+  const uid=req.user.uid, blockedUserId=String(req.params.blockedUserId||'').trim();
+  if(!blockedUserId || blockedUserId===uid) return res.status(400).json({success:false,error:'Invalid unblock.'});
+  try {
+    await db.collection('blocks').doc(uid+'_'+blockedUserId).delete();
+    res.json({success:true});
+  } catch(err) {
+    console.error('unblock error:',err.message);
+    res.status(500).json({success:false,error:'Could not unblock this user.'});
+  }
+});
+
 app.post('/payment/verify', requireAuth, async (req, res) => {
   const { reference, tier } = req.body || {};
   if (!reference || !VIP_PLANS[Number(tier)]) {
