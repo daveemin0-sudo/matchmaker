@@ -13,7 +13,7 @@ test('public profiles are backend-authoritative', () => {
 test('new chat media is scoped to a match participant', () => {
   const rules = read('storage.rules');
   assert.match(rules, /match \/chat_media\/{matchId}\/{userId}\/{fileName}/);
-  assert.match(rules, /request\.auth\.uid in get\(\/databases\/\$\(database\)\/documents\/matches\/\$\(matchId\)\)\.data\.users/);
+  assert.match(rules, /request\.auth\.uid in firestore\.get\(\/databases\/\(default\)\/documents\/matches\/\$\(matchId\)\)\.data\.users/);
 
   const client = read('firebase-config.js');
   assert.match(client, /Chat media requires a match scope/);
