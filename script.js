@@ -4649,9 +4649,10 @@ async function sendImageMessage(event) {
     // Try Cloud Storage upload if connected, authenticated & enabled
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage && !window._firebaseStorageDisabled && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       try {
+        const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
         const uploadPromise = uploadFileToBackend(
           fileToUpload,
-          'chat_media',
+          `chat_media/${matchId}`,
           false,
           isVideo ? (file.type || 'video/mp4') : 'image/jpeg'
         );
