@@ -6232,10 +6232,16 @@ async function sendVoiceNote() {
           saveToStorage();
         }
 
-        const urlToSend = finalRemoteUrl || localAudioUrl;
         if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
           const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-          sendRealtimeMessage(matchId, '', true, urlToSend);
+          const delivered = await sendRealtimeMessage(matchId, '', true, finalRemoteUrl, '', null, '', false, msgId);
+          if (!delivered) {
+            newMsg._uploadFailed = true;
+            saveToStorage();
+            showToast('Voice note uploaded, but could not be delivered. Please try again.', 'error', 7000);
+          } else {
+            showToast('Voice note sent 🎤', 'gold');
+          }
         } else {
           triggerAutoReply();
         }
