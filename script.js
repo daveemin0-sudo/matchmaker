@@ -680,6 +680,7 @@ function showScreen(screenId, { fromHistory = false } = {}) {
   if (typeof closeReactionPicker === 'function') closeReactionPicker();
   if (typeof closeReactionSheet === 'function') closeReactionSheet();
   if (typeof closeImageLightbox === 'function') closeImageLightbox();
+  if (typeof closeMediaPreview === 'function') closeMediaPreview();
   document.querySelectorAll('.chat-dropdown-menu, .lightbox-dropdown-menu').forEach(m => { m.style.display = 'none'; });
 
   // Hide all screens
@@ -4717,6 +4718,280 @@ async function sendImageMessage(event) {
   })();
 }
 window.sendImageMessage = sendImageMessage;
+
+// ==========================================================
+// MEDIA PRE-SEND PREVIEW (WhatsApp-style intercept)
+// ==========================================================
+
+/** Pending queue of {file, objectUrl, isVideo} items shown in preview */
+let _mpxQueue = [];
+let _mpxActiveIdx = 0;
+
+/**
+ * Called by chatImageInput onchange — intercepts the file selection
+ * and opens the preview modal instead of sending directly.
+ */
+function sendImageMessage(event) {
+  const files = Array.from(event.target.files || []);
+  event.target.value = ''; // reset so same file can be re-picked
+  if (!files.length || !appState.currentChatId) return;
+
+  // Build queue entries
+  _mpxQueue = files.map(f => ({
+    file: f,
+    objectUrl: URL.createObjectURL(f),
+    isVideo: Boolean(
+      (f.type && f.type.startsWith('video/')) ||
+      (f.name && f.name.match(/\.(mp4|mov|webm|m4v|3gp|mkv)$/i))
+    )
+  }));
+  _mpxActiveIdx = 0;
+  openMediaPreview();
+}
+window.sendImageMessage = sendImageMessage;
+
+/** Opens the preview overlay */
+function openMediaPreview() {
+  const overlay = document.getElementById('mediaSendPreview');
+  if (!overlay) return;
+
+  // Set recipient name in title
+  const recipEl = document.getElementById('mpxRecipientName');
+  if (recipEl) {
+    const partner = PROFILES_DATA.concat(PREMIUM_MATCHES).find(p => p.id === appState.currentChatId)
+      || { name: 'Match' };
+    recipEl.textContent = partner.name;
+  }
+
+  // Clear caption
+  const captionEl = document.getElementById('mpxCaptionInput');
+  if (captionEl) captionEl.value = '';
+
+  overlay.style.display = 'flex';
+  // Re-trigger animation
+  overlay.style.animation = 'none';
+  void overlay.offsetWidth;
+  overlay.style.animation = '';
+
+  _mpxRenderActive();
+  _mpxRenderFilmstrip();
+}
+window.openMediaPreview = openMediaPreview;
+
+/** Closes the preview overlay, revokes all object URLs */
+function closeMediaPreview() {
+  const overlay = document.getElementById('mediaSendPreview');
+  if (overlay) overlay.style.display = 'none';
+  // Revoke object URLs to free memory
+  _mpxQueue.forEach(q => URL.revokeObjectURL(q.objectUrl));
+  _mpxQueue = [];
+  _mpxActiveIdx = 0;
+  // Clear video src so it stops playing
+  const vidEl = document.getElementById('mpxPreviewVideo');
+  if (vidEl) { vidEl.pause(); vidEl.src = ''; }
+}
+window.closeMediaPreview = closeMediaPreview;
+
+/** Renders the currently-active item in the large preview area */
+function _mpxRenderActive() {
+  const item = _mpxQueue[_mpxActiveIdx];
+  if (!item) return;
+
+  const imgEl = document.getElementById('mpxPreviewImg');
+  const vidEl = document.getElementById('mpxPreviewVideo');
+
+  if (item.isVideo) {
+    if (imgEl) imgEl.style.display = 'none';
+    if (vidEl) { vidEl.style.display = 'block'; vidEl.src = item.objectUrl; }
+  } else {
+    if (vidEl) { vidEl.pause(); vidEl.style.display = 'none'; vidEl.src = ''; }
+    if (imgEl) { imgEl.style.display = 'block'; imgEl.src = item.objectUrl; }
+  }
+}
+
+/** Renders the horizontal filmstrip thumbnails */
+function _mpxRenderFilmstrip() {
+  const strip = document.getElementById('mpxFilmstrip');
+  if (!strip) return;
+  strip.innerHTML = '';
+
+  // Only show filmstrip when >1 item
+  if (_mpxQueue.length <= 1) return;
+
+  _mpxQueue.forEach((item, idx) => {
+    const thumb = document.createElement('div');
+    thumb.className = 'mpx-thumb' + (idx === _mpxActiveIdx ? ' mpx-thumb-active' : '');
+    if (!item.isVideo) {
+      thumb.style.backgroundImage = `url("${item.objectUrl}")`;
+    } else {
+      thumb.style.background = '#1a2633';
+      const badge = document.createElement('span');
+      badge.className = 'mpx-thumb-video-badge';
+      badge.textContent = '▶ VID';
+      thumb.appendChild(badge);
+    }
+
+    // Remove button
+    const rmBtn = document.createElement('button');
+    rmBtn.className = 'mpx-thumb-remove';
+    rmBtn.innerHTML = '✕';
+    rmBtn.setAttribute('aria-label', 'Remove');
+    rmBtn.onclick = (e) => { e.stopPropagation(); _mpxRemoveItem(idx); };
+    thumb.appendChild(rmBtn);
+
+    thumb.addEventListener('click', () => {
+      _mpxActiveIdx = idx;
+      _mpxRenderActive();
+      _mpxRenderFilmstrip();
+    });
+    strip.appendChild(thumb);
+  });
+}
+
+/** Removes an item from the queue */
+function _mpxRemoveItem(idx) {
+  URL.revokeObjectURL(_mpxQueue[idx].objectUrl);
+  _mpxQueue.splice(idx, 1);
+  if (!_mpxQueue.length) { closeMediaPreview(); return; }
+  if (_mpxActiveIdx >= _mpxQueue.length) _mpxActiveIdx = _mpxQueue.length - 1;
+  _mpxRenderActive();
+  _mpxRenderFilmstrip();
+}
+
+/** Triggered by the "+" button — opens a second file picker */
+function mpxAddMoreMedia() {
+  const el = document.getElementById('mpxExtraFileInput');
+  if (el) el.click();
+}
+window.mpxAddMoreMedia = mpxAddMoreMedia;
+
+/** Handles extra files added from the "+" picker */
+function mpxHandleExtraFiles(event) {
+  const files = Array.from(event.target.files || []);
+  event.target.value = '';
+  files.forEach(f => {
+    _mpxQueue.push({
+      file: f,
+      objectUrl: URL.createObjectURL(f),
+      isVideo: Boolean(
+        (f.type && f.type.startsWith('video/')) ||
+        (f.name && f.name.match(/\.(mp4|mov|webm|m4v|3gp|mkv)$/i))
+      )
+    });
+  });
+  _mpxRenderFilmstrip();
+}
+window.mpxHandleExtraFiles = mpxHandleExtraFiles;
+
+/**
+ * Confirmed send — closes the preview and sends each queued item
+ * using the real upload logic.
+ */
+async function confirmMediaSend() {
+  if (!_mpxQueue.length || !appState.currentChatId) return;
+
+  const captionText = (document.getElementById('mpxCaptionInput')?.value || '').trim();
+  const queueSnapshot = [..._mpxQueue]; // copy before close clears it
+
+  closeMediaPreview();
+
+  const partnerId = appState.currentChatId;
+
+  for (const item of queueSnapshot) {
+    const { file, isVideo } = item;
+
+    if (isVideo && file.size > 30 * 1024 * 1024) {
+      showToast('Video exceeds 30MB limit.', 'error');
+      continue;
+    }
+
+    if (!conversations[partnerId]) conversations[partnerId] = { messages: [] };
+
+    const localMsgId = (isVideo ? 'local_vid_' : 'local_img_') + Date.now() + Math.random();
+    const localPreviewUrl = URL.createObjectURL(file);
+
+    const newMsg = {
+      id: localMsgId,
+      sender: 'me',
+      imageUrl: isVideo ? '' : localPreviewUrl,
+      videoUrl: isVideo ? localPreviewUrl : '',
+      isVideo,
+      // Attach caption as text if provided (only on the first item in a batch)
+      text: (captionText && queueSnapshot.indexOf(item) === 0) ? captionText : '',
+      read: true,
+      timestamp: Date.now(),
+      _uploading: true
+    };
+
+    conversations[partnerId].messages.push(newMsg);
+    movePartnerToTop(partnerId);
+    renderChatThread();
+    renderConversationList();
+    renderChatsInbox();
+    updateMatchesNotificationBadge();
+    saveToStorage();
+    showToast(isVideo ? 'Uploading video...' : 'Uploading photo...', 'gold');
+
+    // Upload async
+    (async (f2, isVideo2, localMsgId2, localPreviewUrl2, captionForMsg) => {
+      let cloudUrl = null;
+      let localDataUrl = '';
+      let fileToUpload = f2;
+
+      if (!isVideo2) {
+        try {
+          localDataUrl = await compressImageForChat(f2, 960, 0.72);
+          if (localDataUrl && localDataUrl.startsWith('data:')) {
+            const resp = await fetch(localDataUrl);
+            const blob = await resp.blob();
+            fileToUpload = new File([blob], f2.name ? f2.name.replace(/\.[^.]+$/, '.jpg') : 'photo.jpg', { type: 'image/jpeg' });
+          }
+        } catch (e) { console.warn('MPX compress:', e); }
+      }
+
+      if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage && !window._firebaseStorageDisabled && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+        try {
+          const up = uploadFileToBackend(fileToUpload, 'chat_media', false, isVideo2 ? (f2.type || 'video/mp4') : 'image/jpeg');
+          const timeout = new Promise(r => setTimeout(() => r(null), isVideo2 ? 120000 : 40000));
+          const res = await Promise.race([up, timeout]);
+          if (res && typeof res === 'string' && res.startsWith('http')) cloudUrl = res;
+          else if (isVideo2) showToast('Video upload requires Cloud Storage (Blaze plan).', 'error', 9000);
+        } catch (e) {
+          if (isVideo2) showToast(`Video upload failed: ${e?.message || ''}`, 'error', 9000);
+        }
+      } else if (isVideo2) {
+        showToast('Video upload requires Cloud Storage (Blaze plan).', 'error', 9000);
+      }
+
+      const finalUrl = cloudUrl || (!isVideo2 && localDataUrl ? localDataUrl : localPreviewUrl2);
+
+      const targetMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId2);
+      if (targetMsg) {
+        if (isVideo2) targetMsg.videoUrl = finalUrl;
+        else targetMsg.imageUrl = finalUrl;
+        delete targetMsg._uploading;
+        renderChatThread();
+        renderConversationList();
+        renderChatsInbox();
+        saveToStorage();
+        showToast(isVideo2 ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
+      }
+
+      const partnerPayloadUrl = cloudUrl || (!isVideo2 && localDataUrl && localDataUrl.startsWith('data:') ? localDataUrl : '');
+      if (partnerPayloadUrl && typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+        const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+        const msgText = isVideo2 ? 'Video' : (captionForMsg ? captionForMsg : 'Photo');
+        await sendRealtimeMessage(matchId, msgText, false, '', isVideo2 ? '' : partnerPayloadUrl, null, isVideo2 ? partnerPayloadUrl : '', isVideo2, localMsgId2);
+      }
+      URL.revokeObjectURL(localPreviewUrl2);
+    })(file, isVideo, localMsgId, localPreviewUrl, captionText);
+  }
+
+  // If caption-only (no extra text message needed) but user typed a caption,
+  // it is already embedded in the first message text field above.
+}
+window.confirmMediaSend = confirmMediaSend;
+
 
 // ==========================================================
 // REAL LIVE VOICE & VIDEO CALLING (WebRTC + Metered TURN/STUN)

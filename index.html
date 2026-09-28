@@ -37,7 +37,7 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=25.0">
+  <link rel="stylesheet" href="style.css?v=26.0">
   <link rel="stylesheet" href="premium.css?v=20.0">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
@@ -977,6 +977,45 @@
             </button>
           </div>
         </div>
+
+        <!-- ── Media Pre-Send Preview Modal (WhatsApp-style) ─────────────── -->
+        <div class="media-presend-overlay" id="mediaSendPreview" style="display:none" role="dialog" aria-modal="true" aria-label="Send media">
+          <!-- Top bar -->
+          <div class="mpx-topbar">
+            <button class="mpx-icon-btn" id="mpxCancelBtn" onclick="closeMediaPreview()" aria-label="Cancel">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+            </button>
+            <span class="mpx-title" id="mpxTitle">Send to <span id="mpxRecipientName"></span></span>
+            <button class="mpx-icon-btn" id="mpxDrawBtn" aria-label="Draw" title="Draw" style="opacity:0.5;pointer-events:none">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM21.41 6.34l-3.75-3.75-2.53 2.54 3.75 3.75 2.53-2.54z"/></svg>
+            </button>
+          </div>
+
+          <!-- Preview area -->
+          <div class="mpx-preview-area" id="mpxPreviewArea">
+            <img id="mpxPreviewImg" class="mpx-preview-img" src="" alt="Preview" style="display:none" />
+            <video id="mpxPreviewVideo" class="mpx-preview-video" controls playsinline style="display:none"></video>
+            <!-- Thumbnail filmstrip for multiple files -->
+            <div class="mpx-filmstrip" id="mpxFilmstrip"></div>
+          </div>
+
+          <!-- Bottom: caption + send -->
+          <div class="mpx-bottom">
+            <div class="mpx-add-btn-wrap">
+              <button class="mpx-add-media-btn" onclick="mpxAddMoreMedia()" aria-label="Add another photo or video" title="Add media">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              </button>
+              <input type="file" id="mpxExtraFileInput" accept="image/*,video/*" multiple style="display:none" onchange="mpxHandleExtraFiles(event)">
+            </div>
+            <div class="mpx-caption-pill">
+              <input class="mpx-caption-input" id="mpxCaptionInput" type="text" placeholder="Add a caption…" maxlength="500" autocomplete="off" autocorrect="on" spellcheck="true" enterkeyhint="send" onkeydown="if(event.key==='Enter'){event.preventDefault();confirmMediaSend();}">
+            </div>
+            <button class="mpx-send-fab" id="mpxSendFab" onclick="confirmMediaSend()" aria-label="Send">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+        </div>
+        <!-- ── END Media Pre-Send Preview Modal ──────────────────────────── -->
 
         <!-- Full-screen WhatsApp-Style Image Lightbox (Screenshot 4) -->
         <div class="chat-image-lightbox" id="chatImageLightbox" style="display:none">
@@ -1977,6 +2016,6 @@
   <script src="firebase-config.js?v=24.0"></script>
 
   <!-- Main Application Logic -->
-  <script src="script.js?v=25.0"></script>
+  <script src="script.js?v=26.0"></script>
 </body>
 </html>
