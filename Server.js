@@ -206,6 +206,107 @@ app.post('/auth/verify-otp', async (req, res) => {
   }
 });
 
+// ---------- Auth middleware ----------
+async function requireAuth(req, res, next) {
+  try {
+    const header = String(req.headers.authorization || '');
+    if (!header.startsWith('Bearer ')) return res.status(401).json({ success: false, error: 'Authentication required.' });
+    const token = header.slice(7).trim();
+    req.user = await admin.auth().verifyIdToken(token);
+    return next();
+  } catch (err) {
+    return res.status(401).json({ success: false, error: 'Invalid or expired session.' });
+  }
+}
+
+// ---------- Sync safe public profile ----------
+app.post('/profiles/sync', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const ref = admin.firestore().collection('users').doc(uid);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ success: false, error: 'Profile not found.' });
+    const d = snap.data() || {};
+    const publicProfile = {
+      id: uid,
+      displayName: String(d.displayName || d.name || 'User').slice(0, 80),
+      age: Number(d.age || 0),
+      gender: String(d.gender || ''),
+      bio: String(d.bio || '').slice(0, 1000),
+      interests: Array.isArray(d.interests) ? d.interests.slice(0, 30) : [],
+      image: String(d.image || d.avatar || ''),
+      location: String(d.location || '').slice(0, 120),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    };
+    await admin.firestore().collection('public_profiles').doc(uid).set(publicProfile, { merge: true });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('profile sync error:', err);
+    return res.status(500).json({ success: false, error: 'Could not sync profile.' });
+  }
+});
+
+// ---------- Record swipe + atomically create match ----------
+app.post('/swipes/record', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const targetUserId = String(req.body.targetUserId || '').trim();
+  const action = String(req.body.action || '').trim().toLowerCase();
+  const allowed = new Set(['like', 'pass', 'superlike']);
+  if (!targetUserId || targetUserId === uid || !allowed.has(action)) {
+    return res.status(400).json({ success: false, error: 'Invalid swipe.' });
+  }
+
+  try {
+    const db = admin.firestore();
+    const targetRef = db.collection('users').doc(targetUserId);
+    const swipeRef = db.collection('swipes').doc(uid + '_' + targetUserId);
+    const reverseRef = db.collection('swipes').doc(targetUserId + '_' + uid);
+    const matchRef = db.collection('matches').doc([uid, targetUserId].sort().join('_'));
+
+    const result = await db.runTransaction(async tx => {
+      const [targetSnap, reverseSnap, matchSnap] = await Promise.all([
+        tx.get(targetRef), tx.get(reverseRef), tx.get(matchRef)
+      ]);
+      if (!targetSnap.exists) throw Object.assign(new Error('User not found.'), { code: 'TARGET_NOT_FOUND' });
+      const target = targetSnap.data() || {};
+      if (target.accountStatus === 'suspended' || target.deletedAt) {
+        throw Object.assign(new Error('User unavailable.'), { code: 'TARGET_UNAVAILABLE' });
+      }
+
+      tx.set(swipeRef, {
+        fromUserId: uid,
+        toUserId: targetUserId,
+        action,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+
+      let matched = false;
+      let matchId = matchRef.id;
+      if ((action === 'like' || action === 'superlike') && reverseSnap.exists) {
+        const reverse = reverseSnap.data() || {};
+        matched = reverse.fromUserId === targetUserId && ['like', 'superlike'].includes(reverse.action);
+        if (matched && !matchSnap.exists) {
+          tx.create(matchRef, {
+            users: [uid, targetUserId].sort(),
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            lastActivity: admin.firestore.FieldValue.serverTimestamp(),
+            status: 'active'
+          });
+        }
+      }
+      return { matched, matchId: matched ? matchId : null };
+    });
+
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    if (err.code === 'TARGET_NOT_FOUND' || err.code === 'TARGET_UNAVAILABLE') {
+      return res.status(404).json({ success: false, error: err.message });
+    }
+    console.error('swipe record error:', err);
+    return res.status(500).json({ success: false, error: 'Could not save your swipe.' });
+  }
+});
+
 // ---------- Verify Payment (Paystack) ----------
 // The client already got a "success" callback from the Paystack popup —
 // that alone proves nothing, since it's just JS running in the user's own
