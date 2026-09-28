@@ -56,10 +56,17 @@ service cloud.firestore {
       match /messages/{messageId} {
         allow read: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
         allow create: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
-          && request.resource.data.sender == request.auth.uid;
+          && request.resource.data.sender == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'sender','text','isVoice','audioUrl','imageUrl','videoUrl','isVideo',
+            'read','timestamp','replyTo','localId','reactions'
+          ])
+          && (!('text' in request.resource.data) || request.resource.data.text.size() <= 5000);
         allow update: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && (
-            resource.data.sender == request.auth.uid
+            (resource.data.sender == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['text','imageUrl','videoUrl','audioUrl','isVoice','isVideo','replyTo','reactions','editedAt','read']))
             || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
           );
         allow delete: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data)
