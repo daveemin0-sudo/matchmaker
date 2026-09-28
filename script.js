@@ -4671,8 +4671,23 @@ async function sendImageMessage(event) {
       showToast('Video upload requires Cloud Storage (Blaze plan).', 'error', 9000);
     }
 
-    // Final display URL (cloud URL if available, or compressed local data URL / object URL)
-    const finalMediaUrl = cloudUrl || (!isVideo && localDataUrl ? localDataUrl : localPreviewUrl);
+    // Private chat media must be stored in Cloud Storage before it is sent.
+    // Never put a local blob/data URL into a Firestore message: the recipient cannot fetch it.
+    if (!cloudUrl) {
+      const uploadError = window._lastMediaUploadError || 'Cloud Storage upload failed.';
+      console.warn('sendImageMessage: refusing to dispatch undeliverable media:', uploadError);
+      const targetMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId);
+      if (targetMsg) {
+        targetMsg._uploading = false;
+        targetMsg._uploadFailed = true;
+        renderChatThread();
+        saveToStorage();
+      }
+      showToast(isVideo ? 'Video could not be uploaded. Please try again.' : 'Photo could not be uploaded. Please try again.', 'error', 7000);
+      return;
+    }
+
+    const finalMediaUrl = cloudUrl;
 
     // Update local message in conversation
     const targetMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId);
@@ -4687,9 +4702,8 @@ async function sendImageMessage(event) {
       showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
     }
 
-    // Determine payload to send to partner via Firestore:
-    // Cloud Storage HTTPS URL is preferred; for photos, fall back to compressed Base64 data URL if Cloud Storage returned null/failed
-    const partnerPayloadUrl = cloudUrl || (!isVideo && localDataUrl && localDataUrl.startsWith('data:') ? localDataUrl : '');
+    // Only send the stable Cloud Storage URL to the recipient.
+    const partnerPayloadUrl = cloudUrl;
 
     // Dispatch to partner via Firestore so recipient receives image/video in real-time
     if (partnerPayloadUrl && typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
@@ -6194,7 +6208,8 @@ async function sendVoiceNote() {
 
         if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
           try {
-            const uploadPromise = uploadFileToBackend(audioBlob, 'voicenotes', false, cleanMime);
+            const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+            const uploadPromise = uploadFileToBackend(audioBlob, `chat_media/${matchId}`, false, cleanMime);
             const timeoutPromise = new Promise(res => setTimeout(() => res(null), 12000));
             finalRemoteUrl = await Promise.race([uploadPromise, timeoutPromise]);
           } catch (err) {
@@ -6202,15 +6217,14 @@ async function sendVoiceNote() {
           }
         }
 
-        // Base64 fallback if storage was unreachable and audio is reasonably sized (< 450KB)
-        if (!finalRemoteUrl && audioBlob.size < 450000) {
-          try {
-            finalRemoteUrl = await new Promise(res => {
-              const reader = new FileReader();
-              reader.onloadend = () => res(reader.result);
-              reader.readAsDataURL(audioBlob);
-            });
-          } catch (_) {}
+        // Chat voice notes must use the shared match-scoped Storage path.
+        // A local blob/data URL cannot be fetched by the recipient.
+        if (!finalRemoteUrl) {
+          newMsg._uploading = false;
+          newMsg._uploadFailed = true;
+          saveToStorage();
+          showToast('Voice note could not be uploaded. Please try again.', 'error', 7000);
+          return;
         }
 
         if (finalRemoteUrl) {
