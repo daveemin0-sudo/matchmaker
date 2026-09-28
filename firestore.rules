@@ -38,9 +38,7 @@ service cloud.firestore {
     // Users create swipes when swiping right / left on discovery cards.
     match /swipes/{swipeId} {
       allow read: if signedIn() && resource.data.fromUserId == request.auth.uid;
-      allow create: if signedIn() && request.resource.data.fromUserId == request.auth.uid
-        && request.resource.data.toUserId != request.auth.uid;
-      allow update, delete: if signedIn() && resource.data.fromUserId == request.auth.uid;
+      allow create, update, delete: if false;
     }
 
     // ── matches ─────────────────────────────────────────────────────────────
@@ -92,12 +90,18 @@ service cloud.firestore {
     // ── stories ─────────────────────────────────────────────────────────────
     match /stories/{storyId} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.keys().hasOnly(['ownerId','mediaUrl','mediaType','createdAt','expiresAt','caption']);
+      allow update: if signedIn()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['caption','expiresAt']);
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
     }
 
     match /story_views/{storyId}/viewers/{viewerId} {
-      allow read, write: if signedIn();
+      allow read, write: if owner(viewerId);
     }
 
     // ── reports ─────────────────────────────────────────────────────────────
