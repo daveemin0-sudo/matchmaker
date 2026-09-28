@@ -495,10 +495,17 @@ function listenToRealtimeMessages(matchId, callback) {
 }
 
 async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "", replyTo = null, videoUrl = "", isVideo = false, localId = "") {
-  if (!fbDb || !fbAuth?.currentUser) return;
+  if (!fbDb || !fbAuth?.currentUser || !matchId) return false;
   const currentUserId = fbAuth.currentUser.uid;
 
   try {
+    const matchRef = fbDb.collection('matches').doc(matchId);
+    const matchSnap = await matchRef.get();
+    const users = matchSnap.data()?.users;
+    if (!matchSnap.exists || !Array.isArray(users) || !users.includes(currentUserId) || users.length !== 2) {
+      console.warn('sendRealtimeMessage: active match not found or access denied');
+      return false;
+    }
     const isVideoMsg = Boolean(isVideo || videoUrl);
     const msgData = {
       sender: currentUserId,
@@ -518,9 +525,8 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
 
     // Update parent match doc so partner gets instant real-time notification & re-ordering to top
     const previewText = text || (isVoice ? '🎤 Voice note' : (isVideoMsg ? '📹 Video' : (imageUrl ? '📷 Photo' : 'New message')));
-    const uids = matchId.split('_');
-    await fbDb.collection('matches').doc(matchId).set({
-      users: uids,
+    await matchRef.set({
+      users,
       lastMessage: previewText,
       lastSender: currentUserId,
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
