@@ -4699,7 +4699,6 @@ async function sendImageMessage(event) {
       renderConversationList();
       renderChatsInbox();
       saveToStorage();
-      showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
     }
 
     // Only send the stable Cloud Storage URL to the recipient.
@@ -4721,7 +4720,15 @@ async function sendImageMessage(event) {
       );
       if (!delivered) {
         console.warn('sendImageMessage: media message was uploaded but could not be saved to the chat.');
+        const failedMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId);
+        if (failedMsg) {
+          failedMsg._uploadFailed = true;
+          renderChatThread();
+          saveToStorage();
+        }
         showToast(isVideo ? 'Video uploaded, but could not be delivered. Please try again.' : 'Photo uploaded, but could not be delivered. Please try again.', 'error');
+      } else {
+        showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
       }
     }
   })();
@@ -7844,10 +7851,28 @@ function sendStoryDirectMessage(story, replyText) {
   renderChatsInbox();
   saveToStorage();
 
-  // Send in real-time if Firebase is active
+  // A story reply is a chat message, so it must only be sent to an active mutual match.
   if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-    sendRealtimeMessage(matchId, `Replied to your status: ${replyText}`, false, '', '');
+    sendRealtimeMessage(matchId, `Replied to your status: ${replyText}`, false, '', '', {
+      id: story.id,
+      senderName: `${partnerName}'s Status`,
+      text: replyText,
+      imageUrl: story.thumb || story.image || ''
+    }).then(delivered => {
+      if (!delivered) {
+        const idx = conversations[partnerId]?.messages?.findIndex(m => m.id === newMsg.id);
+        if (idx !== undefined && idx >= 0) {
+          conversations[partnerId].messages.splice(idx, 1);
+          renderConversationList();
+          renderChatsInbox();
+          saveToStorage();
+        }
+        showToast('You can only reply to a status after you match.', 'error', 6000);
+      }
+    }).catch(() => {
+      showToast('Status reply could not be delivered. Please try again.', 'error', 6000);
+    });
   }
 }
 
