@@ -99,7 +99,7 @@ service cloud.firestore {
         ])
         && request.resource.data.id == storyId
         && request.resource.data.docId == storyId
-;      allow update: if signedIn()
+      allow update: if signedIn()
         && resource.data.ownerId == request.auth.uid
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['name','image','thumb','video','isVideo','mediaType','storagePath','location','bio','tags','expiresAt']);
