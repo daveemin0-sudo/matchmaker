@@ -10,10 +10,7 @@ service cloud.firestore {
     function participant(matchData) {
       return signedIn() && matchData != null && ('users' in matchData) && request.auth.uid in matchData.users;
     }
-    function notBlockedBetween(userA, userB) {
-      return !exists(/databases/$(database)/documents/blocks/$(userA)_$(userB))
-        && !exists(/databases/$(database)/documents/blocks/$(userB)_$(userA));
-    }
+
     function safeParticipant(matchData) {
       return participant(matchData);
     }
