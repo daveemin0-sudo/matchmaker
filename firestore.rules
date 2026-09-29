@@ -92,7 +92,10 @@ service cloud.firestore {
     }
 
     // ── calls (collection-group for incoming call listeners) ─────────────────
-    match /{path=**}/calls/{callId} { allow read, write: if false; }
+    match /{path=**}/calls/{callId} {
+      allow read: if signedIn() && resource.data.calleeId == request.auth.uid;
+      allow write: if false;
+    }
     match /{path=**}/candidates/{candidateId} { allow read, write: if false; }
 
     // ── stories ─────────────────────────────────────────────────────────────
