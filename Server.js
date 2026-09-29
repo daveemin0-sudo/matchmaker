@@ -53,10 +53,14 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '256kb' }));
 app.use(cors({
-  // In dev, if ALLOWED_ORIGINS isn't set, allow any origin so Live Server
-  // (which changes ports) isn't a hassle. In production, ALWAYS set
-  // ALLOWED_ORIGINS to your real domain(s) — see README.md.
-  origin: ALLOWED_ORIGINS.length ? ALLOWED_ORIGINS : true,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (!ALLOWED_ORIGINS.length) return callback(null, true);
+    if (ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    if (origin.endsWith('.vercel.app') || origin.includes('vercel.app') || origin.includes('localhost') || origin.includes('127.0.0.1')) return callback(null, true);
+    return callback(null, true);
+  },
+  credentials: true
 }));
 
 // ---------- In-memory stores ----------

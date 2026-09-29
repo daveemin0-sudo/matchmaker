@@ -97,17 +97,29 @@ app.use((req, res, next) => {
     origin.includes('127.0.0.1') ||
     origin.includes('0.0.0.0')
   );
-  const originAllowed = !origin || !ALLOWED_ORIGINS.length || ALLOWED_ORIGINS.includes(origin) || isLocalOrigin;
-  if (origin && !originAllowed) {
-    return res.status(403).json({ error: 'Origin not allowed.' });
+  const isVercelOrigin = origin && (
+    origin.endsWith('.vercel.app') ||
+    origin.includes('vercel.app')
+  );
+  const originAllowed = !origin || !ALLOWED_ORIGINS.length || ALLOWED_ORIGINS.includes(origin) || isLocalOrigin || isVercelOrigin;
+
+  if (origin && originAllowed) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
   }
-  if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
-  else res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Cleanup-Secret');
   res.setHeader('Access-Control-Max-Age', '86400');
-  if (req.method === 'OPTIONS') return res.status(204).end();
+
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
+  if (origin && !originAllowed) {
+    return res.status(403).json({ error: 'Origin not allowed.' });
+  }
   next();
 });
 

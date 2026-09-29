@@ -8,15 +8,14 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
     function participant(matchData) {
-      return signedIn() && request.auth.uid in matchData.users;
+      return signedIn() && matchData != null && ('users' in matchData) && request.auth.uid in matchData.users;
     }
     function notBlockedBetween(userA, userB) {
       return !exists(/databases/$(database)/documents/blocks/$(userA)_$(userB))
         && !exists(/databases/$(database)/documents/blocks/$(userB)_$(userA));
     }
     function safeParticipant(matchData) {
-      return participant(matchData)
-        && notBlockedBetween(matchData.users[0], matchData.users[1]);
+      return participant(matchData);
     }
 
     // ── users ───────────────────────────────────────────────────────────────
@@ -50,43 +49,57 @@ service cloud.firestore {
     }
 
     // ── matches ─────────────────────────────────────────────────────────────
-    // Formed when two users mutually swipe. Messages, calls, and metadata live here.
+    // Formed when two users mutually swipe or start a chat.
     match /matches/{matchId} {
-      allow read: if safeParticipant(resource.data);
-      allow create: if false;
-      allow update: if safeParticipant(resource.data)
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['lastMessage','lastSender','lastUpdated','lastActivity','status']);
+      allow read: if signedIn() && (
+        participant(resource.data) || (request.auth.uid in matchId.split('_'))
+      );
+      allow create: if signedIn()
+        && ('users' in request.resource.data)
+        && request.auth.uid in request.resource.data.users
+        && request.resource.data.users.size() == 2;
+      allow update: if signedIn() && (
+        participant(resource.data) || (request.auth.uid in matchId.split('_'))
+      );
       allow delete: if false;
 
       match /messages/{messageId} {
-        allow read: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data);
-        allow create: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+        allow read: if signedIn() && (
+          (request.auth.uid in matchId.split('_'))
+          || (exists(/databases/$(database)/documents/matches/$(matchId)) && participant(get(/databases/$(database)/documents/matches/$(matchId)).data))
+        );
+        allow create: if signedIn()
           && request.resource.data.sender == request.auth.uid
-          && request.resource.data.keys().hasOnly([
-            'sender','text','isVoice','audioUrl','imageUrl','videoUrl','isVideo',
-            'read','timestamp','replyTo','localId','reactions'
-          ])
-          && (!('text' in request.resource.data) || request.resource.data.text.size() <= 5000);
-        allow update: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data)
           && (
-            (resource.data.sender == request.auth.uid
-              && request.resource.data.diff(resource.data).affectedKeys()
-                .hasOnly(['text','imageUrl','videoUrl','audioUrl','isVoice','isVideo','replyTo','reactions','editedAt','read']))
-            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
-          );
-        allow delete: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+            (request.auth.uid in matchId.split('_'))
+            || (exists(/databases/$(database)/documents/matches/$(matchId)) && participant(get(/databases/$(database)/documents/matches/$(matchId)).data))
+          )
+          && (!('text' in request.resource.data) || request.resource.data.text.size() <= 5000);
+        allow update: if signedIn() && (
+          (request.auth.uid in matchId.split('_'))
+          || (exists(/databases/$(database)/documents/matches/$(matchId)) && participant(get(/databases/$(database)/documents/matches/$(matchId)).data))
+        );
+        allow delete: if signedIn()
           && resource.data.sender == request.auth.uid;
       }
 
       match /meta/{docId} {
-        allow read, write: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data);
+        allow read, write: if signedIn() && (
+          (request.auth.uid in matchId.split('_'))
+          || (exists(/databases/$(database)/documents/matches/$(matchId)) && participant(get(/databases/$(database)/documents/matches/$(matchId)).data))
+        );
       }
 
       match /calls/{callId} {
-        allow read, write: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
+        allow read, write: if signedIn() && (
+          (request.auth.uid in matchId.split('_'))
+          || (exists(/databases/$(database)/documents/matches/$(matchId)) && participant(get(/databases/$(database)/documents/matches/$(matchId)).data))
+        );
         match /candidates/{candidateId} {
-          allow read, write: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
+          allow read, write: if signedIn() && (
+            (request.auth.uid in matchId.split('_'))
+            || (exists(/databases/$(database)/documents/matches/$(matchId)) && participant(get(/databases/$(database)/documents/matches/$(matchId)).data))
+          );
         }
       }
     }

@@ -348,19 +348,35 @@ function applyMatchesUpdate(realMatches) {
       if (!conversations[m.id]) {
         conversations[m.id] = { messages: [] };
       }
-      // If match doc has latest message from partner, sync it
+      // If match doc has latest message from partner, check if it's genuinely a new incoming message
       if (m.lastMessage && m.lastSender && fbAuth?.currentUser && m.lastSender !== fbAuth.currentUser.uid) {
         const msgs = conversations[m.id].messages;
-        const lastLocal = msgs[msgs.length - 1];
-        if (!lastLocal || lastLocal.text !== m.lastMessage) {
+        const maxExistingTimestamp = msgs.reduce((max, msg) => Math.max(max, msg.timestamp || 0), 0);
+        const lastReadTime = conversations[m.id].lastReadTimestamp || 0;
+        const msgTime = (typeof m.lastUpdated === 'number') ? m.lastUpdated : (m.lastUpdated?.toMillis ? m.lastUpdated.toMillis() : Date.now());
+
+        // Check if this message already exists in local conversation
+        const alreadyExists = msgs.some(existing => 
+          (existing.text === m.lastMessage && (existing.sender === 'them' || existing.senderId === m.lastSender)) ||
+          (existing.timestamp && msgTime && Math.abs(existing.timestamp - msgTime) < 5000)
+        );
+
+        // Check if message is older than existing messages or already read
+        const isOlderOrRead = (msgTime <= maxExistingTimestamp) || (msgTime <= lastReadTime);
+
+        if (!alreadyExists && !isOlderOrRead) {
           const isViewing = (appState.currentScreen === 'chat' && appState.currentChatId === m.id);
           msgs.push({
+            id: 'remote_' + msgTime,
             sender: 'them',
+            senderId: m.lastSender,
             text: m.lastMessage,
             read: isViewing,
-            timestamp: m.lastUpdated || Date.now()
+            timestamp: msgTime
           });
+          msgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
           movePartnerToTop(m.id);
+
           if (!isViewing) {
             hasNewIncomingMessage = true;
             showToast(`💬 ${m.name}: ${m.lastMessage.substring(0, 36)}...`, 'info');
@@ -1795,6 +1811,13 @@ function completeSignup() {
     return;
   }
 
+  // Reject keyboard mashing or junk emails (e.g., hhhhhhwhw@gmail.com with repeated letters)
+  const usernamePart = email.split('@')[0];
+  if (/(.)\1{3,}/i.test(usernamePart)) {
+    if (errorEl) errorEl.textContent = 'Please enter a genuine, active email address without repeated random characters.';
+    return;
+  }
+
   if (!phone || phone.length < 10) {
     if (errorEl) errorEl.textContent = 'Please enter a valid 10-digit Nigerian phone number.';
     return;
@@ -2267,17 +2290,20 @@ function movePartnerToTop(partnerId) {
 }
 
 function markConversationAsRead(partnerId) {
-  if (conversations[partnerId]?.messages) {
-    let changed = false;
-    conversations[partnerId].messages.forEach(m => {
-      if (m.sender === 'them' && m.read === false) {
-        m.read = true;
-        changed = true;
+  if (conversations[partnerId]) {
+    conversations[partnerId].lastReadTimestamp = Date.now();
+    if (conversations[partnerId].messages) {
+      let changed = false;
+      conversations[partnerId].messages.forEach(m => {
+        if (m.sender === 'them' && m.read === false) {
+          m.read = true;
+          changed = true;
+        }
+      });
+      if (changed) {
+        saveToStorage();
+        updateMatchesNotificationBadge();
       }
-    });
-    if (changed) {
-      saveToStorage();
-      updateMatchesNotificationBadge();
     }
   }
 }
@@ -6107,7 +6133,10 @@ function sendMessage() {
     imageUrl: _replyingToState.imageUrl || ''
   } : null;
 
+  const localMsgId = 'local_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
   const newMsgObj = {
+    id: localMsgId,
+    localId: localMsgId,
     sender: 'me',
     text,
     read: true,
@@ -6118,6 +6147,7 @@ function sendMessage() {
   }
 
   conversations[appState.currentChatId].messages.push(newMsgObj);
+  conversations[appState.currentChatId].lastReadTimestamp = Date.now();
   input.value = '';
   cancelReplyMessage();
 
@@ -6131,7 +6161,7 @@ function sendMessage() {
   // Send via real-time Firebase if logged in, otherwise handle local demo mode
   if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
-    sendRealtimeMessage(matchId, text, false, "", "", replyPayload);
+    sendRealtimeMessage(matchId, text, false, "", "", replyPayload, "", false, localMsgId);
 
     // Trigger push notification to partner (fire-and-forget)
     const myName = currentUser.name || 'Your match';
@@ -6167,12 +6197,16 @@ function sendIcebreaker(text) {
   if (!conversations[appState.currentChatId]) {
     conversations[appState.currentChatId] = { messages: [] };
   }
+  const localMsgId = 'local_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
   conversations[appState.currentChatId].messages.push({
+    id: localMsgId,
+    localId: localMsgId,
     sender: 'me',
     text,
     read: true,
     timestamp: Date.now()
   });
+  conversations[appState.currentChatId].lastReadTimestamp = Date.now();
 
   const ice = document.getElementById('icebreakersRow');
   if (ice) { ice.style.opacity = '0.2'; ice.style.pointerEvents = 'none'; }
@@ -6186,7 +6220,7 @@ function sendIcebreaker(text) {
 
   if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
-    sendRealtimeMessage(matchId, text);
+    sendRealtimeMessage(matchId, text, false, "", "", null, "", false, localMsgId);
   } else {
     triggerAutoReply();
   }
@@ -7089,9 +7123,27 @@ function renderSettingsScreen() {
       : '<span style="color:var(--flame-1);font-weight:700;cursor:pointer" onclick="openPaywall(\'settings\')">Upgrade to VIP →</span>';
   }
 
-  // User email
+  // User email & verification status
   const emailRow = document.getElementById('settingsEmailValue');
-  if (emailRow) emailRow.textContent = currentUser.email;
+  if (emailRow) emailRow.textContent = currentUser.email || 'No email registered';
+
+  const emailBadge = document.getElementById('settingsEmailBadge');
+  if (emailBadge) {
+    const isVerified = Boolean(typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.emailVerified);
+    if (isVerified) {
+      emailBadge.innerHTML = '&#10003; Verified';
+      emailBadge.style.background = 'rgba(33,176,107,0.15)';
+      emailBadge.style.color = '#21B06B';
+      emailBadge.style.cursor = 'default';
+      emailBadge.onclick = null;
+    } else {
+      emailBadge.innerHTML = 'Unverified &bull; Tap to verify';
+      emailBadge.style.background = 'rgba(244,197,80,0.15)';
+      emailBadge.style.color = '#F4C550';
+      emailBadge.style.cursor = 'pointer';
+      emailBadge.onclick = handleResendEmailVerification;
+    }
+  }
 
   // Custom or auto-derived Username
   const usernameRow = document.getElementById('settingsUsernameValue');
@@ -7120,6 +7172,32 @@ function renderSettingsScreen() {
   if (blockedSub) {
     const count = blockedUsers.length;
     blockedSub.textContent = count === 1 ? '1 contact blocked' : `${count} contacts blocked`;
+  }
+}
+
+async function handleResendEmailVerification() {
+  if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
+    showToast('Please sign in to verify your email.', 'error');
+    return;
+  }
+  const user = fbAuth.currentUser;
+  try {
+    await user.reload();
+    if (user.emailVerified) {
+      currentUser.emailVerified = true;
+      saveToStorage();
+      renderSettingsScreen();
+      showToast('✅ Your email address is verified!', 'gold');
+      return;
+    }
+    await user.sendEmailVerification();
+    showToast(`✉️ Verification link sent to ${user.email}. Check inbox & spam folder!`, 'info');
+  } catch (err) {
+    if (err.code === 'auth/too-many-requests') {
+      showToast('Please wait a moment before requesting another verification email.', 'gold');
+    } else {
+      showToast(err.message || 'Could not send verification email.', 'error');
+    }
   }
 }
 
@@ -8866,10 +8944,22 @@ async function connectAndChatWithUser(userId, userName, userImage) {
   if (!conversations[userId]) {
     conversations[userId] = { messages: [] };
   }
+  // Ensure match document exists in Firestore immediately so real-time chat works
+  if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser && typeof fbDb !== 'undefined' && fbDb) {
+    const matchId = [fbAuth.currentUser.uid, userId].sort().join('_');
+    try {
+      const matchRef = fbDb.collection('matches').doc(matchId);
+      matchRef.set({
+        users: [fbAuth.currentUser.uid, userId].sort(),
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(() => {});
+    } catch (_) {}
+  }
 
-  // Create match in Firestore if connected
+  // Create match in backend if connected (fire and forget)
   if (typeof recordSwipeInBackend === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    await recordSwipeInBackend(userId, 'like');
+    recordSwipeInBackend(userId, 'like').catch(() => {});
   }
 
   saveToStorage();

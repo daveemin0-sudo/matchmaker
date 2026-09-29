@@ -500,12 +500,22 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
 
   try {
     const matchRef = fbDb.collection('matches').doc(matchId);
-    const matchSnap = await matchRef.get();
-    const users = matchSnap.data()?.users;
-    if (!matchSnap.exists || !Array.isArray(users) || !users.includes(currentUserId) || users.length !== 2) {
+    let matchSnap = await matchRef.get().catch(() => null);
+    let users = (matchSnap && matchSnap.exists) ? matchSnap.data()?.users : null;
+
+    // Auto-resolve users from matchId if match document is not yet initialized
+    if (!Array.isArray(users) || users.length !== 2 || !users.includes(currentUserId)) {
+      const parts = matchId.split('_');
+      if (parts.length === 2 && parts.includes(currentUserId)) {
+        users = parts;
+      }
+    }
+
+    if (!Array.isArray(users) || !users.includes(currentUserId)) {
       console.warn('sendRealtimeMessage: active match not found or access denied');
       return false;
     }
+
     const isVideoMsg = Boolean(isVideo || videoUrl);
     const msgData = {
       sender: currentUserId,
@@ -521,16 +531,16 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
     if (replyTo) msgData.replyTo = replyTo;
     if (localId) msgData.localId = localId;
 
-    await fbDb.collection('matches').doc(matchId).collection('messages').add(msgData);
-
-    // Update parent match doc so partner gets instant real-time notification & re-ordering to top
+    // Ensure parent match doc exists with proper participants & latest message
     const previewText = text || (isVoice ? '🎤 Voice note' : (isVideoMsg ? '📹 Video' : (imageUrl ? '📷 Photo' : 'New message')));
     await matchRef.set({
       users,
       lastMessage: previewText,
       lastSender: currentUserId,
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
+    }, { merge: true }).catch(e => console.warn("matchRef merge warning:", e));
+
+    await fbDb.collection('matches').doc(matchId).collection('messages').add(msgData);
     return true;
   } catch (err) {
     console.error("sendRealtimeMessage failed:", err);
