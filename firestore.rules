@@ -10,6 +10,14 @@ service cloud.firestore {
     function participant(matchData) {
       return signedIn() && request.auth.uid in matchData.users;
     }
+    function notBlockedBetween(userA, userB) {
+      return !exists(/databases/$(database)/documents/blocks/$(userA)_$(userB))
+        && !exists(/databases/$(database)/documents/blocks/$(userB)_$(userA));
+    }
+    function safeParticipant(matchData) {
+      return participant(matchData)
+        && notBlockedBetween(matchData.users[0], matchData.users[1]);
+    }
 
     // ── users ───────────────────────────────────────────────────────────────
     // All signed-in users must be able to read user profiles to discover cards,
@@ -17,7 +25,7 @@ service cloud.firestore {
     // Account owners can create and update their profiles, but cannot grant
     // themselves VIP or elevate their role.
     match /users/{userId} {
-      allow read: if signedIn();
+      allow read: if owner(userId);
       allow create: if owner(userId)
         && (!('isVip' in request.resource.data) || request.resource.data.isVip == false)
         && (!('role' in request.resource.data) || request.resource.data.role == 'user');
@@ -30,71 +38,95 @@ service cloud.firestore {
     // ── public_profiles (fallback collection if used) ───────────────────────
     match /public_profiles/{userId} {
       allow read: if signedIn();
-      allow create, update: if owner(userId);
-      allow delete: if owner(userId);
+      // Public profiles are published only by the trusted backend/Admin SDK.
+      allow create, update, delete: if false;
     }
 
     // ── swipes ──────────────────────────────────────────────────────────────
     // Users create swipes when swiping right / left on discovery cards.
     match /swipes/{swipeId} {
-      allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.fromUserId == request.auth.uid;
-      allow update, delete: if signedIn() && resource.data.fromUserId == request.auth.uid;
+      allow read: if signedIn() && resource.data.fromUserId == request.auth.uid;
+      allow create, update, delete: if false;
     }
 
     // ── matches ─────────────────────────────────────────────────────────────
     // Formed when two users mutually swipe. Messages, calls, and metadata live here.
     match /matches/{matchId} {
-      allow read, write: if signedIn();
+      allow read: if safeParticipant(resource.data);
+      allow create: if false;
+      allow update: if safeParticipant(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['lastMessage','lastSender','lastUpdated','lastActivity','status']);
+      allow delete: if false;
 
       match /messages/{messageId} {
-        allow read, write: if signedIn();
+        allow read: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data);
+        allow create: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+          && request.resource.data.sender == request.auth.uid
+          && request.resource.data.keys().hasOnly([
+            'sender','text','isVoice','audioUrl','imageUrl','videoUrl','isVideo',
+            'read','timestamp','replyTo','localId','reactions'
+          ])
+          && (!('text' in request.resource.data) || request.resource.data.text.size() <= 5000);
+        allow update: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+          && (
+            (resource.data.sender == request.auth.uid
+              && request.resource.data.diff(resource.data).affectedKeys()
+                .hasOnly(['text','imageUrl','videoUrl','audioUrl','isVoice','isVideo','replyTo','reactions','editedAt','read']))
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+          );
+        allow delete: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data)
+          && resource.data.sender == request.auth.uid;
       }
 
       match /meta/{docId} {
-        allow read, write: if signedIn();
+        allow read, write: if safeParticipant(get(/databases/$(database)/documents/matches/$(matchId)).data);
       }
 
       match /calls/{callId} {
-        allow read, write: if signedIn();
-
+        allow read, write: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
         match /candidates/{candidateId} {
-          allow read, write: if signedIn();
+          allow read, write: if participant(get(/databases/$(database)/documents/matches/$(matchId)).data);
         }
       }
     }
 
     // ── calls (collection-group for incoming call listeners) ─────────────────
-    match /{path=**}/calls/{callId} {
-      allow read, write: if signedIn();
-    }
-
-    match /{path=**}/candidates/{candidateId} {
-      allow read, write: if signedIn();
-    }
+    match /{path=**}/calls/{callId} { allow read, write: if false; }
+    match /{path=**}/candidates/{candidateId} { allow read, write: if false; }
 
     // ── stories ─────────────────────────────────────────────────────────────
     match /stories/{storyId} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update, delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if signedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'id','docId','name','image','thumb','video','isVideo','mediaType',
+          'storagePath','location','bio','tags','isUserStory','ownerId',
+          'createdAt','expiresAt'
+        ])
+        && request.resource.data.id == storyId
+        && request.resource.data.docId == storyId;
+      allow update: if signedIn()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name','image','thumb','video','isVideo','mediaType','storagePath','location','bio','tags','expiresAt']);
+      allow delete: if signedIn() && resource.data.ownerId == request.auth.uid;
     }
 
     match /story_views/{storyId}/viewers/{viewerId} {
-      allow read, write: if signedIn();
+      allow read, write: if owner(viewerId);
     }
 
     // ── reports ─────────────────────────────────────────────────────────────
     match /reports/{reportId} {
-      allow create: if signedIn();
-      allow read: if signedIn();
+      allow create, read, update, delete: if false;
     }
 
     // ── blocks ──────────────────────────────────────────────────────────────
     match /blocks/{blockId} {
-      allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.blockedBy == request.auth.uid;
-      allow update, delete: if signedIn() && resource.data.blockedBy == request.auth.uid;
+      allow read: if signedIn() && resource.data.blockedBy == request.auth.uid;
+      allow create, update, delete: if false;
     }
 
     // ── fcm_tokens ──────────────────────────────────────────────────────────

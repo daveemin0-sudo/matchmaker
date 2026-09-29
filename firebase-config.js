@@ -105,12 +105,34 @@ if (typeof firebase !== "undefined") {
   initBackend();
 }
 
+// Sync only the safe, discoverable subset of the authenticated user's profile.
+// The server reads the private user document with Admin SDK and publishes a
+// sanitized copy to public_profiles.
+async function syncPublicProfileToBackend() {
+  if (!fbAuth?.currentUser) return false;
+  try {
+    const token = await fbAuth.currentUser.getIdToken();
+    const res = await fetch(BACKEND_URL + '/profiles/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }
+    });
+    return res.ok;
+  } catch (err) {
+    console.warn('Public profile sync failed:', err.message);
+    return false;
+  }
+}
+
 // ----------------------------------------------------------
 // AUTHENTICATION
 // ----------------------------------------------------------
 
 async function backendSignUp(email, password, userData) {
   if (!fbAuth) return { success: false, mode: 'local' };
+  const age = Number(userData?.age);
+  if (!Number.isFinite(age) || age < 18 || age > 100) {
+    return { success: false, error: 'You must be 18 or older to join.' };
+  }
   try {
     const userCredential = await fbAuth.createUserWithEmailAndPassword(email, password);
     const user = userCredential.user;
@@ -215,7 +237,8 @@ function listenToAuthChanges() {
       }
       window.currentUser = targetUser;
       if (typeof saveToStorage === 'function') saveToStorage();
-       await loadBlockedUsersFromFirestore();
+       await syncPublicProfileToBackend();
+            await loadBlockedUsersFromFirestore();
        if (typeof appState !== 'undefined') appState.isLoggedIn = true;
       const currentHash = window.location.hash || '';
       const isChatHash = currentHash.startsWith('#chat/');
@@ -265,9 +288,7 @@ function listenToAuthChanges() {
 
 async function recordSwipeInBackend(targetUserId, action) {
   if (!fbAuth?.currentUser) return { success: false, matched: false, error: 'Sign in required.' };
-  const uid = fbAuth.currentUser.uid;
 
-  // 1. Try server endpoint first
   try {
     const token = await fbAuth.currentUser.getIdToken();
     const res = await fetch(BACKEND_URL + '/swipes/record', {
@@ -280,95 +301,43 @@ async function recordSwipeInBackend(targetUserId, action) {
     if (res.ok && data?.success) {
       return { success: true, matched: Boolean(data.matched), matchId: data.matchId || null };
     }
-    if (res.status === 429 && data?.limited) {
+
+    if (res.status === 429) {
       if (data.error) showToast(data.error, 'gold');
       return { success: false, matched: false, limited: true, error: data.error };
     }
+
     if (res.status === 401) {
       showToast('Your session expired. Please sign in again.', 'error');
       try { await fbAuth.signOut(); } catch (_) {}
       return { success: false, matched: false, error: 'Authentication required.' };
     }
-  } catch (backendErr) {
-    console.warn("Backend swipe request failed, trying Firestore fallback:", backendErr.message);
+
+    showToast(data.error || 'Could not save your swipe. Please try again.', 'error');
+    return { success: false, matched: false, error: data.error || 'Swipe failed.' };
+  } catch (err) {
+    console.warn('Backend swipe request failed:', err.message);
+    showToast('Connection problem. Please try again.', 'error');
+    return { success: false, matched: false, error: 'Backend unavailable.' };
   }
-
-  // 2. Direct Firestore fallback (resilient for local testing and offline)
-  if (fbDb) {
-    try {
-      const swipeId = `${uid}_${targetUserId}`;
-      await fbDb.collection('swipes').doc(swipeId).set({
-        fromUserId: uid,
-        toUserId: targetUserId,
-        action: action,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-
-      if (action === 'like' || action === 'superlike') {
-        const reverseDoc = await fbDb.collection('swipes').doc(`${targetUserId}_${uid}`).get().catch(() => null);
-        if (reverseDoc && reverseDoc.exists && ['like', 'superlike'].includes(reverseDoc.data()?.action)) {
-          const matchId = [uid, targetUserId].sort().join('_');
-          await fbDb.collection('matches').doc(matchId).set({
-            users: [uid, targetUserId],
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            lastActivity: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
-          return { success: true, matched: true, matchId };
-        }
-      }
-      return { success: true, matched: false };
-    } catch (fsErr) {
-      console.warn("Direct Firestore swipe error:", fsErr.message);
-      showToast('Could not save your swipe. Please try again.', 'error');
-      return { success: false, matched: false, error: fsErr.message };
-    }
-  }
-
-  showToast('Could not save your swipe. Please try again.', 'error');
-  return { success: false, matched: false, error: 'Offline.' };
 }
 
 // Fetch all registered users from Firestore for the swipe card stack
 async function fetchRealUsersFromFirestore() {
-  if (!fbDb || !fbAuth?.currentUser) return [];
-  const currentUserId = fbAuth.currentUser.uid;
-
+  if (!fbAuth?.currentUser) return [];
   try {
-    let snapshot = await fbDb.collection('users').get().catch(() => null);
-    if (!snapshot || snapshot.empty) {
-      snapshot = await fbDb.collection('public_profiles').get().catch(() => null);
+    const headers = await getBackendAuthHeaders();
+    const res = await fetch(BACKEND_URL + '/discovery?limit=60', { headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || 'Discovery request failed.');
     }
-    if (!snapshot) return [];
-
-    const users = [];
-    snapshot.forEach(doc => {
-      if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
-        const data = doc.data();
-        const userPhoto = data.image || data.avatar || '';
-        // Only show users who have uploaded their own real profile picture
-        if (!userPhoto) return;
-
-        users.push({
-          id: doc.id,
-          name: data.displayName || data.name || 'User',
-          age: data.age || 24,
-          bio: data.bio || 'New on hookmebysam! Swipe right to chat.',
-          gender: data.gender || 'Female',
-          image: userPhoto,
-          tags: data.interests || ['Music 🎵', 'Vibes ✨'],
-          distance: '2 km',
-          mutualChance: true,
-          isRealUser: true
-        });
-      }
-    });
-    return users;
+    return Array.isArray(data.users) ? data.users : [];
   } catch (err) {
-    console.warn("Error fetching Firestore users:", err.message);
+    console.warn('Error fetching discovery feed:', err.message);
     return [];
   }
 }
-
 // Search registered Firestore users by name, email, or bio
 async function searchUsersInFirestore(queryText) {
   if (!fbDb || !fbAuth?.currentUser) return [];
@@ -377,10 +346,7 @@ async function searchUsersInFirestore(queryText) {
   if (!q) return [];
 
   try {
-    let snapshot = await fbDb.collection('users').get().catch(() => null);
-    if (!snapshot || snapshot.empty) {
-      snapshot = await fbDb.collection('public_profiles').get().catch(() => null);
-    }
+    const snapshot = await fbDb.collection('public_profiles').get().catch(() => null);
     if (!snapshot) return [];
 
     const results = [];
@@ -427,10 +393,7 @@ function listenToUserMatches(callback) {
           const partnerId = matchData.users.find(id => id !== currentUserId);
           if (partnerId && !(window.__blockedUserIds || new Set()).has(partnerId)) {
             try {
-              let userDoc = await fbDb.collection('users').doc(partnerId).get().catch(() => null);
-              if (!userDoc || !userDoc.exists) {
-                userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
-              }
+              let userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
               if (userDoc && userDoc.exists) {
                 const data = userDoc.data();
                 matchedProfiles.push({
@@ -478,10 +441,7 @@ async function fetchUserMatchesDirectly() {
       const partnerId = matchData.users.find(id => id !== currentUserId);
       if (partnerId) {
         try {
-          let userDoc = await fbDb.collection('users').doc(partnerId).get().catch(() => null);
-          if (!userDoc || !userDoc.exists) {
-            userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
-          }
+          let userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
           if (userDoc && userDoc.exists) {
             const data = userDoc.data();
             matchedProfiles.push({
@@ -535,10 +495,17 @@ function listenToRealtimeMessages(matchId, callback) {
 }
 
 async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "", replyTo = null, videoUrl = "", isVideo = false, localId = "") {
-  if (!fbDb || !fbAuth?.currentUser) return;
+  if (!fbDb || !fbAuth?.currentUser || !matchId) return false;
   const currentUserId = fbAuth.currentUser.uid;
 
   try {
+    const matchRef = fbDb.collection('matches').doc(matchId);
+    const matchSnap = await matchRef.get();
+    const users = matchSnap.data()?.users;
+    if (!matchSnap.exists || !Array.isArray(users) || !users.includes(currentUserId) || users.length !== 2) {
+      console.warn('sendRealtimeMessage: active match not found or access denied');
+      return false;
+    }
     const isVideoMsg = Boolean(isVideo || videoUrl);
     const msgData = {
       sender: currentUserId,
@@ -558,9 +525,8 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
 
     // Update parent match doc so partner gets instant real-time notification & re-ordering to top
     const previewText = text || (isVoice ? '🎤 Voice note' : (isVideoMsg ? '📹 Video' : (imageUrl ? '📷 Photo' : 'New message')));
-    const uids = matchId.split('_');
-    await fbDb.collection('matches').doc(matchId).set({
-      users: uids,
+    await matchRef.set({
+      users,
       lastMessage: previewText,
       lastSender: currentUserId,
       lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
@@ -687,8 +653,15 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
   }
   try {
     const uid = fbAuth.currentUser.uid;
+    const pathParts = String(path).split('/').filter(Boolean);
+    const root = pathParts[0];
+    const matchId = root === 'chat_media' && pathParts.length > 1 ? pathParts[1] : '';
     const allowedRoots = new Set(['stories', 'voicenotes', 'chat_media', 'chat_images', 'chat_videos']);
-    if (!allowedRoots.has(path) || !fbAuth?.currentUser) return null;
+    if (!allowedRoots.has(root) || !fbAuth?.currentUser) return null;
+    if (root === 'chat_media' && !matchId) {
+      window._lastMediaUploadError = 'Chat media requires a match scope.';
+      return null;
+    }
     const isVid = Boolean(
       (file.type && file.type.startsWith('video/')) ||
       (file.name && file.name.match(/\.(mp4|mov|webm|m4v|3gp|mkv)$/i)) ||
@@ -703,7 +676,9 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     );
     const defaultExt = isAud ? '.webm' : (isVid ? '.mp4' : '.jpg');
     const safeName = String(file.name || ('file' + defaultExt)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
-    const storagePath = (path === 'chat_images' || path === 'chat_videos') ? 'chat_media' : path;
+    const storagePath = (root === 'chat_images' || root === 'chat_videos')
+      ? `chat_media/${matchId}`
+      : root;
     const storageRef = fbStorage.ref(`${storagePath}/${uid}/${Date.now()}_${safeName}`);
     const metadata = {
       contentType: customContentType || file.type || (isAud ? 'audio/webm' : (isVid ? 'video/mp4' : 'image/jpeg'))
@@ -717,18 +692,7 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
         window._firebaseStorageDisabled = true;
       }
       window._lastMediaUploadError = `Storage upload failed: ${putErr?.code || 'unknown'} — ${putErr?.message || 'unknown error'}`;
-      if (storagePath === 'chat_media') {
-        try {
-          const fallbackRef = fbStorage.ref(`stories/${uid}/chat_${Date.now()}_${safeName}`);
-          snapshot = await fallbackRef.put(file, metadata);
-        } catch (fallbackErr) {
-          window._firebaseStorageDisabled = true;
-          window._lastMediaUploadError = `Storage upload failed: ${fallbackErr?.code || 'unknown'} — ${fallbackErr?.message || 'unknown error'}`;
-          return null;
-        }
-      } else {
-        return null;
-      }
+      return null;
     }
 
     const downloadUrl = await snapshot.ref.getDownloadURL();

@@ -104,7 +104,7 @@ app.use((req, res, next) => {
   if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
   else res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Cleanup-Secret');
   res.setHeader('Access-Control-Max-Age', '86400');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -231,8 +231,8 @@ async function verifyPaystackReference(reference) {
 async function grantVip({ reference, uid, tier, payment }) {
   const plan = VIP_PLANS[Number(tier)];
   if (!plan) throw new Error('Invalid VIP tier.');
-  if (Number(payment.amount) !== plan.amount * 100) {
-    throw new Error('Payment amount does not match the selected VIP plan.');
+  if (Number(payment.amount) !== plan.amount * 100 || String(payment.currency || '').toUpperCase() !== 'NGN') {
+    throw new Error('Payment amount or currency does not match the selected VIP plan.');
   }
 
   const ref = db.collection('paystack_transactions').doc(String(reference));
@@ -287,6 +287,13 @@ app.post('/webhook/paystack', async (req, res) => {
     if (!reference || !userId || !tier) return res.status(200).json({ received: true });
 
     const payment = await verifyPaystackReference(reference);
+    const paidEmail = String(payment.customer?.email || '').trim().toLowerCase();
+    const userRecord = await admin.auth().getUser(String(userId));
+    const accountEmail = String(userRecord.email || '').trim().toLowerCase();
+    if (!paidEmail || !accountEmail || paidEmail !== accountEmail) {
+      console.warn('Paystack webhook ignored because payment customer does not match Firebase account:', reference);
+      return res.status(200).json({ received: true });
+    }
     await grantVip({ reference, uid: String(userId), tier: Number(tier), payment });
     return res.status(200).json({ received: true });
   } catch (err) {
@@ -296,6 +303,108 @@ app.post('/webhook/paystack', async (req, res) => {
 });
 
 /* Authenticated direct payment verification. Never trusts uid/amount from the browser. */
+app.post('/profiles/sync', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    if (!(await persistentRateLimit('profile-sync:' + uid, 20, 10 * 60 * 1000))) return res.status(429).json({ success:false, error:'Too many profile sync requests.' });
+    const snap = await db.collection('users').doc(uid).get();
+    if (!snap.exists) return res.status(404).json({ success:false, error:'Profile not found.' });
+    const d = snap.data() || {};
+    const age = Number(d.age);
+    if (!Number.isFinite(age) || age < 18 || age > 100) return res.status(400).json({ success:false, error:'An adult profile age (18+) is required.' });
+    const city = String(d.city || '').trim().slice(0,80);
+    await db.collection('public_profiles').doc(uid).set({
+      id: uid, displayName: String(d.displayName || d.name || 'User').slice(0,80),
+      age: Math.floor(age), gender: String(d.gender || '').slice(0,40),
+      bio: String(d.bio || '').slice(0,1000),
+      interests: Array.isArray(d.interests) ? d.interests.slice(0,30).map(v => String(v).slice(0,40)) : [],
+      image: String(d.image || d.avatar || ''), ...(city ? {city} : {}),
+      active: d.accountStatus !== 'suspended' && !d.deletedAt,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, {merge:true});
+    res.json({success:true});
+  } catch (err) {
+    console.error('profile sync error:', err.message);
+    res.status(500).json({success:false,error:'Could not sync profile.'});
+  }
+});
+
+app.get('/discovery', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    if (!(await persistentRateLimit('discovery:' + uid, 30, 60 * 1000))) return res.status(429).json({success:false,error:'Too many discovery requests. Please slow down.'});
+    const limit = Math.min(Math.max(Number(req.query.limit) || 40, 1), 60);
+    const [outgoing, incoming, swipes, profiles] = await Promise.all([
+      db.collection('blocks').where('blockedBy','==',uid).get(),
+      db.collection('blocks').where('blockedUserId','==',uid).get(),
+      db.collection('swipes').where('fromUserId','==',uid).get(),
+      db.collection('public_profiles').where('active','==',true).limit(200).get()
+    ]);
+    const excluded = new Set([uid]);
+    outgoing.forEach(s => { const d=s.data()||{}; if(d.blockedUserId) excluded.add(String(d.blockedUserId)); });
+    incoming.forEach(s => { const d=s.data()||{}; if(d.blockedBy) excluded.add(String(d.blockedBy)); });
+    swipes.forEach(s => { const d=s.data()||{}; if(d.toUserId) excluded.add(String(d.toUserId)); });
+    const users=[];
+    profiles.forEach(doc => {
+      if(users.length>=limit || excluded.has(doc.id)) return;
+      const d=doc.data()||{}, age=Number(d.age);
+      if(!d.image || !Number.isFinite(age) || age<18 || d.active!==true) return;
+      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:d.image,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',isRealUser:true});
+    });
+    res.json({success:true,users});
+  } catch (err) {
+    console.error('discovery error:', err.message);
+    res.status(500).json({success:false,error:'Could not load discovery.'});
+  }
+});
+
+app.post('/reports', requireAuth, async (req, res) => {
+  const reporterId=req.user.uid, reportedUserId=String(req.body.reportedUserId||'').trim();
+  const reason=String(req.body.reason||'other').trim().toLowerCase(), details=String(req.body.details||'').trim().slice(0,2000);
+  if(!reportedUserId || reportedUserId===reporterId || !new Set(['fake','harassment','scam','sexual','underage','violence','other']).has(reason)) return res.status(400).json({success:false,error:'Invalid report.'});
+  if(!(await persistentRateLimit('reports:'+reporterId,10,60*60*1000))) return res.status(429).json({success:false,error:'Too many reports. Please try again later.'});
+  try {
+    const target=await db.collection('users').doc(reportedUserId).get();
+    if(!target.exists) return res.status(404).json({success:false,error:'User not found.'});
+    const reportRef=db.collection('reports').doc(), blockRef=db.collection('blocks').doc(reporterId+'_'+reportedUserId), now=admin.firestore.FieldValue.serverTimestamp();
+    await db.runTransaction(async tx => {
+      tx.set(reportRef,{reporterId,reportedUserId,reason,...(details?{details}:{}),status:'open',createdAt:now});
+      tx.set(blockRef,{blockedBy:reporterId,blockedUserId:reportedUserId,createdAt:now},{merge:true});
+    });
+    res.json({success:true,reportId:reportRef.id,blocked:true});
+  } catch(err) {
+    console.error('report error:',err.message);
+    res.status(500).json({success:false,error:'Could not submit the report.'});
+  }
+});
+
+app.post('/blocks', requireAuth, async (req, res) => {
+  const uid=req.user.uid, blockedUserId=String(req.body.blockedUserId||'').trim();
+  if(!blockedUserId || blockedUserId===uid) return res.status(400).json({success:false,error:'Invalid block.'});
+  if(!(await persistentRateLimit('blocks:'+uid,30,10*60*1000))) return res.status(429).json({success:false,error:'Too many block requests.'});
+  try {
+    const target=await db.collection('users').doc(blockedUserId).get();
+    if(!target.exists) return res.status(404).json({success:false,error:'User not found.'});
+    await db.collection('blocks').doc(uid+'_'+blockedUserId).set({blockedBy:uid,blockedUserId,createdAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
+    res.json({success:true});
+  } catch(err) {
+    console.error('block error:',err.message);
+    res.status(500).json({success:false,error:'Could not block this user.'});
+  }
+});
+
+app.delete('/blocks/:blockedUserId', requireAuth, async (req, res) => {
+  const uid=req.user.uid, blockedUserId=String(req.params.blockedUserId||'').trim();
+  if(!blockedUserId || blockedUserId===uid) return res.status(400).json({success:false,error:'Invalid unblock.'});
+  try {
+    await db.collection('blocks').doc(uid+'_'+blockedUserId).delete();
+    res.json({success:true});
+  } catch(err) {
+    console.error('unblock error:',err.message);
+    res.status(500).json({success:false,error:'Could not unblock this user.'});
+  }
+});
+
 app.post('/payment/verify', requireAuth, async (req, res) => {
   const { reference, tier } = req.body || {};
   if (!reference || !VIP_PLANS[Number(tier)]) {
@@ -306,6 +415,11 @@ app.post('/payment/verify', requireAuth, async (req, res) => {
   }
   try {
     const payment = await verifyPaystackReference(reference);
+    const authenticatedEmail = String(req.user.email || '').trim().toLowerCase();
+    const paidEmail = String(payment.customer?.email || '').trim().toLowerCase();
+    if (!authenticatedEmail || !paidEmail || authenticatedEmail !== paidEmail) {
+      return res.status(403).json({ success: false, error: 'Payment customer does not match the signed-in account.' });
+    }
     const granted = await grantVip({
       reference,
       uid: req.user.uid,
@@ -605,6 +719,22 @@ app.post('/swipes/record', requireAuth, async (req, res) => {
 });
 
 /* FCM: all public trigger endpoints require a Firebase ID token. */
+async function assertActiveMatchAccess(uid, partnerId, matchId) {
+  const matchRef = db.collection('matches').doc(String(matchId));
+  const [matchSnap, blockAB, blockBA] = await Promise.all([
+    matchRef.get(),
+    db.collection('blocks').doc(`${uid}_${partnerId}`).get(),
+    db.collection('blocks').doc(`${partnerId}_${uid}`).get()
+  ]);
+  const users = matchSnap.data()?.users;
+  if (!matchSnap.exists || !Array.isArray(users) || !users.includes(uid) || !users.includes(partnerId) || blockAB.exists || blockBA.exists) {
+    const error = new Error('Match access denied.');
+    error.code = 'MATCH_ACCESS_DENIED';
+    throw error;
+  }
+  return matchSnap;
+}
+
 async function sendPushToUser(userId, { title, body, data = {} }) {
   const snap = await db.collection('fcm_tokens').doc(userId).collection('tokens').get();
   const tokenEntries = snap.docs
@@ -719,10 +849,7 @@ app.post('/fcm/new-message', requireAuth, async (req, res) => {
   }
   try {
     const partnerId = String(toUserId);
-    const matchDoc = await db.collection('matches').doc(String(matchId)).get();
-    if (!matchDoc.exists || !Array.isArray(matchDoc.data().users) || !matchDoc.data().users.includes(req.user.uid) || !matchDoc.data().users.includes(partnerId)) {
-      return res.status(403).json({ error: 'You are not a participant in this match.' });
-    }
+    await assertActiveMatchAccess(req.user.uid, partnerId, matchId);
     const senderDoc = await db.collection('users').doc(req.user.uid).get();
     const senderName = senderDoc.data()?.displayName || senderDoc.data()?.name || 'Your match';
     const preview = req.body?.messageText ? String(messageText).slice(0, 60) : '📷 Photo';
@@ -743,6 +870,7 @@ app.post('/fcm/incoming-call', requireAuth, async (req, res) => {
   if (!toUserId || !matchId) return res.status(400).json({ error: 'toUserId and matchId are required.' });
   try {
     const partnerId = String(toUserId);
+    await assertActiveMatchAccess(req.user.uid, partnerId, matchId);
     const callerDoc = await db.collection('users').doc(req.user.uid).get();
     const callerName = callerDoc.data()?.displayName || callerDoc.data()?.name || 'Your match';
     const isVideo = callType === 'video';
@@ -773,6 +901,11 @@ app.post('/fcm/call-ended', requireAuth, async (req, res) => {
   if (!toUserId) return res.status(400).json({ error: 'toUserId is required.' });
   try {
     const partnerId = String(toUserId);
+    if (!callId) return res.status(400).json({ error: 'callId is required.' });
+    const callSnap = await db.collection('matches').where('users', 'array-contains', req.user.uid).limit(50).get();
+    const match = callSnap.docs.find(doc => doc.data()?.users?.includes(partnerId));
+    if (!match) return res.status(403).json({ error: 'You are not in an active match with this user.' });
+    await assertActiveMatchAccess(req.user.uid, partnerId, match.id);
     await sendPushToUser(partnerId, {
       title: 'Call Ended',
       body: 'The call was ended or missed.',
@@ -855,9 +988,9 @@ async function deleteDocumentTree(ref) {
   });
 }
 
-async function deleteUserStorage(uid) {
+async function deleteStoragePrefixes(prefixes) {
   const bucket = admin.storage().bucket();
-  for (const prefix of [`stories/${uid}/`, `voicenotes/${uid}/`]) {
+  for (const prefix of prefixes) {
     const [files] = await bucket.getFiles({ prefix });
     await Promise.all(files.map(file => file.delete({ ignoreNotFound: true })));
   }
@@ -875,10 +1008,13 @@ app.post('/account/delete', requireAuth, async (req, res) => {
     await deleteQueryDocs(db.collection('swipes').where('fromUserId', '==', uid));
     await deleteQueryDocs(db.collection('swipes').where('toUserId', '==', uid));
     await deleteQueryDocs(db.collection('blocks').where('blockedBy', '==', uid));
+    await deleteQueryDocs(db.collection('blocks').where('blockedUserId', '==', uid));
     await deleteQueryDocs(db.collection('reports').where('reportedBy', '==', uid));
+    await deleteQueryDocs(db.collection('reports').where('reportedUserId', '==', uid));
     await deleteQueryDocs(db.collection('fcm_tokens').doc(uid).collection('tokens'));
 
     const matches = await db.collection('matches').where('users', 'array-contains', uid).get();
+    const matchMediaPrefixes = matches.docs.map(match => `chat_media/${match.id}/`);
     for (const match of matches.docs) {
       await deleteDocumentTree(match.ref);
     }
@@ -886,7 +1022,7 @@ app.post('/account/delete', requireAuth, async (req, res) => {
     await Promise.all([
       db.collection('users').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
       db.collection('public_profiles').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
-      deleteUserStorage(uid)
+      deleteStoragePrefixes([`stories/${uid}/`, `voicenotes/${uid}/`, ...matchMediaPrefixes])
     ]);
 
     // Delete the Auth account last so a partial cleanup can be retried safely.
@@ -932,7 +1068,7 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
         bio: String(d.bio || '').slice(0, 2000),
         gender: d.gender || '',
         interests: Array.isArray(d.interests) ? d.interests.slice(0, 30) : [],
-        location: String(d.location || '').slice(0, 200),
+        city: String(d.city || '').slice(0, 120),
         image: d.image || d.avatar || '',
         avatar: d.avatar || d.image || '',
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -1093,7 +1229,7 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
         bio: u.bio || '',
         gender: u.gender || '',
         interests: u.interests || [],
-        location: u.location || '',
+        city: u.city || '',
         image: u.image || u.avatar || '',
         avatar: u.avatar || u.image || '',
         updatedAt: admin.firestore.FieldValue.serverTimestamp()

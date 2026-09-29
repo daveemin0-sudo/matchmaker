@@ -1769,21 +1769,11 @@ function prevSignupStep() {
 }
 
 async function syncPublicProfileToFirestore(fields = {}) {
-  if (!fbDb || !fbAuth?.currentUser) return;
-  const uid = fbAuth.currentUser.uid;
-  await fbDb.collection('public_profiles').doc(uid).set({
-    id: uid,
-    name: fields.name ?? currentUser?.name ?? '',
-    displayName: fields.displayName ?? fields.name ?? currentUser?.name ?? '',
-    age: Number(fields.age ?? currentUser?.age ?? 24),
-    bio: fields.bio ?? currentUser?.bio ?? '',
-    gender: fields.gender ?? currentUser?.gender ?? '',
-    interests: Array.isArray(fields.interests) ? fields.interests : (currentUser?.interests || []),
-    location: fields.location ?? currentUser?.location ?? '',
-    image: fields.image ?? currentUser?.image ?? currentUser?.avatar ?? '',
-    avatar: fields.avatar ?? fields.image ?? currentUser?.avatar ?? currentUser?.image ?? '',
-    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }, { merge: true });
+  // Backward-compatible name retained for existing UI callers. Publication is
+  // now performed by the authenticated backend, which reads the private user
+  // record with Admin SDK and controls the public field set.
+  if (!fbAuth?.currentUser) return false;
+  return syncPublicProfileToBackend();
 }
 
 function completeSignup() {
@@ -1792,6 +1782,11 @@ function completeSignup() {
   if (phone.startsWith('0')) phone = phone.slice(1);
   const password = document.getElementById('signupPassword')?.value || '';
   const errorEl = document.getElementById('signupError4');
+  const signupAge = Number(currentUser?.age);
+  if (!Number.isFinite(signupAge) || signupAge < 18 || signupAge > 100) {
+    if (errorEl) errorEl.textContent = 'You must be 18 or older to join.';
+    return;
+  }
   if (errorEl) errorEl.textContent = '';
 
   const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
@@ -4650,9 +4645,10 @@ async function sendImageMessage(event) {
     // Try Cloud Storage upload if connected, authenticated & enabled
     if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage && !window._firebaseStorageDisabled && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       try {
+        const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
         const uploadPromise = uploadFileToBackend(
           fileToUpload,
-          'chat_media',
+          `chat_media/${matchId}`,
           false,
           isVideo ? (file.type || 'video/mp4') : 'image/jpeg'
         );
@@ -4676,8 +4672,23 @@ async function sendImageMessage(event) {
       showToast('Video upload requires Cloud Storage (Blaze plan).', 'error', 9000);
     }
 
-    // Final display URL (cloud URL if available, or compressed local data URL / object URL)
-    const finalMediaUrl = cloudUrl || (!isVideo && localDataUrl ? localDataUrl : localPreviewUrl);
+    // Private chat media must be stored in Cloud Storage before it is sent.
+    // Never put a local blob/data URL into a Firestore message: the recipient cannot fetch it.
+    if (!cloudUrl) {
+      const uploadError = window._lastMediaUploadError || 'Cloud Storage upload failed.';
+      console.warn('sendImageMessage: refusing to dispatch undeliverable media:', uploadError);
+      const targetMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId);
+      if (targetMsg) {
+        targetMsg._uploading = false;
+        targetMsg._uploadFailed = true;
+        renderChatThread();
+        saveToStorage();
+      }
+      showToast(isVideo ? 'Video could not be uploaded. Please try again.' : 'Photo could not be uploaded. Please try again.', 'error', 7000);
+      return;
+    }
+
+    const finalMediaUrl = cloudUrl;
 
     // Update local message in conversation
     const targetMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId);
@@ -4689,12 +4700,10 @@ async function sendImageMessage(event) {
       renderConversationList();
       renderChatsInbox();
       saveToStorage();
-      showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
     }
 
-    // Determine payload to send to partner via Firestore:
-    // Cloud Storage HTTPS URL is preferred; for photos, fall back to compressed Base64 data URL if Cloud Storage returned null/failed
-    const partnerPayloadUrl = cloudUrl || (!isVideo && localDataUrl && localDataUrl.startsWith('data:') ? localDataUrl : '');
+    // Only send the stable Cloud Storage URL to the recipient.
+    const partnerPayloadUrl = cloudUrl;
 
     // Dispatch to partner via Firestore so recipient receives image/video in real-time
     if (partnerPayloadUrl && typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
@@ -4712,7 +4721,15 @@ async function sendImageMessage(event) {
       );
       if (!delivered) {
         console.warn('sendImageMessage: media message was uploaded but could not be saved to the chat.');
+        const failedMsg = conversations[partnerId]?.messages?.find(m => m.id === localMsgId);
+        if (failedMsg) {
+          failedMsg._uploadFailed = true;
+          renderChatThread();
+          saveToStorage();
+        }
         showToast(isVideo ? 'Video uploaded, but could not be delivered. Please try again.' : 'Photo uploaded, but could not be delivered. Please try again.', 'error');
+      } else {
+        showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
       }
     }
   })();
@@ -6473,7 +6490,8 @@ async function sendVoiceNote() {
 
         if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
           try {
-            const uploadPromise = uploadFileToBackend(audioBlob, 'voicenotes', false, cleanMime);
+            const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+            const uploadPromise = uploadFileToBackend(audioBlob, `chat_media/${matchId}`, false, cleanMime);
             const timeoutPromise = new Promise(res => setTimeout(() => res(null), 12000));
             finalRemoteUrl = await Promise.race([uploadPromise, timeoutPromise]);
           } catch (err) {
@@ -6481,15 +6499,14 @@ async function sendVoiceNote() {
           }
         }
 
-        // Base64 fallback if storage was unreachable and audio is reasonably sized (< 450KB)
-        if (!finalRemoteUrl && audioBlob.size < 450000) {
-          try {
-            finalRemoteUrl = await new Promise(res => {
-              const reader = new FileReader();
-              reader.onloadend = () => res(reader.result);
-              reader.readAsDataURL(audioBlob);
-            });
-          } catch (_) {}
+        // Chat voice notes must use the shared match-scoped Storage path.
+        // A local blob/data URL cannot be fetched by the recipient.
+        if (!finalRemoteUrl) {
+          newMsg._uploading = false;
+          newMsg._uploadFailed = true;
+          saveToStorage();
+          showToast('Voice note could not be uploaded. Please try again.', 'error', 7000);
+          return;
         }
 
         if (finalRemoteUrl) {
@@ -6497,10 +6514,16 @@ async function sendVoiceNote() {
           saveToStorage();
         }
 
-        const urlToSend = finalRemoteUrl || localAudioUrl;
         if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
           const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-          sendRealtimeMessage(matchId, '', true, urlToSend);
+          const delivered = await sendRealtimeMessage(matchId, '', true, finalRemoteUrl, '', null, '', false, msgId);
+          if (!delivered) {
+            newMsg._uploadFailed = true;
+            saveToStorage();
+            showToast('Voice note uploaded, but could not be delivered. Please try again.', 'error', 7000);
+          } else {
+            showToast('Voice note sent 🎤', 'gold');
+          }
         } else {
           triggerAutoReply();
         }
@@ -8103,10 +8126,28 @@ function sendStoryDirectMessage(story, replyText) {
   renderChatsInbox();
   saveToStorage();
 
-  // Send in real-time if Firebase is active
+  // A story reply is a chat message, so it must only be sent to an active mutual match.
   if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-    sendRealtimeMessage(matchId, `Replied to your status: ${replyText}`, false, '', '');
+    sendRealtimeMessage(matchId, `Replied to your status: ${replyText}`, false, '', '', {
+      id: story.id,
+      senderName: `${partnerName}'s Status`,
+      text: replyText,
+      imageUrl: story.thumb || story.image || ''
+    }).then(delivered => {
+      if (!delivered) {
+        const idx = conversations[partnerId]?.messages?.findIndex(m => m.id === newMsg.id);
+        if (idx !== undefined && idx >= 0) {
+          conversations[partnerId].messages.splice(idx, 1);
+          renderConversationList();
+          renderChatsInbox();
+          saveToStorage();
+        }
+        showToast('You can only reply to a status after you match.', 'error', 6000);
+      }
+    }).catch(() => {
+      showToast('Status reply could not be delivered. Please try again.', 'error', 6000);
+    });
   }
 }
 
@@ -8319,21 +8360,29 @@ function submitReport(reason, name) {
 }
 
 async function persistBlockToFirestore(userId) {
-  if (!fbDb || !fbAuth?.currentUser || !userId) return true;
+  if (!fbAuth?.currentUser || !userId) return false;
   const uid = fbAuth.currentUser.uid;
   if (uid === userId) return false;
-  await fbDb.collection('blocks').doc(uid + '_' + userId).set({
-    blockedBy: uid,
-    blockedUserId: userId,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  const token = await fbAuth.currentUser.getIdToken();
+  const res = await fetch(BACKEND_URL + '/blocks', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ blockedUserId: userId })
   });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) throw new Error(data.error || 'Could not block user.');
   return true;
 }
 
 async function deleteBlockFromFirestore(userId) {
-  if (!fbDb || !fbAuth?.currentUser || !userId) return true;
-  const uid = fbAuth.currentUser.uid;
-  await fbDb.collection('blocks').doc(uid + '_' + userId).delete();
+  if (!fbAuth?.currentUser || !userId) return false;
+  const token = await fbAuth.currentUser.getIdToken();
+  const res = await fetch(BACKEND_URL + '/blocks/' + encodeURIComponent(userId), {
+    method: 'DELETE',
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) throw new Error(data.error || 'Could not unblock user.');
   return true;
 }
 

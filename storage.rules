@@ -12,13 +12,34 @@ service firebase.storage {
       allow update: if false;
     }
 
+    match /chat_media/{matchId}/{userId}/{fileName} {
+      allow read: if request.auth != null
+        && firestore.exists(/databases/(default)/documents/matches/$(matchId))
+        && request.auth.uid in firestore.get(/databases/(default)/documents/matches/$(matchId)).data.users
+        && !firestore.exists(/databases/(default)/documents/blocks/$(request.auth.uid)_$(firestore.get(/databases/(default)/documents/matches/$(matchId)).data.users[0]))
+        && !firestore.exists(/databases/(default)/documents/blocks/$(firestore.get(/databases/(default)/documents/matches/$(matchId)).data.users[0])_$(request.auth.uid))
+        && !firestore.exists(/databases/(default)/documents/blocks/$(request.auth.uid)_$(firestore.get(/databases/(default)/documents/matches/$(matchId)).data.users[1]))
+        && !firestore.exists(/databases/(default)/documents/blocks/$(firestore.get(/databases/(default)/documents/matches/$(matchId)).data.users[1])_$(request.auth.uid));
+
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && firestore.exists(/databases/(default)/documents/matches/$(matchId))
+        && request.auth.uid in firestore.get(/databases/(default)/documents/matches/$(matchId)).data.users
+        && request.resource.size < 30 * 1024 * 1024
+        && request.resource.contentType.matches('(image|video|audio)/.*');
+      allow delete: if request.auth != null
+        && request.auth.uid == userId
+        && firestore.exists(/databases/(default)/documents/matches/$(matchId))
+        && request.auth.uid in firestore.get(/databases/(default)/documents/matches/$(matchId)).data.users;
+      allow update: if false;
+    }
+
     match /chat_media/{userId}/{fileName} {
-      allow read: if request.auth != null;
+      allow read, delete: if request.auth != null && request.auth.uid == userId;
       allow create: if request.auth != null
         && request.auth.uid == userId
         && request.resource.size < 30 * 1024 * 1024
         && request.resource.contentType.matches('(image|video)/.*');
-      allow delete: if request.auth != null && request.auth.uid == userId;
       allow update: if false;
     }
 
