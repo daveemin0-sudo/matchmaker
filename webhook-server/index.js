@@ -11,12 +11,12 @@ const FRONTEND_URL = process.env.FRONTEND_URL || '';
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || FRONTEND_URL)
   .split(',').map(v => v.trim()).filter(Boolean);
 
-const TERMII_API_KEY = process.env.TERMII_API_KEY || '';
-const TERMII_SENDER_ID = process.env.TERMII_SENDER_ID || 'N-Alert';
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY || '';
-const CLEANUP_SECRET = process.env.CLEANUP_SECRET || '';
-const METERED_API_KEY = process.env.METERED_API_KEY || '';
-const METERED_DOMAIN = process.env.METERED_DOMAIN || '';
+const TERMII_API_KEY = (process.env.TERMII_API_KEY || '').trim().replace(/[\r\n\t]/g, '');
+const TERMII_SENDER_ID = (process.env.TERMII_SENDER_ID || 'N-Alert').trim().replace(/[\r\n\t]/g, '');
+const PAYSTACK_SECRET_KEY = (process.env.PAYSTACK_SECRET_KEY || '').trim().replace(/[\r\n\t]/g, '');
+const CLEANUP_SECRET = (process.env.CLEANUP_SECRET || '').trim().replace(/[\r\n\t]/g, '');
+const METERED_API_KEY = (process.env.METERED_API_KEY || '').trim().replace(/[\r\n\t]/g, '');
+const METERED_DOMAIN = (process.env.METERED_DOMAIN || '').trim().replace(/[\r\n\t]/g, '');
 const DAILY_FREE_SWIPES = Math.max(1, Number(process.env.DAILY_FREE_SWIPES || 100));
 
 function nigeriaDateKey(date = new Date()) {
@@ -230,8 +230,9 @@ function expiryForTier(tier) {
 }
 
 async function verifyPaystackReference(reference) {
+  const secretKey = (PAYSTACK_SECRET_KEY || '').trim().replace(/[\r\n\t]/g, '');
   const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
-    headers: { Authorization: `Bearer ${PAYSTACK_SECRET_KEY}` }
+    headers: { Authorization: `Bearer ${secretKey}` }
   });
   const data = await response.json();
   if (!response.ok || !data.status || data.data?.status !== 'success') {
@@ -438,7 +439,11 @@ app.post('/payment/verify', requireAuth, async (req, res) => {
     const payment = await verifyPaystackReference(reference);
     const authenticatedEmail = String(req.user.email || '').trim().toLowerCase();
     const paidEmail = String(payment.customer?.email || '').trim().toLowerCase();
-    if (!authenticatedEmail || !paidEmail || authenticatedEmail !== paidEmail) {
+    const metadataFields = payment.metadata?.custom_fields || [];
+    const metadataUserId = metadataFields.find(f => f.variable_name === 'user_id')?.value;
+    const isOwnerByMetadata = Boolean(metadataUserId && metadataUserId === req.user.uid);
+    const isOwnerByEmail = Boolean(authenticatedEmail && paidEmail && authenticatedEmail === paidEmail);
+    if (!isOwnerByEmail && !isOwnerByMetadata) {
       return res.status(403).json({ success: false, error: 'Payment customer does not match the signed-in account.' });
     }
     const granted = await grantVip({
@@ -450,7 +455,10 @@ app.post('/payment/verify', requireAuth, async (req, res) => {
     return res.json({ success: true, alreadyProcessed: !granted });
   } catch (err) {
     console.error('Payment verification error:', err.message);
-    return res.status(400).json({ success: false, error: err.message || 'Payment could not be verified.' });
+    const safeError = err.message && !err.message.includes('sk_') && !err.message.includes('Bearer') && !err.message.includes('header')
+      ? err.message
+      : 'Payment could not be verified.';
+    return res.status(400).json({ success: false, error: safeError });
   }
 });
 
