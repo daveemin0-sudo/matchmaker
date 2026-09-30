@@ -198,7 +198,7 @@ function bootApplication() {
         window.Capacitor.Plugins.StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
         window.Capacitor.Plugins.StatusBar.show().catch(() => {});
         const currentTheme = localStorage.getItem('hookmebysam_theme') || 'dark';
-        window.Capacitor.Plugins.StatusBar.setStyle({ style: currentTheme === 'light' ? 'LIGHT' : 'DARK' }).catch(() => {});
+        window.Capacitor.Plugins.StatusBar.setStyle({ style: currentTheme === 'light' ? 'DARK' : 'LIGHT' }).catch(() => {});
         window.Capacitor.Plugins.StatusBar.setBackgroundColor({ color: currentTheme === 'light' ? '#FFFFFF' : '#0A0710' }).catch(() => {});
       }
       if (window.Capacitor.Plugins.NavigationBar) {
@@ -865,7 +865,7 @@ function setTheme(theme) {
   if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar) {
     window.Capacitor.Plugins.StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
     window.Capacitor.Plugins.StatusBar.show().catch(() => {});
-    window.Capacitor.Plugins.StatusBar.setStyle({ style: theme === 'light' ? 'LIGHT' : 'DARK' }).catch(() => {});
+    window.Capacitor.Plugins.StatusBar.setStyle({ style: theme === 'light' ? 'DARK' : 'LIGHT' }).catch(() => {});
     window.Capacitor.Plugins.StatusBar.setBackgroundColor({ color: theme === 'light' ? '#FFFFFF' : '#0A0710' }).catch(() => {});
   }
 
