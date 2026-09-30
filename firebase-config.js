@@ -321,12 +321,12 @@ async function recordSwipeInBackend(targetUserId, action) {
     const data = await res.json().catch(() => ({}));
 
     if (res.ok && data?.success) {
-      return { success: true, matched: Boolean(data.matched), matchId: data.matchId || null };
+      return { success: true, matched: Boolean(data.matched), matchId: data.matchId || null, swipesRemaining: data.swipesRemaining };
     }
 
     if (res.status === 429) {
       if (data.error) showToast(data.error, 'gold');
-      return { success: false, matched: false, limited: true, error: data.error };
+      return { success: false, matched: false, limited: true, error: data.error, swipesRemaining: 0 };
     }
 
     if (res.status === 401) {
@@ -353,6 +353,13 @@ async function fetchRealUsersFromFirestore() {
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
       throw new Error(data.error || 'Discovery request failed.');
+    }
+    if (typeof data.isVip === 'boolean' && typeof appState !== 'undefined') {
+      appState.isVip = data.isVip;
+      if (typeof updateLimitBadges === 'function') updateLimitBadges();
+    }
+    if (typeof data.swipesRemaining === 'number' && typeof updateSwipeCounter === 'function') {
+      updateSwipeCounter(data.swipesRemaining);
     }
     return Array.isArray(data.users) ? data.users : [];
   } catch (err) {

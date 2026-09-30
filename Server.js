@@ -249,6 +249,7 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
       bio: String(d.bio || '').slice(0, 1000),
       interests: Array.isArray(d.interests) ? d.interests.slice(0, 30).map(v => String(v).slice(0, 40)) : [],
       image: String(d.image || d.avatar || ''),
+      photos: Array.isArray(d.photos) && d.photos.length > 0 ? d.photos.slice(0, 6) : (d.image ? [d.image] : []),
       ...(city ? { city } : {}),
       active: d.accountStatus !== 'suspended' && !d.deletedAt,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
@@ -274,10 +275,11 @@ app.get('/discovery', requireAuth, async (req, res) => {
     const limit = Math.min(Math.max(Number(req.query.limit) || 40, 1), 60);
     const db = admin.firestore();
 
-    const [blockedSnap, swipesSnap, profilesSnap] = await Promise.all([
+    const [blockedSnap, swipesSnap, profilesSnap, userDoc] = await Promise.all([
       db.collection('blocks').where('blockedBy', '==', uid).get(),
       db.collection('swipes').where('fromUserId', '==', uid).get(),
-      db.collection('public_profiles').where('active', '==', true).limit(200).get()
+      db.collection('public_profiles').where('active', '==', true).limit(200).get(),
+      db.collection('users').doc(uid).get()
     ]);
 
     const excluded = new Set([uid]);
@@ -295,6 +297,7 @@ app.get('/discovery', requireAuth, async (req, res) => {
       if (users.length >= limit || excluded.has(doc.id)) return;
       const d = doc.data() || {};
       if (!d.image || Number(d.age) < 18) return;
+      const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (d.image ? [d.image] : []);
       users.push({
         id: doc.id,
         name: d.displayName || 'User',
@@ -302,13 +305,24 @@ app.get('/discovery', requireAuth, async (req, res) => {
         bio: d.bio || '',
         gender: d.gender || '',
         image: d.image,
+        photos: userPhotos,
         tags: Array.isArray(d.interests) ? d.interests : [],
         city: d.city || '',
         isRealUser: true
       });
     });
 
-    return res.json({ success: true, users });
+    const userData = userDoc.exists ? (userDoc.data() || {}) : {};
+    const isVip = !!userData.isVip;
+    const today = new Date().toISOString().slice(0, 10);
+    const DAILY_LIMIT = 50;
+    let swipesRemaining = 999;
+    if (!isVip) {
+      const usedToday = (userData.lastSwipeDate === today) ? Number(userData.swipesToday || 0) : 0;
+      swipesRemaining = Math.max(0, DAILY_LIMIT - usedToday);
+    }
+
+    return res.json({ success: true, users, isVip, swipesRemaining });
   } catch (err) {
     console.error('discovery error:', err);
     return res.status(500).json({ success: false, error: 'Could not load discovery.' });
@@ -328,21 +342,42 @@ app.post('/swipes/record', requireAuth, async (req, res) => {
     return res.status(400).json({ success: false, error: 'Invalid swipe.' });
   }
 
+  const DAILY_FREE_SWIPES = 50;
+  const today = new Date().toISOString().slice(0, 10);
+
   try {
     const db = admin.firestore();
+    const userRef = db.collection('users').doc(uid);
     const targetRef = db.collection('users').doc(targetUserId);
     const swipeRef = db.collection('swipes').doc(uid + '_' + targetUserId);
     const reverseRef = db.collection('swipes').doc(targetUserId + '_' + uid);
     const matchRef = db.collection('matches').doc([uid, targetUserId].sort().join('_'));
 
     const result = await db.runTransaction(async tx => {
-      const [targetSnap, reverseSnap, matchSnap] = await Promise.all([
-        tx.get(targetRef), tx.get(reverseRef), tx.get(matchRef)
+      const [userSnap, targetSnap, reverseSnap, matchSnap] = await Promise.all([
+        tx.get(userRef), tx.get(targetRef), tx.get(reverseRef), tx.get(matchRef)
       ]);
       if (!targetSnap.exists) throw Object.assign(new Error('User not found.'), { code: 'TARGET_NOT_FOUND' });
       const target = targetSnap.data() || {};
       if (target.accountStatus === 'suspended' || target.deletedAt) {
         throw Object.assign(new Error('User unavailable.'), { code: 'TARGET_UNAVAILABLE' });
+      }
+
+      const userData = userSnap.exists ? (userSnap.data() || {}) : {};
+      const isVip = !!userData.isVip;
+      let swipesRemaining = 999;
+
+      if (!isVip) {
+        const usedToday = (userData.lastSwipeDate === today) ? Number(userData.swipesToday || 0) : 0;
+        if (usedToday >= DAILY_FREE_SWIPES) {
+          throw Object.assign(
+            new Error("You've reached your daily free swipe limit! Upgrade to VIP for unlimited swipes."),
+            { code: 'SWIPE_LIMIT_REACHED' }
+          );
+        }
+        const newUsed = usedToday + 1;
+        swipesRemaining = Math.max(0, DAILY_FREE_SWIPES - newUsed);
+        tx.set(userRef, { lastSwipeDate: today, swipesToday: newUsed }, { merge: true });
       }
 
       tx.set(swipeRef, {
@@ -366,11 +401,14 @@ app.post('/swipes/record', requireAuth, async (req, res) => {
           });
         }
       }
-      return { matched, matchId: matched ? matchId : null };
+      return { matched, matchId: matched ? matchId : null, swipesRemaining };
     });
 
     return res.json({ success: true, ...result });
   } catch (err) {
+    if (err.code === 'SWIPE_LIMIT_REACHED') {
+      return res.status(429).json({ success: false, limited: true, error: err.message, swipesRemaining: 0 });
+    }
     if (err.code === 'TARGET_NOT_FOUND' || err.code === 'TARGET_UNAVAILABLE') {
       return res.status(404).json({ success: false, error: err.message });
     }

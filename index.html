@@ -306,7 +306,7 @@
               <label for="loginPhoneNumber">Phone Number</label>
               <div class="phone-input-wrap">
                 <div class="phone-country-code">🇳🇬 +234</div>
-                <div class="auth-input-wrap" style="flex:1">
+                <div class="auth-input-wrap" style="flex:1;min-width:0">
                   <input class="auth-input" id="loginPhoneNumber" type="tel" placeholder="801 234 5678" inputmode="tel" autocomplete="tel-national">
                 </div>
               </div>
@@ -464,14 +464,31 @@
             </div>
 
             <div class="auth-form-group">
-              <label>Profile Picture <span style="color:var(--flame-1)">*</span> <small style="font-weight:normal;color:var(--txt-muted);font-size:0.75rem">(Your own real photo required)</small></label>
-              <div class="signup-photo-card" id="signupPhotoCard" onclick="document.getElementById('signupPhotoFile').click()">
-                <div class="signup-photo-avatar" id="signupPhotoPreview">📷</div>
-                <div class="signup-photo-meta">
-                  <div class="signup-photo-title" id="signupPhotoTitle">Upload Profile Photo</div>
-                  <div class="signup-photo-sub" id="signupPhotoSub">Tap to choose from camera or gallery</div>
+              <label>Profile Photos <span style="color:var(--flame-1)">*</span> <small style="font-weight:normal;color:var(--txt-muted);font-size:0.75rem">(Upload up to 6 — first photo is your main)</small></label>
+              <div class="signup-multi-photo-grid" id="signupPhotoGrid">
+                <!-- Slot 0: primary photo -->
+                <div class="signup-photo-slot primary" id="signupSlot0" onclick="triggerPhotoSlot(0)">
+                  <div class="sps-inner" id="signupSlotInner0">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                  </div>
+                  <div class="sps-primary-label">Main</div>
                 </div>
-                <div class="signup-photo-badge" id="signupPhotoBtn">Choose Photo</div>
+                <!-- Slots 1-5: additional photos -->
+                <div class="signup-photo-slot" id="signupSlot1" onclick="triggerPhotoSlot(1)">
+                  <div class="sps-inner" id="signupSlotInner1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                </div>
+                <div class="signup-photo-slot" id="signupSlot2" onclick="triggerPhotoSlot(2)">
+                  <div class="sps-inner" id="signupSlotInner2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                </div>
+                <div class="signup-photo-slot" id="signupSlot3" onclick="triggerPhotoSlot(3)">
+                  <div class="sps-inner" id="signupSlotInner3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                </div>
+                <div class="signup-photo-slot" id="signupSlot4" onclick="triggerPhotoSlot(4)">
+                  <div class="sps-inner" id="signupSlotInner4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                </div>
+                <div class="signup-photo-slot" id="signupSlot5" onclick="triggerPhotoSlot(5)">
+                  <div class="sps-inner" id="signupSlotInner5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                </div>
               </div>
               <input type="file" id="signupPhotoFile" accept="image/*" style="display:none" onchange="handleSignupPhotoUpload(event)">
             </div>
@@ -620,6 +637,12 @@
            ===================================================== -->
       <div class="screen" id="discoveryScreen">
         <div class="discovery-workspace">
+
+          <!-- Swipe counter badge -->
+          <div class="swipe-counter-badge" id="swipeCounterBadge" style="display:none">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <span id="swipeCounterText">-- likes left</span>
+          </div>
 
           <!-- Card Stack -->
           <div class="card-stack" id="cardStack">

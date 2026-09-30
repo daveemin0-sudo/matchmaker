@@ -500,6 +500,8 @@ html.age-gate-passed #ageGateOverlay {
   position: relative;
   display: flex;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .auth-input-icon {
@@ -880,6 +882,52 @@ input[type="number"].auth-input {
 .photo-dot.active {
   background: #ffffff;
   box-shadow: 0 0 10px rgba(255,255,255,0.8);
+  transition: all 0.22s ease;
+}
+
+/* ── Card Photo Tap Zones (prev / next photo navigation) ── */
+.card-photo-tap-prev,
+.card-photo-tap-next {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 40%;
+  z-index: 4;
+  cursor: pointer;
+}
+.card-photo-tap-prev { left: 0; }
+.card-photo-tap-next { right: 0; }
+
+/* ── Swipe Counter Badge ── */
+.swipe-counter-badge {
+  position: absolute;
+  top: 14px; right: 14px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: var(--r-pill);
+  padding: 7px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #fff;
+  pointer-events: none;
+}
+.swipe-counter-badge.low svg,
+.swipe-counter-badge.low span {
+  color: var(--flame-1);
+  fill: var(--flame-1);
+}
+.swipe-counter-badge.low {
+  border-color: rgba(255,46,112,0.4);
+  animation: subtlePulse 1.6s ease-in-out infinite;
+}
+@keyframes subtlePulse {
+  0%,100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
 }
 
 /* Distance badge */
@@ -5309,6 +5357,95 @@ label, .form-field label, .auth-form-group label {
     font-size: 0.72rem;
   }
 }
+
+/* ================================================================
+   SIGNUP MULTI-PHOTO GRID (up to 6 photos)
+   ================================================================ */
+.signup-multi-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.signup-photo-slot {
+  position: relative;
+  border-radius: 14px;
+  border: 2px dashed rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.04);
+  aspect-ratio: 1;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.2s, background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+.signup-photo-slot:hover,
+.signup-photo-slot:active {
+  border-color: var(--flame-1);
+  background: rgba(255,46,112,0.07);
+}
+.signup-photo-slot.primary {
+  grid-column: span 2;
+  grid-row: span 2;
+  aspect-ratio: 1;
+  border-color: rgba(255,46,112,0.45);
+}
+.signup-photo-slot.filled {
+  border-style: solid;
+  border-color: #2ed573;
+}
+.signup-photo-slot.primary.filled {
+  border-color: #2ed573;
+}
+
+/* Inner placeholder icon */
+.sps-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255,255,255,0.3);
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+/* Remove button that appears on filled slots */
+.sps-remove {
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.7);
+  border: 1.5px solid rgba(255,255,255,0.3);
+  color: #fff;
+  font-size: 0.7rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+}
+
+/* "Main" label on primary slot */
+.sps-primary-label {
+  position: absolute;
+  bottom: 8px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: rgba(0,0,0,0.55);
+  padding: 2px 10px;
+  border-radius: var(--r-pill);
+  pointer-events: none;
+  z-index: 3;
+}
+
 
 /* ================================================================
    AVATAR EDIT BUTTON — improved

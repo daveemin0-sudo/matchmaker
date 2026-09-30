@@ -1895,6 +1895,7 @@ function completeSignup() {
           interests: currentUser.interests || ['Music 🎵', 'Vibes ✨'],
           image: userPhoto,
           avatar: userPhoto,
+          photos: (window._signupPhotos || []).filter(Boolean),
           isVip: false,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
@@ -1995,21 +1996,33 @@ function buildProfileCard(p, idx) {
   card.className = 'profile-card';
   card.id = `card_${p.id}`;
 
+  // Build photos array: use p.photos[] if available, else fall back to p.image
+  const photos = [];
+  if (Array.isArray(p.photos) && p.photos.length > 0) {
+    p.photos.forEach(url => { if (url) photos.push(url); });
+  }
+  if (photos.length === 0 && p.image) photos.push(p.image);
+  if (photos.length === 0 && p.avatar) photos.push(p.avatar);
+
+  card._photoIndex = 0;
+  card._photos = photos;
+
   const tagsHTML = (Array.isArray(p.tags) ? p.tags : []).map(t => `<span class="tag-chip">${escHtml(t)}</span>`).join('');
+
+  const dotsHTML = photos.map((_, i) =>
+    `<div class="photo-dot${i === 0 ? ' active' : ''}"></div>`
+  ).join('') || '<div class="photo-dot active"></div>';
 
   card.innerHTML = `
     <div class="card-photo-area">
-      <div class="card-photo-dots">
-        <div class="photo-dot active"></div>
-        <div class="photo-dot"></div>
-        <div class="photo-dot"></div>
-      </div>
+      <div class="card-photo-dots">${dotsHTML}</div>
       <div class="card-distance-badge">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
         ${escHtml(p.distance || '')}
       </div>
       <div class="stamp stamp-like">LIKE</div>
       <div class="stamp stamp-nope">NOPE</div>
+      ${photos.length > 1 ? '<div class="card-photo-tap-prev"></div><div class="card-photo-tap-next"></div>' : ''}
     </div>
     <div class="card-info">
       <div class="card-name-row">
@@ -2024,10 +2037,29 @@ function buildProfileCard(p, idx) {
   `;
 
   const photoArea = card.querySelector('.card-photo-area');
-  if (photoArea && p.image) {
-    photoArea.style.backgroundImage = `url("${safeCssUrl(p.image)}")`;
+  if (photoArea && photos.length > 0) {
+    photoArea.style.backgroundImage = `url("${safeCssUrl(photos[0])}")`;
     photoArea.style.backgroundSize = 'cover';
     photoArea.style.backgroundPosition = 'center';
+  }
+
+  if (photos.length > 1) {
+    const prevZone = card.querySelector('.card-photo-tap-prev');
+    const nextZone = card.querySelector('.card-photo-tap-next');
+    const setCardPhoto = (newIdx) => {
+      const i = (newIdx + photos.length) % photos.length;
+      card._photoIndex = i;
+      if (photoArea) photoArea.style.backgroundImage = `url("${safeCssUrl(photos[i])}")`;
+      card.querySelectorAll('.photo-dot').forEach((dot, di) => dot.classList.toggle('active', di === i));
+    };
+    if (prevZone) prevZone.addEventListener('click', (e) => {
+      if (Math.abs(appState.currentX - appState.startX) > 8) return;
+      e.stopPropagation(); setCardPhoto(card._photoIndex - 1);
+    });
+    if (nextZone) nextZone.addEventListener('click', (e) => {
+      if (Math.abs(appState.currentX - appState.startX) > 8) return;
+      e.stopPropagation(); setCardPhoto(card._photoIndex + 1);
+    });
   }
 
   return card;
@@ -2134,7 +2166,15 @@ async function doSwipe(dir) {
     if (!result.success) {
       profileStack.unshift(profile);
       renderCardStack();
+      // If rate-limited, open paywall instead of silent toast
+      if (result.limited) {
+        setTimeout(() => openPaywall('swipe_limit'), 350);
+      }
       return;
+    }
+    // Update swipe counter if server sends remaining count
+    if (typeof result.swipesRemaining === 'number') {
+      updateSwipeCounter(result.swipesRemaining);
     }
     if (result.matched && dir === 'right') {
       triggerMatchPopup(profile);
@@ -2160,6 +2200,20 @@ async function doSwipe(dir) {
       setTimeout(() => triggerMatchPopup(profile), 400);
     }
   }
+}
+
+// Update the swipe counter badge on the discover screen
+function updateSwipeCounter(remaining) {
+  const badge = document.getElementById('swipeCounterBadge');
+  const text = document.getElementById('swipeCounterText');
+  if (!badge || !text) return;
+  if (remaining === null || remaining === undefined) {
+    badge.style.display = 'none';
+    return;
+  }
+  badge.style.display = 'flex';
+  text.textContent = remaining + ' likes left today';
+  badge.classList.toggle('low', remaining <= 10);
 }
 
 function undoSwipe() {
@@ -2367,7 +2421,7 @@ function triggerMatchPopup(profile) {
   if (!matchedUsers.find(u => u.id === profile.id)) {
     matchedUsers.unshift(profile);
     conversations[profile.id] = {
-      messages: [{ sender: 'them', text: `It's a match! Say something 👋`, read: false, timestamp: Date.now() }]
+      messages: []
     };
     saveToStorage();
     updateMatchesNotificationBadge();
@@ -3472,7 +3526,9 @@ function renderChatThread() {
     : null;
 
   if (hist.length === 0) {
-    container.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--text-muted);font-size:0.88rem">Start the conversation! 👋</div>`;
+    const partner = (typeof matchedUsers !== 'undefined' ? matchedUsers : []).find(u => u.id === partnerId) || (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA : []).find(u => u.id === partnerId);
+    const partnerName = partner ? escHtml(partner.name) : 'your match';
+    container.innerHTML = `<div class="chat-match-milestone" style="text-align:center;padding:36px 16px;color:var(--txt-muted);"><div style="width:64px;height:64px;border-radius:50%;margin:0 auto 12px;background:var(--grad-flame);display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 8px 24px rgba(255,46,112,0.3)">🔥</div><p style="font-weight:700;color:var(--txt-primary);font-size:1.02rem;margin-bottom:6px">You matched with ${partnerName}!</p><p style="font-size:0.82rem;line-height:1.5;max-width:260px;margin:0 auto">Say hello and start chatting 👋</p></div>`;
     return;
   }
 
@@ -6847,6 +6903,17 @@ async function handleProfilePhotoUpload(event) {
   }
 }
 
+// ── Multi-photo signup state ──
+if (!window._signupPhotos) window._signupPhotos = [null, null, null, null, null, null];
+let _activePhotoSlot = 0;
+
+// Called by each slot div onclick
+function triggerPhotoSlot(slotIndex) {
+  _activePhotoSlot = slotIndex;
+  const fileInput = document.getElementById('signupPhotoFile');
+  if (fileInput) { fileInput.value = ''; fileInput.click(); }
+}
+
 async function handleSignupPhotoUpload(event) {
   const file = event.target.files && event.target.files[0];
   if (!file) return;
@@ -6858,31 +6925,57 @@ async function handleSignupPhotoUpload(event) {
 
   showToast('Processing photo... 📸', 'info');
   try {
-    const dataUrl = await compressImage(file, 600, 0.82);
-    currentUser.image = dataUrl;
-    currentUser.avatar = dataUrl;
+    const dataUrl = await compressImage(file, 720, 0.85);
+    window._signupPhotos[_activePhotoSlot] = dataUrl;
 
-    const preview = document.getElementById('signupPhotoPreview');
-    if (preview) {
-      preview.style.backgroundImage = `url('${dataUrl}')`;
-      preview.textContent = '';
-      preview.style.borderColor = '#2ed573';
+    // Apply to main profile fields if this is slot 0 (primary)
+    if (_activePhotoSlot === 0) {
+      currentUser.image = dataUrl;
+      currentUser.avatar = dataUrl;
     }
-    const card = document.getElementById('signupPhotoCard');
-    if (card) card.classList.add('has-photo');
-    const titleEl = document.getElementById('signupPhotoTitle');
-    if (titleEl) titleEl.textContent = '✓ Photo Selected';
-    const subEl = document.getElementById('signupPhotoSub');
-    if (subEl) subEl.textContent = 'Looking great! Tap anytime to change';
-    const btnEl = document.getElementById('signupPhotoBtn');
-    if (btnEl) btnEl.textContent = 'Change';
+
+    // Update the slot UI
+    _renderSignupPhotoSlot(_activePhotoSlot, dataUrl);
 
     const errEl = document.getElementById('signupError3');
     if (errEl) errEl.textContent = '';
-    showToast('✓ Photo ready! Looks great! ✨', 'success');
+    showToast(_activePhotoSlot === 0 ? '✓ Main photo set! Looking great ✨' : '✓ Photo added!', 'success');
   } catch (err) {
     console.error('Signup photo upload error:', err);
-    showToast('Could not process this image. Try another photo.', 'error');
+    showToast('Could not process this image. Try another.', 'error');
+  }
+}
+
+function _renderSignupPhotoSlot(slotIndex, dataUrl) {
+  const slotEl = document.getElementById('signupSlot' + slotIndex);
+  const innerEl = document.getElementById('signupSlotInner' + slotIndex);
+  if (!slotEl || !innerEl) return;
+
+  slotEl.classList.add('filled');
+  innerEl.style.backgroundImage = `url('${dataUrl}')`;
+  innerEl.style.backgroundSize = 'cover';
+  innerEl.style.backgroundPosition = 'center';
+  innerEl.innerHTML = '';
+
+  // Add remove button if not already there
+  if (!slotEl.querySelector('.sps-remove')) {
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'sps-remove';
+    removeBtn.innerHTML = '✕';
+    removeBtn.title = 'Remove photo';
+    removeBtn.onclick = (e) => {
+      e.stopPropagation();
+      window._signupPhotos[slotIndex] = null;
+      slotEl.classList.remove('filled');
+      innerEl.style.backgroundImage = 'none';
+      const plusSvg = slotIndex === 0
+        ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
+        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
+      innerEl.innerHTML = plusSvg;
+      removeBtn.remove();
+      if (slotIndex === 0) { currentUser.image = null; currentUser.avatar = null; }
+    };
+    slotEl.appendChild(removeBtn);
   }
 }
 
@@ -7411,6 +7504,7 @@ function openPaywall(context) {
     boost: 'Upgrade to VIP Gold for unlimited profile boosts.',
     super_like: 'Send unlimited Super Likes with VIP Gold.',
     profile_upgrade: 'Unlock all premium features with VIP Gold.',
+    swipe_limit: "You’ve used all your free likes today 🔥 Upgrade VIP Gold for unlimited swipes.",
     default: 'Unlock all VIP features and match instantly.'
   };
   if (reasonEl) reasonEl.textContent = reasons[context] || reasons.default;
