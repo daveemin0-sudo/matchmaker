@@ -223,138 +223,9 @@ html.age-gate-passed #ageGateOverlay {
 /* ============================================================
    APP HEADER
    ============================================================ */
-/* =====================================================
-   MOBILE SYSTEM STATUS BAR (Punch-hole safe area & battery/clock)
-   ===================================================== */
-.mobile-system-status-bar {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  width: 100% !important;
-  height: 34px !important;
-  min-height: 34px !important;
-  max-height: 34px !important;
-  padding: 0 16px !important;
-  box-sizing: border-box !important;
-  background: var(--bg) !important;
-  color: var(--txt-primary) !important;
-  z-index: 9999 !important;
-  flex: 0 0 34px !important;
-  order: -1 !important;
-  user-select: none !important;
-  -webkit-user-select: none !important;
-  pointer-events: none !important;
-  transition: background-color 0.25s ease, color 0.25s ease !important;
-}
-
-@media (min-width: 769px) {
-  .mobile-system-status-bar {
-    display: none !important;
-    height: 0 !important;
-    min-height: 0 !important;
-    max-height: 0 !important;
-    flex: 0 0 0px !important;
-    padding: 0 !important;
-  }
-}
-
-.sys-status-left {
-  display: flex;
-  align-items: center;
-  flex: 1;
-}
-
-.sys-status-time {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 13.5px;
-  font-weight: 700;
-  letter-spacing: 0.1px;
-  line-height: 1;
-  color: inherit;
-}
-
-.sys-status-notch {
-  width: 70px;
-  height: 20px;
-  flex-shrink: 0;
-  pointer-events: none;
-}
-
-.sys-status-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-  flex: 1;
-}
-
-.sys-status-wifi {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0.9;
-}
-
-.sys-status-battery {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  line-height: 1;
-}
-
-.sys-battery-level {
-  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.1px;
-  opacity: 0.92;
-}
-
-.sys-battery-icon-wrap {
-  display: inline-flex;
-  align-items: center;
-  position: relative;
-}
-
-.sys-battery-body {
-  width: 21px;
-  height: 11px;
-  border: 1.5px solid currentColor;
-  border-radius: 3.5px;
-  padding: 1.5px;
-  box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  position: relative;
-  background: transparent;
-}
-
-.sys-battery-fill {
-  display: block;
-  height: 100%;
-  width: 100%;
-  background: currentColor;
-  border-radius: 1.5px;
-  transition: width 0.3s ease;
-}
-
-.sys-battery-cap {
-  width: 1.5px;
-  height: 4.5px;
-  background: currentColor;
-  border-radius: 0 1px 1px 0;
-  margin-left: 1px;
-  opacity: 0.85;
-}
-
-[data-theme="light"] .mobile-system-status-bar {
-  background: #FFFFFF !important;
-  color: #15121A !important;
-}
-
 .app-header {
-  height: 56px !important;
-  padding-top: 0 !important;
+  height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+  padding-top: env(safe-area-inset-top, 0px) !important;
   padding-left: 16px !important;
   padding-right: 16px !important;
   padding-bottom: 0 !important;
@@ -4948,8 +4819,8 @@ label, .form-field label, .auth-form-group label {
   display: flex !important;
   align-items: center !important;
   gap: 10px !important;
-  padding-top: 10px !important;
-  padding-bottom: 10px !important;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
+  padding-bottom: 8px !important;
   padding-left: 14px !important;
   padding-right: 14px !important;
   background: var(--bg-elevated) !important;
@@ -4962,7 +4833,7 @@ label, .form-field label, .auth-form-group label {
   width: 100% !important;
   z-index: 100 !important;
   box-sizing: border-box !important;
-  min-height: 58px !important;
+  min-height: calc(56px + env(safe-area-inset-top, 0px)) !important;
 }
 .chat-back-arrow-btn {
   width: 36px;
