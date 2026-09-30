@@ -6735,6 +6735,22 @@ function renderProfileScreen() {
     interestsEl.innerHTML = displayInterests.map(tag => `<span class="simple-interest-pill">${escHtml(tag)}</span>`).join('');
   }
 
+  const strip = document.getElementById('profilePhotosStrip');
+  if (strip) {
+    const photos = Array.isArray(currentUser.photos) && currentUser.photos.length > 0
+      ? currentUser.photos
+      : (currentUser.image ? [currentUser.image] : []);
+    if (photos.length > 1) {
+      strip.style.display = 'flex';
+      strip.innerHTML = photos.map((url, i) => `
+        <div class="profile-strip-thumb ${i === 0 ? 'main' : ''}" style="background-image:url('${safeCssUrl(url)}')" onclick="openEditProfileModal()" title="${i === 0 ? 'Main Photo' : 'Photo ' + (i + 1)}"></div>
+      `).join('');
+    } else {
+      strip.style.display = 'none';
+      strip.innerHTML = '';
+    }
+  }
+
   // Pre-fill form inputs in edit modal
   if (nameInput) nameInput.value = displayName;
   if (ageInput) ageInput.value = displayAge;
@@ -6757,14 +6773,37 @@ function renderProfileScreen() {
   if (superCount) superCount.textContent = realSuper;
 }
 
+let _editProfilePhotos = [null, null, null, null, null, null];
+let _activeEditPhotoSlot = 0;
+
 function openEditProfileModal() {
   const modal = document.getElementById('editProfileModal');
   if (modal) {
-    const avatarEl = document.getElementById('editModalAvatarPreview');
-    const displayPhoto = currentUser.avatar || currentUser.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
-    if (avatarEl) {
-      avatarEl.style.backgroundImage = `url("${displayPhoto}")`;
+    _editProfilePhotos = [null, null, null, null, null, null];
+    if (Array.isArray(currentUser.photos) && currentUser.photos.length > 0) {
+      currentUser.photos.slice(0, 6).forEach((url, i) => {
+        if (url) _editProfilePhotos[i] = url;
+      });
     }
+    if (!_editProfilePhotos[0]) {
+      _editProfilePhotos[0] = currentUser.avatar || currentUser.image || null;
+    }
+
+    for (let i = 0; i < 6; i++) {
+      _renderEditPhotoSlot(i, _editProfilePhotos[i]);
+    }
+
+    const nameInput = document.getElementById('editName');
+    const ageInput = document.getElementById('editAge');
+    const bioInput = document.getElementById('editBio');
+    const locInput = document.getElementById('editLocation');
+    const interestsInput = document.getElementById('editInterests');
+    if (nameInput) nameInput.value = currentUser.name || currentUser.displayName || '';
+    if (ageInput) ageInput.value = currentUser.age || '';
+    if (bioInput) bioInput.value = currentUser.bio || '';
+    if (locInput) locInput.value = currentUser.location || '';
+    if (interestsInput) interestsInput.value = (currentUser.interests || []).join(', ');
+
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     document.body.classList.add('edit-profile-modal-open');
@@ -6781,6 +6820,120 @@ function closeEditProfileModal() {
     document.body.classList.remove('edit-profile-modal-open');
     const bgPencil = document.querySelector('.simple-avatar-pencil-badge');
     if (bgPencil) bgPencil.style.display = '';
+  }
+}
+
+function triggerEditPhotoSlot(slotIndex) {
+  _activeEditPhotoSlot = slotIndex;
+  const fileInput = document.getElementById('editProfilePhotoFile');
+  if (fileInput) {
+    fileInput.value = '';
+    fileInput.click();
+  }
+}
+
+async function handleEditProfilePhotoUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select a valid image file.', 'error');
+    return;
+  }
+
+  showToast('Processing photo... 📸', 'info');
+  try {
+    const dataUrl = await compressImage(file, 720, 0.85);
+    _editProfilePhotos[_activeEditPhotoSlot] = dataUrl;
+
+    if (_activeEditPhotoSlot === 0) {
+      currentUser.image = dataUrl;
+      currentUser.avatar = dataUrl;
+    }
+
+    currentUser.photos = _editProfilePhotos.filter(Boolean);
+    if (!currentUser.image && currentUser.photos.length > 0) {
+      currentUser.image = currentUser.photos[0];
+      currentUser.avatar = currentUser.photos[0];
+    }
+
+    _renderEditPhotoSlot(_activeEditPhotoSlot, dataUrl);
+    saveToStorage();
+    renderProfileScreen();
+
+    // Immediately sync real photo and photos array to Firestore
+    if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+      fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+        image: currentUser.image || '',
+        avatar: currentUser.avatar || '',
+        photos: currentUser.photos || [],
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, { merge: true }).catch(err => console.warn('Could not sync photo to Firestore:', err));
+      syncPublicProfileToFirestore().catch(err => console.warn('Could not sync public profile:', err));
+    }
+
+    showToast(_activeEditPhotoSlot === 0 ? '✓ Main photo updated! ✨' : '✓ Photo added! ✨', 'success');
+  } catch (err) {
+    console.error('Edit photo upload error:', err);
+    showToast('Could not process this image. Try another photo.', 'error');
+  }
+}
+
+function _renderEditPhotoSlot(slotIndex, dataUrl) {
+  const slotEl = document.getElementById('editSlot' + slotIndex);
+  const innerEl = document.getElementById('editSlotInner' + slotIndex);
+  if (!slotEl || !innerEl) return;
+
+  if (dataUrl) {
+    slotEl.classList.add('filled');
+    innerEl.style.backgroundImage = `url('${dataUrl}')`;
+    innerEl.style.backgroundSize = 'cover';
+    innerEl.style.backgroundPosition = 'center';
+    innerEl.innerHTML = '';
+
+    if (!slotEl.querySelector('.sps-remove')) {
+      const removeBtn = document.createElement('button');
+      removeBtn.className = 'sps-remove';
+      removeBtn.innerHTML = '✕';
+      removeBtn.title = 'Remove photo';
+      removeBtn.onclick = (e) => {
+        e.stopPropagation();
+        _editProfilePhotos[slotIndex] = null;
+        slotEl.classList.remove('filled');
+        innerEl.style.backgroundImage = 'none';
+        const plusSvg = slotIndex === 0
+          ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
+          : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
+        innerEl.innerHTML = plusSvg;
+        removeBtn.remove();
+        currentUser.photos = _editProfilePhotos.filter(Boolean);
+        if (slotIndex === 0) {
+          currentUser.image = currentUser.photos[0] || null;
+          currentUser.avatar = currentUser.photos[0] || null;
+        }
+        saveToStorage();
+        renderProfileScreen();
+
+        if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+          fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+            image: currentUser.image || '',
+            avatar: currentUser.avatar || '',
+            photos: currentUser.photos || [],
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true }).catch(() => {});
+          syncPublicProfileToFirestore().catch(() => {});
+        }
+      };
+      slotEl.appendChild(removeBtn);
+    }
+  } else {
+    slotEl.classList.remove('filled');
+    innerEl.style.backgroundImage = 'none';
+    const plusSvg = slotIndex === 0
+      ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
+      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
+    innerEl.innerHTML = plusSvg;
+    slotEl.querySelector('.sps-remove')?.remove();
   }
 }
 
@@ -7005,6 +7158,10 @@ function saveProfile() {
 
   // Sync profile details and custom photo to Firestore
   if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    currentUser.photos = (typeof _editProfilePhotos !== 'undefined' && _editProfilePhotos)
+      ? _editProfilePhotos.filter(Boolean)
+      : (currentUser.photos || []);
+
     fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
       name: currentUser.name,
       displayName: currentUser.name,
@@ -7014,6 +7171,7 @@ function saveProfile() {
       interests: currentUser.interests || [],
       image: currentUser.image || currentUser.avatar || '',
       avatar: currentUser.image || currentUser.avatar || '',
+      photos: currentUser.photos || [],
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true }).catch(err => console.warn('Could not sync profile to Firestore:', err));
      syncPublicProfileToFirestore().catch(err => console.warn('Could not sync public profile:', err));
@@ -7510,7 +7668,8 @@ function openPaywall(context) {
   if (reasonEl) reasonEl.textContent = reasons[context] || reasons.default;
 
   modal.classList.add('open');
-  selectPricingTier(appState.selectedPricingTier);
+  selectPricingTier(appState.selectedPricingTier || 2);
+  startTgCountdownTimer();
 }
 
 function triggerSuperLike() {
@@ -7525,23 +7684,76 @@ function triggerSuperLike() {
 function closePaywall() {
   const modal = document.getElementById('paywallModal');
   if (modal) modal.classList.remove('open');
+  if (_tgTimerInterval) { clearInterval(_tgTimerInterval); _tgTimerInterval = null; }
+}
+
+let _tgTimerInterval = null;
+let _tgSecondsRemaining = 29 * 60 + 49; // 00:29:49
+
+function startTgCountdownTimer() {
+  if (_tgTimerInterval) clearInterval(_tgTimerInterval);
+  const timerEl = document.getElementById('tgCountdownTimer');
+  if (!timerEl) return;
+
+  const update = () => {
+    if (_tgSecondsRemaining <= 0) {
+      _tgSecondsRemaining = 30 * 60;
+    }
+    const hrs = Math.floor(_tgSecondsRemaining / 3600);
+    const mins = Math.floor((_tgSecondsRemaining % 3600) / 60);
+    const secs = _tgSecondsRemaining % 60;
+    timerEl.textContent =
+      String(hrs).padStart(2, '0') + ':' +
+      String(mins).padStart(2, '0') + ':' +
+      String(secs).padStart(2, '0');
+    _tgSecondsRemaining--;
+  };
+  update();
+  _tgTimerInterval = setInterval(update, 1000);
 }
 
 function selectPricingTier(n) {
   appState.selectedPricingTier = n;
+
+  // Toggle tier items for Tinder Gold layout
+  document.querySelectorAll('.tg-tier-item').forEach((item, i) => {
+    item.classList.toggle('selected', (i + 1) === n);
+  });
   document.querySelectorAll('.pricing-card').forEach((card, i) => {
-    card.classList.toggle('selected', i + 1 === n);
+    card.classList.toggle('selected', (i + 1) === n);
   });
 
-  // Update renewal terms text dynamically — California ARL compliance
-  const tierPrices = { 1: '\u20a62,500', 2: '\u20a67,500', 3: '\u20a625,000' };
+  const tierPrices = { 1: '₦2,500', 2: '₦7,500', 3: '₦25,000' };
   const tierNames  = { 1: '1 Week VIP Gold', 2: '1 Month VIP Gold', 3: 'Lifetime VIP Gold' };
   const nameEl  = document.getElementById('renewalPlanName');
   const priceEl = document.getElementById('renewalPrice');
   const ctaEl   = document.getElementById('paywallCtaLabel');
   if (nameEl)  nameEl.textContent  = tierNames[n]  || '1 Month VIP Gold';
-  if (priceEl) priceEl.textContent = tierPrices[n] || '\u20a67,500';
-  if (ctaEl)   ctaEl.textContent   = `Subscribe Now \u2014 ${tierNames[n] || 'VIP Gold'}`;
+  if (priceEl) priceEl.textContent = tierPrices[n] || '₦7,500';
+  if (ctaEl)   ctaEl.textContent   = `Continue — ${tierNames[n] || 'VIP Gold'}`;
+
+  // Update Tinder Gold hero card text dynamically
+  const titleEl = document.getElementById('paywallTitle');
+  const pricePrimary = document.getElementById('tgPricePrimary');
+  const priceStruck = document.getElementById('tgPriceStruck');
+  const renewalNotice = document.getElementById('tgRenewalNotice');
+
+  if (n === 1) {
+    if (titleEl) titleEl.textContent = 'Get 30% Off your first week of HookMe Gold®';
+    if (pricePrimary) pricePrimary.textContent = 'First week ₦2,500';
+    if (priceStruck) priceStruck.textContent = '₦3,500/wk';
+    if (renewalNotice) renewalNotice.innerHTML = 'Renews at ₦2,500/week after first week. Your payment will be processed securely via Paystack. Cancel anytime in Settings. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.';
+  } else if (n === 2) {
+    if (titleEl) titleEl.textContent = 'Get 50% Off your first month of HookMe Gold®';
+    if (pricePrimary) pricePrimary.textContent = 'First month ₦7,500';
+    if (priceStruck) priceStruck.textContent = '₦15,000/mo';
+    if (renewalNotice) renewalNotice.innerHTML = 'Renews at ₦15,000 after first month. Your payment will be processed securely via Paystack. Cancel anytime in Settings. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.';
+  } else if (n === 3) {
+    if (titleEl) titleEl.textContent = 'Get Lifetime Unlimited Access to HookMe Gold®';
+    if (pricePrimary) pricePrimary.textContent = 'Lifetime VIP ₦25,000';
+    if (priceStruck) priceStruck.textContent = '₦45,000';
+    if (renewalNotice) renewalNotice.innerHTML = 'One-time payment for permanent VIP access. Your payment will be processed securely via Paystack. No renewals. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.';
+  }
 }
 
 function simulatePurchase() {

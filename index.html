@@ -1248,6 +1248,7 @@
               <span class="header-vip-badge" id="profileVipBadge" style="display:none;margin-left:6px">VIP</span>
             </div>
             <div class="simple-profile-location" id="profileLocationDisplay">Lagos, Nigeria</div>
+            <div class="profile-photos-strip" id="profilePhotosStrip" style="display:none;margin-top:12px;gap:8px;justify-content:center;flex-wrap:wrap"></div>
           </div>
 
           <!-- 3 Stats Cards Row (Mockup: Matches, Likes, Super) -->
@@ -1309,17 +1310,40 @@
             <button onclick="closeEditProfileModal()" class="edit-modal-close-btn" aria-label="Close">✕</button>
           </div>
 
-          <!-- Avatar with Edit Pencil Badge at Top Center -->
-          <div class="edit-modal-avatar-box">
-            <div class="edit-modal-avatar-wrap" onclick="document.getElementById('profilePhotoFile').click()" title="Change photo" role="button" tabindex="0">
-              <div class="edit-modal-avatar" id="editModalAvatarPreview"></div>
-              <div class="edit-modal-pencil-badge">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="#0A0710">
-                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                </svg>
+          <!-- Multi-photo Grid: Add, replace, or remove up to 6 pictures -->
+          <div class="edit-modal-photos-wrap" style="margin-bottom:18px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <label style="font-size:0.75rem;font-weight:700;color:var(--txt-secondary);text-transform:uppercase;letter-spacing:0.8px;margin:0">
+                Photos <span style="color:var(--flame-1)">*</span>
+              </label>
+              <span style="font-size:0.72rem;color:var(--txt-muted)">Add up to 6 photos (Slot 1 is Main)</span>
+            </div>
+            <div class="signup-multi-photo-grid" id="editProfilePhotoGrid">
+              <!-- Slot 0: primary photo -->
+              <div class="signup-photo-slot primary" id="editSlot0" onclick="triggerEditPhotoSlot(0)">
+                <div class="sps-inner" id="editSlotInner0">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                </div>
+                <div class="sps-primary-label">Main</div>
+              </div>
+              <!-- Slots 1-5: additional photos -->
+              <div class="signup-photo-slot" id="editSlot1" onclick="triggerEditPhotoSlot(1)">
+                <div class="sps-inner" id="editSlotInner1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+              </div>
+              <div class="signup-photo-slot" id="editSlot2" onclick="triggerEditPhotoSlot(2)">
+                <div class="sps-inner" id="editSlotInner2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+              </div>
+              <div class="signup-photo-slot" id="editSlot3" onclick="triggerEditPhotoSlot(3)">
+                <div class="sps-inner" id="editSlotInner3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+              </div>
+              <div class="signup-photo-slot" id="editSlot4" onclick="triggerEditPhotoSlot(4)">
+                <div class="sps-inner" id="editSlotInner4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+              </div>
+              <div class="signup-photo-slot" id="editSlot5" onclick="triggerEditPhotoSlot(5)">
+                <div class="sps-inner" id="editSlotInner5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
               </div>
             </div>
-            <span class="edit-modal-photo-hint" onclick="document.getElementById('profilePhotoFile').click()">Tap avatar to change photo</span>
+            <input type="file" id="editProfilePhotoFile" accept="image/*" style="display:none" onchange="handleEditProfilePhotoUpload(event)">
           </div>
 
           <div class="profile-form">
@@ -1690,69 +1714,134 @@
          VIP PAYWALL MODAL
          ===================================================== -->
     <div class="paywall-modal" id="paywallModal">
-      <div class="paywall-inner">
-        <button class="paywall-close" onclick="closePaywall()" aria-label="Close">✕</button>
-
-        <div class="paywall-hero">
-          <div class="paywall-vip-badge">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="#F4C550"><path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z"/></svg>
-            <span>VIP GOLD</span>
+      <div class="tg-modal-sheet">
+        <!-- Top Navigation Header -->
+        <div class="tg-header">
+          <button class="tg-close-btn" onclick="closePaywall()" aria-label="Close">✕</button>
+          <div class="tg-brand-wrap">
+            <span class="tg-brand-title">HOOKME</span>
+            <span class="tg-brand-badge">GOLD</span>
           </div>
-          <h2>Unlock HookMe Gold ✨</h2>
-          <p id="paywallReason">See who likes you, rewind mistakes & match without limits.</p>
+          <div style="width:34px"></div>
         </div>
 
-        <div class="paywall-benefits-compact">
-          <div class="benefit-chip">
-            <span class="benefit-chip-icon">👀</span>
-            <span>See Who Liked You</span>
-          </div>
-          <div class="benefit-chip">
-            <span class="benefit-chip-icon">⚡</span>
-            <span>Unlimited Rewinds</span>
-          </div>
-          <div class="benefit-chip">
-            <span class="benefit-chip-icon">⭐</span>
-            <span>5 Daily Super Likes</span>
-          </div>
-          <div class="benefit-chip">
-            <span class="benefit-chip-icon">🚀</span>
-            <span>10× Profile Boost</span>
-          </div>
-        </div>
+        <div class="tg-scroll-body">
+          <!-- Main Hero Promo Card (Matches Tinder Gold screenshot) -->
+          <div class="tg-hero-card">
+            <div class="tg-pill-tag">Expires soon</div>
+            <h2 class="tg-hero-heading" id="paywallTitle">Get 50% Off your first month of HookMe Gold®</h2>
+            
+            <div class="tg-pricing-row">
+              <div class="tg-price-primary" id="tgPricePrimary">First month ₦7,500</div>
+              <div class="tg-price-struck" id="tgPriceStruck">₦15,000/mo</div>
+            </div>
 
-        <div class="pricing-grid">
-          <div class="pricing-card" id="pricingCard1" onclick="selectPricingTier(1)">
-            <div class="pricing-period">1 Week</div>
-            <div class="pricing-amount">₦2,500</div>
-            <div class="pricing-strike">₦3,500</div>
-          </div>
-          <div class="pricing-card selected" id="pricingCard2" onclick="selectPricingTier(2)">
-            <div class="pricing-best-badge">BEST VALUE</div>
-            <div class="pricing-period">1 Month</div>
-            <div class="pricing-amount">₦7,500</div>
-            <div class="pricing-strike">₦14,000</div>
-          </div>
-          <div class="pricing-card" id="pricingCard3" onclick="selectPricingTier(3)">
-            <div class="pricing-period">Lifetime</div>
-            <div class="pricing-amount">₦25,000</div>
-            <div class="pricing-strike">₦45,000</div>
-          </div>
-        </div>
+            <p class="tg-renewal-text" id="tgRenewalNotice">
+              Renews at ₦15,000 after first month. Your payment will be processed securely via Paystack. You can cancel anytime in Settings. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.
+            </p>
 
-        <!-- Paystack-ready CTA -->
-        <button class="paywall-cta-btn gold-btn" id="paywallCta" onclick="simulatePurchase()">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-3px;margin-right:6px"><path d="M5 18h14l1.5-9-5 3-3.5-6-3.5 6-5-3z"/></svg><span id="paywallCtaLabel">Subscribe Now — Unlock VIP Gold</span>
-        </button>
+            <div class="tg-timer-box">
+              Offer ends in <strong id="tgCountdownTimer">00:29:49</strong>
+            </div>
 
-        <!-- Compact Secure Terms -->
-        <div class="paywall-secure-notice">
-          <span>🔒 256-bit Secure • Paystack • One-time non-recurring • Cancel anytime</span>
-        </div>
+            <button class="tg-continue-btn" id="paywallCta" onclick="simulatePurchase()">
+              Continue
+            </button>
+          </div>
 
-        <div id="paywallRenewalTerms" class="paywall-renewal-terms" style="display:none">
-          <span id="renewalPlanName">1 Month VIP Gold</span>
-          <span id="renewalPrice">₦7,500</span>
+          <!-- Subscription Plan Tiers Selector -->
+          <div class="tg-tiers-container">
+            <div class="tg-tier-item" id="pricingCard1" onclick="selectPricingTier(1)">
+              <div class="tg-ti-name">1 Week</div>
+              <div class="tg-ti-price">₦2,500</div>
+              <div class="tg-ti-sub">₦2,500/wk</div>
+            </div>
+            <div class="tg-tier-item selected" id="pricingCard2" onclick="selectPricingTier(2)">
+              <div class="tg-ti-badge">BEST VALUE</div>
+              <div class="tg-ti-name">1 Month</div>
+              <div class="tg-ti-price">₦7,500</div>
+              <div class="tg-ti-sub">50% OFF</div>
+            </div>
+            <div class="tg-tier-item" id="pricingCard3" onclick="selectPricingTier(3)">
+              <div class="tg-ti-badge">LIFETIME</div>
+              <div class="tg-ti-name">Lifetime</div>
+              <div class="tg-ti-price">₦25,000</div>
+              <div class="tg-ti-sub">One-time</div>
+            </div>
+          </div>
+
+          <!-- Tinder-style "What's included" Comparison Table -->
+          <div class="tg-table-section">
+            <div class="tg-table-head">
+              <div class="tg-th-feature">What's included</div>
+              <div class="tg-th-free">Free</div>
+              <div class="tg-th-gold">
+                <span class="tg-brand-badge">GOLD</span>
+              </div>
+            </div>
+
+            <div class="tg-table-list">
+              <div class="tg-table-row">
+                <div class="tg-td-feature">Filter Age & Distance</div>
+                <div class="tg-td-free"><span class="tg-check">✓</span></div>
+                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
+              </div>
+              <div class="tg-table-row">
+                <div class="tg-td-feature">See Who Likes You</div>
+                <div class="tg-td-free"><span class="tg-dash">—</span></div>
+                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
+              </div>
+              <div class="tg-table-row">
+                <div class="tg-td-feature">Top Picks & Compatibility</div>
+                <div class="tg-td-free"><span class="tg-dash">—</span></div>
+                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
+              </div>
+              <div class="tg-table-row">
+                <div class="tg-td-feature">Unlimited Rewinds</div>
+                <div class="tg-td-free"><span class="tg-dash">—</span></div>
+                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
+              </div>
+              <div class="tg-table-row">
+                <div class="tg-td-feature">Unlimited Swipes & Likes</div>
+                <div class="tg-td-free"><span class="tg-dash">—</span></div>
+                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
+              </div>
+              <div class="tg-table-row">
+                <div class="tg-td-feature">1 Free Boost per Month</div>
+                <div class="tg-td-free"><span class="tg-dash">—</span></div>
+                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
+              </div>
+              <div class="tg-table-row">
+                <div class="tg-td-feature">5 Free Super Likes a Day</div>
+                <div class="tg-td-free"><span class="tg-dash">—</span></div>
+                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
+              </div>
+              <div class="tg-table-row">
+                <div class="tg-td-feature">Message Before Matching</div>
+                <div class="tg-td-free"><span class="tg-dash">—</span></div>
+                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
+              </div>
+              <div class="tg-table-row">
+                <div class="tg-td-feature">Passport to Any Location</div>
+                <div class="tg-td-free"><span class="tg-dash">—</span></div>
+                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
+              </div>
+              <div class="tg-table-row">
+                <div class="tg-td-feature">Zero Advertisements</div>
+                <div class="tg-td-free"><span class="tg-dash">—</span></div>
+                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="tg-secure-footer">
+            🔒 256-bit Encrypted • Paystack Secure • Cancel anytime
+          </div>
+
+          <div id="paywallRenewalTerms" class="paywall-renewal-terms" style="display:none">
+            <span id="renewalPlanName">1 Month VIP Gold</span>
+            <span id="renewalPrice">₦7,500</span>
+          </div>
         </div>
       </div>
     </div>
