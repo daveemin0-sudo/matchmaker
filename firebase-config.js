@@ -249,6 +249,11 @@ function listenToAuthChanges() {
       // Ensure targetUser has at least auth email and uid
       if (user.email) targetUser.email = user.email;
       if (user.uid) targetUser.id = user.uid;
+      if (Array.isArray(targetUser.photos) && targetUser.photos.length > 0) {
+        targetUser.photos = targetUser.photos.filter(Boolean);
+        if (!targetUser.image) targetUser.image = targetUser.photos[0];
+        if (!targetUser.avatar) targetUser.avatar = targetUser.photos[0];
+      }
       if (targetUser.image || targetUser.avatar) {
         targetUser.image = targetUser.image || targetUser.avatar;
         targetUser.avatar = targetUser.image;

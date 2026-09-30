@@ -6702,20 +6702,50 @@ function renderProfileScreen() {
     ? currentUser.interests
     : ['Tech 💻', 'Fitness 💪', 'Music 🎵'];
 
-  const photos = Array.isArray(currentUser.photos) && currentUser.photos.length > 0
-    ? currentUser.photos
-    : (currentUser.image ? [currentUser.image] : []);
-  const photo = photos[0] || currentUser.avatar || '';
+  // Robust photo resolution: checks photos array, image, avatar, photoURL, and localStorage
+  let photos = Array.isArray(currentUser.photos) && currentUser.photos.length > 0
+    ? currentUser.photos.filter(Boolean)
+    : [];
+
+  if (photos.length === 0 && currentUser.image) photos.push(currentUser.image);
+  if (photos.length === 0 && currentUser.avatar) photos.push(currentUser.avatar);
+  if (photos.length === 0 && currentUser.photoURL) photos.push(currentUser.photoURL);
+
+  // If still empty, check localStorage saved user
+  if (photos.length === 0) {
+    try {
+      const savedUserStr = localStorage.getItem('hmbs_user');
+      if (savedUserStr) {
+        const u = JSON.parse(savedUserStr);
+        if (Array.isArray(u.photos) && u.photos.length > 0) photos = u.photos.filter(Boolean);
+        else if (u.image) photos = [u.image];
+        else if (u.avatar) photos = [u.avatar];
+      }
+    } catch (_) {}
+  }
+
+  // Ensure currentUser fields are synchronized
+  if (photos.length > 0) {
+    currentUser.photos = photos;
+    currentUser.image = photos[0];
+    currentUser.avatar = photos[0];
+  }
+
+  const photo = photos[0] || '';
 
   if (avatar) {
     if (photo) {
       avatar.style.backgroundImage = `url('${photo}')`;
+      avatar.style.backgroundSize = 'cover';
+      avatar.style.backgroundPosition = 'center';
       if (initialEl) initialEl.style.display = 'none';
     } else {
       avatar.style.backgroundImage = 'none';
       if (initialEl) {
-        initialEl.textContent = displayName.charAt(0).toUpperCase() || 'D';
-        initialEl.style.display = 'block';
+        initialEl.innerHTML = `<svg width="42" height="42" viewBox="0 0 24 24" fill="rgba(255,255,255,0.7)"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`;
+        initialEl.style.display = 'flex';
+        initialEl.style.alignItems = 'center';
+        initialEl.style.justifyContent = 'center';
       }
     }
     if (appState.isVip) avatar.classList.add('vip');
