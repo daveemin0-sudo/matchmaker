@@ -233,7 +233,31 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
     const ref = admin.firestore().collection('users').doc(uid);
-    const snap = await ref.get();
+    let snap = await ref.get();
+    if (!snap.exists) {
+      // Check if user previously registered under another UID with the same verified email
+      const userEmail = req.user.email ? req.user.email.toLowerCase() : '';
+      if (userEmail) {
+        const querySnap = await admin.firestore().collection('users')
+          .where('email', '==', userEmail)
+          .limit(1)
+          .get();
+        if (!querySnap.empty && querySnap.docs[0].id !== uid) {
+          const oldData = querySnap.docs[0].data();
+          const migratedData = {
+            ...oldData,
+            id: uid,
+            email: userEmail,
+            authProvider: 'google',
+            linkedPreviousUid: querySnap.docs[0].id,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          };
+          await ref.set(migratedData, { merge: true });
+          snap = await ref.get();
+          console.log(`Migrated user profile for ${userEmail} from ${querySnap.docs[0].id} to ${uid}`);
+        }
+      }
+    }
     if (!snap.exists) return res.status(404).json({ success: false, error: 'Profile not found.' });
     const d = snap.data() || {};
     const age = Number(d.age);

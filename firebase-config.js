@@ -209,7 +209,7 @@ function listenToAuthChanges() {
 
        try {
          if (fbDb) {
-           const doc = await fbDb.collection('users').doc(user.uid).get();
+           let doc = await fbDb.collection('users').doc(user.uid).get();
            if (doc && doc.exists) {
              const docData = doc.data();
              if (docData.suspended === true || docData.accountStatus === 'suspended') {
@@ -224,6 +224,58 @@ function listenToAuthChanges() {
              const vipActive = Boolean(docData.isVip && (!expiryMs || expiryMs > Date.now()));
              if (typeof appState !== 'undefined') appState.isVip = vipActive;
              if (window.appState) window.appState.isVip = vipActive;
+           } else {
+             // Existing account check: match local registered users or currentUser by email
+             const regUsers = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
+             const localMatch = regUsers.find(u => u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase());
+             const localCurrent = (typeof currentUser !== 'undefined' && currentUser && currentUser.email && user.email && currentUser.email.toLowerCase() === user.email.toLowerCase() && currentUser.name && !currentUser.name.includes('@')) ? currentUser : null;
+             const existing = localCurrent || localMatch;
+
+             let cleanName = existing?.name || existing?.displayName || '';
+             if (!cleanName || cleanName.includes('@')) {
+               const gName = (user.displayName || '').trim();
+               if (gName && !gName.includes('@')) {
+                 cleanName = gName;
+               } else {
+                 const prefix = (user.email || '').split('@')[0] || 'User';
+                 const cleaned = prefix.replace(/[._0-9]+$/g, '') || prefix;
+                 cleanName = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+               }
+             }
+
+             let cleanUsername = existing?.username || '';
+             if (!cleanUsername || cleanUsername.includes('@') || cleanUsername === 'daveemin0') {
+               const prefix = (user.email || '').split('@')[0] || cleanName;
+               cleanUsername = prefix.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
+               if (cleanUsername.length < 3) cleanUsername = 'user_' + Math.floor(100 + Math.random() * 900);
+             }
+
+             const profileData = {
+               id: user.uid,
+               email: (user.email || '').toLowerCase(),
+               name: cleanName,
+               displayName: cleanName,
+               username: cleanUsername,
+               age: existing?.age || 24,
+               gender: existing?.gender || 'Female',
+               bio: existing?.bio || 'Looking for real connections on hookmebysam ✨',
+               interests: existing?.interests || ['Music 🎵', 'Vibes ✨'],
+               image: existing?.image || user.photoURL || '',
+               avatar: existing?.avatar || user.photoURL || '',
+               photos: (existing?.photos && existing.photos.length > 0) ? existing.photos : (user.photoURL ? [user.photoURL] : []),
+               phone: existing?.phone || '',
+               phoneVerified: Boolean(existing?.phoneVerified),
+               isVip: Boolean(existing?.isVip),
+               authProvider: 'google',
+               createdAt: firebase.firestore.FieldValue.serverTimestamp()
+             };
+
+             try {
+               await fbDb.collection('users').doc(user.uid).set(profileData, { merge: true });
+             } catch (e) {
+               console.warn('Could not write initial Google user profile to Firestore:', e.message);
+             }
+             targetUser = Object.assign({}, targetUser, profileData);
            }
 
            if (!window.__userSuspensionListenerAttached) {

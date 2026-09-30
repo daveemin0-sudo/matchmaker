@@ -320,7 +320,27 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
     if (!(await persistentRateLimit('profile-sync:' + uid, 20, 10 * 60 * 1000))) return res.status(429).json({ success:false, error:'Too many profile sync requests.' });
-    const snap = await db.collection('users').doc(uid).get();
+    let snap = await db.collection('users').doc(uid).get();
+    if (!snap.exists) {
+      const userEmail = req.user.email ? req.user.email.toLowerCase() : '';
+      if (userEmail) {
+        const querySnap = await db.collection('users').where('email', '==', userEmail).limit(1).get();
+        if (!querySnap.empty && querySnap.docs[0].id !== uid) {
+          const oldData = querySnap.docs[0].data();
+          const migratedData = {
+            ...oldData,
+            id: uid,
+            email: userEmail,
+            authProvider: 'google',
+            linkedPreviousUid: querySnap.docs[0].id,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+          };
+          await db.collection('users').doc(uid).set(migratedData, { merge: true });
+          snap = await db.collection('users').doc(uid).get();
+          console.log(`Migrated user profile for ${userEmail} from ${querySnap.docs[0].id} to ${uid}`);
+        }
+      }
+    }
     if (!snap.exists) return res.status(404).json({ success:false, error:'Profile not found.' });
     const d = snap.data() || {};
     const age = Number(d.age);

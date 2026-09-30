@@ -1586,22 +1586,70 @@ async function handlePhoneLogin() {
 }
 
 // GOOGLE AUTH HANDLERS
-function handleGoogleLoginSuccess(user) {
+async function handleGoogleLoginSuccess(user) {
   if (!user) return;
   try { sessionStorage.removeItem('hmbs_google_redirecting'); } catch (_) {}
   resetFailedLoginAttempts();
-  currentUser.email = user.email || '';
+
+  // Find any existing profile from local registered users or in-memory state
+  const regUsers = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
+  const localMatch = regUsers.find(u => u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase());
+  const existingLocal = (currentUser && currentUser.email && user.email && currentUser.email.toLowerCase() === user.email.toLowerCase() && currentUser.name && !currentUser.name.includes('@')) ? currentUser : localMatch;
+
+  let cleanName = existingLocal?.name || existingLocal?.displayName || '';
+  if (!cleanName || cleanName.includes('@')) {
+    const gName = (user.displayName || '').trim();
+    if (gName && !gName.includes('@')) {
+      cleanName = gName;
+    } else {
+      const prefix = (user.email || '').split('@')[0] || 'User';
+      const cleaned = prefix.replace(/[._0-9]+$/g, '') || prefix;
+      cleanName = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    }
+  }
+
+  let cleanUsername = existingLocal?.username || '';
+  if (!cleanUsername || cleanUsername.includes('@') || cleanUsername === 'daveemin0') {
+    const prefix = (user.email || '').split('@')[0] || cleanName;
+    cleanUsername = prefix.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
+    if (cleanUsername.length < 3) cleanUsername = 'user_' + Math.floor(100 + Math.random() * 900);
+  }
+
   currentUser.id = user.uid;
-  currentUser.name = user.displayName || currentUser.name || 'User';
-  if (user.photoURL) {
+  currentUser.email = (user.email || '').toLowerCase();
+  currentUser.name = cleanName;
+  currentUser.displayName = cleanName;
+  currentUser.username = cleanUsername;
+  if (existingLocal?.age) currentUser.age = existingLocal.age;
+  if (existingLocal?.gender) currentUser.gender = existingLocal.gender;
+  if (existingLocal?.bio) currentUser.bio = existingLocal.bio;
+  if (existingLocal?.interests) currentUser.interests = existingLocal.interests;
+  if (existingLocal?.photos?.length) currentUser.photos = existingLocal.photos;
+
+  if (user.photoURL && (!currentUser.image || !currentUser.photos || currentUser.photos.length === 0)) {
     currentUser.image = user.photoURL;
     currentUser.avatar = user.photoURL;
+    currentUser.photos = [user.photoURL];
   }
+
   appState.isLoggedIn = true;
   saveToStorage();
-  showScreen('discovery');
-  initMainApp();
-  showToast('Welcome back, ' + (user.displayName || 'User') + '! ✨', 'gold');
+
+  // If this user already has a complete profile (or existing profile merged)
+  const isProfileComplete = Boolean(currentUser.age && currentUser.gender && currentUser.photos && currentUser.photos.length > 0);
+  if (!isProfileComplete) {
+    // Fill in signup fields with Google information so user can set age/gender easily
+    const nameInput = document.getElementById('signupName');
+    if (nameInput) nameInput.value = cleanName;
+    const emailInput = document.getElementById('signupEmail');
+    if (emailInput) emailInput.value = currentUser.email;
+    showToast(`Welcome ${cleanName}! Complete your age and photos to finish profile 🎯`, 'gold');
+    showScreen('signup');
+  } else {
+    showScreen('discovery');
+    initMainApp();
+    showToast('Welcome back, ' + cleanName + '! ✨', 'gold');
+  }
 }
 window.handleGoogleLoginSuccess = handleGoogleLoginSuccess;
 
@@ -7813,7 +7861,7 @@ function renderSettingsScreen() {
   // Custom or auto-derived Username
   const usernameRow = document.getElementById('settingsUsernameValue');
   if (usernameRow) {
-    const defaultHandle = (currentUser.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const defaultHandle = (currentUser.username || currentUser.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'user').replace(/@.*$/, '').toLowerCase().replace(/[^a-z0-9_]/g, '');
     const userHandle = (currentUser.username && currentUser.username !== 'daveemin0' && currentUser.username !== '@daveemin0')
       ? currentUser.username.replace(/^@/, '')
       : defaultHandle;
@@ -7872,7 +7920,7 @@ function openEditUsernameModal() {
   const errorEl = document.getElementById('usernameModalError');
   if (!modal || !input) return;
 
-  const defaultHandle = (currentUser.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'user').toLowerCase().replace(/[^a-z0-9_]/g, '');
+  const defaultHandle = (currentUser.username || currentUser.name || currentUser.displayName || currentUser.email?.split('@')[0] || 'user').replace(/@.*$/, '').toLowerCase().replace(/[^a-z0-9_]/g, '');
   const current = (currentUser.username && currentUser.username !== 'daveemin0' && currentUser.username !== '@daveemin0')
     ? currentUser.username.replace(/^@/, '')
     : defaultHandle;
