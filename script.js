@@ -190,7 +190,51 @@ function rejectAgeGate() {
 // INIT — Fast Instant Boot (no waiting for external assets)
 // ==========================================================
 
+function initSystemStatusBar() {
+  const timeEl = document.getElementById('sysStatusTime');
+  const levelEl = document.getElementById('sysBatteryLevel');
+  const fillEl = document.getElementById('sysBatteryFill');
+
+  function updateClock() {
+    if (!timeEl) return;
+    const now = new Date();
+    let hours = now.getHours();
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    timeEl.textContent = `${hours}:${minutes} ${ampm}`;
+  }
+
+  updateClock();
+  setInterval(updateClock, 10000);
+
+  // Monitor real device battery via Battery Status API
+  if (typeof navigator !== 'undefined' && navigator.getBattery) {
+    navigator.getBattery().then(battery => {
+      function updateBattery() {
+        const pct = Math.round((battery.level || 1) * 100);
+        if (levelEl) levelEl.textContent = `${pct}%`;
+        if (fillEl) fillEl.style.width = `${Math.max(10, Math.min(100, pct))}%`;
+      }
+      updateBattery();
+      battery.addEventListener('levelchange', updateBattery);
+      battery.addEventListener('chargingchange', updateBattery);
+    }).catch(() => {
+      if (levelEl) levelEl.textContent = '100%';
+    });
+  } else {
+    if (levelEl) levelEl.textContent = '100%';
+  }
+}
+
 function bootApplication() {
+  initSystemStatusBar();
+  try {
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    }
+  } catch (e) {}
   // Immersive edge-to-edge configuration for Android / Capacitor
   if (window.Capacitor && window.Capacitor.Plugins) {
     try {

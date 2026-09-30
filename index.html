@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
   <meta name="description" content="hookmebysam — Nigeria's #1 premium dating &amp; matchmaking app. Meet real people nearby, swipe, match, and connect.">
   <meta name="keywords" content="dating app, matchmaking, nigeria, lagos, relationships, meet people nearby">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="no">
+  <meta name="mobile-web-app-capable" content="no">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="hookmebysam">
   <!-- Open Graph / Facebook -->
@@ -36,7 +37,7 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=31.0">
+  <link rel="stylesheet" href="style.css?v=33.0">
   <link rel="stylesheet" href="premium.css?v=24.0">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
@@ -168,6 +169,30 @@
        APP SHELL
        ========================================================= -->
   <div class="app-shell">
+
+    <!-- Mobile System Status Bar (displays real-time clock, battery level, & camera punch-hole spacer on mobile devices) -->
+    <div class="mobile-system-status-bar" id="mobileSystemStatusBar" aria-hidden="true">
+      <div class="sys-status-left">
+        <span class="sys-status-time" id="sysStatusTime">12:00</span>
+      </div>
+      <div class="sys-status-notch" aria-hidden="true"></div>
+      <div class="sys-status-right">
+        <span class="sys-status-wifi" title="Connected">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4zm0 3.5c3.78 0 7.21 1.5 9.74 3.96L12 19.34 2.26 11.46C4.79 9 8.22 7.5 12 7.5z"/>
+          </svg>
+        </span>
+        <span class="sys-status-battery" id="sysStatusBattery">
+          <span class="sys-battery-level" id="sysBatteryLevel">100%</span>
+          <span class="sys-battery-icon-wrap">
+            <span class="sys-battery-body">
+              <span class="sys-battery-fill" id="sysBatteryFill" style="width: 100%;"></span>
+            </span>
+            <span class="sys-battery-cap"></span>
+          </span>
+        </span>
+      </div>
+    </div>
 
     <!-- App Header (shown on main screens) -->
     <header class="app-header" id="appHeader" style="display:none;">
