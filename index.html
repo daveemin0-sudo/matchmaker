@@ -7,7 +7,7 @@
   <meta name="keywords" content="dating app, matchmaking, nigeria, lagos, relationships, meet people nearby">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="hookmebysam">
   <!-- Open Graph / Facebook -->
   <meta property="og:type" content="website">
@@ -37,8 +37,8 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=28.0">
-  <link rel="stylesheet" href="premium.css?v=22.0">
+  <link rel="stylesheet" href="style.css?v=29.0">
+  <link rel="stylesheet" href="premium.css?v=23.0">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
@@ -940,12 +940,6 @@
                 <path d="M16.5 6v11.5c0 2.21-1.79 4-4 4s-4-1.79-4-4V5a2.5 2.5 0 015 0v10.5c0 .83-.67 1.5-1.5 1.5s-1.5-.67-1.5-1.5V6H9v9.5a3.5 3.5 0 007 0V5c0-2.48-2.02-4.5-4.5-4.5S7 2.52 7 5v12.5C7 20.54 9.46 23 12.5 23s5.5-2.46 5.5-5.5V6h-1.5z"/>
               </svg>
             </button>
-            <button class="chat-icon-btn chat-camera-btn" onclick="document.getElementById('chatImageInput').click()" aria-label="Camera" title="Camera">
-              <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/>
-                <path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/>
-              </svg>
-            </button>
             <input type="file" id="chatImageInput" accept="image/*,video/*" style="display:none" onchange="sendImageMessage(event)">
           </div>
           <button class="chat-send-btn" id="chatSendBtn" onclick="sendMessage()" aria-label="Send message" style="display:none">
@@ -1007,9 +1001,7 @@
               <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
             </button>
             <span class="mpx-title" id="mpxTitle">Send to <span id="mpxRecipientName"></span></span>
-            <button class="mpx-icon-btn" id="mpxDrawBtn" aria-label="Draw" title="Draw" style="opacity:0.5;pointer-events:none">
-              <svg width="21" height="21" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM21.41 6.34l-3.75-3.75-2.53 2.54 3.75 3.75 2.53-2.54z"/></svg>
-            </button>
+            <span class="mpx-hd-badge">HD</span>
           </div>
 
           <!-- Preview area -->
@@ -1130,10 +1122,36 @@
       <!-- =====================================================
            VOICE CALL OVERLAY
            ===================================================== -->
+            <!-- Floating Call Minimize Bar (PiP / Background Call Bar) -->
+      <div class="floating-call-bar" id="floatingCallBar" style="display:none" onclick="expandCall()">
+        <div class="fcb-left">
+          <div class="fcb-avatar-wrap">
+            <div class="fcb-avatar" id="fcbAvatar"></div>
+            <div class="fcb-pulse-dot"></div>
+          </div>
+          <div class="fcb-info">
+            <div class="fcb-name" id="fcbName">Call in progress</div>
+            <div class="fcb-status-line">
+              <span class="fcb-type-icon" id="fcbTypeIcon">📞</span>
+              <span class="fcb-timer" id="fcbTimer">0:00</span>
+              <span class="fcb-tap-hint">• Tap to return</span>
+            </div>
+          </div>
+        </div>
+        <div class="fcb-actions" onclick="event.stopPropagation()">
+          <button class="fcb-btn fcb-mute-btn" id="fcbMuteBtn" onclick="toggleCallMute()" aria-label="Mute" title="Toggle Mute">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
+          </button>
+          <button class="fcb-btn fcb-end-btn" onclick="endCall()" aria-label="End call" title="End call">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
+          </button>
+        </div>
+      </div>
+
       <div class="call-overlay" id="voiceCallOverlay" style="display:none">
         <div class="call-overlay-bg"></div>
         <div class="call-top-actions">
-          <button class="call-minimize-btn" onclick="endCall()" aria-label="Back">
+          <button class="call-minimize-btn" onclick="minimizeCall()" aria-label="Minimize call" title="Minimize call">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M5 12l6 6M5 12l6-6"/></svg>
           </button>
           <span class="call-type-label">Voice Call</span>
@@ -1183,7 +1201,7 @@
           <div class="pip-cam-off" id="pipCamOff" style="display:none">📷</div>
         </div>
         <div class="call-top-actions">
-          <button class="call-minimize-btn" onclick="endCall()" aria-label="End call">
+          <button class="call-minimize-btn" onclick="minimizeCall()" aria-label="Minimize call" title="Minimize call">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M5 12l6 6M5 12l6-6"/></svg>
           </button>
           <span class="call-type-label">Video Call</span>

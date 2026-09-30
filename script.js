@@ -195,8 +195,11 @@ function bootApplication() {
   if (window.Capacitor && window.Capacitor.Plugins) {
     try {
       if (window.Capacitor.Plugins.StatusBar) {
-        window.Capacitor.Plugins.StatusBar.setOverlaysWebView({ overlay: true }).catch(() => {});
-        window.Capacitor.Plugins.StatusBar.setStyle({ style: (localStorage.getItem('hookmebysam_theme') === 'light') ? 'LIGHT' : 'DARK' }).catch(() => {});
+        window.Capacitor.Plugins.StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+        window.Capacitor.Plugins.StatusBar.show().catch(() => {});
+        const currentTheme = localStorage.getItem('hookmebysam_theme') || 'dark';
+        window.Capacitor.Plugins.StatusBar.setStyle({ style: currentTheme === 'light' ? 'LIGHT' : 'DARK' }).catch(() => {});
+        window.Capacitor.Plugins.StatusBar.setBackgroundColor({ color: currentTheme === 'light' ? '#FFFFFF' : '#0A0710' }).catch(() => {});
       }
       if (window.Capacitor.Plugins.NavigationBar) {
         window.Capacitor.Plugins.NavigationBar.setTransparency({ isTransparent: true }).catch(() => {});
@@ -859,7 +862,10 @@ function setTheme(theme) {
   if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#FFFFFF' : '#0A0710');
 
   if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar) {
+    window.Capacitor.Plugins.StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
+    window.Capacitor.Plugins.StatusBar.show().catch(() => {});
     window.Capacitor.Plugins.StatusBar.setStyle({ style: theme === 'light' ? 'LIGHT' : 'DARK' }).catch(() => {});
+    window.Capacitor.Plugins.StatusBar.setBackgroundColor({ color: theme === 'light' ? '#FFFFFF' : '#0A0710' }).catch(() => {});
   }
 
   const darkBtn = document.getElementById('themeBtnDark');
@@ -5401,6 +5407,8 @@ function startCallTimer(type) {
       const el = document.getElementById('callLiveTimer');
       if (el) el.textContent = timeStr;
     }
+    const fcbTimer = document.getElementById('fcbTimer');
+    if (fcbTimer) fcbTimer.textContent = timeStr;
   }, 1000);
 }
 
@@ -5778,7 +5786,69 @@ async function startVideoCall() {
   await startPeerCall('video');
 }
 
+let isCallMinimized = false;
+
+function minimizeCall() {
+  if (!activePeerConnection && !activeCallDocRef && !activeCallIsRinging) return;
+  isCallMinimized = true;
+
+  const voice = document.getElementById('voiceCallOverlay');
+  const video = document.getElementById('videoCallOverlay');
+  if (voice) voice.style.display = 'none';
+  if (video) video.style.display = 'none';
+
+  const fcb = document.getElementById('floatingCallBar');
+  if (fcb) {
+    fcb.style.display = 'flex';
+    const partnerId = activeCallPartnerId || appState.currentChatId;
+    const partner = (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA.concat(typeof PREMIUM_MATCHES !== 'undefined' ? PREMIUM_MATCHES : []) : []).find(p => p.id === partnerId) || {};
+    const nameEl = document.getElementById(activeCallType === 'video' ? 'videoCallName' : 'callName');
+    const partnerName = partner.name || nameEl?.textContent || 'Match';
+    const avatarEl = document.getElementById('callAvatar');
+    const partnerPhoto = partner.photos?.[0] || partner.photo || avatarEl?.src || 'default-avatar.png';
+
+    const fcbName = document.getElementById('fcbName');
+    const fcbAvatar = document.getElementById('fcbAvatar');
+    const fcbTypeIcon = document.getElementById('fcbTypeIcon');
+    const fcbTimer = document.getElementById('fcbTimer');
+
+    if (fcbName) fcbName.textContent = partnerName;
+    if (fcbAvatar) fcbAvatar.src = partnerPhoto;
+    if (fcbTypeIcon) {
+      fcbTypeIcon.className = activeCallType === 'video' ? 'fas fa-video fcb-type-icon' : 'fas fa-phone fcb-type-icon';
+    }
+    if (fcbTimer) {
+      if (activeCallSeconds > 0) {
+        const mins = Math.floor(activeCallSeconds / 60);
+        const secs = activeCallSeconds % 60;
+        fcbTimer.textContent = mins + ':' + String(secs).padStart(2, '0');
+      } else {
+        fcbTimer.textContent = activeCallIsRinging ? 'Calling...' : 'Active Call';
+      }
+    }
+  }
+}
+window.minimizeCall = minimizeCall;
+
+function expandCall() {
+  isCallMinimized = false;
+  const fcb = document.getElementById('floatingCallBar');
+  if (fcb) fcb.style.display = 'none';
+
+  if (activeCallType === 'video') {
+    const video = document.getElementById('videoCallOverlay');
+    if (video) video.style.display = 'flex';
+  } else {
+    const voice = document.getElementById('voiceCallOverlay');
+    if (voice) voice.style.display = 'flex';
+  }
+}
+window.expandCall = expandCall;
+
 function endCall(showToastMessage = true, explicitStatus = null) {
+  isCallMinimized = false;
+  const fcbEl = document.getElementById('floatingCallBar');
+  if (fcbEl) fcbEl.style.display = 'none';
   stopRingtone();
   const seconds = activeCallSeconds;
   const partnerId = activeCallPartnerId || appState.currentChatId;
@@ -6152,6 +6222,8 @@ async function toggleSpeaker() {
 // Window bindings for seamless inline onclick handlers
 window.endCall = endCall;
 window.endVideoCall = endVideoCall;
+window.minimizeCall = minimizeCall;
+window.expandCall = expandCall;
 window.toggleCallMute = toggleCallMute;
 window.toggleVideoMute = toggleVideoMute;
 window.toggleCamera = toggleCamera;
