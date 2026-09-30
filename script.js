@@ -6866,8 +6866,17 @@ async function handleSignupPhotoUpload(event) {
     if (preview) {
       preview.style.backgroundImage = `url('${dataUrl}')`;
       preview.textContent = '';
-      preview.style.borderColor = 'var(--flame-1)';
+      preview.style.borderColor = '#2ed573';
     }
+    const card = document.getElementById('signupPhotoCard');
+    if (card) card.classList.add('has-photo');
+    const titleEl = document.getElementById('signupPhotoTitle');
+    if (titleEl) titleEl.textContent = '✓ Photo Selected';
+    const subEl = document.getElementById('signupPhotoSub');
+    if (subEl) subEl.textContent = 'Looking great! Tap anytime to change';
+    const btnEl = document.getElementById('signupPhotoBtn');
+    if (btnEl) btnEl.textContent = 'Change';
+
     const errEl = document.getElementById('signupError3');
     if (errEl) errEl.textContent = '';
     showToast('✓ Photo ready! Looks great! ✨', 'success');

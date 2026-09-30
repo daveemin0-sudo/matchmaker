@@ -452,7 +452,7 @@
 
             <div class="auth-form-group">
               <label>Your Bio</label>
-              <textarea class="auth-input" id="signupBio" style="height:90px;padding-top:12px;resize:none" placeholder="What makes you interesting? What are you looking for?"></textarea>
+              <textarea class="auth-input" id="signupBio" style="height:90px;padding:12px 14px;resize:none" placeholder="What makes you interesting? What are you looking for?"></textarea>
             </div>
 
             <div class="auth-form-group">
@@ -465,15 +465,13 @@
 
             <div class="auth-form-group">
               <label>Profile Picture <span style="color:var(--flame-1)">*</span> <small style="font-weight:normal;color:var(--txt-muted);font-size:0.75rem">(Your own real photo required)</small></label>
-              <div class="photo-upload-area" onclick="document.getElementById('signupPhotoFile').click()" style="padding:14px;background:rgba(255,255,255,0.05);border:1.5px dashed var(--flame-1);border-radius:var(--r-md);display:flex;align-items:center;gap:14px;cursor:pointer">
-                <div id="signupPhotoPreview" style="width:52px;height:52px;border-radius:50%;background:var(--bg-elevated);border:2px solid var(--border);background-size:cover;background-position:center;display:flex;align-items:center;justify-content:center;font-size:1.5rem;flex-shrink:0">
-                  📷
+              <div class="signup-photo-card" id="signupPhotoCard" onclick="document.getElementById('signupPhotoFile').click()">
+                <div class="signup-photo-avatar" id="signupPhotoPreview">📷</div>
+                <div class="signup-photo-meta">
+                  <div class="signup-photo-title" id="signupPhotoTitle">Upload Profile Photo</div>
+                  <div class="signup-photo-sub" id="signupPhotoSub">Tap to choose from camera or gallery</div>
                 </div>
-                <div style="flex:1">
-                  <div style="font-weight:700;font-size:0.9rem;color:var(--txt-primary)">Upload Your Real Photo</div>
-                  <div style="font-size:0.74rem;color:var(--txt-muted)">Tap to choose from phone gallery or camera</div>
-                </div>
-                <button type="button" class="accent-btn" style="padding:6px 14px;font-size:0.78rem;width:auto;flex-shrink:0" onclick="event.stopPropagation();document.getElementById('signupPhotoFile').click()">Choose</button>
+                <div class="signup-photo-badge" id="signupPhotoBtn">Choose Photo</div>
               </div>
               <input type="file" id="signupPhotoFile" accept="image/*" style="display:none" onchange="handleSignupPhotoUpload(event)">
             </div>
@@ -498,7 +496,7 @@
               <label for="signupPhone">Phone Number <span style="color:var(--flame-1)">*</span></label>
               <div class="phone-input-wrap">
                 <div class="phone-country-code">🇳🇬 +234</div>
-                <div class="auth-input-wrap" style="flex:1">
+                <div class="auth-input-wrap" style="flex:1;min-width:0">
                   <input class="auth-input" id="signupPhone" type="tel" placeholder="801 234 5678" inputmode="tel" autocomplete="tel-national">
                 </div>
               </div>
@@ -508,7 +506,7 @@
               <label for="signupPassword">Password <span style="color:var(--flame-1)">*</span></label>
               <div class="auth-input-wrap">
                 <span class="auth-input-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></span>
-                <input class="auth-input" id="signupPassword" type="password" placeholder="Min 8 chars (uppercase, numbers, symbols)" autocomplete="new-password" oninput="evaluatePasswordStrength(this.value)">
+                <input class="auth-input" id="signupPassword" type="password" placeholder="Create a password (8+ chars)" autocomplete="new-password" oninput="evaluatePasswordStrength(this.value)">
                 <button class="auth-toggle-password" type="button" onclick="togglePasswordVisibility('signupPassword', this)" aria-label="Toggle password">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
                 </button>
@@ -539,7 +537,7 @@
               <label for="signupConfirmPassword">Confirm Password <span style="color:var(--flame-1)">*</span></label>
               <div class="auth-input-wrap">
                 <span class="auth-input-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></span>
-                <input class="auth-input" id="signupConfirmPassword" type="password" placeholder="Re-enter your password" autocomplete="new-password" oninput="checkPasswordMatch()">
+                <input class="auth-input" id="signupConfirmPassword" type="password" placeholder="Confirm your password" autocomplete="new-password" oninput="checkPasswordMatch()">
                 <button class="auth-toggle-password" type="button" onclick="togglePasswordVisibility('signupConfirmPassword', this)" aria-label="Toggle password">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
                 </button>
