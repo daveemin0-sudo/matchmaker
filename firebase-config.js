@@ -212,11 +212,33 @@ function listenToAuthChanges() {
            const doc = await fbDb.collection('users').doc(user.uid).get();
            if (doc && doc.exists) {
              const docData = doc.data();
+             if (docData.suspended === true || docData.accountStatus === 'suspended') {
+               targetUser.suspended = true;
+               if (typeof showToast === 'function') showToast('Your account has been suspended by an administrator.', 'error');
+               if (typeof fbAuth.signOut === 'function') fbAuth.signOut();
+               if (typeof logoutUser === 'function') logoutUser();
+               return;
+             }
              targetUser = Object.assign({}, targetUser, docData);
              const expiryMs = docData.vipExpiry?.toMillis ? docData.vipExpiry.toMillis() : 0;
              const vipActive = Boolean(docData.isVip && (!expiryMs || expiryMs > Date.now()));
              if (typeof appState !== 'undefined') appState.isVip = vipActive;
              if (window.appState) window.appState.isVip = vipActive;
+           }
+
+           if (!window.__userSuspensionListenerAttached) {
+             window.__userSuspensionListenerAttached = true;
+             fbDb.collection('users').doc(user.uid).onSnapshot(s => {
+               if (s && s.exists) {
+                 const d = s.data();
+                 if (d.suspended === true || d.accountStatus === 'suspended') {
+                   window.alert('Your account has been suspended by an administrator for violating community guidelines.');
+                   if (typeof fbAuth.signOut === 'function') fbAuth.signOut();
+                   if (typeof logoutUser === 'function') logoutUser();
+                   window.location.reload();
+                 }
+               }
+             }, err => console.warn('Suspension listener error:', err.message));
            }
          }
        } catch (err) {
@@ -390,8 +412,12 @@ function listenToUserMatches(callback) {
         const matchedProfiles = [];
         for (const doc of snapshot.docs) {
           const matchData = doc.data();
-          const partnerId = matchData.users.find(id => id !== currentUserId);
-          if (partnerId && !(window.__blockedUserIds || new Set()).has(partnerId)) {
+          if (matchData.blocked === true) continue;
+          const partnerId = matchData.users?.find(id => id !== currentUserId);
+          const isBlocked = !partnerId ||
+            (window.__blockedUserIds && window.__blockedUserIds.has(partnerId)) ||
+            (typeof blockedUsers !== 'undefined' && Array.isArray(blockedUsers) && blockedUsers.some(b => b.id === partnerId));
+          if (partnerId && !isBlocked) {
             try {
               let userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
               if (userDoc && userDoc.exists) {
@@ -438,8 +464,12 @@ async function fetchUserMatchesDirectly() {
     const matchedProfiles = [];
     for (const doc of snapshot.docs) {
       const matchData = doc.data();
-      const partnerId = matchData.users.find(id => id !== currentUserId);
-      if (partnerId) {
+      if (matchData.blocked === true) continue;
+      const partnerId = matchData.users?.find(id => id !== currentUserId);
+      const isBlocked = !partnerId ||
+        (window.__blockedUserIds && window.__blockedUserIds.has(partnerId)) ||
+        (typeof blockedUsers !== 'undefined' && Array.isArray(blockedUsers) && blockedUsers.some(b => b.id === partnerId));
+      if (partnerId && !isBlocked) {
         try {
           let userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
           if (userDoc && userDoc.exists) {
@@ -496,6 +526,10 @@ function listenToRealtimeMessages(matchId, callback) {
 
 async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "", replyTo = null, videoUrl = "", isVideo = false, localId = "") {
   if (!fbDb || !fbAuth?.currentUser || !matchId) return false;
+  if (window.currentUser?.suspended === true || (typeof currentUser !== 'undefined' && currentUser?.suspended)) {
+    if (typeof showToast === 'function') showToast('Your account is suspended. Messaging is disabled.', 'error');
+    return false;
+  }
   const currentUserId = fbAuth.currentUser.uid;
 
   try {
@@ -513,6 +547,20 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
 
     if (!Array.isArray(users) || !users.includes(currentUserId)) {
       console.warn('sendRealtimeMessage: active match not found or access denied');
+      return false;
+    }
+
+    if (matchSnap && matchSnap.exists && matchSnap.data()?.blocked === true) {
+      if (typeof showToast === 'function') showToast('Cannot send message: Match has ended.', 'error');
+      return false;
+    }
+
+    const partnerId = users.find(id => id !== currentUserId);
+    if (partnerId && (
+      (window.__blockedUserIds && window.__blockedUserIds.has(partnerId)) ||
+      (typeof blockedUsers !== 'undefined' && Array.isArray(blockedUsers) && blockedUsers.some(b => b.id === partnerId))
+    )) {
+      if (typeof showToast === 'function') showToast('Cannot send message: This user is blocked.', 'error');
       return false;
     }
 

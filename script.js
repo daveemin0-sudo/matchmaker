@@ -308,11 +308,29 @@ function initMainApp() {
   initNavigationHistory();
 }
 
+function isContactBlocked(userId) {
+  if (!userId) return false;
+  if (window.__blockedUserIds && window.__blockedUserIds.has(userId)) return true;
+  if (typeof blockedUsers !== 'undefined' && Array.isArray(blockedUsers) && blockedUsers.some(b => b.id === userId)) return true;
+  try {
+    const raw = localStorage.getItem('hmbs_blocked');
+    if (raw) {
+      const list = JSON.parse(raw);
+      if (Array.isArray(list) && list.some(b => b.id === userId)) return true;
+    }
+  } catch (_) {}
+  return false;
+}
+
 // Reusable handler to process matches & messages payload from Firestore
 function applyMatchesUpdate(realMatches) {
   if (!realMatches || realMatches.length === 0) return;
   let hasNewIncomingMessage = false;
   realMatches.forEach(m => {
+    if (!m || !m.id || isContactBlocked(m.id)) {
+      // Never process or notify for a blocked contact!
+      return;
+    }
     if (!DUMMY_USER_IDS.includes(m.id)) {
       const deletedAt = Number(localStorage.getItem('hmbs_deleted_' + m.id) || 0);
       let lastMsgTime = 0;
@@ -2973,6 +2991,12 @@ let currentEmojiCategory = 'smileys';
 // CHAT NAVIGATION & HEADER (WhatsApp Style)
 // ==========================================================
 function openChat(profileId, { fromHistory = false } = {}) {
+  if (isContactBlocked(profileId)) {
+    showToast('This contact is blocked. Unblock them in Settings to chat.', 'error');
+    if (appState.currentChatId === profileId) appState.currentChatId = null;
+    showScreen('matches');
+    return;
+  }
   appState.currentChatId = profileId;
   showScreen('chat', { fromHistory });
 
@@ -8441,6 +8465,19 @@ async function persistBlockToFirestore(userId) {
   if (!fbAuth?.currentUser || !userId) return false;
   const uid = fbAuth.currentUser.uid;
   if (uid === userId) return false;
+  if (!window.__blockedUserIds) window.__blockedUserIds = new Set();
+  window.__blockedUserIds.add(userId);
+
+  // Mark match document as blocked so real-time listeners drop it immediately
+  if (typeof fbDb !== 'undefined' && fbDb) {
+    const matchId = [uid, userId].sort().join('_');
+    fbDb.collection('matches').doc(matchId).set({
+      blocked: true,
+      blockedBy: uid,
+      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).catch(() => {});
+  }
+
   const token = await fbAuth.currentUser.getIdToken();
   const res = await fetch(BACKEND_URL + '/blocks', {
     method: 'POST',
@@ -8454,6 +8491,7 @@ async function persistBlockToFirestore(userId) {
 
 async function deleteBlockFromFirestore(userId) {
   if (!fbAuth?.currentUser || !userId) return false;
+  if (window.__blockedUserIds) window.__blockedUserIds.delete(userId);
   const token = await fbAuth.currentUser.getIdToken();
   const res = await fetch(BACKEND_URL + '/blocks/' + encodeURIComponent(userId), {
     method: 'DELETE',
@@ -8466,7 +8504,15 @@ async function deleteBlockFromFirestore(userId) {
 
 async function blockUser(userId, name) {
   closeReportModal();
+  if (typeof closeMatchPopup === 'function') closeMatchPopup();
   if (!userId) return;
+
+  if (!window.__blockedUserIds) window.__blockedUserIds = new Set();
+  window.__blockedUserIds.add(userId);
+
+  if (appState.currentChatId === userId) {
+    appState.currentChatId = null;
+  }
 
   const existing = matchedUsers.find(u => u.id === userId);
   const fallback = PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
@@ -8510,9 +8556,17 @@ async function blockUser(userId, name) {
 async function executeReportAndBlock(userId, name) {
   const reason = document.querySelector('input[name="reportReason"]:checked')?.value || 'other';
   closeReportModal();
+  if (typeof closeMatchPopup === 'function') closeMatchPopup();
   if (!userId || !fbDb || !fbAuth?.currentUser) {
     showToast('Please sign in to report an account.', 'error');
     return;
+  }
+
+  if (!window.__blockedUserIds) window.__blockedUserIds = new Set();
+  window.__blockedUserIds.add(userId);
+
+  if (appState.currentChatId === userId) {
+    appState.currentChatId = null;
   }
 
   try {
@@ -8675,6 +8729,7 @@ async function unblockUser(userId, name) {
   }
 
   if (idx !== -1) blockedUsers.splice(idx, 1);
+  if (window.__blockedUserIds) window.__blockedUserIds.delete(userId);
 
   const restoredProfile = userObj || PROFILES_DATA.find(u => u.id === userId) || PREMIUM_MATCHES.find(u => u.id === userId);
   if (restoredProfile && !matchedUsers.some(u => u.id === userId)) {

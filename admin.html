@@ -139,6 +139,7 @@ async function loadReports() {
           '<button class="gold" data-action="resolved" data-report-id="' + escapeHtml(r.id) + '">Resolve</button>' +
           '<button class="secondary" data-action="dismissed" data-report-id="' + escapeHtml(r.id) + '">Dismiss</button>' +
           '<button class="danger" data-action="suspend" data-report-id="' + escapeHtml(r.id) + '" data-user-id="' + escapeHtml(r.reportedUserId) + '">Suspend</button>' +
+          '<button class="secondary" style="color:#8de5aa;border:1px solid #1c4b2a;" data-action="unsuspend" data-report-id="' + escapeHtml(r.id) + '" data-user-id="' + escapeHtml(r.reportedUserId) + '">Unsuspend</button>' +
         '</div></td>' +
       '</tr>';
     }).join("");
@@ -175,6 +176,20 @@ async function suspendUser(userId, reportId) {
   }
 }
 
+async function unsuspendUser(userId, reportId) {
+  if (!window.confirm("Are you sure you want to unsuspend user " + userId + "?")) return;
+  try {
+    await api("/admin/users/unsuspend", {
+      method: "POST",
+      body: JSON.stringify({ userId })
+    });
+    window.alert("User successfully unsuspended!");
+    if (reportId) await updateReport(reportId, "resolved", "User unsuspended by admin.");
+  } catch (err) {
+    window.alert(err.message);
+  }
+}
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, ch => ({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
@@ -200,6 +215,8 @@ reportsBody.addEventListener("click", event => {
   const reportId = button.dataset.reportId;
   if (action === "suspend") {
     suspendUser(button.dataset.userId, reportId);
+  } else if (action === "unsuspend") {
+    unsuspendUser(button.dataset.userId, reportId);
   } else {
     updateReport(reportId, action);
   }

@@ -398,6 +398,15 @@ app.post('/blocks', requireAuth, async (req, res) => {
     const target=await db.collection('users').doc(blockedUserId).get();
     if(!target.exists) return res.status(404).json({success:false,error:'User not found.'});
     await db.collection('blocks').doc(uid+'_'+blockedUserId).set({blockedBy:uid,blockedUserId,createdAt:admin.firestore.FieldValue.serverTimestamp()},{merge:true});
+    const matchId = [uid, blockedUserId].sort().join('_');
+    await db.collection('matches').doc(matchId).delete().catch(() => {});
+    await db.collection('swipes').doc(uid + '_' + blockedUserId).set({
+      fromUserId: uid,
+      toUserId: blockedUserId,
+      action: 'pass',
+      blocked: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).catch(() => {});
     res.json({success:true});
   } catch(err) {
     console.error('block error:',err.message);
@@ -1197,11 +1206,14 @@ app.post('/admin/users/suspend', requireAuth, requireAdmin, async (req, res) => 
   }
   try {
     await admin.auth().updateUser(targetUid, { disabled: true });
+    await admin.auth().revokeRefreshTokens(targetUid).catch(() => {});
     await db.collection('users').doc(targetUid).set({
       suspended: true,
+      accountStatus: 'suspended',
       suspendedAt: admin.firestore.FieldValue.serverTimestamp(),
       suspensionReason: reason
     }, { merge: true });
+    await db.collection('public_profiles').doc(targetUid).set({ active: false }, { merge: true }).catch(() => {});
     return res.json({ success: true });
   } catch (err) {
     console.error('Admin suspension error:', err.message);
@@ -1216,8 +1228,10 @@ app.post('/admin/users/unsuspend', requireAuth, requireAdmin, async (req, res) =
     await admin.auth().updateUser(targetUid, { disabled: false });
     await db.collection('users').doc(targetUid).set({
       suspended: false,
+      accountStatus: 'active',
       unsuspendedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
+    await db.collection('public_profiles').doc(targetUid).set({ active: true }, { merge: true }).catch(() => {});
     return res.json({ success: true });
   } catch (err) {
     console.error('Admin unsuspension error:', err.message);
