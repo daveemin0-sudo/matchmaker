@@ -38,6 +38,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ── presence (Live user online/offline status) ─────────────────────────
+    match /presence/{userId} {
+      allow read: if signedIn();
+      allow write: if owner(userId);
+    }
+
     // ── swipes ──────────────────────────────────────────────────────────────
     // Users create swipes when swiping right / left on discovery cards.
     match /swipes/{swipeId} {

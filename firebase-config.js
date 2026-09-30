@@ -279,6 +279,7 @@ function listenToAuthChanges() {
         showScreen(targetScreen);
       }
       if (typeof initMainApp === 'function') initMainApp();
+          if (typeof updateUserPresence === 'function') updateUserPresence(true);
       if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
       if (typeof initPushNotifications === 'function') initPushNotifications();
       if (typeof initCommunityStoriesListener === 'function') initCommunityStoriesListener();
@@ -434,6 +435,25 @@ function listenToUserMatches(callback) {
               let userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
               if (userDoc && userDoc.exists) {
                 const data = userDoc.data();
+
+                // Live presence fetch from /presence/{partnerId}
+                let isOnline = false;
+                let lastSeenMs = 0;
+                try {
+                  const presDoc = await fbDb.collection('presence').doc(partnerId).get().catch(() => null);
+                  if (presDoc && presDoc.exists) {
+                    const pd = presDoc.data();
+                    if (typeof pd.lastSeen === 'number') lastSeenMs = pd.lastSeen;
+                    else if (pd.lastSeen?.toMillis) lastSeenMs = pd.lastSeen.toMillis();
+                    else if (pd.lastSeen?.seconds) lastSeenMs = pd.lastSeen.seconds * 1000;
+                    else if (pd.updatedAt) lastSeenMs = pd.updatedAt;
+                    isOnline = Boolean(pd.isOnline && lastSeenMs && (Date.now() - lastSeenMs < 4 * 60 * 1000));
+                    if (typeof _presenceCache !== 'undefined') {
+                      _presenceCache[partnerId] = { isOnline, lastSeen: lastSeenMs };
+                    }
+                  }
+                } catch (_) {}
+
                 matchedProfiles.push({
                   id: partnerId,
                   name: data.displayName || data.name || 'Match',
@@ -445,6 +465,8 @@ function listenToUserMatches(callback) {
                   lastMessage: matchData.lastMessage || '',
                   lastSender: matchData.lastSender || '',
                   lastUpdated: matchData.lastUpdated?.toMillis ? matchData.lastUpdated.toMillis() : (matchData.createdAt?.toMillis ? matchData.createdAt.toMillis() : Date.now()),
+                  isOnline,
+                  lastSeen: lastSeenMs,
                   isRealUser: true
                 });
               }

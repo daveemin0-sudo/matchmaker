@@ -224,8 +224,8 @@ html.age-gate-passed #ageGateOverlay {
    APP HEADER
    ============================================================ */
 .app-header {
-  height: calc(60px + env(safe-area-inset-top, 0px)) !important;
-  padding-top: env(safe-area-inset-top, 0px) !important;
+  height: calc(56px + max(env(safe-area-inset-top, 0px), 12px)) !important;
+  padding-top: max(env(safe-area-inset-top, 0px), 12px) !important;
   padding-left: 16px !important;
   padding-right: 16px !important;
   padding-bottom: 0 !important;

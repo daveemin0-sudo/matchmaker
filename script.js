@@ -202,7 +202,8 @@ function bootApplication() {
         window.Capacitor.Plugins.StatusBar.setBackgroundColor({ color: currentTheme === 'light' ? '#FFFFFF' : '#0A0710' }).catch(() => {});
       }
       if (window.Capacitor.Plugins.NavigationBar) {
-        window.Capacitor.Plugins.NavigationBar.setTransparency({ isTransparent: true }).catch(() => {});
+        const isL = (currentTheme === 'light');
+        window.Capacitor.Plugins.NavigationBar.setColor({ color: isL ? '#FFFFFF' : '#0A0710', darkButtons: isL }).catch(() => {});
       }
     } catch (e) {}
   }
@@ -867,6 +868,9 @@ function setTheme(theme) {
     window.Capacitor.Plugins.StatusBar.show().catch(() => {});
     window.Capacitor.Plugins.StatusBar.setStyle({ style: theme === 'light' ? 'DARK' : 'LIGHT' }).catch(() => {});
     window.Capacitor.Plugins.StatusBar.setBackgroundColor({ color: theme === 'light' ? '#FFFFFF' : '#0A0710' }).catch(() => {});
+    if (window.Capacitor.Plugins.NavigationBar) {
+      window.Capacitor.Plugins.NavigationBar.setColor({ color: theme === 'light' ? '#FFFFFF' : '#0A0710', darkButtons: theme === 'light' }).catch(() => {});
+    }
   }
 
   const darkBtn = document.getElementById('themeBtnDark');
@@ -2579,10 +2583,26 @@ function getUserOnlineStatus(partnerOrId) {
 function updateUserPresence(isOnline) {
   if (typeof fbDb === 'undefined' || !fbDb || typeof fbAuth === 'undefined' || !fbAuth?.currentUser) return;
   const uid = fbAuth.currentUser.uid;
+  const payload = {
+    isOnline: Boolean(isOnline),
+    lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: Date.now()
+  };
+
+  // Write to public presence collection (allowed for all signed-in users to read)
+  fbDb.collection('presence').doc(uid).set(payload, { merge: true }).catch(e => console.warn('Presence write:', e.message));
+
+  // Also mirror to user profile doc
   fbDb.collection('users').doc(uid).set({
     isOnline: Boolean(isOnline),
     lastSeen: firebase.firestore.FieldValue.serverTimestamp()
   }, { merge: true }).catch(() => {});
+
+  // Update in-memory presence cache for self
+  _presenceCache[uid] = {
+    isOnline: Boolean(isOnline),
+    lastSeen: Date.now()
+  };
 }
 
 function initUserPresenceTracking() {
@@ -3224,7 +3244,7 @@ function openChat(profileId, { fromHistory = false } = {}) {
   }
   if (typeof fbDb !== 'undefined' && fbDb && profileId) {
     try {
-      _activePresenceListener = fbDb.collection('users').doc(profileId).onSnapshot(doc => {
+      _activePresenceListener = fbDb.collection('presence').doc(profileId).onSnapshot(doc => {
         if (doc && doc.exists) {
           const d = doc.data();
           let lastSeenMs = 0;
