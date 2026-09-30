@@ -6702,7 +6702,11 @@ function renderProfileScreen() {
     ? currentUser.interests
     : ['Tech 💻', 'Fitness 💪', 'Music 🎵'];
 
-  const photo = currentUser.image || currentUser.avatar || '';
+  const photos = Array.isArray(currentUser.photos) && currentUser.photos.length > 0
+    ? currentUser.photos
+    : (currentUser.image ? [currentUser.image] : []);
+  const photo = photos[0] || currentUser.avatar || '';
+
   if (avatar) {
     if (photo) {
       avatar.style.backgroundImage = `url('${photo}')`;
@@ -6715,31 +6719,26 @@ function renderProfileScreen() {
       }
     }
     if (appState.isVip) avatar.classList.add('vip');
+    else avatar.classList.remove('vip');
   }
 
   if (nameEl) {
     nameEl.textContent = String(displayName) + ', ' + String(displayAge);
-    const existingBadge = document.getElementById('profileVipBadge');
-    if (existingBadge) existingBadge.remove();
-    const badge = document.createElement('span');
-    badge.className = 'header-vip-badge';
-    badge.id = 'profileVipBadge';
-    badge.textContent = 'VIP';
-    badge.style.display = appState.isVip ? 'inline-flex' : 'none';
-    badge.style.marginLeft = '6px';
-    nameEl.appendChild(badge);
   }
-  if (locEl) locEl.textContent = displayLoc;
-  if (bioEl) bioEl.textContent = displayBio;
-  if (interestsEl) {
-    interestsEl.innerHTML = displayInterests.map(tag => `<span class="simple-interest-pill">${escHtml(tag)}</span>`).join('');
+  const vipBadge = document.getElementById('profileVipBadge');
+  if (vipBadge) {
+    vipBadge.style.display = appState.isVip ? 'inline-flex' : 'none';
   }
 
+  if (locEl) locEl.textContent = '📍 ' + displayLoc.replace(/^[📍\s]+/, '');
+  if (bioEl) bioEl.textContent = displayBio;
+  if (interestsEl) {
+    interestsEl.innerHTML = displayInterests.map(tag => `<span class="hk-passion-pill">${escHtml(tag)}</span>`).join('');
+  }
+
+  // Profile photos strip
   const strip = document.getElementById('profilePhotosStrip');
   if (strip) {
-    const photos = Array.isArray(currentUser.photos) && currentUser.photos.length > 0
-      ? currentUser.photos
-      : (currentUser.image ? [currentUser.image] : []);
     if (photos.length > 1) {
       strip.style.display = 'flex';
       strip.innerHTML = photos.map((url, i) => `
@@ -6758,17 +6757,73 @@ function renderProfileScreen() {
   if (locInput) locInput.value = displayLoc;
   if (interestsInput) interestsInput.value = displayInterests.join(', ');
 
-  // Genuine stats based on actual user activity (no fake/inflated counts)
+  // Dynamic Profile Strength Calculation
+  let strength = 20; // baseline
+  if (photos.length >= 1) strength += 25;
+  if (photos.length >= 3) strength += 15;
+  if (photos.length >= 4) strength += 10;
+  if (displayBio && displayBio.length > 15) strength += 15;
+  if (displayInterests.length >= 2) strength += 15;
+  strength = Math.min(100, Math.max(25, strength));
+
+  const strengthVal = document.getElementById('hkStrengthPercent');
+  const strengthBar = document.getElementById('hkStrengthBar');
+  const strengthHint = document.getElementById('hkStrengthHint');
+
+  if (strengthVal) strengthVal.textContent = strength + '%';
+  if (strengthBar) strengthBar.style.width = strength + '%';
+  if (strengthHint) {
+    if (photos.length <= 1) {
+      strengthHint.textContent = '📸 Add remaining photos to boost discovery visibility by 3.5×';
+    } else if (strength < 90) {
+      strengthHint.textContent = '✨ Add your passions and personal bio to reach 100% Superstar status!';
+    } else {
+      strengthHint.textContent = '🌟 Superstar Profile Active! Your profile gets maximum priority matching.';
+    }
+  }
+
+  // HookMe Gold Promo Banner State
+  const vipHeading = document.getElementById('hkVipHeading');
+  const vipSub = document.getElementById('hkVipSub');
+  const vipCtaBtn = document.getElementById('hkVipCtaBtn');
+  if (appState.isVip) {
+    if (vipHeading) vipHeading.textContent = 'HookMe Gold Active 👑';
+    if (vipSub) vipSub.textContent = 'Unlimited Swipes, Rewinds, and Priority Likes';
+    if (vipCtaBtn) {
+      vipCtaBtn.textContent = 'Manage';
+      vipCtaBtn.style.background = 'rgba(255,255,255,0.15)';
+      vipCtaBtn.style.color = '#FFF';
+    }
+  } else {
+    if (vipHeading) vipHeading.textContent = 'See Who Likes You & Unlimited Swipes';
+    if (vipSub) vipSub.textContent = '5 daily Super Likes • Free monthly Boost • Rewinds';
+    if (vipCtaBtn) {
+      vipCtaBtn.textContent = 'Upgrade';
+      vipCtaBtn.style.background = 'linear-gradient(135deg, #F4C550, #E5A93C)';
+      vipCtaBtn.style.color = '#120D1A';
+    }
+  }
+
+  // Power-Ups Vault Tokens
+  const vSuper = document.getElementById('vaultSuperLikesVal');
+  const vBoost = document.getElementById('vaultBoostsVal');
+  const vRewind = document.getElementById('vaultRewindVal');
+  const vRewindBtn = document.getElementById('vaultRewindBtn');
+
+  if (vSuper) vSuper.textContent = appState.isVip ? '5 Daily' : (appState.superLikesRemaining || 0) + ' Left';
+  if (vBoost) vBoost.textContent = appState.isBoostActive ? 'Active ⚡' : (appState.isVip ? '1 Ready' : 'Get Boost');
+  if (vRewind) vRewind.textContent = appState.isVip ? 'Unlimited' : (appState.rewindsLeft || 1) + ' Left';
+  if (vRewindBtn) vRewindBtn.textContent = appState.isVip ? 'VIP Active' : 'Unlock';
+
+  // Real stats based on actual user activity
   const realMatches = Array.isArray(matchedUsers) ? matchedUsers.filter(u => u && !DUMMY_USER_IDS.includes(u.id)).length : 0;
   const realLikes = parseInt(localStorage.getItem('hmbs_real_likes_count') || '0', 10);
   const realSuper = parseInt(localStorage.getItem('hmbs_real_super_count') || '0', 10);
 
   const matchesCount = document.getElementById('statMatches');
   if (matchesCount) matchesCount.textContent = realMatches;
-
   const likesCount = document.getElementById('statLikes');
   if (likesCount) likesCount.textContent = realLikes;
-
   const superCount = document.getElementById('statSuper');
   if (superCount) superCount.textContent = realSuper;
 }
@@ -10635,3 +10690,111 @@ if (document.readyState === 'loading') {
     });
   }
 })();
+
+// =====================================================
+// HOOKME PROFILE PREVIEW & SAFETY TOOLKIT LOGIC
+// =====================================================
+let _hkPreviewPhotoIndex = 0;
+let _hkPreviewPhotosList = [];
+
+function openProfileCardPreview() {
+  const modal = document.getElementById('profilePreviewModal');
+  if (!modal) return;
+
+  _hkPreviewPhotosList = Array.isArray(currentUser.photos) && currentUser.photos.length > 0
+    ? currentUser.photos.slice()
+    : (currentUser.image ? [currentUser.image] : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800']);
+
+  _hkPreviewPhotoIndex = 0;
+
+  const nameEl = document.getElementById('hkPreviewName');
+  const locEl = document.getElementById('hkPreviewLoc');
+  const bioEl = document.getElementById('hkPreviewBio');
+  const tagsEl = document.getElementById('hkPreviewTags');
+
+  const displayName = currentUser.name || currentUser.displayName || 'You';
+  const displayAge = currentUser.age || 24;
+  const displayLoc = currentUser.location || 'Lagos, Nigeria';
+  const displayBio = currentUser.bio || 'Living life with good energy, positive vibes only! ✨';
+  const displayInterests = (currentUser.interests && currentUser.interests.length > 0)
+    ? currentUser.interests
+    : ['Tech 💻', 'Fitness 💪', 'Music 🎵'];
+
+  if (nameEl) nameEl.textContent = displayName + ', ' + displayAge;
+  if (locEl) locEl.textContent = '📍 ' + displayLoc.replace(/^[📍\s]+/, '');
+  if (bioEl) bioEl.textContent = displayBio;
+  if (tagsEl) {
+    tagsEl.innerHTML = displayInterests.map(t => `<span class="hk-preview-tag">${escHtml(t)}</span>`).join('');
+  }
+
+  _renderPreviewCardPhoto();
+  modal.style.display = 'flex';
+}
+
+function closeProfileCardPreview() {
+  const modal = document.getElementById('profilePreviewModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function _renderPreviewCardPhoto() {
+  const imgEl = document.getElementById('hkPreviewPhotoImg');
+  const barsEl = document.getElementById('hkPreviewBars');
+
+  if (imgEl && _hkPreviewPhotosList.length > 0) {
+    const currentUrl = _hkPreviewPhotosList[_hkPreviewPhotoIndex] || _hkPreviewPhotosList[0];
+    imgEl.src = currentUrl;
+  }
+
+  if (barsEl) {
+    if (_hkPreviewPhotosList.length > 1) {
+      barsEl.style.display = 'flex';
+      barsEl.innerHTML = _hkPreviewPhotosList.map((_, i) => `
+        <div class="hk-preview-bar-dash ${i === _hkPreviewPhotoIndex ? 'active' : ''}"></div>
+      `).join('');
+    } else {
+      barsEl.style.display = 'none';
+      barsEl.innerHTML = '';
+    }
+  }
+}
+
+function hkNextPreviewPhoto(e) {
+  if (e) e.stopPropagation();
+  if (_hkPreviewPhotosList.length <= 1) return;
+  _hkPreviewPhotoIndex = (_hkPreviewPhotoIndex + 1) % _hkPreviewPhotosList.length;
+  _renderPreviewCardPhoto();
+}
+
+function hkPrevPreviewPhoto(e) {
+  if (e) e.stopPropagation();
+  if (_hkPreviewPhotosList.length <= 1) return;
+  _hkPreviewPhotoIndex = (_hkPreviewPhotoIndex - 1 + _hkPreviewPhotosList.length) % _hkPreviewPhotosList.length;
+  _renderPreviewCardPhoto();
+}
+
+function openSafetyToolkitModal() {
+  const m = document.getElementById('safetyToolkitModal');
+  if (m) m.style.display = 'flex';
+}
+
+function closeSafetyToolkitModal() {
+  const m = document.getElementById('safetyToolkitModal');
+  if (m) m.style.display = 'none';
+}
+
+function triggerProfileBoost() {
+  if (appState.isBoostActive) {
+    showToast('⚡ Profile Boost is currently ACTIVE!');
+    return;
+  }
+  if (!appState.isVip) {
+    openPaywall('boost_upgrade');
+    return;
+  }
+  if (typeof startBoost === 'function') {
+    startBoost();
+    renderProfileScreen();
+  } else {
+    showToast('⚡ Profile Boost activated for 30 minutes!');
+  }
+}
