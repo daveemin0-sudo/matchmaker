@@ -259,6 +259,7 @@ if (document.readyState === 'loading') {
 }
 
 function initMainApp() {
+  if (typeof initUserPresenceTracking === 'function') initUserPresenceTracking();
   if (isRealUserLoggedIn()) {
     // Purge any guest/demo dummy AI profiles so the logged-in user only interacts with 100% real users
     matchedUsers = (matchedUsers || []).filter(u => !DUMMY_USER_IDS.includes(u.id));
@@ -2498,6 +2499,127 @@ function renderNewMatchesBubbles() {
   });
 }
 
+// ==========================================================
+// REAL PRESENCE & ONLINE STATUS TRACKING
+// ==========================================================
+const _presenceCache = {};
+let _activePresenceListener = null;
+
+function formatLastSeen(timestampMs) {
+  if (!timestampMs || timestampMs <= 0) return 'Offline';
+  const diffSec = Math.floor((Date.now() - timestampMs) / 1000);
+  if (diffSec < 120) return 'Active just now';
+  if (diffSec < 3600) return `Active ${Math.floor(diffSec / 60)}m ago`;
+  if (diffSec < 86400) return `Active ${Math.floor(diffSec / 3600)}h ago`;
+  if (diffSec < 172800) return 'Active yesterday';
+  const days = Math.floor(diffSec / 86400);
+  if (days < 7) return `Active ${days}d ago`;
+  return 'Offline';
+}
+
+function getUserOnlineStatus(partnerOrId) {
+  let partner = null;
+  let id = '';
+  if (typeof partnerOrId === 'string') {
+    id = partnerOrId;
+    partner = (typeof matchedUsers !== 'undefined' ? matchedUsers : []).find(u => u.id === id) ||
+              (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA : []).find(u => u.id === id) ||
+              {};
+  } else if (partnerOrId && typeof partnerOrId === 'object') {
+    partner = partnerOrId;
+    id = partner.id || '';
+  }
+
+  // 1. Live presence cache from Firestore
+  if (id && _presenceCache[id]) {
+    const cached = _presenceCache[id];
+    const isRecentlyActive = cached.lastSeen && (Date.now() - cached.lastSeen < 4 * 60 * 1000);
+    const isOnline = Boolean(cached.isOnline && isRecentlyActive);
+    return {
+      isOnline,
+      label: isOnline ? 'Active now' : formatLastSeen(cached.lastSeen),
+      lastSeen: cached.lastSeen
+    };
+  }
+
+  // 2. Real Firestore user profile document
+  if (partner && (partner.lastSeen || partner.isOnline !== undefined)) {
+    let lastSeenMs = 0;
+    if (typeof partner.lastSeen === 'number') lastSeenMs = partner.lastSeen;
+    else if (partner.lastSeen?.toMillis) lastSeenMs = partner.lastSeen.toMillis();
+    else if (partner.lastSeen?.seconds) lastSeenMs = partner.lastSeen.seconds * 1000;
+    else if (typeof partner.lastSeen === 'string') lastSeenMs = new Date(partner.lastSeen).getTime();
+
+    const isRecentlyActive = lastSeenMs && (Date.now() - lastSeenMs < 4 * 60 * 1000);
+    const isOnline = Boolean(partner.isOnline && isRecentlyActive);
+    return {
+      isOnline,
+      label: isOnline ? 'Active now' : formatLastSeen(lastSeenMs),
+      lastSeen: lastSeenMs
+    };
+  }
+
+  // 3. Mock/catalog profiles: deterministic presence based on ID hash (never rolls random coin toss)
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
+  }
+  const absHash = Math.abs(hash);
+  // Realistic ratio: ~15% active now, remainder with realistic past activity
+  const isOnline = (absHash % 7 === 0);
+  if (isOnline) {
+    return { isOnline: true, label: 'Active now', lastSeen: Date.now() };
+  } else {
+    const hoursAgo = (absHash % 36) + 1;
+    const simulatedLastSeen = Date.now() - hoursAgo * 3600 * 1000;
+    return { isOnline: false, label: formatLastSeen(simulatedLastSeen), lastSeen: simulatedLastSeen };
+  }
+}
+
+function updateUserPresence(isOnline) {
+  if (typeof fbDb === 'undefined' || !fbDb || typeof fbAuth === 'undefined' || !fbAuth?.currentUser) return;
+  const uid = fbAuth.currentUser.uid;
+  fbDb.collection('users').doc(uid).set({
+    isOnline: Boolean(isOnline),
+    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true }).catch(() => {});
+}
+
+function initUserPresenceTracking() {
+  if (typeof fbAuth === 'undefined' || !fbAuth) return;
+  fbAuth.onAuthStateChanged(user => {
+    if (user) {
+      updateUserPresence(true);
+      if (!window.__presenceHeartbeat) {
+        window.__presenceHeartbeat = setInterval(() => {
+          if (document.visibilityState === 'visible') {
+            updateUserPresence(true);
+          }
+        }, 150000);
+      }
+    } else {
+      if (window.__presenceHeartbeat) {
+        clearInterval(window.__presenceHeartbeat);
+        window.__presenceHeartbeat = null;
+      }
+    }
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      updateUserPresence(true);
+    } else {
+      updateUserPresence(false);
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    updateUserPresence(false);
+  });
+}
+window.initUserPresenceTracking = initUserPresenceTracking;
+window.getUserOnlineStatus = getUserOnlineStatus;
+
 function _buildConvoItemHtml(u, filterQuery) {
   const hist = conversations[u.id]?.messages || [];
   const last = hist[hist.length - 1];
@@ -2528,7 +2650,8 @@ function _buildConvoItemHtml(u, filterQuery) {
 
   const unreadCount = getUnreadMessagesCount(u.id);
   const isUnread = unreadCount > 0;
-  const isOnline = Math.random() > 0.5;
+  const userStatus = getUserOnlineStatus(u);
+  const isOnline = userStatus.isOnline;
 
   let timeDisplay = '';
   let lastTimeMs = 0;
@@ -3084,7 +3207,48 @@ function openChat(profileId, { fromHistory = false } = {}) {
     }
   }
   if (statusEl) {
-    statusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+    const currentStatus = getUserOnlineStatus(profileId);
+    if (currentStatus.isOnline) {
+      statusEl.className = 'chat-partner-status is-online';
+      statusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+    } else {
+      statusEl.className = 'chat-partner-status';
+      statusEl.innerHTML = escHtml(currentStatus.label);
+    }
+  }
+
+  // Subscribe to partner live presence changes if on Firebase
+  if (typeof _activePresenceListener === 'function') {
+    _activePresenceListener();
+    _activePresenceListener = null;
+  }
+  if (typeof fbDb !== 'undefined' && fbDb && profileId) {
+    try {
+      _activePresenceListener = fbDb.collection('users').doc(profileId).onSnapshot(doc => {
+        if (doc && doc.exists) {
+          const d = doc.data();
+          let lastSeenMs = 0;
+          if (typeof d.lastSeen === 'number') lastSeenMs = d.lastSeen;
+          else if (d.lastSeen?.toMillis) lastSeenMs = d.lastSeen.toMillis();
+          else if (d.lastSeen?.seconds) lastSeenMs = d.lastSeen.seconds * 1000;
+          _presenceCache[profileId] = {
+            isOnline: Boolean(d.isOnline),
+            lastSeen: lastSeenMs
+          };
+          const updated = getUserOnlineStatus(profileId);
+          const currentStatusEl = document.getElementById('chatPartnerStatus');
+          if (currentStatusEl && appState.currentChatId === profileId) {
+            if (updated.isOnline) {
+              currentStatusEl.className = 'chat-partner-status is-online';
+              currentStatusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+            } else {
+              currentStatusEl.className = 'chat-partner-status';
+              currentStatusEl.innerHTML = escHtml(updated.label);
+            }
+          }
+        }
+      }, err => console.warn('Presence listener:', err.message));
+    } catch (e) {}
   }
 
   // Reset emoji panel and input
@@ -3682,10 +3846,14 @@ function renderChatThread() {
     } else if (msg.imageUrl || msg.videoUrl) {
       const isVideoMsg = Boolean(msg.videoUrl || msg.isVideo);
       const mediaSrc = msg.videoUrl || msg.imageUrl;
+      const rawCap = typeof msg.text === 'string' ? msg.text.trim() : '';
+      const hasCaption = Boolean(rawCap && rawCap !== 'Photo' && rawCap !== 'Video' && rawCap !== '📷 Photo' && rawCap !== '📹 Video');
+      const captionText = hasCaption ? rawCap : '';
+
       bubbleHtml = `
         <div class="msg-image-card-container ${isSent ? 'sent' : 'received'}">
           ${isSent ? `<button class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg></button>` : ''}
-          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'}" onclick="openImageLightbox('${escHtml(mediaSrc)}', '${msgId}', ${isVideoMsg})" title="Tap to view ${isVideoMsg ? 'video' : 'photo'}" ${pressEvents}>
+          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'} ${hasCaption ? 'has-caption' : ''}" onclick="openImageLightbox('${escHtml(mediaSrc)}', '${msgId}', ${isVideoMsg})" title="Tap to view ${isVideoMsg ? 'video' : 'photo'}" ${pressEvents}>
             ${quoteHtml}
             <div class="msg-image-wrap">
               ${isVideoMsg ?
@@ -3694,10 +3862,21 @@ function renderChatThread() {
                 `<img src="${escHtml(mediaSrc)}" class="msg-chat-img" loading="lazy" alt="Photo">
                  <div class="msg-img-hd-badge">HD</div>`
               }
-              <div class="msg-img-overlay-meta">
-                ${timeBadgeHtml}
-              </div>
+              ${!hasCaption ? `
+                <div class="msg-img-overlay-meta">
+                  ${timeBadgeHtml}
+                </div>
+              ` : ''}
             </div>
+            ${hasCaption ? `
+              <div class="msg-caption-wrap">
+                <div class="msg-caption-text">${escHtml(captionText)}</div>
+                <div class="msg-caption-meta">
+                  <span class="msg-caption-time">${timeStr}</span>
+                  ${receiptHtml}
+                </div>
+              </div>
+            ` : ''}
           </div>
           ${!isSent ? `<button class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg></button>` : ''}
         </div>`;
@@ -4254,6 +4433,26 @@ function openImageLightbox(src, msgId, isVideo = false) {
   const metaEl = document.getElementById('lightboxTimeMeta');
   if (nameEl) nameEl.textContent = senderName;
   if (metaEl) metaEl.textContent = timeMeta;
+
+  // Display caption if message has one
+  const capBar = document.getElementById('lightboxCaptionBar');
+  const capText = document.getElementById('lightboxCaptionText');
+  if (capBar && capText) {
+    let captionStr = '';
+    if (msgId) {
+      const { msg } = getMessageInfo(msgId);
+      const rawText = typeof msg?.text === 'string' ? msg.text.trim() : '';
+      if (rawText && rawText !== 'Photo' && rawText !== 'Video' && rawText !== '📷 Photo' && rawText !== '📹 Video') {
+        captionStr = rawText;
+      }
+    }
+    if (captionStr) {
+      capText.textContent = captionStr;
+      capBar.style.display = 'block';
+    } else {
+      capBar.style.display = 'none';
+    }
+  }
 
   // Toggle image vs video
   if (_lightboxIsVideo) {
@@ -5109,7 +5308,7 @@ async function confirmMediaSend() {
       const partnerPayloadUrl = cloudUrl || (!isVideo2 && localDataUrl && localDataUrl.startsWith('data:') ? localDataUrl : '');
       if (partnerPayloadUrl && typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
         const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-        const msgText = isVideo2 ? 'Video' : (captionForMsg ? captionForMsg : 'Photo');
+        const msgText = isVideo2 ? (captionForMsg || 'Video') : (captionForMsg || 'Photo');
         await sendRealtimeMessage(matchId, msgText, false, '', isVideo2 ? '' : partnerPayloadUrl, null, isVideo2 ? partnerPayloadUrl : '', isVideo2, localMsgId2);
       }
       URL.revokeObjectURL(localPreviewUrl2);
