@@ -634,25 +634,80 @@ body::before {
   border-radius: var(--r-pill) !important;
 }
 
-/* Conversation List */
-.convo-item {
-  background: rgba(255, 255, 255, 0.04) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
+/* Conversation List (Clean, Solid, No blurry bleed-through) */
+.convo-swipe-wrapper {
+  position: relative !important;
+  overflow: hidden !important;
+  width: 100% !important;
+  border-radius: 18px !important;
+  margin-bottom: 10px !important;
+  background: #100B19 !important;
   border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  border-radius: 22px !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
+}
+
+.convo-swipe-actions {
+  position: absolute !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  display: flex !important;
+  align-items: stretch !important;
+  z-index: 1 !important;
+  border-radius: 0 18px 18px 0 !important;
+  overflow: hidden !important;
+}
+
+.convo-action-btn {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 72px !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  gap: 4px !important;
+  padding: 0 !important;
+  transition: opacity 0.15s ease !important;
+  user-select: none !important;
+}
+
+.convo-archive-btn {
+  background: linear-gradient(135deg, #2D2244, #1B142A) !important;
+  color: #F4C550 !important;
+}
+
+.convo-delete-btn {
+  background: linear-gradient(135deg, #FF2E70, #C41C48) !important;
+  color: #FFFFFF !important;
+}
+
+.convo-swipe-wrapper .convo-item,
+.convo-item {
+  background: #171122 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  border-radius: 18px !important;
   padding: 14px 16px !important;
   display: flex !important;
   align-items: center !important;
   gap: 14px !important;
-  margin-bottom: 10px !important;
+  margin: 0 !important;
+  width: 100% !important;
+  box-sizing: border-box !important;
   cursor: pointer !important;
-  transition: all var(--t-fast) var(--ease-out) !important;
+  position: relative !important;
+  z-index: 2 !important;
+  transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), background 0.15s ease !important;
+  will-change: transform !important;
 }
+
+.convo-swipe-wrapper .convo-item:hover,
 .convo-item:hover {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 46, 112, 0.3) !important;
-  transform: translateX(3px) !important;
+  background: #1E162B !important;
 }
 
 .convo-avatar {
