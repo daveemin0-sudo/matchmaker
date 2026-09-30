@@ -17,7 +17,7 @@ const firebaseConfig = {
 
 // 2. YOUR PAYSTACK PUBLIC KEY
 // Replace with your key from https://dashboard.paystack.com (e.g. pk_test_xxxx or pk_live_xxxx)
-const PAYSTACK_PUBLIC_KEY = "pk_live_REPLACE_WITH_YOUR_LIVE_PAYSTACK_PUBLIC_KEY";
+const PAYSTACK_PUBLIC_KEY = "pk_test_64c0226b47c23fcdf84f6354d3cc1868e699e62b";
 
 // 3. YOUR WEBHOOK SERVER URL
 // Defaults to the deployed Render backend so local Live Server (port 5500) and production
@@ -775,7 +775,7 @@ function triggerPaystackPayment(planName, amountInNaira, onSuccessCallback) {
     showToast("VIP payments are not configured for production yet.", "error");
     return;
   }
-  const customerEmail = fbAuth.currentUser.email || window.currentUser?.email || '';
+  const customerEmail = fbAuth.currentUser.email || window.currentUser?.email || (fbAuth.currentUser.phoneNumber ? `${fbAuth.currentUser.phoneNumber.replace(/[^0-9]/g, '')}@hookmebysam.com` : 'user@hookmebysam.com');
   if (!customerEmail) {
     showToast("Add an email address to your account before purchasing VIP.", "error");
     return;
