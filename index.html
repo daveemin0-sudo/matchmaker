@@ -37,8 +37,8 @@
   </style>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔥</text></svg>">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=34.0">
-  <link rel="stylesheet" href="premium.css?v=24.0">
+  <link rel="stylesheet" href="style.css?v=35.0">
+  <link rel="stylesheet" href="premium.css?v=35.0">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
@@ -2303,6 +2303,134 @@
         <button class="accent-btn" onclick="closeSafetyToolkitModal()" style="width:100%;margin-top:16px">Done</button>
       </div>
     </div>
+
+  <!-- =========================================================
+       PWA INSTALL BANNER — "Add to Home Screen" prompt
+       ========================================================= -->
+  <div id="pwaBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99990;padding:0 16px 16px;pointer-events:none">
+    <div class="pwa-banner-card" style="pointer-events:auto">
+      <div class="pwa-banner-icon">
+        <img src="logo.png" alt="hookmebysam" onerror="this.textContent='🔥';this.style.fontSize='28px'">
+      </div>
+      <div class="pwa-banner-text">
+        <div class="pwa-banner-title">Add to Home Screen</div>
+        <div class="pwa-banner-sub">Get the full app experience — faster, offline-ready</div>
+      </div>
+      <div class="pwa-banner-actions">
+        <button class="pwa-banner-dismiss" onclick="dismissPwaBanner()" aria-label="Dismiss">✕</button>
+        <button class="pwa-banner-install" id="pwaBannerInstallBtn" onclick="triggerPwaInstall()">Install</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       ONBOARDING WIZARD — Full-screen for new users
+       ========================================================= -->
+  <div id="onboardingWizard" style="display:none;position:fixed;inset:0;z-index:99980;background:#07040C;overflow-y:auto">
+    <!-- Step indicator -->
+    <div class="ob-header">
+      <button class="ob-skip-btn" onclick="skipOnboarding()" id="obSkipBtn">Skip</button>
+      <div class="ob-step-dots" id="obStepDots">
+        <span class="ob-dot active"></span>
+        <span class="ob-dot"></span>
+        <span class="ob-dot"></span>
+        <span class="ob-dot"></span>
+      </div>
+      <div style="width:48px"></div>
+    </div>
+
+    <!-- Step 1: Welcome + choose interests -->
+    <div class="ob-step active" id="obStep1">
+      <div class="ob-hero-emoji">✨</div>
+      <h1 class="ob-title">Welcome to <span style="background:linear-gradient(135deg,#D13A63,#E3B34D);-webkit-background-clip:text;-webkit-text-fill-color:transparent">hookmebysam</span></h1>
+      <p class="ob-sub">Let's set up your profile so you can start meeting amazing people nearby.</p>
+      <div class="ob-name-section">
+        <label class="ob-label">What should we call you?</label>
+        <input class="ob-input" id="obNameInput" type="text" placeholder="Your first name" autocomplete="given-name" maxlength="30">
+      </div>
+      <div class="ob-name-section" style="margin-top:14px">
+        <label class="ob-label">How old are you?</label>
+        <input class="ob-input" id="obAgeInput" type="number" placeholder="Age (18+)" min="18" max="99" inputmode="numeric">
+      </div>
+      <button class="ob-next-btn" onclick="obNext(1)">Continue <span>→</span></button>
+    </div>
+
+    <!-- Step 2: Gender + looking for -->
+    <div class="ob-step" id="obStep2">
+      <div class="ob-hero-emoji">👤</div>
+      <h1 class="ob-title">Tell us about yourself</h1>
+      <p class="ob-sub">This helps us show you the most compatible profiles.</p>
+      <div class="ob-name-section">
+        <label class="ob-label">I am a...</label>
+        <div class="ob-gender-grid">
+          <div class="ob-gender-opt selected" data-val="Male" onclick="selectObGender(this)">👨 Man</div>
+          <div class="ob-gender-opt" data-val="Female" onclick="selectObGender(this)">👩 Woman</div>
+          <div class="ob-gender-opt" data-val="Non-binary" onclick="selectObGender(this)">🌈 Non-binary</div>
+          <div class="ob-gender-opt" data-val="Other" onclick="selectObGender(this)">✨ Other</div>
+        </div>
+      </div>
+      <div class="ob-name-section" style="margin-top:16px">
+        <label class="ob-label">I'm interested in...</label>
+        <div class="ob-gender-grid">
+          <div class="ob-gender-opt" data-val="Men" onclick="selectObInterestIn(this)">👨 Men</div>
+          <div class="ob-gender-opt" data-val="Women" onclick="selectObInterestIn(this)">👩 Women</div>
+          <div class="ob-gender-opt" data-val="Everyone" onclick="selectObInterestIn(this)">🌍 Everyone</div>
+        </div>
+      </div>
+      <button class="ob-next-btn" onclick="obNext(2)">Continue <span>→</span></button>
+    </div>
+
+    <!-- Step 3: Pick interests -->
+    <div class="ob-step" id="obStep3">
+      <div class="ob-hero-emoji">🎯</div>
+      <h1 class="ob-title">What are you into?</h1>
+      <p class="ob-sub">Pick up to 5 passions — this is what sparks conversations.</p>
+      <div class="ob-interests-grid" id="obInterestsGrid">
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🎵 Music</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">✈️ Travel</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">💪 Fitness</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🎨 Art</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🍕 Food</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🎮 Gaming</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">📚 Books</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">👗 Fashion</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🌿 Nature</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">📈 Business</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🎬 Movies</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">☕ Coffee</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">💃 Dancing</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">💻 Tech</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🧘 Yoga</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🏖️ Beach</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🍷 Wine</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🎤 Afrobeats</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🏋️ Sports</span>
+        <span class="ob-interest-tag" onclick="toggleObInterest(this)">📸 Photography</span>
+      </div>
+      <div class="ob-interest-count" id="obInterestCount">0 / 5 selected</div>
+      <button class="ob-next-btn" onclick="obNext(3)">Continue <span>→</span></button>
+    </div>
+
+    <!-- Step 4: Bio + photo hint -->
+    <div class="ob-step" id="obStep4">
+      <div class="ob-hero-emoji">🔥</div>
+      <h1 class="ob-title">One last thing</h1>
+      <p class="ob-sub">A great bio gets 3× more matches. Tell people what makes you special.</p>
+      <div class="ob-name-section">
+        <label class="ob-label">Your bio</label>
+        <textarea class="ob-input" id="obBioInput" placeholder="What makes you unique? What are you looking for?" style="height:100px;resize:none;padding:14px" maxlength="200"></textarea>
+        <div class="ob-char-count"><span id="obBioCount">0</span>/200</div>
+      </div>
+      <div class="ob-photo-hint">
+        <div class="ob-photo-hint-icon">📸</div>
+        <div>
+          <div style="font-weight:700;font-size:0.9rem;color:var(--txt-primary)">Add photos later in Profile</div>
+          <div style="font-size:0.8rem;color:var(--txt-muted)">Profiles with photos get 8× more matches</div>
+        </div>
+      </div>
+      <button class="ob-next-btn" onclick="obFinish()" id="obFinishBtn">Start Matching 🔥</button>
+    </div>
+  </div>
 
 </body>
 </html>

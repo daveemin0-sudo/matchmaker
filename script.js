@@ -12198,3 +12198,496 @@ function selectVideoQuality(quality) {
   closeVideoQualityModal();
 }
 window.selectVideoQuality = selectVideoQuality;
+
+// ==========================================================
+// HAPTIC FEEDBACK — Unified helper
+// ==========================================================
+function haptic(type = 'light') {
+  if (!navigator.vibrate) return;
+  try {
+    switch (type) {
+      case 'light':   navigator.vibrate(8);          break;
+      case 'medium':  navigator.vibrate(18);         break;
+      case 'heavy':   navigator.vibrate(35);         break;
+      case 'success': navigator.vibrate([10, 40, 15]);  break;
+      case 'match':   navigator.vibrate([20, 40, 30, 60, 20]); break;
+      case 'swipe':   navigator.vibrate(12);         break;
+      case 'error':   navigator.vibrate([30, 20, 30]); break;
+      default:        navigator.vibrate(10);
+    }
+  } catch (_) {}
+}
+window.haptic = haptic;
+
+// Patch pulseClick to add haptic
+const _origPulseClick = window.pulseClick;
+window.pulseClick = function(el) {
+  haptic('light');
+  if (typeof _origPulseClick === 'function') _origPulseClick(el);
+};
+
+// ==========================================================
+// SKELETON LOADING CARDS
+// ==========================================================
+function showSkeletonCards() {
+  const stack = document.getElementById('cardStack');
+  const emptyState = document.getElementById('stackEmpty');
+  const controls = document.getElementById('actionRow');
+  if (!stack) return;
+
+  if (emptyState) emptyState.style.display = 'none';
+  if (controls) { controls.style.opacity = '0.3'; controls.style.pointerEvents = 'none'; }
+
+  stack.innerHTML = `
+    <div class="skeleton-card sk-back">
+      <div class="sk-photo sk-shimmer"></div>
+      <div class="sk-info">
+        <div class="sk-line wide sk-shimmer"></div>
+        <div class="sk-tags">
+          <div class="sk-tag sk-shimmer"></div>
+          <div class="sk-tag sk-shimmer"></div>
+          <div class="sk-tag sk-shimmer"></div>
+        </div>
+        <div class="sk-line short sk-shimmer"></div>
+      </div>
+    </div>
+    <div class="skeleton-card sk-front">
+      <div class="sk-photo sk-shimmer"></div>
+      <div class="sk-info">
+        <div class="sk-line wide sk-shimmer"></div>
+        <div class="sk-tags">
+          <div class="sk-tag sk-shimmer"></div>
+          <div class="sk-tag sk-shimmer"></div>
+          <div class="sk-tag sk-shimmer"></div>
+        </div>
+        <div class="sk-line short sk-shimmer"></div>
+      </div>
+    </div>
+  `;
+}
+window.showSkeletonCards = showSkeletonCards;
+
+// Patch loadProfilesForDiscovery to show skeletons first
+const _origLoadProfiles = window.loadProfilesForDiscovery;
+window.loadProfilesForDiscovery = async function() {
+  if (isRealUserLoggedIn()) {
+    showSkeletonCards();
+  }
+  if (typeof _origLoadProfiles === 'function') {
+    return _origLoadProfiles.call(this, ...arguments);
+  }
+};
+
+// ==========================================================
+// ONBOARDING WIZARD — 4-step new-user flow
+// ==========================================================
+const _obState = {
+  currentStep: 1,
+  name: '',
+  age: '',
+  gender: 'Male',
+  interestedIn: '',
+  interests: [],
+  bio: ''
+};
+
+function showOnboardingWizard(prefillName) {
+  const wiz = document.getElementById('onboardingWizard');
+  if (!wiz) return;
+  // Pre-fill name if provided from Google
+  if (prefillName) {
+    const nameInput = document.getElementById('obNameInput');
+    if (nameInput) nameInput.value = prefillName;
+    _obState.name = prefillName;
+  }
+  // Reset to step 1
+  _obState.currentStep = 1;
+  wiz.style.display = 'block';
+  _obShowStep(1);
+
+  // Bio char counter
+  const bioInput = document.getElementById('obBioInput');
+  if (bioInput) {
+    bioInput.addEventListener('input', () => {
+      const count = document.getElementById('obBioCount');
+      if (count) count.textContent = bioInput.value.length;
+    });
+  }
+}
+window.showOnboardingWizard = showOnboardingWizard;
+
+function _obShowStep(stepNum) {
+  // Hide all steps
+  document.querySelectorAll('.ob-step').forEach(s => s.classList.remove('active'));
+  // Show target
+  const target = document.getElementById('obStep' + stepNum);
+  if (target) target.classList.add('active');
+
+  // Update dots
+  const dots = document.querySelectorAll('.ob-dot');
+  dots.forEach((d, i) => d.classList.toggle('active', i === stepNum - 1));
+
+  // Show/hide skip button
+  const skipBtn = document.getElementById('obSkipBtn');
+  if (skipBtn) skipBtn.style.display = stepNum < 4 ? 'block' : 'none';
+
+  _obState.currentStep = stepNum;
+  haptic('light');
+}
+
+function selectObGender(el) {
+  document.querySelectorAll('#obStep2 .ob-name-section:first-of-type .ob-gender-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  _obState.gender = el.dataset.val;
+  haptic('light');
+}
+window.selectObGender = selectObGender;
+
+function selectObInterestIn(el) {
+  // Only within the "interested in" grid (second .ob-name-section in step2)
+  const grid = el.closest('.ob-gender-grid');
+  if (grid) grid.querySelectorAll('.ob-gender-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+  _obState.interestedIn = el.dataset.val;
+  haptic('light');
+}
+window.selectObInterestIn = selectObInterestIn;
+
+function toggleObInterest(el) {
+  const isSelected = el.classList.contains('selected');
+  if (!isSelected && _obState.interests.length >= 5) {
+    haptic('error');
+    el.style.animation = 'none';
+    el.offsetWidth; // force reflow
+    el.style.animation = 'obEmojiPop 0.3s ease';
+    return;
+  }
+  haptic('light');
+  el.classList.toggle('selected');
+  if (el.classList.contains('selected')) {
+    _obState.interests.push(el.textContent.trim());
+  } else {
+    _obState.interests = _obState.interests.filter(i => i !== el.textContent.trim());
+  }
+  const countEl = document.getElementById('obInterestCount');
+  if (countEl) countEl.textContent = `${_obState.interests.length} / 5 selected`;
+}
+window.toggleObInterest = toggleObInterest;
+
+function obNext(fromStep) {
+  if (fromStep === 1) {
+    const nameInput = document.getElementById('obNameInput');
+    const ageInput  = document.getElementById('obAgeInput');
+    const name = (nameInput?.value || '').trim();
+    const age  = parseInt(ageInput?.value || '0', 10);
+    if (!name) {
+      haptic('error');
+      if (nameInput) { nameInput.style.borderColor = '#D13A63'; nameInput.focus(); }
+      showToast('Please enter your name 😊', 'error');
+      return;
+    }
+    if (!age || age < 18 || age > 99) {
+      haptic('error');
+      if (ageInput) { ageInput.style.borderColor = '#D13A63'; ageInput.focus(); }
+      showToast('Please enter a valid age (18+)', 'error');
+      return;
+    }
+    _obState.name = name;
+    _obState.age  = age;
+    _obShowStep(2);
+  } else if (fromStep === 2) {
+    // Gender is pre-selected, just move on
+    _obShowStep(3);
+  } else if (fromStep === 3) {
+    _obShowStep(4);
+  }
+}
+window.obNext = obNext;
+
+async function obFinish() {
+  const bioInput = document.getElementById('obBioInput');
+  _obState.bio = (bioInput?.value || '').trim();
+
+  const btn = document.getElementById('obFinishBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+
+  // Apply to currentUser
+  if (_obState.name)  currentUser.name = _obState.name;
+  if (_obState.age)   currentUser.age  = _obState.age;
+  if (_obState.gender) currentUser.gender = _obState.gender;
+  if (_obState.bio)   currentUser.bio  = _obState.bio;
+  if (_obState.interests.length) currentUser.interests = _obState.interests;
+  if (_obState.interestedIn) currentUser.interestedIn = _obState.interestedIn;
+
+  currentUser.displayName = currentUser.name;
+  appState.isLoggedIn = true;
+  saveToStorage();
+
+  // Save to Firestore
+  if (typeof saveUserProfileToFirestore === 'function') {
+    try { await saveUserProfileToFirestore(currentUser); } catch (_) {}
+  }
+
+  haptic('success');
+
+  // Close wizard + go to discovery
+  const wiz = document.getElementById('onboardingWizard');
+  if (wiz) {
+    wiz.style.transition = 'opacity 0.4s';
+    wiz.style.opacity = '0';
+    setTimeout(() => { wiz.style.display = 'none'; wiz.style.opacity = ''; }, 420);
+  }
+
+  showScreen('discovery');
+  initMainApp();
+  setTimeout(() => {
+    showToast(`🔥 Welcome, ${currentUser.name}! Let's find your match!`, 'gold');
+    // Show PWA banner after onboarding
+    setTimeout(tryShowPwaBanner, 3500);
+  }, 600);
+}
+window.obFinish = obFinish;
+
+function skipOnboarding() {
+  haptic('light');
+  const wiz = document.getElementById('onboardingWizard');
+  if (wiz) { wiz.style.display = 'none'; }
+  appState.isLoggedIn = true;
+  saveToStorage();
+  showScreen('discovery');
+  initMainApp();
+}
+window.skipOnboarding = skipOnboarding;
+
+// Override handleGoogleLoginSuccess for brand new users to use the wizard
+const _origGoogleSuccess = window.handleGoogleLoginSuccess;
+window.handleGoogleLoginSuccess = async function(user) {
+  // Run the original function
+  if (typeof _origGoogleSuccess === 'function') {
+    await _origGoogleSuccess(user);
+  }
+  // After original runs, if user went to 'signup' screen, show wizard instead
+  if (appState.currentScreen === 'signup') {
+    // This is a new Google user who was redirected to signup
+    // Show our better onboarding wizard instead
+    const cleanName = currentUser.name || (user.displayName || '').split(' ')[0] || '';
+    setTimeout(() => {
+      showScreen('login'); // go back to hide the old signup screen
+      document.getElementById('loginScreen')?.classList.remove('active');
+      showOnboardingWizard(cleanName);
+    }, 100);
+  }
+};
+
+// ==========================================================
+// PWA INSTALL BANNER
+// ==========================================================
+let _pwaInstallEvent = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _pwaInstallEvent = e;
+  // Only show after user is logged in and has been using app for a bit
+  setTimeout(tryShowPwaBanner, 8000);
+});
+
+function tryShowPwaBanner() {
+  // Don't show if: already installed, dismissed before, no install event
+  if (!_pwaInstallEvent) return;
+  if (localStorage.getItem('hmbs_pwa_dismissed') === '1') return;
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  if (!appState.isLoggedIn) return;
+
+  const banner = document.getElementById('pwaBanner');
+  if (banner) banner.style.display = 'block';
+}
+window.tryShowPwaBanner = tryShowPwaBanner;
+
+function dismissPwaBanner() {
+  haptic('light');
+  const banner = document.getElementById('pwaBanner');
+  if (banner) {
+    banner.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+    banner.style.transform = 'translateY(100%)';
+    banner.style.opacity = '0';
+    setTimeout(() => { banner.style.display = 'none'; }, 320);
+  }
+  localStorage.setItem('hmbs_pwa_dismissed', '1');
+}
+window.dismissPwaBanner = dismissPwaBanner;
+
+async function triggerPwaInstall() {
+  haptic('medium');
+  if (!_pwaInstallEvent) {
+    // iOS fallback — show instructions
+    showToast('📱 Tap the Share button → "Add to Home Screen"', 'gold');
+    dismissPwaBanner();
+    return;
+  }
+  try {
+    _pwaInstallEvent.prompt();
+    const { outcome } = await _pwaInstallEvent.userChoice;
+    if (outcome === 'accepted') {
+      haptic('success');
+      showToast('🎉 App installed! Check your home screen', 'gold');
+    }
+    _pwaInstallEvent = null;
+  } catch (_) {}
+  dismissPwaBanner();
+}
+window.triggerPwaInstall = triggerPwaInstall;
+
+// Show PWA banner on app resume if conditions met
+window.addEventListener('focus', () => {
+  if (appState.isLoggedIn && _pwaInstallEvent) {
+    setTimeout(tryShowPwaBanner, 2000);
+  }
+});
+
+// ==========================================================
+// AI SMART ICEBREAKERS IN MATCH POPUP
+// ==========================================================
+const ICEBREAKER_TEMPLATES = [
+  { key: 'music',    lines: ['Your music taste is fire \uD83C\uDFB5 What\'s on your playlist right now?', 'Amapiano or Afrobeats for a first date vibe? \uD83C\uDFB7'] },
+  { key: 'food',     lines: ['Best suya spot in Lagos? I need recommendations \uD83E\uDD56', 'Tell me your go-to comfort food and I\'ll tell you mine \uD83D\uDE0B'] },
+  { key: 'travel',   lines: ['If you could travel anywhere tomorrow, where would you go? \u2708\uFE0F', 'Hidden gem spots in Nigeria you think I should visit?'] },
+  { key: 'fitness',  lines: ['Morning workout or evening grind? \uD83D\uDCAA', 'What keeps you consistent with fitness? Share the secret \uD83C\uDFCB\uFE0F'] },
+  { key: 'tech',     lines: ['Are you more a builder or a dreamer? \uD83D\uDCBB', 'What\'s the last app that genuinely impressed you?'] },
+  { key: 'books',    lines: ['Last book that changed your perspective? \uD83D\uDCDA', 'Fiction or non-fiction? And what\'s your pick right now?'] },
+  { key: 'gaming',   lines: ['PS5 or PC? And what are you playing lately? \uD83C\uDFAE', 'We should settle this with a game \u2014 what do you play?'] },
+  { key: 'fashion',  lines: ['Where do you shop? I need to upgrade my wardrobe \uD83D\uDE05', 'Describe your style in three emojis \uD83D\uDC57\u2728\uD83D\uDD25'] },
+  { key: 'default',  lines: [
+    'So what\'s a regular Tuesday evening look like for you? \uD83D\uDE0A',
+    'Hot take: pineapple on pizza \u2014 yes or absolutely not? \uD83C\uDF55',
+    'If we could do one thing together this weekend, what would it be? \uD83C\uDF1F',
+    'What\'s something on your bucket list that most people don\'t know about?',
+    'Describe your perfect Sunday in Lagos \uD83C\uDF05'
+  ]}
+];
+
+
+function generateIcebreakers(profile) {
+  // Match icebreakers to profile interests
+  const tags = (Array.isArray(profile?.tags) ? profile.tags : []).map(t => t.toLowerCase());
+  const bio  = (profile?.bio || '').toLowerCase();
+  let chosen = [];
+
+  for (const tmpl of ICEBREAKER_TEMPLATES) {
+    if (tmpl.key === 'default') continue;
+    const match = tags.some(t => t.includes(tmpl.key)) || bio.includes(tmpl.key);
+    if (match) {
+      const line = tmpl.lines[Math.floor(Math.random() * tmpl.lines.length)];
+      chosen.push(line);
+      if (chosen.length >= 2) break;
+    }
+  }
+
+  // Fill up to 3 with defaults
+  const defaults = [...ICEBREAKER_TEMPLATES.find(t => t.key === 'default').lines];
+  while (chosen.length < 3 && defaults.length) {
+    const idx = Math.floor(Math.random() * defaults.length);
+    chosen.push(defaults.splice(idx, 1)[0]);
+  }
+
+  return chosen.slice(0, 3);
+}
+window.generateIcebreakers = generateIcebreakers;
+
+// Patch triggerMatchPopup to inject icebreakers
+const _origTriggerMatchPopup = window.triggerMatchPopup;
+window.triggerMatchPopup = function(profile) {
+  haptic('match');
+
+  if (typeof _origTriggerMatchPopup === 'function') {
+    _origTriggerMatchPopup(profile);
+  }
+
+  // Inject icebreaker chips into the match popup
+  const popup = document.getElementById('matchPopup');
+  if (!popup) return;
+
+  // Remove any previous icebreaker section
+  popup.querySelector('.icebreaker-section')?.remove();
+
+  const icebreakers = generateIcebreakers(profile);
+  if (!icebreakers.length) return;
+
+  const chipsHTML = icebreakers.map(line => `
+    <button class="icebreaker-chip" onclick="sendIcebreakerFromMatch('${escHtml(profile.id)}', this)">${escHtml(line)}</button>
+  `).join('');
+
+  const section = document.createElement('div');
+  section.className = 'icebreaker-section';
+  section.innerHTML = `
+    <div class="icebreaker-label">✨ Start the conversation</div>
+    <div class="icebreaker-chips">${chipsHTML}</div>
+  `;
+
+  // Insert before the button row in the popup
+  const btnsRow = popup.querySelector('.match-popup-btns');
+  if (btnsRow) {
+    btnsRow.parentNode.insertBefore(section, btnsRow);
+  } else {
+    const lastBtn = popup.querySelector('.match-send-btn, .accent-btn, button:last-of-type');
+    if (lastBtn) lastBtn.parentNode.insertBefore(section, lastBtn);
+    else popup.appendChild(section);
+  }
+};
+
+
+function sendIcebreakerFromMatch(partnerId, btn) {
+  haptic('medium');
+  if (!partnerId) return;
+  const text = btn?.textContent?.trim();
+  if (!text) return;
+  // Send the message
+  if (typeof sendIcebreaker === 'function') {
+    sendIcebreaker(text);
+    btn.style.background = 'rgba(33,176,107,0.2)';
+    btn.style.borderColor = 'rgba(33,176,107,0.5)';
+    btn.style.color = '#21B06B';
+    btn.disabled = true;
+    closeMatchPopup();
+    // Navigate to chat
+    openChat(partnerId);
+  } else {
+    // Fallback: add to conversation and navigate
+    if (!conversations[partnerId]) conversations[partnerId] = { messages: [] };
+    conversations[partnerId].messages.push({
+      id: 'ib_' + Date.now(),
+      sender: 'me',
+      text,
+      timestamp: Date.now(),
+      read: true
+    });
+    saveToStorage();
+    closeMatchPopup();
+    openChat(partnerId);
+  }
+}
+window.sendIcebreakerFromMatch = sendIcebreakerFromMatch;
+
+// ==========================================================
+// ENHANCED SWIPE HAPTICS
+// ==========================================================
+const _origDoSwipe = window.doSwipe;
+window.doSwipe = async function(dir) {
+  haptic(dir === 'right' ? 'medium' : 'swipe');
+  if (typeof _origDoSwipe === 'function') {
+    return _origDoSwipe.apply(this, arguments);
+  }
+};
+
+// ==========================================================
+// PWA BANNER — Show on first Discovery visit after login
+// ==========================================================
+(function patchInitMainAppForPwaBanner() {
+  const _origInitMainApp = window.initMainApp;
+  window.initMainApp = function() {
+    if (typeof _origInitMainApp === 'function') _origInitMainApp.apply(this, arguments);
+    // After 15 seconds in-app, try to show PWA banner
+    setTimeout(tryShowPwaBanner, 15000);
+  };
+})();
+
+

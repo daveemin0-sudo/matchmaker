@@ -1,4 +1,4 @@
-/* hookmebysam Service Worker v7
+/* hookmebysam Service Worker v35
    ------------------------------------------------------------------
    Strategy:
    - App shell (HTML/CSS/JS): NETWORK-FIRST. Always tries the network
