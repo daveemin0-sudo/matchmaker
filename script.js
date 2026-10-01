@@ -2565,6 +2565,9 @@ function renderMatchesView() {
   renderNewMatchesBubbles();
   renderConversationList();
   renderChatsInbox(); // keep chat inbox in sync
+  if (typeof syncMatchesPresenceListeners === 'function') {
+    syncMatchesPresenceListeners();
+  }
 }
 
 function renderNewMatchesBubbles() {
@@ -2596,11 +2599,12 @@ function renderNewMatchesBubbles() {
 // ==========================================================
 const _presenceCache = {};
 let _activePresenceListener = null;
+const _matchesPresenceListeners = {};
 
 function formatLastSeen(timestampMs) {
   if (!timestampMs || timestampMs <= 0) return 'Offline';
   const diffSec = Math.floor((Date.now() - timestampMs) / 1000);
-  if (diffSec < 120) return 'Active just now';
+  if (diffSec < 90) return 'Active just now';
   if (diffSec < 3600) return `Active ${Math.floor(diffSec / 60)}m ago`;
   if (diffSec < 86400) return `Active ${Math.floor(diffSec / 3600)}h ago`;
   if (diffSec < 172800) return 'Active yesterday';
@@ -2622,19 +2626,21 @@ function getUserOnlineStatus(partnerOrId) {
     id = partner.id || '';
   }
 
-  // 1. Live presence cache from Firestore
+  // 1. Live presence cache from Firestore (written by real active clients)
   if (id && _presenceCache[id]) {
     const cached = _presenceCache[id];
-    const isRecentlyActive = cached.lastSeen && (Date.now() - cached.lastSeen < 4 * 60 * 1000);
-    const isOnline = Boolean(cached.isOnline && isRecentlyActive);
+    const lastActivity = cached.lastSeen || cached.updatedAt || 0;
+    // Considered active if marked online and updated within the last 3.5 minutes
+    const isRecentlyActive = lastActivity && (Date.now() - lastActivity < 3.5 * 60 * 1000);
+    const isOnline = Boolean(cached.isOnline && (isRecentlyActive || !cached.lastSeen));
     return {
       isOnline,
-      label: isOnline ? 'Active now' : formatLastSeen(cached.lastSeen),
-      lastSeen: cached.lastSeen
+      label: isOnline ? 'Active now' : formatLastSeen(lastActivity),
+      lastSeen: lastActivity
     };
   }
 
-  // 2. Real Firestore user profile document
+  // 2. Real Firestore user profile document if available
   if (partner && (partner.lastSeen || partner.isOnline !== undefined)) {
     let lastSeenMs = 0;
     if (typeof partner.lastSeen === 'number') lastSeenMs = partner.lastSeen;
@@ -2642,7 +2648,7 @@ function getUserOnlineStatus(partnerOrId) {
     else if (partner.lastSeen?.seconds) lastSeenMs = partner.lastSeen.seconds * 1000;
     else if (typeof partner.lastSeen === 'string') lastSeenMs = new Date(partner.lastSeen).getTime();
 
-    const isRecentlyActive = lastSeenMs && (Date.now() - lastSeenMs < 4 * 60 * 1000);
+    const isRecentlyActive = lastSeenMs && (Date.now() - lastSeenMs < 3.5 * 60 * 1000);
     const isOnline = Boolean(partner.isOnline && isRecentlyActive);
     return {
       isOnline,
@@ -2651,47 +2657,120 @@ function getUserOnlineStatus(partnerOrId) {
     };
   }
 
-  // 3. Mock/catalog profiles: deterministic presence based on ID hash (never rolls random coin toss)
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 31 + id.charCodeAt(i)) & 0xffffffff;
-  }
-  const absHash = Math.abs(hash);
-  // Realistic ratio: ~15% active now, remainder with realistic past activity
-  const isOnline = (absHash % 7 === 0);
-  if (isOnline) {
-    return { isOnline: true, label: 'Active now', lastSeen: Date.now() };
-  } else {
-    const hoursAgo = (absHash % 36) + 1;
-    const simulatedLastSeen = Date.now() - hoursAgo * 3600 * 1000;
-    return { isOnline: false, label: formatLastSeen(simulatedLastSeen), lastSeen: simulatedLastSeen };
-  }
+  // 3. Genuine fallback: offline (NEVER generate fake online or fake random hours ago)
+  return {
+    isOnline: false,
+    label: 'Offline',
+    lastSeen: 0
+  };
 }
 
 function updateUserPresence(isOnline) {
   if (typeof fbDb === 'undefined' || !fbDb || typeof fbAuth === 'undefined' || !fbAuth?.currentUser) return;
   const uid = fbAuth.currentUser.uid;
+  const now = Date.now();
   const payload = {
     isOnline: Boolean(isOnline),
     lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
-    updatedAt: Date.now()
+    updatedAt: now
   };
 
   // Write to public presence collection (allowed for all signed-in users to read)
   fbDb.collection('presence').doc(uid).set(payload, { merge: true }).catch(e => console.warn('Presence write:', e.message));
 
-  // Also mirror to user profile doc
+  // Mirror to user profile doc
   fbDb.collection('users').doc(uid).set({
     isOnline: Boolean(isOnline),
-    lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+    lastSeen: firebase.firestore.FieldValue.serverTimestamp(),
+    updatedAt: now
   }, { merge: true }).catch(() => {});
 
   // Update in-memory presence cache for self
   _presenceCache[uid] = {
     isOnline: Boolean(isOnline),
-    lastSeen: Date.now()
+    lastSeen: now,
+    updatedAt: now
   };
 }
+
+let _lastPresenceActivityPing = 0;
+function pingUserPresenceActivity() {
+  const now = Date.now();
+  if (now - _lastPresenceActivityPing > 35000) {
+    _lastPresenceActivityPing = now;
+    if (document.visibilityState === 'visible') {
+      updateUserPresence(true);
+    }
+  }
+}
+
+function syncMatchesPresenceListeners() {
+  if (typeof fbDb === 'undefined' || !fbDb || typeof fbAuth === 'undefined' || !fbAuth?.currentUser) return;
+  const matchIds = new Set((matchedUsers || []).map(u => u.id).filter(id => id && String(id).length > 5));
+
+  // Unsubscribe listeners for removed matches
+  for (const [id, unsub] of Object.entries(_matchesPresenceListeners)) {
+    if (!matchIds.has(id)) {
+      try { unsub(); } catch (_) {}
+      delete _matchesPresenceListeners[id];
+    }
+  }
+
+  // Subscribe to live presence changes for every match
+  matchIds.forEach(id => {
+    if (_matchesPresenceListeners[id]) return;
+    try {
+      const unsub = fbDb.collection('presence').doc(id).onSnapshot(doc => {
+        if (doc && doc.exists) {
+          const pd = doc.data();
+          let lastSeenMs = 0;
+          if (typeof pd.lastSeen === 'number') lastSeenMs = pd.lastSeen;
+          else if (pd.lastSeen?.toMillis) lastSeenMs = pd.lastSeen.toMillis();
+          else if (pd.lastSeen?.seconds) lastSeenMs = pd.lastSeen.seconds * 1000;
+          else if (pd.updatedAt) lastSeenMs = pd.updatedAt;
+
+          const isRecentlyActive = pd.isOnline && (Date.now() - (lastSeenMs || pd.updatedAt || Date.now()) < 3.5 * 60 * 1000);
+          _presenceCache[id] = {
+            isOnline: Boolean(pd.isOnline && (isRecentlyActive || !lastSeenMs)),
+            lastSeen: lastSeenMs || pd.updatedAt || Date.now(),
+            updatedAt: pd.updatedAt || Date.now()
+          };
+
+          // Update chat header if active
+          if (appState.currentChatId === id) {
+            const statusEl = document.getElementById('chatPartnerStatus');
+            if (statusEl) {
+              const status = getUserOnlineStatus(id);
+              if (status.isOnline) {
+                statusEl.className = 'chat-partner-status is-online';
+                statusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+              } else {
+                statusEl.className = 'chat-partner-status';
+                statusEl.innerHTML = escHtml(status.label);
+              }
+            }
+          }
+
+          // Live update dot in conversation list
+          const convoWrapper = document.querySelector(`.convo-item[data-partner-id="${id}"] .convo-avatar-wrap`);
+          if (convoWrapper) {
+            const existingDot = convoWrapper.querySelector('.convo-online-dot');
+            const status = getUserOnlineStatus(id);
+            if (status.isOnline && !existingDot) {
+              const dot = document.createElement('div');
+              dot.className = 'convo-online-dot';
+              convoWrapper.appendChild(dot);
+            } else if (!status.isOnline && existingDot) {
+              existingDot.remove();
+            }
+          }
+        }
+      }, err => console.warn('Match presence error:', err.message));
+      _matchesPresenceListeners[id] = unsub;
+    } catch (_) {}
+  });
+}
+window.syncMatchesPresenceListeners = syncMatchesPresenceListeners;
 
 function initUserPresenceTracking() {
   if (typeof fbAuth === 'undefined' || !fbAuth) return;
@@ -2699,26 +2778,41 @@ function initUserPresenceTracking() {
     if (user) {
       updateUserPresence(true);
       if (!window.__presenceHeartbeat) {
+        // Fast 45s heartbeat to ensure real-time accuracy across devices
         window.__presenceHeartbeat = setInterval(() => {
           if (document.visibilityState === 'visible') {
             updateUserPresence(true);
           }
-        }, 150000);
+        }, 45000);
       }
+      syncMatchesPresenceListeners();
     } else {
       if (window.__presenceHeartbeat) {
         clearInterval(window.__presenceHeartbeat);
         window.__presenceHeartbeat = null;
       }
+      for (const [id, unsub] of Object.entries(_matchesPresenceListeners)) {
+        try { unsub(); } catch (_) {}
+      }
     }
   });
 
+  // User activity listeners: throttle to 35s
+  ['pointerdown', 'keydown', 'touchstart'].forEach(evt => {
+    window.addEventListener(evt, pingUserPresenceActivity, { passive: true });
+  });
+
+  // App visibility & unload
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       updateUserPresence(true);
     } else {
       updateUserPresence(false);
     }
+  });
+
+  window.addEventListener('pagehide', () => {
+    updateUserPresence(false);
   });
 
   window.addEventListener('beforeunload', () => {
@@ -3220,22 +3314,25 @@ let activeRealtimeListener = null;
 const CATEGORIZED_EMOJIS = {
   smileys: [
     '😀','😃','😄','😁','😆','😅','🤣','😂','🙂','🙃','😉','😊','😇','🥰','😍','🤩',
-    '😘','😗','😚','😙','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨',
-    '😐','😑','😶','😏','😒','🙄','😬','🤥','😌','😔','😪','🤤','😴','😷','🤒','🤕',
-    '🤢','🤮','🤧','🥵','🥶','🥴','😵','🤯','🤠','🥳','🥸','😎','🤓','🧐','😕','😟',
-    '🙁','😮','😯','😲','😳','🥺','😦','😧','😨','😰','😥','😢','😭','😱','😖','😣',
-    '😞','😓','😩','😫','🥱','😤','😡','😠','🤬','😈','👿','💀','☠️','💩','🤡','👻'
+    '😘','😗','😚','😙','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🫢','🫣','🤫','🤔',
+    '🫡','🤐','🤨','😐','😑','😶','🫥','😏','😒','🙄','😬','😮‍💨','🤥','🫨','😌','😔',
+    '😪','🤤','😴','😷','🤒','🤕','🤢','🤮','🤧','🥵','🥶','🥴','😵','😵‍💫','🤯','🤠',
+    '🥳','🥸','😎','🤓','🧐','😕','🫤','😟','🙁','😮','😯','😲','😳','🥺','🥹','😦',
+    '😧','😨','😰','😥','😢','😭','😱','😖','😣','😞','😓','😩','😫','🥱','😤','😡',
+    '😠','🤬','😈','👿','💀','☠️','💩','🤡','👻','👽','🤖','😺','😸','😹','😻','😼',
+    '😽','🙀','😿','😾'
   ],
   gestures: [
-    '👋','🤚','🖐️','✋','🖖','👌','🤌','🤏','✌️','🤞','🫰','🤟','🤘','🤙','👈','👉',
-    '👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏','🙌','🫶','👐','🤲',
-    '🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻','👃','🧠','🫀','🫁',
-    '👀','👁️','👅','👄','🫦'
+    '👋','🤚','🖐️','✋','🖖','🫱','🫲','🫸','🫷','👌','🤌','🤏','✌️','🤞','🫰','🤟',
+    '🤘','🤙','👈','👉','👆','🖕','👇','☝️','🫵','👍','👎','✊','👊','🤛','🤜','👏',
+    '🙌','🫶','👐','🤲','🤝','🙏','✍️','💅','🤳','💪','🦾','🦿','🦵','🦶','👂','🦻',
+    '👃','🧠','🫀','🫁','🦷','🦴','👀','👁️','👅','👄','🫦'
   ],
   love: [
-    '❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❤️‍🔥','❤️‍🩹','❣️','💕','💞','💓',
-    '💗','💖','💘','💝','💟','💌','🫀','💋','🫂','👩‍❤️‍👨','👩‍❤️‍👩','👨‍❤️‍👨','👩‍❤️‍💋‍👨','💏','💑',
-    '💍','💎','💐','🌹','🥀','🌺','🌷','🌸','💮','🪷','🕯️','✨','💫','⭐','🌟','🔥'
+    '❤️','🩷','🧡','💛','💚','💙','🩵','💜','🤎','🖤','🩶','🤍','💔','❤️‍🔥','❤️‍🩹','❣️',
+    '💕','💞','💓','💗','💖','💘','💝','💟','💌','🫀','💋','🫂','👩‍❤️‍👨','👩‍❤️‍👩','👨‍❤️‍👨','👩‍❤️‍💋‍👨',
+    '💏','💑','💍','💎','💐','🌹','🥀','🌺','🌸','🌼','🌻','🌷','🪷','💮','🪻','✨',
+    '💫','⭐','🌟','🔥'
   ],
   animals: [
     '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐻‍❄️','🐨','🐯','🦁','🐮','🐷','🐽','🐸',
@@ -3248,9 +3345,9 @@ const CATEGORIZED_EMOJIS = {
     '🍏','🍎','🍐','🍊','🍋','🍌','🍉','🍇','🍓','🫐','🍈','🍒','🍑','🥭','🍍','🥥',
     '🥝','🍅','🥑','🥦','🥒','🌶️','🌽','🥕','🥔','🥐','🥖','🍞','🥨','🥯','🧀','🥚',
     '🍳','🥞','🧇','🥓','🍗','🍖','🌭','🍔','🍟','🍕','🥪','🌮','🌯','🥗','🍲','🍛',
-    '🍜','🍝','🍣','🍱','🥟','🍤','🍙','🍚','🍘','🍢','🍡','🍧','🍨','🍦','🍰','🎂',
-    '🍮','🍭','🍬','🍫','🍿','🍩','🍪','🥜','🍯','🥛','☕','🍵','🧃','🥤','🧋','🍺',
-    '🍻','🥂','🍷','🥃','🍸','🍹','🍾'
+    '🍜','🍝','🍣','🍱','🥟','🍤','🍙','🍚','🍘','🍢','🍡','🍧','🍨','🍦','🎂','🍰',
+    '🧁','🥧','🍫','🍬','🍭','🍮','🍩','🍪','🥜','🍯','🥛','☕','🍵','🧃','🥤','🧋',
+    '🍺','🍻','🥂','🍷','🥃','🍸','🍹','🍾'
   ],
   activities: [
     '⚽','🏀','🏈','⚾','🥎','🎾','🏐','🏉','🥏','🎱','🪀','🏓','🏸','🏒','🏑','🥍',
@@ -3271,6 +3368,414 @@ const CATEGORIZED_EMOJIS = {
     '❓','❔','‼️','⁉️','⚠️','🔱','⚜️','🔰','♻️','✅','❌','⭕','🛑','⛔','🚫','🌐',
     'Ⓜ️','💤','🏧','🚾','♿','🅿️','📶','🈁','🆖','🆗','🆙','🆒','🆕','🆓','🔢','🔟'
   ]
+};
+
+// Rich English keyword search mapping for full interactive emoji search
+const EMOJI_KEYWORDS = {
+  '😀': 'grinning face happy smile laugh teeth joyful cheerful',
+  '😃': 'smiling face open mouth joyful happy haha cheerful',
+  '😄': 'smiling face eyes open smile happy haha joy',
+  '😁': 'beaming face grinning smile eye teeth happy',
+  '😆': 'laughing squinteyed face haha lol funny hilarious rofl',
+  '😅': 'sweat smile phew whew nervous relief awkward laughing',
+  '🤣': 'rolling on the floor laughing rofl lol haha funny hilarious dead',
+  '😂': 'face with tears of joy crying laughing lol haha fun hilarious dead',
+  '🙂': 'slightly smiling face smile fine happy ok chill',
+  '🙃': 'upside-down face sarcastic ironic silly crazy goofy',
+  '😉': 'winking face wink flirt secret cheeky teasing playful',
+  '😊': 'smiling blush face warm happy kind sweet love gentle',
+  '😇': 'halo angel innocent blessed saint holy good pure',
+  '🥰': 'smiling face hearts love romantic in love crush sweet adored',
+  '😍': 'heart eyes romantic love crush amazing gorgeous attractive obsessed',
+  '🤩': 'star-struck excited wow amazed celebrity stunned stars impressed',
+  '😘': 'blowing kiss romance love mwah pout lips flirt date',
+  '😗': 'kissing face kiss sweet flirt whistle tender',
+  '😚': 'kissing closed eyes blush sweet tender affection love',
+  '😙': 'kissing smiling eyes kiss love sweet happy friendly',
+  '😋': 'yum delicious tasty food licking lips savoring hungry yummy',
+  '😛': 'tongue out cheeky silly playful teasing joke',
+  '😜': 'winking tongue playful crazy joke silly funny wacky',
+  '🤪': 'zany face goofy crazy wild silly eccentric psycho funny',
+  '😝': 'squinting tongue cheeky silly joke hilarious prank',
+  '🤑': 'money mouth rich cash dollar bag wealthy green gold profit',
+  '🤗': 'hugging face hugs hug embrace welcome friendly warm cuddle',
+  '🤭': 'hand over mouth giggle oops teehee secret chuckle covert',
+  '🫢': 'face open eyes hand over mouth shock surprise gasp ooh',
+  '🫣': 'peeking eye scared nervous look shy peekaboo curious',
+  '🤫': 'shushing face quiet shh hush silence secret whisper silent',
+  '🤔': 'thinking face think wonder curious ponder hmm idea puzzle consider',
+  '🫡': 'saluting face salute respect yes sir honor military ok understood',
+  '🤐': 'zipper mouth shut secret quiet silenced silence silent hush secret',
+  '🤨': 'raised eyebrow skeptic suspicious doubt really sure hmm suspicious',
+  '😐': 'neutral face poker face blank meh emotionless straight face',
+  '😑': 'expressionless face deadpan meh annoyed bored tired speechless',
+  '😶': 'face without mouth mute silent speechless blank quiet invisible',
+  '🫥': 'dotted line face invisible disappear hidden ghosted introverted vanished',
+  '😏': 'smirking smirk cheeky flirt smug sly sensual provocative naughty',
+  '😒': 'unamused face bored annoyed unimpressed side eye whatever grumpy',
+  '🙄': 'rolling eyes eye roll whatever annoyed bored duh exasperated dismissive',
+  '😬': 'grimacing grimace awkward cringe nervous tension yikes teeth oops',
+  '😮‍💨': 'face exhaling sigh relief tired exhausted puff breath whew',
+  '🤥': 'lying face pinocchio lie fake dishonest truth deceit nose long',
+  '🫨': 'shaking face quake shock vibration dizzy tremble terrified tremor',
+  '😌': 'relieved face calm peace relaxed zen content mindful serene smooth',
+  '😔': 'pensive face sad regretful sorry down dejected melancholy depressed sorrow',
+  '😪': 'sleepy tired snot bubble nap fatigue exhausted resting droopy',
+  '🤤': 'drooling drool crave hungry tasty yummy asleep thirst appetizing',
+  '😴': 'sleeping sleep snoring zzz tired bed dream slumber night rest',
+  '😷': 'face mask sick illness doctor medical covid virus cold flu quarantine',
+  '🤒': 'thermometer ill sick fever hospital health unwell temperature disease',
+  '🤕': 'head bandage injured hurt accident ache concussion pain wound hospital',
+  '🤢': 'nauseated vomit sick disgust gross yuck green ill puking nauseous',
+  '🤮': 'vomiting puke throw up gross disgust sick ill barf regurgitate',
+  '🤧': 'sneezing sneeze tissue allergies cold flu sick bless you tissue runny',
+  '🥵': 'hot face sweating red heat summer dehydration thirsty spicy sunburn fever',
+  '🥶': 'cold face freezing blue ice frost shivering winter cold hypothermia',
+  '🥴': 'woozy drunk tipsy dizzy high disoriented spinning hangover wasted hammered',
+  '😵': 'dizzy dead stunned unconscious knocked out faint stars shock ko',
+  '😵‍💫': 'face spiral eyes hypnotic dizzy confused vertigo spinning trance illusion',
+  '🤯': 'exploding head mind blown shock stunned wow unbelievable crazy insane boom',
+  '🤠': 'cowboy hat yeehaw western sheriff texas cool fun rodeo',
+  '🥳': 'partying face party celebrate birthday celebration confetti hat trumpet yay',
+  '🥸': 'disguised glasses mustache detective undercover incognito funny spy disguise',
+  '😎': 'sunglasses cool stylish shades confidence dope awesome chill rad boss',
+  '🤓': 'nerd face smart geek glasses brainy intelligent scholar study coder tech',
+  '🧐': 'monocle classy inquisitive curious inspect detective examine rich posh formal',
+  '😕': 'confused face puzzle uncertain puzzled lost unsure question doubtful',
+  '🫤': 'diagonal mouth unsure skeptic meh hesitant ambivalent shrug so-so',
+  '😟': 'worried face worry anxious concern trouble nervous apprehension unease',
+  '🙁': 'slightly frowning face unhappy sad disappointed gloom bummed glum',
+  '😮': 'open mouth wow surprise shock gasp amazed whoa',
+  '😯': 'hushed face surprise wow quiet startled dumbfounded stunned speech',
+  '😲': 'astonished face stunned shocked amazed incredible oh my god whoa speechless',
+  '😳': 'flushed blushing red shock embarrassed shy stunned nervous flustered',
+  '🥺': 'pleading face puppy eyes please beg cute sad help forgive mercy',
+  '🥹': 'holding back tears emotional proud touched gratitude grateful watery cry tearful',
+  '😦': 'frowning face open mouth gasp shock scared dismay startled',
+  '😧': 'anguished face pain sorrow agony grief terrified stressed shocked',
+  '😨': 'fearful face scared frightened anxiety panic afraid horror terrified',
+  '😰': 'anxious sweat cold sweat nervous dread worry stress panic frightened',
+  '😥': 'sad relieved sweat whew close call disappointment pity nervous tears',
+  '😢': 'crying cry tear sad sorrow weeping weep unhappy mourn depressed grief',
+  '😭': 'loudly crying sobbing weeping tear despair heartbroken waah devastation bawl tears',
+  '😱': 'screaming fear scream horror scared shocked terror home alone scream shout',
+  '😖': 'confounded face frustrated annoyed painful struggling helpless cringe twitch',
+  '😣': 'persevering face endure struggle trying hard pain distress effort stubborn',
+  '😞': 'disappointed sad dejected let down depressed sorrow low disappointed',
+  '😓': 'downcast sweat defeated tired stressed exhausted depressed bummed',
+  '😩': 'weary face tired frustrated exhausted fed up helpless done tired',
+  '😫': 'tired face exhausted weary whine groan frustrated sleepy bedtime drained',
+  '🥱': 'yawning yawn sleepy bored tired bedtime waking fatigue yawn',
+  '😤': 'triumph huff proud steaming angry fume arrogant determined snort puff',
+  '😡': 'pouting angry red rage mad furious annoyed fury wrath irritated rage',
+  '😠': 'angry face mad irritated furious annoyance temper grumpy pissed upset',
+  '🤬': 'cursing swearing swear profanity expletive censor mad angry rage rage',
+  '😈': 'smiling devil horns evil mischievous naughty bad cheeky devil demon',
+  '👿': 'angry imp devil purple horned demon angry mad vicious evil wicked',
+  '💀': 'skull dead skeleton death rip dying dying laughing rofl funny skeleton dead',
+  '☠️': 'skull crossbones poison danger danger toxic pirate deadly death hazard',
+  '💩': 'poop poo crap turd silly stinky bathroom dump funny pile stool',
+  '🤡': 'clown circus joke fool foolish goofy scary funny circus joker clown',
+  '👻': 'ghost spooky halloween booo phantom haunt spirit silly creepy haunt',
+  '👽': 'alien extraterrestrial ufo space sci-fi martian invader galaxy cosmos',
+  '🤖': 'robot bot artificial intelligence cyber tech android machine ai future',
+  '😺': 'cat smiling grin kitten meow pet animal happy cheerful feline',
+  '😸': 'cat grinning eyes kitty meow funny haha pet animal feline laugh',
+  '😹': 'cat tears joy laughing crying cat lol haha meow hilarious rofl',
+  '😻': 'cat heart eyes love romance crush cat kitten sweet adoration beauty',
+  '😼': 'cat wry smirk sly mischievous cat meow smug feline sarcastic',
+  '😽': 'cat kissing kiss affection romance cat pet tender mwah',
+  '🙀': 'cat weary scream shocked terror scared cat surprise startled ooh',
+  '😿': 'crying cat tear sad kitten mourn grief weep meow teardrop unhappy',
+  '😾': 'pouting cat mad angry furious grumpy irritated cat pissed grumpy',
+  '👋': 'waving hand wave hello hi goodbye bye greeting see ya ciao hey',
+  '🤚': 'raised back of hand stop wait halt high five five backhand pause',
+  '🖐️': 'hand splayed five fingers stop high five greeting open talk to hand',
+  '✋': 'raised hand stop halt high five wait pause greeting permission highfive',
+  '🖖': 'vulcan salute spock star trek live long and prosper sci-fi alien nerd',
+  '🫱': 'rightwards hand reach grab touch offer give hold shake palm',
+  '🫲': 'leftwards hand reach offer grab welcome hold receive shake',
+  '🫸': 'pushing hand right refuse block stop barrier reject halt shield',
+  '🫷': 'pushing hand left refuse push stop halt wait barrier prevent',
+  '👌': 'ok hand gesture perfect nice approved zero correct alright got it fine deal',
+  '🤌': 'pinched fingers italian chef kiss what do you want gesture mama mia perfection',
+  '🤏': 'pinching hand tiny small little bit minute just a bit pinch microscopic',
+  '✌️': 'victory hand peace two sign win success celebrate triumph deuces',
+  '🤞': 'crossed fingers luck wish hope promise lucky fingers superstition fingerscrossed',
+  '🫰': 'hand heart finger heart k-pop love money korean snap saranghae cute',
+  '🤟': 'love you gesture sign language ily rock love hand affection peace',
+  '🤘': 'sign of the horns rock on heavy metal rock concert party punk devilhorns',
+  '🤙': 'call me hand phone shaka hang loose hawaii surf surfer chill aloha',
+  '👈': 'backhand index pointing left point that way direction left look here',
+  '👉': 'backhand index pointing right point direction right look see this',
+  '👆': 'backhand index pointing up look above direction top up ceiling headline',
+  '🖕': 'middle finger rude offensive insult f off bird flip rage curse angry',
+  '👇': 'backhand index pointing down look below direction bottom down scroll floor',
+  '☝️': 'index pointing up finger one attention wait point question listen remark idea',
+  '🫵': 'index pointing at viewer you point user target direct blame select chosen',
+  '👍': 'thumbs up good like approve yes agree great positive correct awesome perfect ok',
+  '👎': 'thumbs down bad dislike disapprove no hate reject wrong negative boo trash',
+  '✊': 'raised fist punch power solidarity protest fight strength unity blacklives',
+  '👊': 'oncoming fist fist bump punch hit bro brofist strike knuckle boom salute',
+  '🤛': 'left-facing fist bump fist fight punch greeting strike touch',
+  '🤜': 'right-facing fist bump fist fight punch greeting bro partner strike',
+  '👏': 'clapping hands applause bravo praise good job celebrate congrats clap cheers standingovation',
+  '🙌': 'raising hands celebrate praise hooray hallelujah cheer huzzah blessing worship yay',
+  '🫶': 'heart hands love affection caring cute support couple romance warm love',
+  '👐': 'open hands hug butterfly honesty openness care kindness warmth welcome',
+  '🤲': 'palms up together pray prayer supplication offering open donate islam charity amen',
+  '🤝': 'handshake agreement deal partner business meeting welcome friends agreed shake partner',
+  '🙏': 'folded hands please pray thank you namaste gratitude hope blessing apologize thanks mercy',
+  '✍️': 'writing hand pen write note test letter author pencil exam document contract',
+  '💅': 'nail polish manicure sassy nails glam chic diva nonchalant drama petty polish',
+  '🤳': 'selfie camera photo phone picture capture pose snap instagram vlog',
+  '💪': 'flexed biceps muscle strong strength fitness gym workout power flex athletic beast',
+  '🦾': 'mechanical arm bionic prosthetic robot cyborg prosthetic strong muscle metal',
+  '🦿': 'mechanical leg prosthetic limb robot cyborg walking artificial tech runner',
+  '🦵': 'leg kick limb foot run walk knee calf hamstring thigh limb human',
+  '🦶': 'foot stomp walk kick toes sole barefoot reflexology step pedis sole',
+  '👂': 'ear listen hear sound audio eavesdrop hearing acoustic auditory ears hear',
+  '🦻': 'ear with hearing aid accessibility deaf hearing impaired listen deaf aid',
+  '👃': 'nose smell sniff scent aroma fragrance breathe breathing smell snout',
+  '🧠': 'brain smart intelligent mind think psychology neurology genius brainpower memory iq',
+  '🫀': 'anatomical heart cardiology cardio medical organ biology beat pulse hospital doctor',
+  '🫁': 'lungs respiration respiratory breathing breath medical chest organ oxygen breath covid',
+  '🦷': 'tooth teeth dental dentist smile brushing enamel molar dentistry chew bite',
+  '🦴': 'bone skeleton anatomy dog treat calcium fossil skull paleontology dogbone',
+  '👀': 'eyes look look at see watch glance spying curious wide looking shifty suspicious',
+  '👁️': 'eye see look vision watcher sight pupil eyeball look view observe',
+  '👅': 'tongue taste lick mouth cheeky silly flavor delicious spit saliva sexy',
+  '👄': 'mouth lips kiss sensual lipstick beauty speak talk voice pout red sexy',
+  '🫦': 'biting lip flirt nervous anxious sexy attraction anticipation bite kiss desire',
+  '❤️': 'red heart love romance passion true love romantic lovers heart sweet classic',
+  '🩷': 'pink heart cute love sweet affection pastel girly romantic tender darling',
+  '🧡': 'orange heart care friendship warm love autumn sunny energy cozy flame',
+  '💛': 'yellow heart joy happiness friendship bright pure sunshine gold warmth friend',
+  '💚': 'green heart nature organic environmental eco healing money health life vegan',
+  '💙': 'blue heart loyalty trust peace calm friendship water cool ocean deep',
+  '🩵': 'light blue heart baby blue sky calm serenity peace soothing fresh aqua',
+  '💜': 'purple heart royalty luxury passion magical glam mysterious sweet regal',
+  '🤎': 'brown heart chocolate earthy cozy comfort grounding warm autumn coffee',
+  '🖤': 'black heart dark grunge emo sorrow mourning chic black rock gothic dead',
+  '🩶': 'gray heart silver neutral metal dull cold balanced simple minimal steel',
+  '🤍': 'white heart pure innocent clean peace holy angel true serene wedding pure',
+  '💔': 'broken heart heartbroken sadness grief pain break up separation dumped alone hurt',
+  '❤️‍🔥': 'heart on fire burning passion desire lust flame burning love energy fiery ablaze',
+  '❤️‍🩹': 'mending heart healing recovery better bandage repair broken heart convalesce fix',
+  '❣️': 'heart exclamation mark exclamation love passion emphatic heart point attention',
+  '💕': 'two hearts pink hearts love affection sweetness floating romance crush sweet',
+  '💞': 'revolving hearts pink love romance swirling circling mutual bond sweethearts',
+  '💓': 'beating heart pulsing heart rate flutter love affection excitement thumping pulse',
+  '💗': 'growing heart expanding excitement love adoration affection bigger larger pulse',
+  '💖': 'sparkling heart love magic star dazzle glitter shiny glitz cute sparkle shimmer',
+  '💘': 'heart with arrow cupid romance struck fall in love valentine crush target arrow',
+  '💝': 'heart with ribbon gift love valentine present surprise birthday romance package bow',
+  '💟': 'heart decoration square white purple badge ornament love cute sticker',
+  '💌': 'love letter envelope message post romance secret admirer note valentine postcard mail',
+  '💋': 'kiss mark lips red lipstick romance makeup love sensual sexy smacker mwah',
+  '🫂': 'people hugging embrace comfort support love friend hug empathy warm cuddle',
+  '👩‍❤️‍👨': 'couple with heart love romance relationship woman man girlfriend boyfriend partners',
+  '👩‍❤️‍👩': 'couple with heart lesbian love romance relationship women partners girls',
+  '👨‍❤️‍👨': 'couple with heart gay love romance relationship men partners boys',
+  '👩‍❤️‍💋‍👨': 'kiss couple love romance woman man kiss lips girlfriend boyfriend date',
+  '💏': 'kiss couple romantic kissing lovers intimacy love affair romance date',
+  '💑': 'couple love dating partners companion together soulmates romance lovers',
+  '💍': 'ring diamond jewelry wedding marriage engage engagement propose promise golden bride',
+  '💎': 'gem stone diamond jewelry precious luxury shiny expensive crystal sapphire carat rich',
+  '💐': 'bouquet flowers floral gift present valentine wedding romance roses celebration bunch',
+  '🌹': 'rose red flower petal romance love beauty valentine date floral scent bloom',
+  '🥀': 'wilted flower dying rose dead drooping sad wilt faded grief romance sorrow',
+  '🌺': 'hibiscus flower tropical hawaii exotic floral blossom pink bloom spring aloha',
+  '🌸': 'cherry blossom sakura flower spring japan bloom floral pink petal petals hanami',
+  '🌼': 'blossom flower yellow daisy spring floral nature sunny summer garden cheerful',
+  '🌻': 'sunflower yellow sunny flower summer nature floral tall field cheerful bright van gogh',
+  '🌷': 'tulip flower spring floral bulb holland amsterdam garden blossom pink petal',
+  '🪷': 'lotus flower water lily spiritual buddhism yoga purity zen serenity meditation pond',
+  '💮': 'white flower blossom rosette japanese stamp floral sweet cute reward cherry',
+  '🪻': 'hyacinth lavender purple flower lilac spring bloom floral fragrant garden bloom',
+  '✨': 'sparkles stars magic shiny shine clean glitter shimmer aesthetic glowing new twinkle',
+  '💫': 'dizzy star shooting star spark cosmic sparkle swoosh dazzle spin space galaxy',
+  '⭐': 'star yellow shiny sky gold stellar favorite rate rating astronomy night review',
+  '🌟': 'glowing star bright shining sparkle glow celebration winner champion night burst',
+  '🔥': 'fire lit flame hot burn heat campfire trending hype popular cool fire blaze',
+  '🐶': 'dog puppy canine pet animal hound friend cute golden bark doggy woof',
+  '🐱': 'cat kitten kitty pet animal feline meow purr cute paws whiskers purr',
+  '🐭': 'mouse rodent rat animal cheese squeak cute whiskers mousey',
+  '🐹': 'hamster pet rodent cute cheeks animal fluff hamster cage',
+  '🐰': 'rabbit bunny hare easter cute pet animal carrot hopper ears fluffy',
+  '🦊': 'fox wild animal cunning clever orange red fur canine tail vixen',
+  '🐻': 'bear grizzly teddy animal brown predator forest roar fur teddybear',
+  '🐼': 'panda bear giant bamboo china cute animal zoo black white endangered',
+  '🐻‍❄️': 'polar bear arctic white ice cold animal north pole predator snow winter',
+  '🐨': 'koala australia eucalyptus marsupial cute animal sleepy bear outback wildlife',
+  '🐯': 'tiger head cat predator wild strip animal jungle roar ferocious bengal',
+  '🦁': 'lion king head pride savanna predator wild animal roar mane safari simba',
+  '🐮': 'cow farm dairy milk beef animal moo agriculture cattle meadow calf',
+  '🐷': 'pig snout oink pork bacon farm animal pink mud ham piggy',
+  '🐽': 'pig nose snout oink farm animal pork smell sniff truffle',
+  '🐸': 'frog toad amphibian green croak ribbit pond lilypad prince kermit',
+  '🐵': 'monkey ape primate jungle chimp banana zoo animal playful curious',
+  '🙈': 'see no evil monkey shy cover eyes embarrassed ignore secretly look unseen oops',
+  '🙉': 'hear no evil monkey ear silence noise deaf loud ignore loud cover',
+  '🙊': 'speak no evil monkey secret quiet gossip silent hush whisper mute secret',
+  '🐒': 'monkey climbing tail ape primate animal zoo jungle macaque baboon',
+  '🐔': 'chicken hen farm bird poultry rooster egg coop cluck fowl livestock',
+  '🐧': 'penguin bird antarctica cold ice arctic tuxedo waddle cute flightless',
+  '🐦': 'bird avian fly wings sky chirp songbird nature tweet feathers robin',
+  '🐤': 'baby chick baby bird yellow cute hatched farm chirp nestling peeper',
+  '🦆': 'duck bird quack pond mallard waterfowl feathers lake swimming duckling',
+  '🦅': 'eagle bird bald raptor predator america freedom soar hunt fly talon',
+  '🦉': 'owl bird nocturnal wise wisdom hoot night raptor eyes forest predator',
+  '🦇': 'bat vampire nocturnal cave spooky halloween radar mammal flying wings dracula',
+  '🐺': 'wolf howl moon alpha pack canine predator wild dog forest winter lone',
+  '🐗': 'boar wild pig hog tusks forest wild aggressive swine hunting',
+  '🐴': 'horse head stallion pony equestrian equine ride farm gallop racing mane',
+  '🦄': 'unicorn magical fantasy horn rainbow horse magical horse dream fairy myth pony',
+  '🐝': 'bee honeybee honey insect bug buzz sting yellow pollen hive queen bumblebee',
+  '🪱': 'worm earthworm bug bait soil dirt crawl garden wriggle fishing',
+  '🐛': 'caterpillar bug insect larva crawl garden nature metamorphosis butterfly',
+  '🦋': 'butterfly wings beautiful insect transformation cocoon blossom nature colorful fly monarch',
+  '🐌': 'snail shell slow slime gastropod garden crawl nature escargot spiral mollusk',
+  '🐞': 'ladybug insect beetle lucky dots red garden nature aphid bug ladybird',
+  '🐜': 'ant insect worker bug colony hill tiny sugar team crawl picnic',
+  '🪲': 'beetle bug insect carapace green scarab nature crawl exoskeleton bug',
+  '🦟': 'mosquito insect bug malaria bite pest itchy blood swat parasite zika',
+  '🦗': 'cricket insect bug grasshopper chirp jump green night lawn noise pest',
+  '🕷️': 'spider arachnid web creepy halloween eight legs venom spooky fang crawl tarantula',
+  '🦂': 'scorpion arachnid sting venom desert tail dangerous pincers claw pinch scorpio',
+  '🐢': 'turtle tortoise reptile shell slow marine ocean swim green reptile terrapin',
+  '🐍': 'snake serpent reptile venom cobra viper slither python hiss scales bite serpent',
+  '🦎': 'lizard gecko reptile iguana chameleon tail scales desert basking green anole',
+  '🐙': 'octopus sea creature ocean tentacle kraken marine eight arms underwater squid cephalopod',
+  '🦑': 'squid calamari ocean marine underwater sea monster kraken tentacle sushi tentacles',
+  '🦐': 'shrimp prawn seafood crustacean shellfish ocean food tempura scampi jumbo',
+  '🦞': 'lobster shellfish seafood red marine crustacean claw butter luxury meal dinner',
+  '🦀': 'crab seafood crustacean beach ocean pinch claw cancer zodiac sand crabs',
+  '🐡': 'blowfish pufferfish venom fugu spike swell ocean marine aquarium fish poisonous',
+  '🐠': 'tropical fish nemo ocean aquarium underwater reef exotic swim coral saltwater',
+  '🐟': 'fish seafood swimming river lake lake trout salmon marine ocean tuna cod',
+  '🐬': 'dolphin ocean marine mammal intelligent jump swim sea aquarium friend flipper',
+  '🐳': 'spouting whale ocean giant spout marine mammal sea sea world blowhole ocean',
+  '🐋': 'whale blue whale leviathan giant ocean creature mammal deep sea sea humpback',
+  '🦈': 'shark predator jaws ocean teeth fin danger apex marine predator hammerhead',
+  '🐊': 'crocodile alligator swamp reptile predator jaws reptile danger teeth scales gator',
+  '🐅': 'tiger cat wild predator stripe safari jungle hunter feline bengal roar',
+  '🐆': 'leopard cheetah spots safari wild cat fast predator agile feline jaguar',
+  '🦓': 'zebra stripes safari africa savanna equine horse zoo black white wild stripes',
+  '🦍': 'gorilla ape silverback primate jungle zoo king kong strong primate harambe',
+  '🦧': 'orangutan ape primate red hair jungle borneo tree zoo smart primate',
+  '🐘': 'elephant trunk ivory tusks giant mammal africa safari zoo memory india herd',
+  '🦛': 'hippo hippopotamus river wild safari heavy huge dangerous mammal water behemoth',
+  '🦏': 'rhinoceros rhino horn safari africa wild endangered armor animal heavy safari',
+  '🐪': 'camel dromedary desert hump egypt nomad caravan ride dry oasis sahara',
+  '🦒': 'giraffe tall neck savanna safari africa zoo tall spots yellow leaves wildlife',
+  '🦘': 'kangaroo australia pouch hop jump joey marsupial outback roo boxing downunder',
+  '🐕': 'dog pet canine domestic best friend loyal hound paws bark tail puppy',
+  '🐈': 'cat pet feline kitty domestic meow whiskers purr paws tail kitten',
+  '🍏': 'green apple fruit sour granny smith healthy food snack orchard cider organic',
+  '🍎': 'red apple fruit sweet healthy food harvest orchard teacher doctor juice sweet',
+  '🍐': 'pear fruit sweet healthy juicy orchard fruit green garden food fresh',
+  '🍊': 'orange tangerine citrus fruit vitamin c juicy peeled mandarin healthy clementine',
+  '🍋': 'lemon citrus sour yellow fruit lemonade slice juice vitamin acidic sour',
+  '🍌': 'banana yellow fruit potassium peel monkey snack smoothie tropical ripe healthy',
+  '🍉': 'watermelon slice melon summer juicy fruit red seeds picnic refreshing beach',
+  '🍇': 'grapes vineyard wine fruit purple bunch fruit wine harvest raisins sweet vineyard',
+  '🍓': 'strawberry berry red sweet fruit shortcake jam summer dessert seeds berries',
+  '🫐': 'blueberries blueberry berry fruit antioxidant pancakes healthy sweet muffin fresh',
+  '🍒': 'cherries cherry pair red fruit sweet dessert topping blossom pie sweet pair',
+  '🍑': 'peach fruit juicy sweet fuzzy butt booty dessert summer nectar cobbler ripe',
+  '🥭': 'mango tropical fruit juicy sweet orange caribbean asian exotic smooth fruit',
+  '🍍': 'pineapple tropical fruit sweet spike colada pizza hawaiian yellow juicy ananas',
+  '🥥': 'coconut tropical fruit palm tree milk water pina colada nutty brown island',
+  '🥝': 'kiwi fruit fruit fuzzy green slices juicy new zealand healthy tart kiwi',
+  '🍅': 'tomato vegetable fruit red salad sauce ketchup salsa pasta garden vine',
+  '🥑': 'avocado guacamole toast keto healthy fat green pit salad brunch vegan superfood',
+  '🥦': 'broccoli green vegetable tree healthy vegan diet steamed dinner veggie florets',
+  '🥒': 'cucumber pickle green vegetable salad crunchy spa gherkin cooling fresh pickle',
+  '🌶️': 'hot pepper chili spicy seasoning mexican red spicy burn mexican fire jalapeno',
+  '🌽': 'corn on the cob maize sweetcorn harvest vegetable yellow buttery bbq farm popcorn',
+  '🥕': 'carrot vegetable orange bunny vitamin root vegetable salad rabbit healthy beta',
+  '🥔': 'potato vegetable russet french fries mashed spud potato chips root farm baked',
+  '🥐': 'croissant pastry french bakery breakfast buttery flaky bread cafe croissant morning',
+  '🍞': 'bread loaf bakery toast sandwich carbs wheat dough sliced breakfast slice crust',
+  '🥖': 'baguette french bread loaf long bakery crust sandwich bread crispy bakery paris',
+  '🥨': 'pretzel salted snack german bakery twist bavarian beer mustard knot dough oktoberfest',
+  '🥯': 'bagel breakfast bakery round cream cheese lox toast bread dough cafe newyork',
+  '🧀': 'cheese wedge swiss cheddar gouda dairy mouse yellow snack cracker slice fondue',
+  '🍳': 'egg sunny side up frying pan breakfast cooking protein yolk bacon skillet cooked',
+  '🥞': 'pancakes hotcakes flapjacks maple syrup butter breakfast stack brunch sweet flapjack',
+  '🧇': 'waffle belgian breakfast maple syrup butter dessert grid batter brunch waffle syrup',
+  '🥓': 'bacon pork breakfast meat rashers crispy fried strips brunch savory sizzling rashers',
+  '🍗': 'chicken poultry leg drumstick fried chicken meat bbq roasted crispy wing kfc',
+  '🍖': 'meat on bone roast ribs anime meat primal steak savory prehistoric dinner bbq',
+  '🌭': 'hot dog sausage bun frankfurter mustard ketchup fast food bbq baseball snack weiner',
+  '🍔': 'hamburger burger cheeseburger fast food beef bun fries diner grill meal patty',
+  '🍟': 'french fries chips mcdonalds potato snack fast food salty crispy ketchup sides potato',
+  '🍕': 'pizza slice pepperoni cheese italian mozzarella pie fast food delivery slice slice',
+  '🥪': 'sandwich lunch deli sub bread turkey lettuce tomato blt snack meal toast',
+  '🌮': 'taco mexican street food shell meat salsa fiesta tuesday tortilla lime carne',
+  '🌯': 'burrito mexican wrap tortilla beans rice chipotle carnitas lunch dinner wrap',
+  '🥗': 'green salad bowl healthy vegetables lettuce vegan diet vegetarian dressing fresh greens',
+  '🍿': 'popcorn movie cinema theater snack butter kernel salty corn film entertainment movie',
+  '🍜': 'ramen noodles steaming bowl broth chopsticks soup japanese asian comfort meal pho',
+  '🍝': 'spaghetti pasta italian bolognese meatball marinara noodles dinner savory tomato carbonara',
+  '🍣': 'sushi japanese sashimi salmon tuna rice roll chopsticks wasabi seaweed dinner maki',
+  '🍱': 'bento box japanese lunch meal rice dish assortment takeout dinner set boxed',
+  '🥟': 'dumpling gyoza potsticker dim sum asian chinese dough meat steamed dipping wonton',
+  '🍤': 'fried shrimp tempura prawn seafood crispy breaded japanese sushi appetizer snack',
+  '🎂': 'birthday cake celebration frosted party candles dessert sweet bakery slice wish party',
+  '🍰': 'shortcake strawberry cake slice dessert bakery sweet bakery pastry dessert berry slice',
+  '🧁': 'cupcake frosting muffin dessert sweet bakery birthday treat sprinkles icing party',
+  '🥧': 'pie baked apple pie pastry crust thanksgiving dessert slice sweet bakery warm pastry',
+  '🍫': 'chocolate bar candy sweet cocoa dessert treat snack milk chocolate cacao sugar choc',
+  '🍬': 'candy sweet bonbon wrapper sugary confection halloween treat sugar snack chew sweet',
+  '🍭': 'lollipop candy suck sucker swirl colorful sweet confection treat sugar chupa',
+  '🍮': 'custard flan pudding dessert caramel sweet japanese bakery soft caramel sauce creme',
+  '🍩': 'doughnut donut glazed chocolate sprinkles pastry bakery sweet fried coffee breakfast dunkin',
+  '🍪': 'cookie chocolate chip baked bakery sweet treat milk biscuit snack dough crunch chips',
+  '🍺': 'beer mug ale lager draft foam pub alcohol bar drink pint cheers brew pint',
+  '🍻': 'clinking beer mugs cheers toast pub celebration bar drinks friends toast brew party',
+  '🥂': 'clinking glasses champagne toast cheers celebration wedding party sparkling wine cheers',
+  '🍷': 'wine glass red wine cabernet vineyard alcohol romance dinner beverage sip grape merlot',
+  '🥃': 'tumbler whiskey bourbon scotch on the rocks liquor liquor drink alcohol bar rye',
+  '🍸': 'cocktail martini olive lounge alcohol bar drink dry cosmopolitan glass classic gin',
+  '🍹': 'tropical drink cocktail tiki beach vacation straw island fruity rum mai tai colada party',
+  '🍾': 'bottle popping cork champagne prosecco sparkling wine celebration new year celebrate party bubbly',
+  '☕': 'coffee hot beverage cafe espresso latte cappuccino tea morning mug brew roast decaf',
+  '🍵': 'teacup tea green tea matcha hot drink beverage herbal zen morning leaves mug oolong',
+  '🧋': 'boba bubble tea tapioca pearls milk tea taiwanese straw sweet drink milky sip pearls',
+  '🥤': 'cup with straw soda soft drink beverage fast food takeout milkshake iced cup drink',
+  '⚽': 'soccer football ball sport goal pitch game kick athlete tournament fifa match premier',
+  '🏀': 'basketball hoop court dunk ball nba sport athlete dribble game slam jump basket',
+  '🏈': 'american football gridiron nfl superbowl sport touchdown leather ball goal field tailgate',
+  '⚾': 'baseball sport bat glove pitch strike ball home run mlb field game catch strike',
+  '🎾': 'tennis ball racket court match game sport wimbledon green serve ace volley tournament',
+  '🏐': 'volleyball court net beach ball spike sport sand game bump setter rally sand',
+  '🥊': 'boxing glove punch fighter bout ring training combat spar bout champion round glove',
+  '🥋': 'martial arts uniform karate judo taekwondo black belt dojo fight combat training gi sensei',
+  '🛹': 'skateboard skate board skatepark ollie street kickflip grind ride wheels skater tony',
+  '🎮': 'video game controller joystick gamepad playstation xbox nintendo gaming gamer arcade play steam',
+  '🎲': 'game die dice rolling board game gambling chance casino luck tabletop random roll vegas',
+  '🎯': 'bullseye direct hit target dart archery arrow accuracy goal precision score center accurate',
+  '🎳': 'bowling pins strike alley sport ball spare lane game roll frame pins strike',
+  '🚗': 'car automobile red vehicle drive transportation road auto motor sedan trip engine wheels',
+  '🚕': 'taxi cab yellow ride hail uber lyft transport vehicle city fare meter airport cabby',
+  '✈️': 'airplane aeroplane flight travel vacation journey wings sky airport airport trip fly boarding',
+  '🚀': 'rocket ship space launch shuttle blast off speed to the moon fast starship orbit nasa',
+  '🏖️': 'beach umbrella sand ocean sea summer vacation resort tropical sun island shore coast sunny',
+  '🏝️': 'desert island solitary palm tree vacation tropical beach sea paradise escape shore castaway',
+  '📱': 'mobile phone smartphone cell apple iphone android screen device call text app message dial',
+  '💻': 'laptop computer personal macbook pc portable work code program screen keyboard tech laptop',
+  '📷': 'camera photo photography picture snapshot lens shutter portrait vintage capture flash shoot',
+  '📸': 'camera flash taking photo snapshot picture capture shutter photographer memory selfie lens picture',
+  '📹': 'video camera camcorder recording film footage movie broadcast tape recorder visual lens video',
+  '🎥': 'movie camera cinema film hollywood recording studio motion picture director cinematography screening theater',
+  '💡': 'light bulb idea inspiration think bright electricity lamp energy concept solution invent insight',
+  '💸': 'money with wings flying away spent cash dollar lost waste extravagant shopping wealth bill cash',
+  '💵': 'dollar banknote paper currency money cash payment purchase greenback bill wallet capital bucks',
+  '💰': 'money bag sack wealth rich coins dollars jackpot treasury fortune cash gold profit loot',
+  '💳': 'credit card payment visa mastercard debit shopping transaction checkout swipe debt plastic bank purchase',
+  '💎': 'gem stone diamond jewel sapphire precious crystal expensive rich sparkly jewelry luxury gem'
 };
 
 const SMILEY_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5 14.67 11 15.5 11zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>`;
@@ -4443,13 +4948,47 @@ function searchEmojis(query) {
   const q = (query || '').trim().toLowerCase();
   const grid = document.getElementById('emojiGrid');
   if (!grid) return;
+
   if (!q) {
+    // Restore current category when search is cleared
     renderEmojiCategory(currentEmojiCategory);
     return;
   }
+
+  // Clear active highlight on category buttons while search is active
+  document.querySelectorAll('.emoji-cat-btn').forEach(b => b.classList.remove('active'));
+
   const all = Object.values(CATEGORIZED_EMOJIS).flat();
   const unique = Array.from(new Set(all));
-  grid.innerHTML = unique.map(e => `
+
+  const results = unique.filter(emoji => {
+    // 1. Direct emoji character match
+    if (emoji.includes(q)) return true;
+    // 2. Keyword dictionary lookup (word prefix or exact token match)
+    const kw = (typeof EMOJI_KEYWORDS !== 'undefined' && EMOJI_KEYWORDS[emoji]) || '';
+    if (kw) {
+      const words = kw.toLowerCase().split(/\s+/);
+      if (words.some(w => w.startsWith(q) || (q.length >= 4 && w.includes(q)) || w === q)) return true;
+    }
+    // 3. Category name match
+    for (const [catName, catEmojis] of Object.entries(CATEGORIZED_EMOJIS)) {
+      if (catName.toLowerCase().startsWith(q) && catEmojis.includes(emoji)) return true;
+    }
+    return false;
+  });
+
+  if (results.length === 0) {
+    grid.innerHTML = `
+      <div style="grid-column: 1 / -1; padding: 28px 12px; text-align: center; color: var(--txt-muted); font-size: 0.82rem;">
+        <div style="font-size: 1.6rem; margin-bottom: 8px;">🔍</div>
+        <div style="font-weight: 600; color: var(--txt-primary);">No emojis found for "${escHtml(q)}"</div>
+        <div style="font-size: 0.76rem; opacity: 0.7; margin-top: 4px;">Try searching for heart, smile, love, laugh, dog, fire, food, car...</div>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = results.map(e => `
     <button type="button" class="emoji-cell" onclick="insertEmoji('${e}')" title="${e}">${e}</button>
   `).join('');
 }
@@ -5719,13 +6258,82 @@ function startCallTimer(type) {
   }, 1000);
 }
 
-async function wireCallPeerConnection(type, pc, callRef) {
-  const constraints = type === 'video'
-    ? { video: { facingMode: 'user' }, audio: true }
-    : { audio: true };
+function getVideoCallConstraints(facingMode = 'user') {
+  const quality = localStorage.getItem('videoCallQuality') || '1080p';
+  if (quality === '1080p') {
+    return {
+      facingMode: facingMode,
+      width: { ideal: 1920, min: 1280 },
+      height: { ideal: 1080, min: 720 },
+      frameRate: { ideal: 30, max: 60 }
+    };
+  } else if (quality === '720p') {
+    return {
+      facingMode: facingMode,
+      width: { ideal: 1280, min: 960 },
+      height: { ideal: 720, min: 540 },
+      frameRate: { ideal: 30 }
+    };
+  } else {
+    // 480p Data Saver
+    return {
+      facingMode: facingMode,
+      width: { ideal: 640 },
+      height: { ideal: 480 },
+      frameRate: { ideal: 24 }
+    };
+  }
+}
+window.getVideoCallConstraints = getVideoCallConstraints;
 
-  activeMediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+async function wireCallPeerConnection(type, pc, callRef) {
+  let stream = null;
+  if (type === 'video') {
+    const videoCons = getVideoCallConstraints(currentFacingMode || 'user');
+    const audioCons = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true
+    };
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: videoCons, audio: audioCons });
+    } catch (err1) {
+      console.warn('High quality video stream failed, falling back to 720p/default:', err1);
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentFacingMode || 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: true
+        });
+      } catch (err2) {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      }
+    }
+  } else {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+  }
+
+  activeMediaStream = stream;
   activeMediaStream.getTracks().forEach(track => pc.addTrack(track, activeMediaStream));
+
+  // Configure high-definition video encoding parameters if supported
+  if (type === 'video' && pc.getSenders) {
+    const quality = localStorage.getItem('videoCallQuality') || '1080p';
+    const maxBitrate = quality === '1080p' ? 2500000 : (quality === '720p' ? 1200000 : 500000);
+    pc.getSenders().forEach(sender => {
+      if (sender.track && sender.track.kind === 'video') {
+        try {
+          const params = sender.getParameters();
+          if (!params.encodings || params.encodings.length === 0) {
+            params.encodings = [{}];
+          }
+          params.encodings[0].maxBitrate = maxBitrate;
+          sender.setParameters(params).catch(() => {});
+        } catch (_) {}
+      }
+    });
+  }
 
   const localVideo = document.getElementById('myVideoStream');
   const pipCamOff = document.getElementById('pipCamOff');
@@ -6428,13 +7036,14 @@ async function flipCamera() {
     // 3. Small pause to allow mobile OS camera HAL to release hardware sensor
     await new Promise(r => setTimeout(r, 90));
 
-    // 4. Try target constraints in priority order (never fall back to video:true for environment)
+    // 4. Try target constraints in priority order (with HD camera resolution preserved)
+    const vCons = getVideoCallConstraints(targetMode);
     const candidateConstraints = [];
     if (targetDeviceId) {
-      candidateConstraints.push({ video: { deviceId: { exact: targetDeviceId } }, audio: false });
+      candidateConstraints.push({ video: { deviceId: { exact: targetDeviceId }, width: vCons.width, height: vCons.height, frameRate: vCons.frameRate }, audio: false });
     }
-    candidateConstraints.push({ video: { facingMode: { exact: targetMode } }, audio: false });
-    candidateConstraints.push({ video: { facingMode: { ideal: targetMode } }, audio: false });
+    candidateConstraints.push({ video: { facingMode: { exact: targetMode }, width: vCons.width, height: vCons.height, frameRate: vCons.frameRate }, audio: false });
+    candidateConstraints.push({ video: { facingMode: { ideal: targetMode }, width: vCons.width, height: vCons.height }, audio: false });
     candidateConstraints.push({ video: { facingMode: targetMode }, audio: false });
 
     let newStream = null;
@@ -7920,6 +8529,21 @@ function renderSettingsScreen() {
   if (blockedSub) {
     const count = blockedUsers.length;
     blockedSub.textContent = count === 1 ? '1 contact blocked' : `${count} contacts blocked`;
+  }
+
+  // Video call streaming quality subtext
+  const currentQuality = localStorage.getItem('videoCallQuality') || '1080p';
+  const qualitySub = document.getElementById('videoQualitySubtext');
+  if (qualitySub) {
+    if (currentQuality === '1080p') qualitySub.textContent = 'Ultra HD 1080p (Crystal Clear)';
+    else if (currentQuality === '720p') qualitySub.textContent = 'HD 720p (Balanced)';
+    else qualitySub.textContent = 'Standard 480p (Data Saver)';
+  }
+
+  // Device permissions subtext
+  const permSub = document.getElementById('devicePermissionsSubtext');
+  if (permSub && typeof updateDevicePermissionsSubtext === 'function') {
+    updateDevicePermissionsSubtext(permSub);
   }
 }
 
@@ -9455,11 +10079,8 @@ function renderBlockedUsersListInModal() {
     container.innerHTML = `
       <div class="blocked-empty-box">
         <div class="blocked-empty-icon">🛡️</div>
-        <div class="blocked-empty-text" style="font-weight:600;color:var(--txt-primary);">No Blocked Contacts</div>
-        <div class="blocked-empty-text" style="font-size:0.8rem;margin-top:4px;">You haven't blocked any contacts. Profiles you block will appear here.</div>
-        <button class="unblock-action-btn" onclick="restoreDefaultDemoContacts()" style="margin-top:16px;background:rgba(255,46,112,0.12);border-color:#FF2E70;padding:8px 18px;font-size:0.82rem;">
-          🔄 Restore All Demo Matches
-        </button>
+        <div class="blocked-empty-text" style="font-weight:600;color:var(--txt-primary);font-size:0.95rem;">No Blocked Contacts</div>
+        <div class="blocked-empty-text" style="font-size:0.8rem;margin-top:4px;color:var(--txt-muted);">You haven't blocked any contacts. Profiles you block will appear here.</div>
       </div>
     `;
     return;
@@ -9531,25 +10152,6 @@ async function unblockUser(userId, name) {
   renderBlockedUsersListInModal();
 }
 
-function restoreDefaultDemoContacts() {
-  PROFILES_DATA.slice(0, 3).forEach(p => {
-    if (!matchedUsers.some(u => u.id === p.id)) {
-      matchedUsers.push(p);
-      if (!conversations[p.id]) {
-        conversations[p.id] = {
-          messages: [{ sender: 'them', text: 'Hey there! Let\'s chat 😊', read: true, timestamp: Date.now() }]
-        };
-      }
-    }
-  });
-  blockedUsers = [];
-  saveToStorage();
-  renderMatchesView();
-  renderSettingsScreen();
-  updateMatchesNotificationBadge();
-  closeBlockedUsersModal();
-  showToast('✨ Contacts restored successfully!', 'gold');
-}
 
 // ==========================================================
 // NOTIFICATION PERMISSION PROMPT
@@ -11207,3 +11809,392 @@ function triggerProfileBoost() {
     showToast('⚡ Profile Boost activated for 30 minutes!');
   }
 }
+
+// ==========================================================
+// DEVICE PERMISSIONS & VIDEO CALL QUALITY MODALS
+// ==========================================================
+
+function updateDevicePermissionsSubtext(el) {
+  if (!el) return;
+  if (!navigator.permissions) {
+    el.textContent = 'Camera, Mic & Location: Manage';
+    return;
+  }
+  Promise.all([
+    navigator.permissions.query({ name: 'camera' }).catch(() => null),
+    navigator.permissions.query({ name: 'microphone' }).catch(() => null)
+  ]).then(([cam, mic]) => {
+    if (cam?.state === 'granted' && mic?.state === 'granted') {
+      el.innerHTML = '<span style="color:#21B06B;font-weight:600">Camera &amp; Mic active ✓</span>';
+    } else if (cam?.state === 'denied' || mic?.state === 'denied') {
+      el.innerHTML = '<span style="color:#FF3B30;font-weight:600">Permissions restricted ⚠️</span>';
+    } else {
+      el.textContent = 'Check &amp; grant permissions';
+    }
+  }).catch(() => {
+    el.textContent = 'Device permissions &amp; status';
+  });
+}
+window.updateDevicePermissionsSubtext = updateDevicePermissionsSubtext;
+
+async function openDevicePermissionsModal() {
+  document.getElementById('devicePermissionsModalOverlay')?.remove();
+
+  const overlay = document.createElement('div');
+  overlay.className = 'whatsapp-dialog-overlay';
+  overlay.id = 'devicePermissionsModalOverlay';
+  overlay.onclick = (e) => { if (e.target === overlay) closeDevicePermissionsModal(); };
+
+  overlay.innerHTML = `
+    <div class="whatsapp-dialog-card" style="max-width:440px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:38px;height:38px;border-radius:50%;background:rgba(139,127,255,0.14);display:flex;align-items:center;justify-content:center;color:#8B7FFF;flex-shrink:0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="wa-dialog-title" style="margin:0;font-size:1.15rem;text-align:left;">Device Permissions</h3>
+            <span style="font-size:0.75rem;color:var(--txt-muted);display:block;margin-top:2px;">Hardware &amp; system access</span>
+          </div>
+        </div>
+        <button onclick="closeDevicePermissionsModal()" style="background:none;border:none;color:var(--txt-muted);cursor:pointer;font-size:1.3rem;padding:4px 8px;">✕</button>
+      </div>
+
+      <p class="wa-dialog-desc" style="text-align:left;font-size:0.82rem;margin-bottom:12px;">
+        Grant permissions below to enable crystal-clear HD video calls, instant voice messaging, distance discovery, and call alerts.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
+
+        <!-- Camera -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.4rem;">📹</div>
+            <div>
+              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Camera</div>
+              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permCamStatus">Checking status…</div>
+            </div>
+          </div>
+          <button class="unblock-action-btn" id="permCamBtn" onclick="requestDevicePermission('camera')" style="padding:6px 14px;font-size:0.78rem;">
+            Allow
+          </button>
+        </div>
+
+        <!-- Microphone -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.4rem;">🎙️</div>
+            <div>
+              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Microphone</div>
+              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permMicStatus">Checking status…</div>
+            </div>
+          </div>
+          <button class="unblock-action-btn" id="permMicBtn" onclick="requestDevicePermission('microphone')" style="padding:6px 14px;font-size:0.78rem;">
+            Allow
+          </button>
+        </div>
+
+        <!-- Location -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.4rem;">📍</div>
+            <div>
+              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Location</div>
+              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permLocStatus">Checking status…</div>
+            </div>
+          </div>
+          <button class="unblock-action-btn" id="permLocBtn" onclick="requestDevicePermission('location')" style="padding:6px 14px;font-size:0.78rem;">
+            Allow
+          </button>
+        </div>
+
+        <!-- Notifications -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="font-size:1.4rem;">🔔</div>
+            <div>
+              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Notifications</div>
+              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permNotifStatus">Checking status…</div>
+            </div>
+          </div>
+          <button class="unblock-action-btn" id="permNotifBtn" onclick="requestDevicePermission('notifications')" style="padding:6px 14px;font-size:0.78rem;">
+            Allow
+          </button>
+        </div>
+
+      </div>
+
+      <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;">
+        <button class="unblock-action-btn" onclick="requestAllDevicePermissions()" style="background:var(--flame-grad);border:none;color:#fff;padding:10px 18px;font-size:0.84rem;font-weight:600;flex:1;">
+          Grant All Permissions
+        </button>
+        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeDevicePermissionsModal()" style="width:auto;padding:8px 20px;">
+          <span>Done</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  refreshDevicePermissionsUI();
+}
+window.openDevicePermissionsModal = openDevicePermissionsModal;
+
+function closeDevicePermissionsModal() {
+  document.getElementById('devicePermissionsModalOverlay')?.remove();
+  renderSettingsScreen();
+}
+window.closeDevicePermissionsModal = closeDevicePermissionsModal;
+
+async function refreshDevicePermissionsUI() {
+  const camStatus = document.getElementById('permCamStatus');
+  const camBtn = document.getElementById('permCamBtn');
+  const micStatus = document.getElementById('permMicStatus');
+  const micBtn = document.getElementById('permMicBtn');
+  const locStatus = document.getElementById('permLocStatus');
+  const locBtn = document.getElementById('permLocBtn');
+  const notifStatus = document.getElementById('permNotifStatus');
+  const notifBtn = document.getElementById('permNotifBtn');
+
+  // Camera & Mic check
+  if (navigator.permissions) {
+    try {
+      const c = await navigator.permissions.query({ name: 'camera' });
+      if (camStatus && camBtn) {
+        if (c.state === 'granted') {
+          camStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
+          camBtn.textContent = 'Active';
+          camBtn.style.opacity = '0.6';
+        } else if (c.state === 'denied') {
+          camStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
+          camBtn.textContent = 'Enable';
+        } else {
+          camStatus.textContent = 'Tap to allow access';
+          camBtn.textContent = 'Allow';
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const m = await navigator.permissions.query({ name: 'microphone' });
+      if (micStatus && micBtn) {
+        if (m.state === 'granted') {
+          micStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
+          micBtn.textContent = 'Active';
+          micBtn.style.opacity = '0.6';
+        } else if (m.state === 'denied') {
+          micStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
+          micBtn.textContent = 'Enable';
+        } else {
+          micStatus.textContent = 'Tap to allow access';
+          micBtn.textContent = 'Allow';
+        }
+      }
+    } catch (_) {}
+
+    try {
+      const l = await navigator.permissions.query({ name: 'geolocation' });
+      if (locStatus && locBtn) {
+        if (l.state === 'granted') {
+          locStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
+          locBtn.textContent = 'Active';
+          locBtn.style.opacity = '0.6';
+        } else if (l.state === 'denied') {
+          locStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
+          locBtn.textContent = 'Enable';
+        } else {
+          locStatus.textContent = 'Tap to allow access';
+          locBtn.textContent = 'Allow';
+        }
+      }
+    } catch (_) {}
+  }
+
+  // Notifications check
+  if ('Notification' in window && notifStatus && notifBtn) {
+    if (Notification.permission === 'granted') {
+      notifStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
+      notifBtn.textContent = 'Active';
+      notifBtn.style.opacity = '0.6';
+    } else if (Notification.permission === 'denied') {
+      notifStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
+      notifBtn.textContent = 'Enable';
+    } else {
+      notifStatus.textContent = 'Tap to enable notifications';
+      notifBtn.textContent = 'Allow';
+    }
+  }
+}
+
+async function requestDevicePermission(type) {
+  try {
+    if (type === 'camera') {
+      const s = await navigator.mediaDevices.getUserMedia({ video: true });
+      s.getTracks().forEach(t => t.stop());
+      showToast('📹 Camera access granted!', 'gold');
+    } else if (type === 'microphone') {
+      const s = await navigator.mediaDevices.getUserMedia({ audio: true });
+      s.getTracks().forEach(t => t.stop());
+      showToast('🎙️ Microphone access granted!', 'gold');
+    } else if (type === 'location') {
+      await new Promise((res, rej) => {
+        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000 });
+      });
+      showToast('📍 Location access granted!', 'gold');
+    } else if (type === 'notifications') {
+      if ('Notification' in window) {
+        const res = await Notification.requestPermission();
+        if (res === 'granted') {
+          showToast('🔔 Notifications enabled!', 'gold');
+        } else {
+          showToast('Notification permission denied.', 'warning');
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`Permission request for ${type} failed:`, err);
+    showToast(`Could not enable ${type}. Check your browser settings.`, 'warning');
+  }
+  refreshDevicePermissionsUI();
+}
+window.requestDevicePermission = requestDevicePermission;
+
+async function requestAllDevicePermissions() {
+  showToast('Requesting device permissions…', 'info');
+  try {
+    const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    s.getTracks().forEach(t => t.stop());
+  } catch (_) {}
+
+  try {
+    await new Promise((res, rej) => {
+      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 });
+    });
+  } catch (_) {}
+
+  try {
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      await Notification.requestPermission();
+    }
+  } catch (_) {}
+
+  refreshDevicePermissionsUI();
+  showToast('✨ Device permissions updated!', 'gold');
+}
+window.requestAllDevicePermissions = requestAllDevicePermissions;
+
+// Video Call Quality Selection Modal
+function openVideoQualityModal() {
+  document.getElementById('videoQualityModalOverlay')?.remove();
+
+  const current = localStorage.getItem('videoCallQuality') || '1080p';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'whatsapp-dialog-overlay';
+  overlay.id = 'videoQualityModalOverlay';
+  overlay.onclick = (e) => { if (e.target === overlay) closeVideoQualityModal(); };
+
+  overlay.innerHTML = `
+    <div class="whatsapp-dialog-card" style="max-width:440px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:38px;height:38px;border-radius:50%;background:rgba(244,197,80,0.14);display:flex;align-items:center;justify-content:center;color:#F4C550;flex-shrink:0;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="wa-dialog-title" style="margin:0;font-size:1.15rem;text-align:left;">Video Call Quality</h3>
+            <span style="font-size:0.75rem;color:var(--txt-muted);display:block;margin-top:2px;">Camera resolution &amp; bitrate</span>
+          </div>
+        </div>
+        <button onclick="closeVideoQualityModal()" style="background:none;border:none;color:var(--txt-muted);cursor:pointer;font-size:1.3rem;padding:4px 8px;">✕</button>
+      </div>
+
+      <p class="wa-dialog-desc" style="text-align:left;font-size:0.82rem;margin-bottom:14px;">
+        Choose camera video stream clarity for all outgoing and incoming video calls.
+      </p>
+
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
+
+        <!-- 1080p Ultra HD -->
+        <div onclick="selectVideoQuality('1080p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '1080p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '1080p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">Ultra HD 1080p</span>
+              <span style="background:var(--flame-grad);color:#fff;font-size:0.68rem;padding:2px 7px;border-radius:10px;font-weight:700;">HIGHEST</span>
+            </div>
+            <div style="font-size:0.77rem;color:var(--txt-muted);margin-top:4px;">
+              Crystal clear native camera clarity (1920×1080 @ 30fps). Highest sharpness, like a normal phone camera.
+            </div>
+          </div>
+          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${current === '1080p' ? '#F4C550' : 'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;">
+            ${current === '1080p' ? '<div style="width:10px;height:10px;border-radius:50%;background:#F4C550;"></div>' : ''}
+          </div>
+        </div>
+
+        <!-- 720p HD -->
+        <div onclick="selectVideoQuality('720p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '720p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '720p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">HD 720p</span>
+              <span style="background:rgba(255,255,255,0.12);color:var(--txt-primary);font-size:0.68rem;padding:2px 7px;border-radius:10px;font-weight:600;">BALANCED</span>
+            </div>
+            <div style="font-size:0.77rem;color:var(--txt-muted);margin-top:4px;">
+              High definition (1280×720 @ 30fps). Smooth performance and moderate data usage.
+            </div>
+          </div>
+          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${current === '720p' ? '#F4C550' : 'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;">
+            ${current === '720p' ? '<div style="width:10px;height:10px;border-radius:50%;background:#F4C550;"></div>' : ''}
+          </div>
+        </div>
+
+        <!-- 480p Data Saver -->
+        <div onclick="selectVideoQuality('480p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '480p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '480p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">Standard 480p</span>
+              <span style="background:rgba(255,255,255,0.12);color:var(--txt-muted);font-size:0.68rem;padding:2px 7px;border-radius:10px;font-weight:600;">DATA SAVER</span>
+            </div>
+            <div style="font-size:0.77rem;color:var(--txt-muted);margin-top:4px;">
+              Standard definition (640×480). Conserves mobile data on slow or limited connections.
+            </div>
+          </div>
+          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${current === '480p' ? '#F4C550' : 'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;">
+            ${current === '480p' ? '<div style="width:10px;height:10px;border-radius:50%;background:#F4C550;"></div>' : ''}
+          </div>
+        </div>
+
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;">
+        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeVideoQualityModal()" style="width:auto;padding:8px 24px;">
+          <span>Done</span>
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+}
+window.openVideoQualityModal = openVideoQualityModal;
+
+function closeVideoQualityModal() {
+  document.getElementById('videoQualityModalOverlay')?.remove();
+  renderSettingsScreen();
+}
+window.closeVideoQualityModal = closeVideoQualityModal;
+
+function selectVideoQuality(quality) {
+  localStorage.setItem('videoCallQuality', quality);
+  const labels = {
+    '1080p': 'Ultra HD 1080p (Crystal Clear)',
+    '720p': 'HD 720p (Balanced)',
+    '480p': 'Standard 480p (Data Saver)'
+  };
+  showToast(`✨ Video Call Quality: ${labels[quality] || quality}`, 'gold');
+  closeVideoQualityModal();
+}
+window.selectVideoQuality = selectVideoQuality;
