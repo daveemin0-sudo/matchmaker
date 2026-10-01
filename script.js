@@ -4033,12 +4033,26 @@ function viewCurrentMatchProfile() {
   overlay.id = 'whatsappProfileOverlay';
   overlay.onclick = (e) => { if (e.target === overlay) closeWhatsAppProfile(); };
 
-  const photo = partner.image || partner.photoUrl || '';
+  const allPhotos = [];
+  if (Array.isArray(partner.photos) && partner.photos.length > 0) {
+    partner.photos.forEach(u => { if (u) allPhotos.push(u); });
+  }
+  if (allPhotos.length === 0 && (partner.image || partner.photoUrl)) {
+    allPhotos.push(partner.image || partner.photoUrl);
+  }
+  const photo = allPhotos[0] || '';
   const tagsHtml = (partner.tags || ['Positive vibes ✨', 'Music 🎵', 'Foodie 🍕']).map(t => `<span class="wa-interest-pill">${escHtml(t)}</span>`).join('');
   const partnerName = escHtml(partner.name || 'User');
   const partnerAge = partner.age || 24;
-  const partnerDistance = partner.distance || '3 km away';
+  const partnerLoc = partner.location || partner.city || 'Lagos, Nigeria';
+  const partnerDistance = typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(partner) : (partner.distance || '3 km away');
   const partnerBio = escHtml(partner.bio || 'Living life with good energy, positive vibes only! ✨');
+
+  let isMuted = false;
+  try {
+    const mutedList = JSON.parse(localStorage.getItem('hmbs_muted_matches') || '[]');
+    isMuted = mutedList.includes(partner.id);
+  } catch (_) {}
 
   overlay.innerHTML = `
     <div class="whatsapp-profile-sheet" id="whatsappProfileSheet">
@@ -4071,13 +4085,13 @@ function viewCurrentMatchProfile() {
           </div>
           <div class="wa-status-row">
             <span class="wa-pulse-dot"></span>
-            <span class="wa-status-text">Active now • Lekki, Lagos</span>
+            <span class="wa-status-text">Active now • ${escHtml(partnerLoc)}</span>
           </div>
         </div>
 
         <!-- WhatsApp Quick Action Icons -->
         <div class="wa-quick-actions">
-          <button class="wa-action-btn" onclick="closeWhatsAppProfile()" title="Message">
+          <button class="wa-action-btn" onclick="closeWhatsAppProfile();setTimeout(()=>{const inp=document.getElementById('chatInput');if(inp)inp.focus();},150);" title="Message">
             <div class="wa-action-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
             </div>
@@ -4103,6 +4117,35 @@ function viewCurrentMatchProfile() {
           </button>
         </div>
 
+        ${allPhotos.length > 0 ? `
+        <!-- Media Gallery -->
+        <div class="wa-card">
+          <div class="wa-card-header" style="display:flex;align-items:center;justify-content:space-between">
+            <span class="wa-card-label">Media, Links and Docs</span>
+            <span class="wa-media-count" style="font-size:0.78rem;color:#E3B34D;font-weight:700">${allPhotos.length} photo${allPhotos.length > 1 ? 's' : ''}</span>
+          </div>
+          <div class="wa-media-strip">
+            ${allPhotos.map((p, idx) => `
+              <div class="wa-media-thumb" style="background-image:url('${safeCssUrl(p)}')" onclick="openFullPhotoModal('${escHtml(p)}')" role="button" tabindex="0" title="View photo ${idx + 1}"></div>
+            `).join('')}
+          </div>
+        </div>
+        ` : ''}
+
+        <!-- Notifications Settings -->
+        <div class="wa-card">
+          <div class="wa-settings-row">
+            <div class="wa-settings-info">
+              <div class="wa-settings-title">Mute Notifications</div>
+              <div class="wa-settings-sub">Silence incoming messages & calls from this match</div>
+            </div>
+            <label class="wa-toggle-switch">
+              <input type="checkbox" id="waMuteToggle" onchange="toggleMuteMatch('${partner.id}', this.checked)" ${isMuted ? 'checked' : ''}>
+              <span class="wa-toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+
         <!-- WhatsApp Info Cards -->
         <div class="wa-card">
           <div class="wa-card-header">
@@ -4126,8 +4169,8 @@ function viewCurrentMatchProfile() {
           <div class="wa-info-row">
             <span class="wa-info-icon">📍</span>
             <div class="wa-info-text">
-              <div class="wa-info-main">Lagos, Nigeria</div>
-              <div class="wa-info-sub">${partnerDistance}</div>
+              <div class="wa-info-main">${escHtml(partnerLoc)}</div>
+              <div class="wa-info-sub">${escHtml(partnerDistance)}</div>
             </div>
           </div>
         </div>
@@ -4164,6 +4207,32 @@ function closeWhatsAppProfile() {
   }
   setTimeout(() => overlay.remove(), 220);
 }
+
+function toggleMuteMatch(matchId, isMuted) {
+  haptic('light');
+  try {
+    let mutedList = JSON.parse(localStorage.getItem('hmbs_muted_matches') || '[]');
+    if (isMuted) {
+      if (!mutedList.includes(matchId)) mutedList.push(matchId);
+      showToast('🔕 Notifications muted for this match', 'info');
+    } else {
+      mutedList = mutedList.filter(id => id !== matchId);
+      showToast('🔔 Notifications unmuted', 'info');
+    }
+    localStorage.setItem('hmbs_muted_matches', JSON.stringify(mutedList));
+  } catch (_) {}
+}
+window.toggleMuteMatch = toggleMuteMatch;
+
+function sendChatEmptyStarter(partnerId, text) {
+  haptic('medium');
+  const input = document.getElementById('chatInput');
+  if (input) {
+    input.value = text;
+    sendMessage();
+  }
+}
+window.sendChatEmptyStarter = sendChatEmptyStarter;
 
 function openFullPhotoModal(url) {
   if (!url) return;
@@ -4311,7 +4380,24 @@ function renderChatThread() {
   if (hist.length === 0) {
     const partner = (typeof matchedUsers !== 'undefined' ? matchedUsers : []).find(u => u.id === partnerId) || (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA : []).find(u => u.id === partnerId);
     const partnerName = partner ? escHtml(partner.name) : 'your match';
-    container.innerHTML = `<div class="chat-match-milestone" style="text-align:center;padding:36px 16px;color:var(--txt-muted);"><div style="width:64px;height:64px;border-radius:50%;margin:0 auto 12px;background:var(--grad-flame);display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 8px 24px rgba(255,46,112,0.3)">🔥</div><p style="font-weight:700;color:var(--txt-primary);font-size:1.02rem;margin-bottom:6px">You matched with ${partnerName}!</p><p style="font-size:0.82rem;line-height:1.5;max-width:260px;margin:0 auto">Say hello and start chatting 👋</p></div>`;
+    container.innerHTML = `
+      <div class="chat-match-milestone" style="text-align:center;padding:28px 16px 36px;color:var(--txt-muted);">
+        <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 12px;background:var(--grad-flame);display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 8px 24px rgba(255,46,112,0.3)">🔥</div>
+        <p style="font-weight:700;color:var(--txt-primary);font-size:1.05rem;margin-bottom:4px">You matched with ${partnerName}!</p>
+        <p style="font-size:0.82rem;line-height:1.45;max-width:260px;margin:0 auto 16px;color:rgba(255,255,255,0.6)">Break the ice with a conversation starter:</p>
+        <div class="chat-empty-icebreakers">
+          <button class="chat-empty-ib-btn" onclick="sendChatEmptyStarter('${escHtml(partnerId)}', 'Hey ${partnerName}! How is your day going? ✨')">
+            👋 Hey ${partnerName}! How's your day going?
+          </button>
+          <button class="chat-empty-ib-btn" onclick="sendChatEmptyStarter('${escHtml(partnerId)}', 'Loved your vibe on your profile! What music are you listening to lately? 🎵')">
+            🎵 Loved your vibe! What music are you playing lately?
+          </button>
+          <button class="chat-empty-ib-btn" onclick="sendChatEmptyStarter('${escHtml(partnerId)}', 'Describe your perfect Sunday in Lagos 🌅')">
+            🌅 Describe your perfect Sunday in Lagos
+          </button>
+        </div>
+      </div>
+    `;
     return;
   }
 
@@ -11669,13 +11755,16 @@ if (document.readyState === 'loading') {
   initNavigationHistory();
 }
 
-// Mobile Keyboard Behavior: Lock chat header at top (WhatsApp style) and keep messages visible
+// Mobile Keyboard Behavior: Lock chat header at top (WhatsApp style), adjust safe area, and handle dismissals
 (function initMobileKeyboardChatHandler() {
   const chatInputEl = document.getElementById('chatInput');
   const chatMessagesEl = document.getElementById('chatMessages');
 
   function alignChatViewport() {
     if (appState.currentScreen === 'chat') {
+      const isKbOpen = window.visualViewport ? (window.visualViewport.height < window.innerHeight - 80) : false;
+      document.body.classList.toggle('keyboard-visible', isKbOpen);
+
       window.scrollTo(0, 0);
       document.body.scrollTop = 0;
       if (chatMessagesEl) {
@@ -11695,10 +11784,40 @@ if (document.readyState === 'loading') {
 
   if (chatInputEl) {
     chatInputEl.addEventListener('focus', () => {
+      document.body.classList.add('keyboard-visible');
       window.scrollTo(0, 0);
       setTimeout(alignChatViewport, 100);
       setTimeout(alignChatViewport, 300);
     });
+
+    chatInputEl.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (!chatInputEl.matches(':focus')) {
+          document.body.classList.remove('keyboard-visible');
+        }
+      }, 150);
+    });
+  }
+
+  // Tap on chat messages area dismisses virtual keyboard (WhatsApp & Telegram style)
+  if (chatMessagesEl) {
+    chatMessagesEl.addEventListener('click', (e) => {
+      if (e.target.closest('button') || e.target.closest('.msg-reaction-pill') || e.target.closest('a') || e.target.closest('.chat-empty-ib-btn')) return;
+      if (chatInputEl && document.activeElement === chatInputEl) {
+        chatInputEl.blur();
+      }
+    });
+
+    let touchStartY = 0;
+    chatMessagesEl.addEventListener('touchstart', (e) => {
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+    chatMessagesEl.addEventListener('touchmove', (e) => {
+      const currentY = e.touches[0].clientY;
+      if (currentY - touchStartY > 35 && chatInputEl && document.activeElement === chatInputEl) {
+        chatInputEl.blur();
+      }
+    }, { passive: true });
   }
 })();
 
