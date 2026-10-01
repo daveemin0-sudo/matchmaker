@@ -1282,7 +1282,7 @@
             <div class="hk-identity-text">
               <div class="hk-name-row">
                 <h2 class="hk-profile-name" id="profileDisplayName">Dave, 24</h2>
-                <span class="hk-verified-badge" id="profileVerifiedBadge" title="Verified Profile">
+                <span class="hk-verified-badge" id="profileVerifiedBadge" title="Verified Profile" style="display:none">
                   <svg width="17" height="17" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
                 </span>
                 <span class="header-vip-badge" id="profileVipBadge" style="display:none">VIP</span>
@@ -1309,6 +1309,41 @@
               </button>
             </div>
           </div>
+
+          <!-- Real Activity Stats (Positioned right below Hero for immediate visibility) -->
+          <div class="hk-stats-strip">
+            <div class="hk-stat-cell" onclick="switchTab('matches')" title="View Matches">
+              <div class="hk-stat-val" id="statMatches">0</div>
+              <div class="hk-stat-sub">Matches</div>
+            </div>
+            <div class="hk-stat-divider"></div>
+            <div class="hk-stat-cell" onclick="openPaywall('see_who_likes')" title="See Who Likes You">
+              <div class="hk-stat-val" id="statLikes">0</div>
+              <div class="hk-stat-sub">Likes</div>
+            </div>
+            <div class="hk-stat-divider"></div>
+            <div class="hk-stat-cell" onclick="openPaywall('super_likes')" title="Super Likes Refill">
+              <div class="hk-stat-val" id="statSuper">0</div>
+              <div class="hk-stat-sub">Super Likes</div>
+            </div>
+          </div>
+
+          <!-- About & Passions Card -->
+          <div class="hk-bio-card">
+            <div class="hk-bio-header">
+              <span class="hk-bio-title">About Me</span>
+              <button class="hk-bio-edit-link" onclick="openEditProfileModal()">Edit</button>
+            </div>
+            <p class="hk-bio-text" id="profileBioDisplay">Living life with good energy, positive vibes only! ✨</p>
+            <div class="hk-passions-grid" id="profileInterestsDisplay">
+              <span class="hk-passion-pill">Tech 💻</span>
+              <span class="hk-passion-pill">Fitness 💪</span>
+              <span class="hk-passion-pill">Music 🎵</span>
+            </div>
+          </div>
+
+          <!-- Section Label: Profile Health & Trust -->
+          <div class="hk-section-title">Profile Health &amp; Trust</div>
 
           <!-- Dynamic Profile Strength / Completion Meter -->
           <div class="hk-strength-box" id="hkStrengthCard" onclick="openEditProfileModal()">
@@ -1345,6 +1380,9 @@
             <button class="hk-vpc-btn" id="hkVerifyBtn" type="button">Verify</button>
           </div>
 
+          <!-- Section Label: Membership & Tokens -->
+          <div class="hk-section-title">Membership &amp; Power-Ups</div>
+
           <!-- HookMe Gold Membership Card -->
           <div class="hk-gold-promo-card" onclick="openPaywall('profile_screen')">
             <div class="hk-gpc-left">
@@ -1357,7 +1395,6 @@
 
           <!-- Power-Ups & Tokens Vault (3 Interactive Refill Cards) -->
           <div class="hk-vault-wrapper">
-            <div class="hk-vault-heading">Power-Ups &amp; Tokens</div>
             <div class="hk-vault-cards">
               <div class="hk-v-card" onclick="openPaywall('super_likes')">
                 <div class="hk-v-icon star">⭐</div>
@@ -1377,38 +1414,6 @@
                 <div class="hk-v-title">Rewinds</div>
                 <div class="hk-v-btn-pill" id="vaultRewindBtn">VIP Active</div>
               </div>
-            </div>
-          </div>
-
-          <!-- Real Activity Stats -->
-          <div class="hk-stats-strip">
-            <div class="hk-stat-cell" onclick="switchTab('matches')">
-              <div class="hk-stat-val" id="statMatches">0</div>
-              <div class="hk-stat-sub">Matches</div>
-            </div>
-            <div class="hk-stat-divider"></div>
-            <div class="hk-stat-cell" onclick="openPaywall('see_who_likes')">
-              <div class="hk-stat-val" id="statLikes">0</div>
-              <div class="hk-stat-sub">Likes</div>
-            </div>
-            <div class="hk-stat-divider"></div>
-            <div class="hk-stat-cell" onclick="openPaywall('super_likes')">
-              <div class="hk-stat-val" id="statSuper">0</div>
-              <div class="hk-stat-sub">Super Likes</div>
-            </div>
-          </div>
-
-          <!-- About & Passions Card -->
-          <div class="hk-bio-card">
-            <div class="hk-bio-header">
-              <span class="hk-bio-title">About Me</span>
-              <button class="hk-bio-edit-link" onclick="openEditProfileModal()">Edit</button>
-            </div>
-            <p class="hk-bio-text" id="profileBioDisplay">Living life with good energy, positive vibes only! ✨</p>
-            <div class="hk-passions-grid" id="profileInterestsDisplay">
-              <span class="hk-passion-pill">Tech 💻</span>
-              <span class="hk-passion-pill">Fitness 💪</span>
-              <span class="hk-passion-pill">Music 🎵</span>
             </div>
           </div>
 

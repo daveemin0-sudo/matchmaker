@@ -732,6 +732,9 @@ function showScreen(screenId, { fromHistory = false } = {}) {
 
   const target = document.getElementById(`${screenId}Screen`);
   if (target) target.classList.add('active');
+  if (screenId === 'profile' && typeof renderProfileScreen === 'function') {
+    renderProfileScreen();
+  }
 
   const oldScreen = appState.currentScreen;
   appState.previousScreen = oldScreen;
@@ -1151,6 +1154,8 @@ function switchTab(tabId) {
     renderMatchesView();
   } else if (tabId === 'chatsList') {
     renderChatsInbox();
+  } else if (tabId === 'profile') {
+    renderProfileScreen();
   }
   showScreen(tabId);
 }

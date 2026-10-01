@@ -997,11 +997,12 @@ input[type="number"].auth-input {
 }
 .card-name-row h2 {
   font-family: var(--font-display);
-  font-size: 2rem;
+  font-size: clamp(1.6rem, 5.2vw, 2.1rem);
   font-weight: 900;
   color: #ffffff;
   letter-spacing: -0.5px;
   text-shadow: 0 2px 14px rgba(0,0,0,0.85);
+  line-height: 1.15;
 }
 .verified-icon {
   color: #5FC7FF;
@@ -1050,7 +1051,7 @@ input[type="number"].auth-input {
   justify-content: center;
   align-items: center;
   gap: 13px;
-  padding: 12px 16px 20px;
+  padding: 10px 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
   flex-shrink: 0;
 }
 
@@ -10094,7 +10095,7 @@ body[data-theme="light"],
   font-family: var(--font-display);
   font-size: 1.5rem;
   font-weight: 800;
-  color: #FFFFFF;
+  color: var(--txt-primary, #FFFFFF);
   margin: 0;
   letter-spacing: -0.3px;
 }
@@ -10174,7 +10175,7 @@ body[data-theme="light"],
 .hk-strength-label {
   font-size: 0.88rem;
   font-weight: 800;
-  color: #FFFFFF;
+  color: var(--txt-primary, #FFFFFF);
 }
 .hk-strength-val {
   font-size: 0.82rem;
@@ -10304,7 +10305,7 @@ body[data-theme="light"],
 .hk-v-metric {
   font-size: 0.88rem;
   font-weight: 800;
-  color: #FFFFFF;
+  color: var(--txt-primary, #FFFFFF);
 }
 .hk-v-title {
   font-size: 0.7rem;
@@ -10345,7 +10346,7 @@ body[data-theme="light"],
   font-family: var(--font-display);
   font-size: 1.35rem;
   font-weight: 800;
-  color: #FFFFFF;
+  color: var(--txt-primary, #FFFFFF);
 }
 .hk-stat-sub {
   font-size: 0.72rem;
@@ -10375,7 +10376,7 @@ body[data-theme="light"],
 .hk-bio-title {
   font-size: 0.95rem;
   font-weight: 800;
-  color: #FFFFFF;
+  color: var(--txt-primary, #FFFFFF);
 }
 .hk-bio-edit-link {
   background: none;
@@ -11889,4 +11890,105 @@ textarea.chat-field {
 }
 textarea.chat-field::-webkit-scrollbar {
   display: none !important;
+}
+
+
+/* Profile Section Headings */
+.hk-section-title {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--txt-muted, #8C869A);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin: 6px 0 -4px 2px;
+}
+
+/* ── Light Mode Polish for Profile Page ── */
+[data-theme="light"] .hk-profile-workspace {
+  background: transparent;
+}
+[data-theme="light"] .hk-top-action-btn {
+  background: #FFFFFF;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #171120;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .hk-hero-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .hk-avatar-circle {
+  border-color: #FFFFFF;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .hk-avatar-pencil-btn {
+  border-color: #FFFFFF;
+}
+[data-theme="light"] .hk-hero-edit-btn {
+  background: #F4F1EA;
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #171120;
+}
+[data-theme="light"] .hk-stats-strip {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .hk-stat-sub {
+  color: #7A7287;
+}
+[data-theme="light"] .hk-stat-divider {
+  background: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .hk-bio-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .hk-bio-text {
+  color: #383044;
+}
+[data-theme="light"] .hk-passion-pill {
+  background: rgba(255, 46, 112, 0.08);
+  border: 1px solid rgba(255, 46, 112, 0.22);
+  color: #FF2E70;
+}
+[data-theme="light"] .hk-strength-box {
+  background: linear-gradient(135deg, rgba(255, 46, 112, 0.06), rgba(139, 127, 255, 0.06));
+  border: 1px solid rgba(255, 46, 112, 0.2);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+}
+[data-theme="light"] .hk-strength-track {
+  background: rgba(0, 0, 0, 0.08);
+}
+[data-theme="light"] .hk-strength-tip {
+  color: #6C627A;
+}
+[data-theme="light"] .hk-verify-prompt-card {
+  background: linear-gradient(135deg, rgba(56, 151, 240, 0.1), rgba(38, 144, 255, 0.04));
+  border-color: rgba(56, 151, 240, 0.3);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.03);
+}
+[data-theme="light"] .hk-vpc-title {
+  color: #151120;
+}
+[data-theme="light"] .hk-vpc-desc {
+  color: #5A5366;
+}
+[data-theme="light"] .hk-v-card {
+  background: #FFFFFF;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .hk-v-title {
+  color: #7A7287;
+}
+[data-theme="light"] .hk-v-btn-pill {
+  background: #F4F1EA;
+  color: #171120;
+  border-color: rgba(0, 0, 0, 0.1);
+}
+[data-theme="light"] .hk-gold-promo-card {
+  box-shadow: 0 10px 30px rgba(227, 179, 77, 0.2);
 }
