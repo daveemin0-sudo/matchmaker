@@ -1591,42 +1591,86 @@ async function handleGoogleLoginSuccess(user) {
   try { sessionStorage.removeItem('hmbs_google_redirecting'); } catch (_) {}
   resetFailedLoginAttempts();
 
-  // Find any existing profile from local registered users or in-memory state
-  const regUsers = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
-  const localMatch = regUsers.find(u => u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase());
-  const existingLocal = (currentUser && currentUser.email && user.email && currentUser.email.toLowerCase() === user.email.toLowerCase() && currentUser.name && !currentUser.name.includes('@')) ? currentUser : localMatch;
-
-  let cleanName = existingLocal?.name || existingLocal?.displayName || '';
-  if (!cleanName || cleanName.includes('@')) {
-    const gName = (user.displayName || '').trim();
-    if (gName && !gName.includes('@')) {
-      cleanName = gName;
-    } else {
-      const prefix = (user.email || '').split('@')[0] || 'User';
-      const cleaned = prefix.replace(/[._0-9]+$/g, '') || prefix;
-      cleanName = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  // 1. Query Firestore directly for an existing profile (by UID or by email)
+  let existingProfile = null;
+  if (typeof fbDb !== 'undefined' && fbDb && user.email) {
+    try {
+      const doc = await fbDb.collection('users').doc(user.uid).get();
+      if (doc && doc.exists) {
+        existingProfile = doc.data();
+      } else {
+        // Find existing account created with this email (e.g. Email/Password signup)
+        const emailSnap = await fbDb.collection('users')
+          .where('email', '==', user.email.toLowerCase())
+          .limit(1)
+          .get();
+        if (!emailSnap.empty) {
+          existingProfile = emailSnap.docs[0].data();
+          console.log('Found existing user profile in Firestore by email:', existingProfile.name, existingProfile.age);
+          // Link this profile to the Google UID so future logins read it directly
+          await fbDb.collection('users').doc(user.uid).set({
+            ...existingProfile,
+            id: user.uid,
+            authProvider: 'google',
+            linkedPreviousUid: emailSnap.docs[0].id,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true }).catch(() => {});
+        }
+      }
+    } catch (e) {
+      console.warn('Error querying Firestore for profile in handleGoogleLoginSuccess:', e);
     }
   }
 
-  let cleanUsername = existingLocal?.username || '';
-  if (!cleanUsername || cleanUsername.includes('@') || cleanUsername === 'daveemin0') {
-    const prefix = (user.email || '').split('@')[0] || cleanName;
-    cleanUsername = prefix.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
-    if (cleanUsername.length < 3) cleanUsername = 'user_' + Math.floor(100 + Math.random() * 900);
+  // 2. Fallback to localStorage registered users if Firestore query returned nothing
+  if (!existingProfile) {
+    const regUsers = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
+    existingProfile = regUsers.find(u => u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase()) || null;
   }
+
+  if (existingProfile) {
+    // Preserve the user's REAL account details completely!
+    currentUser.id = user.uid;
+    currentUser.email = (user.email || '').toLowerCase();
+    currentUser.name = existingProfile.name || existingProfile.displayName || currentUser.name;
+    currentUser.displayName = currentUser.name;
+    currentUser.username = existingProfile.username || currentUser.username;
+    if (existingProfile.age) currentUser.age = existingProfile.age;
+    if (existingProfile.gender) currentUser.gender = existingProfile.gender;
+    if (existingProfile.bio) currentUser.bio = existingProfile.bio;
+    if (existingProfile.interests) currentUser.interests = existingProfile.interests;
+    if (existingProfile.photos?.length) currentUser.photos = existingProfile.photos;
+    if (existingProfile.image || existingProfile.avatar) {
+      currentUser.image = existingProfile.image || existingProfile.avatar;
+      currentUser.avatar = currentUser.image;
+    }
+    currentUser.isVip = Boolean(existingProfile.isVip);
+
+    appState.isLoggedIn = true;
+    saveToStorage();
+    showScreen('discovery');
+    initMainApp();
+    showToast('Welcome back, ' + currentUser.name + '! ✨', 'gold');
+    return;
+  }
+
+  // 3. Genuinely brand new user without any existing account:
+  let cleanName = (user.displayName || '').trim();
+  if (!cleanName || cleanName.includes('@')) {
+    const prefix = (user.email || '').split('@')[0] || 'User';
+    const cleaned = prefix.replace(/[._0-9]+$/g, '') || prefix;
+    cleanName = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+  }
+  let cleanUsername = (user.email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
+  if (cleanUsername.length < 3) cleanUsername = 'user_' + Math.floor(100 + Math.random() * 900);
 
   currentUser.id = user.uid;
   currentUser.email = (user.email || '').toLowerCase();
   currentUser.name = cleanName;
   currentUser.displayName = cleanName;
   currentUser.username = cleanUsername;
-  if (existingLocal?.age) currentUser.age = existingLocal.age;
-  if (existingLocal?.gender) currentUser.gender = existingLocal.gender;
-  if (existingLocal?.bio) currentUser.bio = existingLocal.bio;
-  if (existingLocal?.interests) currentUser.interests = existingLocal.interests;
-  if (existingLocal?.photos?.length) currentUser.photos = existingLocal.photos;
-
-  if (user.photoURL && (!currentUser.image || !currentUser.photos || currentUser.photos.length === 0)) {
+  currentUser.age = 24;
+  if (user.photoURL) {
     currentUser.image = user.photoURL;
     currentUser.avatar = user.photoURL;
     currentUser.photos = [user.photoURL];
@@ -1635,21 +1679,12 @@ async function handleGoogleLoginSuccess(user) {
   appState.isLoggedIn = true;
   saveToStorage();
 
-  // If this user already has a complete profile (or existing profile merged)
-  const isProfileComplete = Boolean(currentUser.age && currentUser.gender && currentUser.photos && currentUser.photos.length > 0);
-  if (!isProfileComplete) {
-    // Fill in signup fields with Google information so user can set age/gender easily
-    const nameInput = document.getElementById('signupName');
-    if (nameInput) nameInput.value = cleanName;
-    const emailInput = document.getElementById('signupEmail');
-    if (emailInput) emailInput.value = currentUser.email;
-    showToast(`Welcome ${cleanName}! Complete your age and photos to finish profile 🎯`, 'gold');
-    showScreen('signup');
-  } else {
-    showScreen('discovery');
-    initMainApp();
-    showToast('Welcome back, ' + cleanName + '! ✨', 'gold');
-  }
+  const nameInput = document.getElementById('signupName');
+  if (nameInput) nameInput.value = cleanName;
+  const emailInput = document.getElementById('signupEmail');
+  if (emailInput) emailInput.value = currentUser.email;
+  showToast(`Welcome ${cleanName}! Please select your age and gender to complete your profile 🎯`, 'gold');
+  showScreen('signup');
 }
 window.handleGoogleLoginSuccess = handleGoogleLoginSuccess;
 
@@ -1970,10 +2005,10 @@ function completeSignup() {
         }
 
         saveRegisteredUser({
+          ...profileData,
           email: email.toLowerCase(),
           phone: phone,
           passwordHash: btoa(password),
-          name: userName,
           uid: user.uid,
           createdAt: Date.now()
         });

@@ -21,7 +21,7 @@ service cloud.firestore {
     // Account owners can create and update their profiles, but cannot grant
     // themselves VIP or elevate their role.
     match /users/{userId} {
-      allow read: if owner(userId);
+      allow read: if owner(userId) || (signedIn() && request.auth.token.email != null && resource.data.email == request.auth.token.email);
       allow create: if owner(userId)
         && (!('isVip' in request.resource.data) || request.resource.data.isVip == false)
         && (!('role' in request.resource.data) || request.resource.data.role == 'user');

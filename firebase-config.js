@@ -210,8 +210,35 @@ function listenToAuthChanges() {
        try {
          if (fbDb) {
            let doc = await fbDb.collection('users').doc(user.uid).get();
+           let docData = null;
+
            if (doc && doc.exists) {
-             const docData = doc.data();
+             docData = doc.data();
+           } else if (user.email) {
+             // Query Firestore to see if user previously registered under another UID with this email
+             try {
+               const emailSnap = await fbDb.collection('users')
+                 .where('email', '==', user.email.toLowerCase())
+                 .limit(1)
+                 .get();
+               if (!emailSnap.empty) {
+                 docData = emailSnap.docs[0].data();
+                 console.log('Found existing user profile in Firestore by email:', docData.name, docData.age);
+                 // Link to this Google UID so both credentials access the exact same account
+                 await fbDb.collection('users').doc(user.uid).set({
+                   ...docData,
+                   id: user.uid,
+                   authProvider: 'google',
+                   linkedPreviousUid: emailSnap.docs[0].id,
+                   updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                 }, { merge: true }).catch(() => {});
+               }
+             } catch (e) {
+               console.warn('Could not query users by email in Firestore:', e.message);
+             }
+           }
+
+           if (docData) {
              if (docData.suspended === true || docData.accountStatus === 'suspended') {
                targetUser.suspended = true;
                if (typeof showToast === 'function') showToast('Your account has been suspended by an administrator.', 'error');
@@ -225,7 +252,7 @@ function listenToAuthChanges() {
              if (typeof appState !== 'undefined') appState.isVip = vipActive;
              if (window.appState) window.appState.isVip = vipActive;
            } else {
-             // Existing account check: match local registered users or currentUser by email
+             // Brand new user without any existing account in Firestore
              const regUsers = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
              const localMatch = regUsers.find(u => u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase());
              const localCurrent = (typeof currentUser !== 'undefined' && currentUser && currentUser.email && user.email && currentUser.email.toLowerCase() === user.email.toLowerCase() && currentUser.name && !currentUser.name.includes('@')) ? currentUser : null;
