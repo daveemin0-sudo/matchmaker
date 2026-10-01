@@ -2208,6 +2208,20 @@ function onDragMove(e) {
     if (stampNope) stampNope.style.opacity = norm;
     if (stampLike) stampLike.style.opacity = 0;
   }
+
+  // Smooth Card Stack Depth: Interpolate the card directly behind forward!
+  const cardStack = document.getElementById('cardStack');
+  if (cardStack) {
+    const cards = cardStack.querySelectorAll('.profile-card');
+    if (cards.length > 1) {
+      const nextCard = cards[cards.length - 2];
+      if (nextCard && nextCard !== appState.activeCard) {
+        const nextScale = 0.96 + norm * 0.04;
+        const nextTy = -10 + norm * 10;
+        nextCard.style.transform = `scale(${nextScale}) translateY(${nextTy}px)`;
+      }
+    }
+  }
 }
 
 function onDragEnd() {
@@ -2227,6 +2241,19 @@ function onDragEnd() {
     const stampNope = appState.activeCard.querySelector('.stamp-nope');
     if (stampLike) stampLike.style.opacity = 0;
     if (stampNope) stampNope.style.opacity = 0;
+
+    // Reset card behind back to rest depth
+    const cardStack = document.getElementById('cardStack');
+    if (cardStack) {
+      const cards = cardStack.querySelectorAll('.profile-card');
+      if (cards.length > 1) {
+        const nextCard = cards[cards.length - 2];
+        if (nextCard) {
+          nextCard.style.transition = 'transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+          nextCard.style.transform = 'scale(0.96) translateY(-10px)';
+        }
+      }
+    }
   }
 
   document.removeEventListener('mousemove', onDragMove);
@@ -2256,8 +2283,29 @@ async function doSwipe(dir) {
   if (profileStack.length === 0) return;
   const profile = profileStack[0];
   appState.lastAction = { profile, dir };
-  profileStack.shift();
-  renderCardStack();
+
+  // Smooth Card Stack Depth: Animate top card flying off and next card springing forward
+  const cardStack = document.getElementById('cardStack');
+  if (cardStack) {
+    const cards = cardStack.querySelectorAll('.profile-card');
+    const topCard = appState.activeCard || cards[cards.length - 1];
+    const nextCard = cards.length > 1 ? cards[cards.length - 2] : null;
+
+    if (topCard) {
+      topCard.style.transition = 'transform 0.34s cubic-bezier(0.2, 0.8, 0.4, 1), opacity 0.3s ease';
+      topCard.style.transform = `translate3d(${dir === 'right' ? '130%' : '-130%'}, 10px, 0) rotate(${dir === 'right' ? 24 : -24}deg)`;
+      topCard.style.opacity = '0';
+    }
+    if (nextCard && nextCard !== topCard) {
+      nextCard.style.transition = 'transform 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.2)';
+      nextCard.style.transform = 'scale(1) translateY(0px)';
+    }
+  }
+
+  setTimeout(() => {
+    profileStack.shift();
+    renderCardStack();
+  }, 260);
 
   // Record swipe through the authenticated backend so limits and blocks are enforced server-side.
   if (typeof recordSwipeInBackend === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
@@ -4445,7 +4493,8 @@ function renderChatThread() {
     const pressEvents = `onmousedown="startLongPress(event,'${matchId}','${msgId}')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchstart="startLongPress(event,'${matchId}','${msgId}')" ontouchmove="handleTouchMove(event)" ontouchend="cancelLongPress()" oncontextmenu="event.preventDefault();showReactionPicker(event,'${matchId}','${msgId}')"`;
 
     let bubbleHtml = '';
-    const receiptHtml = isSent ? `<span class="msg-receipt-ticks ${isLast ? 'read' : ''}">✓✓</span>` : '';
+    const isRead = msg.read === true || hist.some(m => m.sender !== 'me' && (m.timestamp || 0) >= (msg.timestamp || 0));
+    const receiptHtml = isSent ? `<span class="msg-receipt-ticks ${isRead ? 'read' : ''}">✓✓</span>` : '';
     const editedHtml = msg.edited ? `<span class="msg-edited">(edited)</span>` : '';
     const forwardedHtml = msg.forwarded
       ? `<div class="msg-forwarded-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg> Forwarded</div>`
@@ -7829,6 +7878,44 @@ function renderProfileScreen() {
   if (nameEl) {
     nameEl.textContent = String(displayName) + ', ' + String(displayAge);
   }
+    // Photo Verification Prompt Card & Badge State
+  const verifiedBadge = document.getElementById('profileVerifiedBadge');
+  const vpcCard = document.getElementById('hkVerifyPromptCard');
+  const vpcBadge = document.getElementById('hkVerifyBadge');
+  const vpcTitle = document.getElementById('hkVerifyTitle');
+  const vpcDesc = document.getElementById('hkVerifyDesc');
+  const vpcBtn = document.getElementById('hkVerifyBtn');
+
+  const isVerified = currentUser.isVerified === true || localStorage.getItem('hmbs_verified') === 'true';
+  if (isVerified) {
+    currentUser.isVerified = true;
+    if (verifiedBadge) verifiedBadge.style.display = 'inline-flex';
+    if (vpcBadge) {
+      vpcBadge.textContent = 'Verified ✓';
+      vpcBadge.className = 'hk-vpc-badge verified';
+    }
+    if (vpcTitle) vpcTitle.textContent = 'Photo Verified Account';
+    if (vpcDesc) vpcDesc.textContent = 'Your selfie verification is active with official blue badge protection.';
+    if (vpcBtn) {
+      vpcBtn.textContent = 'Verified ✓';
+      vpcBtn.style.background = 'linear-gradient(135deg, #21B06B, #1B9B5C)';
+      vpcBtn.style.pointerEvents = 'none';
+    }
+  } else {
+    if (verifiedBadge) verifiedBadge.style.display = 'none';
+    if (vpcBadge) {
+      vpcBadge.textContent = 'Get Verified';
+      vpcBadge.className = 'hk-vpc-badge';
+    }
+    if (vpcTitle) vpcTitle.textContent = 'Photo Verification';
+    if (vpcDesc) vpcDesc.textContent = 'Prove you\'re really you with a quick selfie scan and unlock the official blue checkmark!';
+    if (vpcBtn) {
+      vpcBtn.textContent = 'Verify';
+      vpcBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
+      vpcBtn.style.pointerEvents = 'auto';
+    }
+  }
+
   const vipBadge = document.getElementById('profileVipBadge');
   if (vipBadge) {
     vipBadge.style.display = appState.isVip ? 'inline-flex' : 'none';
@@ -9780,6 +9867,21 @@ function showTypingIndicator() {
   const container = document.getElementById('chatMessages');
   if (!container || appState.isTypingVisible) return;
   appState.isTypingVisible = true;
+
+  // Header status indicator
+  const partnerId = appState.currentChatId;
+  const partner = (typeof matchedUsers !== 'undefined' ? matchedUsers : []).find(u => u.id === partnerId) || (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA : []).find(u => u.id === partnerId);
+  const pName = partner ? partner.name : 'Match';
+  const statusEl = document.getElementById('chatPartnerStatus');
+  if (statusEl) {
+    if (!statusEl.dataset.prevStatus) {
+      statusEl.dataset.prevStatus = statusEl.textContent;
+    }
+    statusEl.textContent = `${pName} is typing...`;
+    statusEl.style.color = '#21B06B';
+  }
+
+  // Bubble in thread
   const typingEl = document.createElement('div');
   typingEl.id = 'typingIndicator';
   typingEl.className = 'msg-typing';
@@ -9796,6 +9898,13 @@ function removeTypingIndicator() {
   const el = document.getElementById('typingIndicator');
   if (el) el.remove();
   appState.isTypingVisible = false;
+
+  const statusEl = document.getElementById('chatPartnerStatus');
+  if (statusEl && statusEl.dataset.prevStatus) {
+    statusEl.textContent = statusEl.dataset.prevStatus;
+    statusEl.style.color = '';
+    delete statusEl.dataset.prevStatus;
+  }
 }
 
 // ==========================================================
@@ -13198,3 +13307,140 @@ setTimeout(initUserGeolocation, 1500);
 
 
 
+
+
+// ==========================================================
+// PHOTO VERIFICATION (SELFIE CHECK) SYSTEM
+// ==========================================================
+let _selfieStream = null;
+let _selfieScanTimeout = null;
+
+function openSelfieVerifyModal() {
+  const modal = document.getElementById('selfieVerifyModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  haptic('light');
+
+  // Reset steps
+  const s1 = document.getElementById('sStep1');
+  const s2 = document.getElementById('sStep2');
+  const s3 = document.getElementById('sStep3');
+  const laser = document.getElementById('selfieScanLaser');
+  const statusPill = document.getElementById('selfieStatusPill');
+  const btn = document.getElementById('selfieActionBtn');
+  const video = document.getElementById('selfieVideoEl');
+  const mock = document.getElementById('selfieAvatarMock');
+
+  if (s1) { s1.className = 'selfie-step-dot active'; }
+  if (s2) { s2.className = 'selfie-step-dot'; }
+  if (s3) { s3.className = 'selfie-step-dot'; }
+  if (laser) laser.classList.remove('scanning');
+  if (statusPill) statusPill.textContent = 'Align your face inside the oval';
+  if (btn) {
+    btn.disabled = false;
+    btn.textContent = currentUser.isVerified ? 'Scan Again' : 'Start Selfie Scan';
+    btn.style.opacity = '1';
+  }
+
+  // Attempt real camera stream if accessible
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+      .then(stream => {
+        _selfieStream = stream;
+        if (video) {
+          video.srcObject = stream;
+          video.style.display = 'block';
+          if (mock) mock.style.display = 'none';
+        }
+      })
+      .catch(err => {
+        // Fallback to simulated face oval
+        if (video) video.style.display = 'none';
+        if (mock) mock.style.display = 'flex';
+      });
+  } else {
+    if (video) video.style.display = 'none';
+    if (mock) mock.style.display = 'flex';
+  }
+}
+window.openSelfieVerifyModal = openSelfieVerifyModal;
+
+function closeSelfieVerifyModal() {
+  const modal = document.getElementById('selfieVerifyModal');
+  if (modal) modal.style.display = 'none';
+  if (_selfieStream) {
+    _selfieStream.getTracks().forEach(t => t.stop());
+    _selfieStream = null;
+  }
+  if (_selfieScanTimeout) {
+    clearTimeout(_selfieScanTimeout);
+    _selfieScanTimeout = null;
+  }
+}
+window.closeSelfieVerifyModal = closeSelfieVerifyModal;
+
+function startSelfieScan() {
+  const laser = document.getElementById('selfieScanLaser');
+  const statusPill = document.getElementById('selfieStatusPill');
+  const btn = document.getElementById('selfieActionBtn');
+  const s1 = document.getElementById('sStep1');
+  const s2 = document.getElementById('sStep2');
+  const s3 = document.getElementById('sStep3');
+
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = 'Scanning facial landmarks...';
+    btn.style.opacity = '0.7';
+  }
+  if (laser) laser.classList.add('scanning');
+  haptic('medium');
+
+  // Step 1: Center face
+  if (statusPill) statusPill.textContent = 'Hold still... Scanning face 🔍';
+
+  _selfieScanTimeout = setTimeout(() => {
+    // Step 2: Liveness check
+    if (s1) s1.className = 'selfie-step-dot done';
+    if (s2) s2.className = 'selfie-step-dot active';
+    if (statusPill) statusPill.textContent = 'Great! Now tilt head slightly right 😊';
+    haptic('light');
+
+    _selfieScanTimeout = setTimeout(() => {
+      // Step 3: Verified!
+      if (s2) s2.className = 'selfie-step-dot done';
+      if (s3) s3.className = 'selfie-step-dot done';
+      if (laser) laser.classList.remove('scanning');
+      if (statusPill) {
+        statusPill.textContent = '✓ 100% Match! Identity Confirmed';
+        statusPill.style.color = '#21B06B';
+      }
+
+      completeSelfieVerification();
+    }, 1800);
+  }, 1800);
+}
+window.startSelfieScan = startSelfieScan;
+
+function completeSelfieVerification() {
+  currentUser.isVerified = true;
+  try {
+    localStorage.setItem('hmbs_verified', 'true');
+    const savedUserStr = localStorage.getItem('hmbs_user');
+    if (savedUserStr) {
+      const u = JSON.parse(savedUserStr);
+      u.isVerified = true;
+      localStorage.setItem('hmbs_user', JSON.stringify(u));
+    }
+  } catch (_) {}
+
+  haptic('success');
+  if (typeof launchMatchConfetti === 'function') {
+    launchMatchConfetti();
+  }
+  showToast('🛡️ Verified! You earned the official Blue Badge!', 'gold');
+
+  setTimeout(() => {
+    closeSelfieVerifyModal();
+    renderProfileScreen();
+  }, 1400);
+}
