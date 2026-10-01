@@ -11871,3 +11871,22 @@ body.keyboard-visible .chat-input-bar {
   transform: translate3d(-130%, 0, 0) rotate(-26deg) !important;
   opacity: 0 !important;
 }
+
+
+/* Textarea Auto-sizing and Autofill-suppression */
+textarea.chat-field {
+  resize: none !important;
+  min-height: 22px !important;
+  height: 22px;
+  max-height: 110px !important;
+  overflow-y: auto !important;
+  box-sizing: border-box !important;
+  scrollbar-width: none !important;
+  font-family: inherit;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  padding: 2px 8px !important;
+}
+textarea.chat-field::-webkit-scrollbar {
+  display: none !important;
+}

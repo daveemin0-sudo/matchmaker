@@ -5009,6 +5009,10 @@ function onChatInputChange() {
   const micBtn = document.getElementById('micBtn');
   if (!input) return;
 
+  // Auto-grow textarea height like WhatsApp & Telegram
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 110) + 'px';
+
   const text = input.value;
   const hasText = text.trim().length > 0;
   if (sendBtn) sendBtn.style.display = hasText ? 'flex' : 'none';
@@ -7352,6 +7356,7 @@ function sendMessage() {
   conversations[appState.currentChatId].messages.push(newMsgObj);
   conversations[appState.currentChatId].lastReadTimestamp = Date.now();
   input.value = '';
+  input.style.height = 'auto';
   cancelReplyMessage();
 
   movePartnerToTop(appState.currentChatId);
