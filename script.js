@@ -2117,7 +2117,7 @@ function buildProfileCard(p, idx) {
       <div class="card-photo-dots">${dotsHTML}</div>
       <div class="card-distance-badge">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-        ${escHtml(p.distance || '')}
+        ${escHtml(typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(p) : (p.distance || '2 km away'))}
       </div>
       <div class="stamp stamp-like">LIKE</div>
       <div class="stamp stamp-nope">NOPE</div>
@@ -12331,9 +12331,20 @@ function _obShowStep(stepNum) {
   const skipBtn = document.getElementById('obSkipBtn');
   if (skipBtn) skipBtn.style.display = stepNum < 4 ? 'block' : 'none';
 
+  // Show/hide back button (visible on steps 2, 3, 4)
+  const backBtn = document.getElementById('obBackBtn');
+  if (backBtn) backBtn.style.display = stepNum > 1 ? 'inline-flex' : 'none';
+
   _obState.currentStep = stepNum;
   haptic('light');
 }
+
+function obBackCurrent() {
+  if (_obState.currentStep > 1) {
+    _obShowStep(_obState.currentStep - 1);
+  }
+}
+window.obBackCurrent = obBackCurrent;
 
 function selectObGender(el) {
   document.querySelectorAll('#obStep2 .ob-name-section:first-of-type .ob-gender-opt').forEach(o => o.classList.remove('selected'));
@@ -12597,6 +12608,13 @@ window.generateIcebreakers = generateIcebreakers;
 const _origTriggerMatchPopup = window.triggerMatchPopup;
 window.triggerMatchPopup = function(profile) {
   haptic('match');
+  if (typeof launchMatchConfetti === 'function') {
+    launchMatchConfetti();
+  }
+  try {
+    const mc = parseInt(localStorage.getItem('hmbs_match_count') || '0', 10) + 1;
+    localStorage.setItem('hmbs_match_count', mc.toString());
+  } catch (_) {}
 
   if (typeof _origTriggerMatchPopup === 'function') {
     _origTriggerMatchPopup(profile);
@@ -12687,7 +12705,377 @@ window.doSwipe = async function(dir) {
     if (typeof _origInitMainApp === 'function') _origInitMainApp.apply(this, arguments);
     // After 15 seconds in-app, try to show PWA banner
     setTimeout(tryShowPwaBanner, 15000);
+    // Initialize GPS Geolocation and Daily Swipe Timer
+    initUserGeolocation();
+    initSwipeResetTimer();
+    setTimeout(checkShowRatingPrompt, 8000);
   };
 })();
+
+// ==========================================================
+// MATCH CONFETTI CELEBRATION ENGINE
+// ==========================================================
+function launchMatchConfetti() {
+  const canvas = document.getElementById('matchConfettiCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  canvas.style.display = 'block';
+
+  const colors = ['#FF2E70', '#E3B34D', '#FF6584', '#21B06B', '#7000FF', '#FFFFFF', '#00C6FF'];
+  const particles = [];
+  const count = 110;
+
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      x: canvas.width / 2 + (Math.random() - 0.5) * 80,
+      y: canvas.height * 0.45 + (Math.random() - 0.5) * 60,
+      vx: (Math.random() - 0.5) * 16,
+      vy: (Math.random() * -17) - 4,
+      size: Math.random() * 8 + 4,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      rotation: Math.random() * 360,
+      rotSpeed: (Math.random() - 0.5) * 10,
+      shape: Math.random() > 0.4 ? 'rect' : 'circle',
+      opacity: 1
+    });
+  }
+
+  let animationFrame;
+  const startTime = Date.now();
+
+  function render() {
+    const elapsed = Date.now() - startTime;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let activeParticles = 0;
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.42; // gravity
+      p.vx *= 0.985; // air drag
+      p.rotation += p.rotSpeed;
+
+      if (elapsed > 1800) {
+        p.opacity -= 0.025;
+      }
+
+      if (p.opacity > 0 && p.y < canvas.height + 50) {
+        activeParticles++;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate((p.rotation * Math.PI) / 180);
+        ctx.globalAlpha = Math.max(0, p.opacity);
+        ctx.fillStyle = p.color;
+
+        if (p.shape === 'rect') {
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        } else {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    });
+
+    if (activeParticles > 0 && elapsed < 3500) {
+      animationFrame = requestAnimationFrame(render);
+    } else {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      canvas.style.display = 'none';
+      if (animationFrame) cancelAnimationFrame(animationFrame);
+    }
+  }
+
+  animationFrame = requestAnimationFrame(render);
+}
+window.launchMatchConfetti = launchMatchConfetti;
+
+// ==========================================================
+// SWIPE REFILL COUNTDOWN TIMER
+// ==========================================================
+let _swipeResetTimerInterval = null;
+function initSwipeResetTimer() {
+  if (_swipeResetTimerInterval) clearInterval(_swipeResetTimerInterval);
+
+  const updateTimer = () => {
+    const timerEl = document.getElementById('swipeResetTimer');
+    if (!timerEl) return;
+
+    const now = new Date();
+    // Midnight tonight (end of local day)
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+    const diff = Math.max(0, midnight.getTime() - now.getTime());
+
+    const hrs = Math.floor(diff / (1000 * 60 * 60));
+    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+    const pad = n => String(n).padStart(2, '0');
+    timerEl.textContent = `Refills in ${pad(hrs)}:${pad(mins)}:${pad(secs)}`;
+  };
+
+  updateTimer();
+  _swipeResetTimerInterval = setInterval(updateTimer, 1000);
+}
+window.initSwipeResetTimer = initSwipeResetTimer;
+
+// ==========================================================
+// REAL GPS GEOLOCATION & DYNAMIC DISTANCE
+// ==========================================================
+const NIGERIAN_CITIES_COORDS = {
+  'victoria island': { lat: 6.4281, lng: 3.4219 },
+  'ikoyi': { lat: 6.4549, lng: 3.4358 },
+  'lekki': { lat: 6.4474, lng: 3.4849 },
+  'ikeja': { lat: 6.5954, lng: 3.3364 },
+  'yaba': { lat: 6.5095, lng: 3.3711 },
+  'surulere': { lat: 6.4969, lng: 3.3515 },
+  'gbagada': { lat: 6.5540, lng: 3.3850 },
+  'ajah': { lat: 6.4698, lng: 3.5852 },
+  'lagos': { lat: 6.4549, lng: 3.4246 },
+  'abuja': { lat: 9.0765, lng: 7.3986 },
+  'port harcourt': { lat: 4.8156, lng: 7.0498 },
+  'ibadan': { lat: 7.3775, lng: 3.9470 },
+  'enugu': { lat: 6.4584, lng: 7.5464 }
+};
+
+let _userGeoCoords = null;
+
+function initUserGeolocation() {
+  if ('geolocation' in navigator) {
+    try {
+      const cached = localStorage.getItem('hmbs_user_coords');
+      if (cached) _userGeoCoords = JSON.parse(cached);
+    } catch (_) {}
+
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        _userGeoCoords = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude
+        };
+        try {
+          localStorage.setItem('hmbs_user_coords', JSON.stringify(_userGeoCoords));
+        } catch (_) {}
+      },
+      () => {
+        // Fallback default: Victoria Island, Lagos
+        if (!_userGeoCoords) _userGeoCoords = { lat: 6.4281, lng: 3.4219 };
+      },
+      { timeout: 8000, maximumAge: 3600000 }
+    );
+  }
+}
+window.initUserGeolocation = initUserGeolocation;
+
+function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Earth's radius in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+window.calculateDistanceKm = calculateDistanceKm;
+
+function getDynamicProfileDistance(profile) {
+  if (!profile) return '2 km away';
+  if (_userGeoCoords) {
+    let targetCoords = profile.coords;
+    if (!targetCoords && (profile.location || profile.city)) {
+      const locLower = (profile.location || profile.city || '').toLowerCase();
+      for (const [cityName, coords] of Object.entries(NIGERIAN_CITIES_COORDS)) {
+        if (locLower.includes(cityName)) {
+          targetCoords = coords;
+          break;
+        }
+      }
+    }
+    if (targetCoords) {
+      const km = calculateDistanceKm(_userGeoCoords.lat, _userGeoCoords.lng, targetCoords.lat, targetCoords.lng);
+      if (km < 1) return `${Math.max(200, Math.round(km * 1000))} m away`;
+      return `${km.toFixed(1)} km away`;
+    }
+  }
+  return profile.distance || '2.5 km away';
+}
+window.getDynamicProfileDistance = getDynamicProfileDistance;
+
+// ==========================================================
+// POLISHED SUPER LIKE WITH STARBURST ANIMATION
+// ==========================================================
+const _origTriggerSuperLike = window.triggerSuperLike;
+window.triggerSuperLike = function() {
+  haptic('medium');
+  if (!appState.isVip && (!appState.superLikesRemaining || appState.superLikesRemaining <= 0)) {
+    openPaywall('super_like');
+    return;
+  }
+
+  // Deduct super like if not VIP
+  if (!appState.isVip && typeof appState.superLikesRemaining === 'number') {
+    appState.superLikesRemaining = Math.max(0, appState.superLikesRemaining - 1);
+    updateLimitBadges();
+  }
+
+  // Visual Starburst overlay
+  const burst = document.getElementById('superLikeFxBurst');
+  const starsContainer = document.getElementById('superLikeFxStars');
+  if (burst) {
+    if (starsContainer) {
+      starsContainer.innerHTML = '';
+      for (let i = 0; i < 18; i++) {
+        const star = document.createElement('div');
+        star.className = 'super-star-particle';
+        star.textContent = ['⭐', '✨', '💙', '💫'][Math.floor(Math.random() * 4)];
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.random() * 160 + 80;
+        star.style.setProperty('--dx', `${Math.cos(angle) * dist}px`);
+        star.style.setProperty('--dy', `${Math.sin(angle) * dist}px`);
+        starsContainer.appendChild(star);
+      }
+    }
+    burst.style.display = 'flex';
+    setTimeout(() => { burst.style.display = 'none'; }, 1100);
+  }
+
+  // Card animation
+  const card = appState.activeCard || document.querySelector('.profile-card');
+  if (card) {
+    const stamp = document.createElement('div');
+    stamp.className = 'stamp stamp-super';
+    stamp.textContent = 'SUPER LIKE';
+    stamp.style.opacity = '1';
+    card.appendChild(stamp);
+
+    card.style.transition = 'transform 0.65s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.6s ease';
+    card.style.transform = 'translateY(-130%) scale(1.08) rotate(3deg)';
+    card.style.boxShadow = '0 0 50px rgba(29, 161, 242, 0.9)';
+    card.style.opacity = '0';
+  }
+
+  haptic('success');
+  showToast('⭐ Super Like sent! Priority match delivery activated!', 'gold');
+
+  setTimeout(() => {
+    doSwipe('right');
+  }, 450);
+};
+
+// ==========================================================
+// IN-APP RATING & FEEDBACK MODAL SYSTEM
+// ==========================================================
+let _currentRatingScore = 5;
+
+function showRatingModal() {
+  const overlay = document.getElementById('ratingModalOverlay');
+  if (!overlay) return;
+  _currentRatingScore = 5;
+  setRatingScore(5);
+  overlay.style.display = 'flex';
+  haptic('light');
+}
+window.showRatingModal = showRatingModal;
+
+function setRatingScore(score) {
+  _currentRatingScore = score;
+  const stars = document.querySelectorAll('.rating-star-btn');
+  stars.forEach((btn, idx) => {
+    btn.classList.toggle('active', idx < score);
+  });
+
+  const feedbackArea = document.getElementById('ratingFeedbackArea');
+  if (feedbackArea) {
+    feedbackArea.style.display = score <= 4 ? 'block' : 'none';
+  }
+}
+window.setRatingScore = setRatingScore;
+
+function submitRating() {
+  haptic('success');
+  const feedback = (document.getElementById('ratingFeedbackText')?.value || '').trim();
+
+  try {
+    localStorage.setItem('hmbs_has_rated', Date.now().toString());
+  } catch (_) {}
+
+  // Sync to Firestore if available
+  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    fbDb.collection('app_feedback').add({
+      uid: fbAuth.currentUser.uid,
+      userName: currentUser.name || 'Anonymous',
+      rating: _currentRatingScore,
+      feedback: feedback,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).catch(() => {});
+  }
+
+  closeRatingModal(false);
+
+  if (_currentRatingScore >= 5) {
+    launchMatchConfetti();
+    showToast('❤️ Thank you! We are thrilled you love hookmebysam!', 'gold');
+  } else {
+    showToast('🙏 Thank you for your feedback! We will keep improving!', 'success');
+  }
+}
+window.submitRating = submitRating;
+
+function closeRatingModal(isDismiss) {
+  const overlay = document.getElementById('ratingModalOverlay');
+  if (overlay) overlay.style.display = 'none';
+  if (isDismiss) {
+    try {
+      localStorage.setItem('hmbs_rating_dismissed', Date.now().toString());
+    } catch (_) {}
+  }
+}
+window.closeRatingModal = closeRatingModal;
+
+function checkShowRatingPrompt() {
+  try {
+    if (localStorage.getItem('hmbs_has_rated')) return;
+    const dismissed = localStorage.getItem('hmbs_rating_dismissed');
+    if (dismissed && Date.now() - parseInt(dismissed, 10) < 3 * 86400000) return; // 3 days cooldown
+
+    const swipeCount = parseInt(localStorage.getItem('hmbs_swipe_count') || '0', 10);
+    const matchCount = (typeof matchedUsers !== 'undefined' ? matchedUsers.length : 0);
+
+    if (swipeCount >= 15 || matchCount >= 2) {
+      setTimeout(showRatingModal, 2000);
+    }
+  } catch (_) {}
+}
+window.checkShowRatingPrompt = checkShowRatingPrompt;
+
+// Patch doSwipe to record swipes and check rating prompt
+(function patchDoSwipeForRating() {
+  const existingDoSwipe = window.doSwipe;
+  window.doSwipe = async function(dir) {
+    try {
+      const sc = parseInt(localStorage.getItem('hmbs_swipe_count') || '0', 10) + 1;
+      localStorage.setItem('hmbs_swipe_count', sc.toString());
+      if (sc === 15 || sc === 30) {
+        setTimeout(checkShowRatingPrompt, 1500);
+      }
+    } catch (_) {}
+
+    if (typeof existingDoSwipe === 'function') {
+      return existingDoSwipe.apply(this, arguments);
+    }
+  };
+})();
+
+// Start timers on load
+setTimeout(initSwipeResetTimer, 1000);
+setTimeout(initUserGeolocation, 1500);
+
 
 

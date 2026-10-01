@@ -11179,3 +11179,279 @@ body[data-theme="light"],
   background-size: 800px 100%;
   animation: skeletonShimmer 1.6s ease-in-out infinite;
 }
+
+/* ==========================================================
+   ONBOARDING BACK BUTTON
+   ========================================================== */
+.ob-back-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #fff;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  padding: 0;
+}
+.ob-back-btn:hover, .ob-back-btn:active {
+  background: rgba(255, 255, 255, 0.18);
+  transform: scale(0.94);
+}
+[data-theme="light"] .ob-back-btn {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1a1a2e;
+}
+
+/* ==========================================================
+   SWIPE RESET REFILL COUNTDOWN TIMER
+   ========================================================== */
+.swipe-reset-timer {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="light"] .swipe-reset-timer {
+  color: rgba(0, 0, 0, 0.65);
+}
+
+/* ==========================================================
+   SUPER LIKE STARBURST FX OVERLAY & STAMP
+   ========================================================== */
+.super-like-fx-burst {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  background: radial-gradient(circle at center, rgba(29, 161, 242, 0.35) 0%, rgba(29, 161, 242, 0) 70%);
+  animation: superLikeOverlayFade 1.1s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+@keyframes superLikeOverlayFade {
+  0% { opacity: 0; transform: scale(0.85); }
+  25% { opacity: 1; transform: scale(1.04); }
+  75% { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.1); }
+}
+.super-like-fx-ring {
+  position: absolute;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  border: 3px solid rgba(29, 161, 242, 0.85);
+  box-shadow: 0 0 40px rgba(29, 161, 242, 0.8), inset 0 0 30px rgba(29, 161, 242, 0.4);
+  animation: superLikeRingPulse 0.9s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes superLikeRingPulse {
+  0% { transform: scale(0.2); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+.super-like-fx-core {
+  font-size: 5rem;
+  filter: drop-shadow(0 0 30px #1DA1F2) drop-shadow(0 0 60px #00C6FF);
+  animation: superStarPop 0.85s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+@keyframes superStarPop {
+  0% { transform: scale(0) rotate(-45deg); opacity: 0; }
+  55% { transform: scale(1.35) rotate(15deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.super-star-particle {
+  position: absolute;
+  pointer-events: none;
+  font-size: 1.5rem;
+  animation: superStarFly 0.9s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+@keyframes superStarFly {
+  0% { transform: translate(0, 0) scale(0.5) rotate(0deg); opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1.3) rotate(180deg); opacity: 0; }
+}
+.stamp-super {
+  position: absolute;
+  top: 40px;
+  left: 50%;
+  transform: translateX(-50%) rotate(0deg);
+  border: 4px solid #1DA1F2;
+  color: #1DA1F2;
+  font-size: 2.2rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-radius: 12px;
+  padding: 6px 18px;
+  letter-spacing: 2px;
+  background: rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 35px rgba(29, 161, 242, 0.8);
+  pointer-events: none;
+  opacity: 0;
+  z-index: 25;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+/* ==========================================================
+   IN-APP RATING & FEEDBACK MODAL
+   ========================================================== */
+.rating-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 99970;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  animation: fadeIn 0.25s ease;
+}
+.rating-modal-card {
+  position: relative;
+  background: #16121E;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 24px;
+  max-width: 360px;
+  width: 100%;
+  padding: 28px 24px 22px;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 0 40px rgba(227, 179, 77, 0.18);
+  animation: obCardPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+.rating-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 50%;
+  transition: color 0.2s;
+}
+.rating-close-btn:hover { color: #fff; }
+.rating-heart-badge {
+  font-size: 3rem;
+  margin-bottom: 12px;
+  display: inline-block;
+  animation: heartPulse 1.8s ease-in-out infinite;
+}
+.rating-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 6px;
+}
+.rating-subtitle {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.62);
+  line-height: 1.45;
+  margin-bottom: 18px;
+}
+.rating-stars-row {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.rating-star-btn {
+  background: none;
+  border: none;
+  font-size: 2.2rem;
+  color: rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
+  line-height: 1;
+  padding: 4px;
+}
+.rating-star-btn:hover, .rating-star-btn.hovered, .rating-star-btn.active {
+  color: #E3B34D;
+  transform: scale(1.28);
+  filter: drop-shadow(0 0 12px rgba(227, 179, 77, 0.65));
+}
+.rating-feedback-area {
+  margin-bottom: 16px;
+  animation: fadeIn 0.25s ease;
+}
+.rating-feedback-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 14px;
+  padding: 10px 14px;
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.88rem;
+  resize: none;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.rating-feedback-input:focus {
+  border-color: #E3B34D;
+}
+.rating-submit-btn {
+  width: 100%;
+  padding: 13px 20px;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #D13A63 0%, #E3B34D 100%);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 18px rgba(209, 58, 99, 0.35);
+  margin-bottom: 8px;
+  font-family: inherit;
+}
+.rating-submit-btn:hover, .rating-submit-btn:active {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 24px rgba(209, 58, 99, 0.5);
+}
+.rating-dismiss-btn {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.82rem;
+  cursor: pointer;
+  padding: 6px 12px;
+  transition: color 0.2s;
+  font-family: inherit;
+}
+.rating-dismiss-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+[data-theme="light"] .rating-modal-card {
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .rating-title { color: #1a1a2e; }
+[data-theme="light"] .rating-subtitle { color: #666; }
+[data-theme="light"] .rating-star-btn { color: rgba(0, 0, 0, 0.2); }
+[data-theme="light"] .rating-feedback-input {
+  background: #f7f7f7;
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #1a1a2e;
+}
+[data-theme="light"] .rating-dismiss-btn {
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* ==========================================================
+   CARD STACK DEPTH TRANSITIONS
+   ========================================================== */
+.profile-card {
+  transition: transform 0.35s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.35s ease, box-shadow 0.35s ease;
+}
+.profile-card.dragging {
+  transition: none !important;
+}
+

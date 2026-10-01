@@ -640,10 +640,12 @@
       <div class="screen" id="discoveryScreen">
         <div class="discovery-workspace">
 
-          <!-- Swipe counter badge -->
+          <!-- Swipe counter badge with refill countdown -->
           <div class="swipe-counter-badge" id="swipeCounterBadge" style="display:none">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
             <span id="swipeCounterText">-- likes left</span>
+            <span class="swipe-reset-divider" id="swipeResetDivider" style="opacity:0.6;margin:0 4px">•</span>
+            <span class="swipe-reset-timer" id="swipeResetTimer" title="Daily likes reset countdown">Refills in --:--</span>
           </div>
 
           <!-- Card Stack -->
@@ -2327,16 +2329,20 @@
        ONBOARDING WIZARD — Full-screen for new users
        ========================================================= -->
   <div id="onboardingWizard" style="display:none;position:fixed;inset:0;z-index:99980;background:#07040C;overflow-y:auto">
-    <!-- Step indicator -->
+    <!-- Step indicator with Back button, Progress Dots, and Skip -->
     <div class="ob-header">
-      <button class="ob-skip-btn" onclick="skipOnboarding()" id="obSkipBtn">Skip</button>
+      <button class="ob-back-btn" id="obBackBtn" onclick="obBackCurrent()" style="display:none" aria-label="Go back" title="Back">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 12H5M5 12l6 6M5 12l6-6"/>
+        </svg>
+      </button>
       <div class="ob-step-dots" id="obStepDots">
         <span class="ob-dot active"></span>
         <span class="ob-dot"></span>
         <span class="ob-dot"></span>
         <span class="ob-dot"></span>
       </div>
-      <div style="width:48px"></div>
+      <button class="ob-skip-btn" onclick="skipOnboarding()" id="obSkipBtn">Skip</button>
     </div>
 
     <!-- Step 1: Welcome + choose interests -->
@@ -2429,6 +2435,47 @@
         </div>
       </div>
       <button class="ob-next-btn" onclick="obFinish()" id="obFinishBtn">Start Matching 🔥</button>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       MATCH CONFETTI CELEBRATION CANVAS
+       ===================================================== -->
+  <canvas id="matchConfettiCanvas" style="position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:99999;display:none"></canvas>
+
+  <!-- =====================================================
+       SUPER LIKE STARBURST FX OVERLAY
+       ===================================================== -->
+  <div class="super-like-fx-burst" id="superLikeFxBurst" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:99990">
+    <div class="super-like-fx-ring"></div>
+    <div class="super-like-fx-core">⭐</div>
+    <div class="super-like-fx-stars" id="superLikeFxStars"></div>
+  </div>
+
+  <!-- =====================================================
+       IN-APP RATING & FEEDBACK MODAL
+       ===================================================== -->
+  <div class="rating-modal-overlay" id="ratingModalOverlay" style="display:none" onclick="if(event.target===this)closeRatingModal(true)">
+    <div class="rating-modal-card">
+      <button class="rating-close-btn" onclick="closeRatingModal(true)" aria-label="Close">&times;</button>
+      <div class="rating-heart-badge">⭐</div>
+      <h3 class="rating-title">Enjoying hookmebysam?</h3>
+      <p class="rating-subtitle">Your rating helps us bring you more amazing local matches!</p>
+
+      <div class="rating-stars-row" id="ratingStarsRow">
+        <button class="rating-star-btn" data-star="1" onclick="setRatingScore(1)" aria-label="1 star">★</button>
+        <button class="rating-star-btn" data-star="2" onclick="setRatingScore(2)" aria-label="2 stars">★</button>
+        <button class="rating-star-btn" data-star="3" onclick="setRatingScore(3)" aria-label="3 stars">★</button>
+        <button class="rating-star-btn" data-star="4" onclick="setRatingScore(4)" aria-label="4 stars">★</button>
+        <button class="rating-star-btn" data-star="5" onclick="setRatingScore(5)" aria-label="5 stars">★</button>
+      </div>
+
+      <div class="rating-feedback-area" id="ratingFeedbackArea" style="display:none">
+        <textarea class="rating-feedback-input" id="ratingFeedbackText" placeholder="What could we improve? Tell us anything..." rows="3"></textarea>
+      </div>
+
+      <button class="rating-submit-btn" id="ratingSubmitBtn" onclick="submitRating()">Submit Rating ✨</button>
+      <button class="rating-dismiss-btn" onclick="closeRatingModal(true)">Remind me later</button>
     </div>
   </div>
 
