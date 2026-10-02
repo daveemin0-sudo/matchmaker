@@ -12712,3 +12712,250 @@ body {
   width: clamp(18px, 4.8vw, 22px) !important;
   height: clamp(18px, 4.8vw, 22px) !important;
 }
+
+/* ================================================================
+   DISCOVERY PREFERENCES BOTTOM SHEET & FILTER CONTROLS
+   ================================================================ */
+#discoveryFilterBtn {
+  position: relative;
+}
+
+.filter-active-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #25D366;
+  box-shadow: 0 0 8px rgba(37, 211, 102, 0.9);
+  pointer-events: none;
+  animation: pulseDot 1.8s infinite ease-in-out;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.25); opacity: 0.75; }
+}
+
+.discovery-filter-sheet {
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100dvh - 36px);
+  max-height: calc(100vh - 36px);
+  background: #140C1D;
+  background: radial-gradient(circle at 50% 0%, #29122D 0%, #0E0716 100%);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 26px 26px 20px 20px;
+  box-shadow: 0 20px 65px rgba(0, 0, 0, 0.9);
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  animation: filterSheetUp 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes filterSheetUp {
+  from {
+    transform: translateY(28px) scale(0.97);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.sheet-drag-handle {
+  width: 42px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.22);
+  margin: 0 auto 12px;
+}
+
+.filter-sheet-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.filter-sheet-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--txt-primary, #ffffff);
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+.filter-sheet-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.filter-reset-btn {
+  background: none;
+  border: none;
+  color: #FF5E8E;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 5px 8px;
+  border-radius: 8px;
+  transition: opacity 0.2s;
+}
+.filter-reset-btn:hover {
+  opacity: 0.8;
+}
+
+.filter-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+  color: #fff;
+  font-size: 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+.filter-close-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.filter-sheet-body {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 18px;
+}
+
+.filter-group {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 16px;
+  padding: 13px 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.filter-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filter-group-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--txt-primary, #ffffff);
+}
+
+.filter-val-badge {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #FF5E8E;
+  background: rgba(255, 94, 142, 0.12);
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+
+.filter-toggle-group {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.filter-toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  padding-right: 12px;
+}
+
+.filter-toggle-title {
+  display: flex;
+  align-items: center;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--txt-primary, #ffffff);
+}
+
+.filter-toggle-desc {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.slider-marks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.45);
+  margin-top: 5px;
+  padding: 0 2px;
+}
+
+.filter-chips-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.filter-chip {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.filter-chip:hover {
+  background: rgba(255, 255, 255, 0.09);
+}
+
+.filter-chip.active {
+  background: linear-gradient(135deg, rgba(255, 94, 142, 0.25), rgba(255, 46, 112, 0.35));
+  border-color: #FF2E70;
+  color: #ffffff;
+  box-shadow: 0 0 12px rgba(255, 46, 112, 0.25);
+}
+
+.filter-sheet-footer {
+  margin-top: auto;
+  padding-top: 4px;
+}
+
+.filter-apply-btn {
+  width: 100%;
+  padding: 13px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 14px;
+}
+
+.filter-count-preview {
+  font-size: 0.82rem;
+  opacity: 0.9;
+  font-weight: 500;
+}
+

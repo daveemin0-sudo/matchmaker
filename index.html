@@ -39,8 +39,8 @@
     <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=51">
-  <link rel="stylesheet" href="premium.css?v=51">
+  <link rel="stylesheet" href="style.css?v=52">
+  <link rel="stylesheet" href="premium.css?v=52">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
@@ -188,6 +188,23 @@
         </div>
       </div>
       <div id="headerRight" class="header-right">
+        <!-- Discovery Filter button — opens bottom sheet preferences on Discovery -->
+        <button class="header-btn" id="discoveryFilterBtn" onclick="openDiscoveryFilterModal()" aria-label="Discovery Filters" title="Filter Profiles">
+          <div class="header-icon-wrap" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
+            <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="4" y1="21" x2="4" y2="14"></line>
+              <line x1="4" y1="10" x2="4" y2="3"></line>
+              <line x1="12" y1="21" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12" y2="3"></line>
+              <line x1="20" y1="21" x2="20" y2="16"></line>
+              <line x1="20" y1="12" x2="20" y2="3"></line>
+              <line x1="1" y1="14" x2="7" y2="14"></line>
+              <line x1="9" y1="8" x2="15" y2="8"></line>
+              <line x1="17" y1="16" x2="23" y2="16"></line>
+            </svg>
+            <span class="filter-active-dot" id="filterActiveDot" style="display:none;"></span>
+          </div>
+        </button>
         <button class="header-btn" id="matchesQuickBtn" onclick="switchTab('matches')" aria-label="Matches">
           <div class="header-icon-wrap" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
@@ -657,10 +674,13 @@
 
           <!-- Empty state -->
           <div class="stack-empty" id="stackEmpty" style="display:none">
-            <div class="empty-emoji">🌍</div>
-            <h3>You've seen everyone nearby!</h3>
-            <p>Expand your search radius in Settings, or check back later for new profiles.</p>
-            <button class="accent-btn" style="max-width:220px" onclick="refreshStack()">Find More Profiles</button>
+            <div class="empty-emoji" id="emptyEmoji">🌍</div>
+            <h3 id="emptyTitle">You've seen everyone nearby!</h3>
+            <p id="emptySub">Expand your search radius or adjust your discovery filters to discover more people.</p>
+            <div class="empty-actions-row" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px;">
+              <button class="accent-btn" style="min-width:140px;padding:10px 18px;" onclick="openDiscoveryFilterModal()">Adjust Filters</button>
+              <button class="outline-btn" style="min-width:130px;padding:10px 16px;" onclick="refreshStack()">Find More Profiles</button>
+            </div>
           </div>
         </div>
 
@@ -1628,6 +1648,20 @@
                 </div>
               </div>
 
+              <div class="settings-row">
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(56,151,240,0.12); --icon-color: #3897F0">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                </div>
+                <div class="settings-row-info" style="flex:1;display:flex;flex-direction:column;gap:2px;">
+                  <span class="settings-row-label">Verified Profiles Only</span>
+                  <span class="settings-row-sub" style="font-size:0.75rem;opacity:0.65;">Only discover members with photo verification</span>
+                </div>
+                <label class="switch" for="settingsVerifiedOnlyToggle">
+                  <input type="checkbox" id="settingsVerifiedOnlyToggle" onchange="updateVerifiedSetting(this.checked)">
+                  <span class="slider round"></span>
+                </label>
+              </div>
+
             </div>
           </div>
 
@@ -1968,6 +2002,103 @@
     </div>
 
     <!-- =====================================================
+         MODAL: DISCOVERY FILTERS (WhatsApp/iOS Glassmorphism Sheet)
+         ===================================================== -->
+    <div class="whatsapp-dialog-overlay" id="discoveryFilterModal" style="display:none;" onclick="if(event.target===this)closeDiscoveryFilterModal()">
+      <div class="discovery-filter-sheet" role="dialog" aria-labelledby="filterSheetTitle" aria-modal="true">
+        <div class="sheet-drag-handle"></div>
+        <div class="filter-sheet-header">
+          <h3 id="filterSheetTitle" class="filter-sheet-title">Discovery Preferences</h3>
+          <div class="filter-sheet-actions">
+            <button type="button" class="filter-reset-btn" onclick="resetDiscoveryFilters()">Reset</button>
+            <button type="button" class="filter-close-btn" onclick="closeDiscoveryFilterModal()" aria-label="Close filters">✕</button>
+          </div>
+        </div>
+
+        <div class="filter-sheet-body">
+          <!-- Maximum Distance -->
+          <div class="filter-group">
+            <div class="filter-group-header">
+              <span class="filter-group-label">Maximum Distance</span>
+              <span class="filter-val-badge" id="filterDistanceVal">50 km</span>
+            </div>
+            <div class="filter-slider-wrap">
+              <input type="range" class="range-slider" id="filterDistanceSlider" min="2" max="150" value="50" oninput="onFilterDistanceChange(this.value)">
+              <div class="slider-marks">
+                <span>2 km</span>
+                <span>50 km</span>
+                <span>150 km</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Age Range -->
+          <div class="filter-group">
+            <div class="filter-group-header">
+              <span class="filter-group-label">Age Range</span>
+              <span class="filter-val-badge" id="filterAgeVal">20 – 35</span>
+            </div>
+            <div class="filter-slider-wrap">
+              <div style="display:flex;gap:12px;align-items:center;">
+                <div style="flex:1;">
+                  <div style="font-size:0.75rem;color:rgba(255,255,255,0.6);margin-bottom:4px;">Min: <strong id="filterMinAgeVal" style="color:#FF5E8E;">20</strong></div>
+                  <input type="range" class="range-slider" id="filterMinAgeSlider" min="18" max="60" value="20" oninput="onFilterAgeChange()">
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:0.75rem;color:rgba(255,255,255,0.6);margin-bottom:4px;">Max: <strong id="filterMaxAgeVal" style="color:#FF5E8E;">35</strong></div>
+                  <input type="range" class="range-slider" id="filterMaxAgeSlider" min="19" max="75" value="35" oninput="onFilterAgeChange()">
+                </div>
+              </div>
+              <div class="slider-marks">
+                <span>18 yrs</span>
+                <span>45 yrs</span>
+                <span>75+ yrs</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Verified Profiles Only Toggle -->
+          <div class="filter-group filter-toggle-group">
+            <div class="filter-toggle-info">
+              <div class="filter-toggle-title">
+                <span>Verified Profiles Only</span>
+                <span class="verified-icon" style="display:inline-flex;margin-left:4px;" title="Verified">
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+                </span>
+              </div>
+              <div class="filter-toggle-desc">Only show members with photo verification</div>
+            </div>
+            <label class="switch" for="filterVerifiedOnly">
+              <input type="checkbox" id="filterVerifiedOnly" onchange="onFilterVerifiedToggle(this.checked)">
+              <span class="slider round"></span>
+            </label>
+          </div>
+
+          <!-- Relationship Intent -->
+          <div class="filter-group">
+            <div class="filter-group-header">
+              <span class="filter-group-label">Looking For</span>
+              <span class="filter-val-badge" id="filterIntentVal">Open to all</span>
+            </div>
+            <div class="filter-chips-row" id="filterIntentChips">
+              <button type="button" class="filter-chip active" data-intent="all" onclick="selectFilterIntent('all', this)">✨ Anyone</button>
+              <button type="button" class="filter-chip" data-intent="relationship" onclick="selectFilterIntent('relationship', this)">💍 Long-term</button>
+              <button type="button" class="filter-chip" data-intent="dating" onclick="selectFilterIntent('dating', this)">🥂 Dating</button>
+              <button type="button" class="filter-chip" data-intent="friends" onclick="selectFilterIntent('friends', this)">☕ Friends</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-sheet-footer">
+          <button type="button" class="accent-btn filter-apply-btn" id="filterApplyBtn" onclick="applyDiscoveryFiltersAndClose()">
+            <span>Apply Filters</span>
+            <span class="filter-count-preview" id="filterCountPreview"></span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================
          MATCH POPUP MODAL
          ===================================================== -->
     <div class="match-popup" id="matchPopup">
@@ -2247,7 +2378,7 @@
   <script src="firebase-config.js?v=51.0"></script>
 
   <!-- Main Application Logic -->
-  <script src="script.js?v=51"></script>
+  <script src="script.js?v=52"></script>
 
     <!-- =====================================================
          MODAL: PREVIEW AS MATCH (Interactive Discovery Card Preview)

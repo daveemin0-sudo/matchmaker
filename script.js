@@ -20,7 +20,7 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=700&q=80'
     ],
-    distance: '3 km', mutualChance: true,
+    distance: '3 km', isVerified: true, intent: 'dating', mutualChance: true,
     autoReply: 'Hey! Thanks for matching with me 😊 I was just listening to some new Amapiano tracks. Are you into music?',
     aiPrompt: 'Beautiful professional portrait of a 22 year old African woman smiling, Amapiano aesthetic, vibrant lighting, highly detailed studio photo'
   },
@@ -35,7 +35,7 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=700&q=80'
     ],
-    distance: '12 km', mutualChance: false,
+    distance: '12 km', isVerified: false, intent: 'friends', mutualChance: false,
     autoReply: '',
     aiPrompt: 'Close portrait of a young African man, 25 years old software engineer, tech setup in background, soft twilight lighting, cinematic'
   },
@@ -50,7 +50,7 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=700&q=80'
     ],
-    distance: '7 km', mutualChance: true,
+    distance: '7 km', isVerified: true, intent: 'relationship', mutualChance: true,
     autoReply: 'Hi! I saw your profile and loved your bio. Are you ready for a photo session? 📸',
     aiPrompt: 'Gorgeous artistic portrait of a creative 24 year old Nigerian fashion designer, studio backdrop with textiles, modern Lagos fashion, high detail'
   },
@@ -65,7 +65,7 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1513956589380-bad6acb9b9d4?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1492447273231-0f8fecec1e3a?auto=format&fit=crop&w=700&q=80'
     ],
-    distance: '5 km', mutualChance: true,
+    distance: '5 km', isVerified: true, intent: 'relationship', mutualChance: true,
     autoReply: 'Hey! Glad we matched. What\'s your idea of a perfect weekend getaway? 🌊',
     aiPrompt: 'Close headshot of a handsome smiling 27 year old African man, gallery director, blurred artistic oil paintings background, clean lighting'
   },
@@ -80,9 +80,54 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80'
     ],
-    distance: '18 km', mutualChance: false,
+    distance: '18 km', isVerified: false, intent: 'dating', mutualChance: false,
     autoReply: '',
     aiPrompt: 'Thoughtful close portrait of a 23 year old African girl in a beautiful botanical garden holding a vintage book, natural ambient sunshine'
+  },
+  {
+    id: 'p6', name: 'Kemi', age: 30,
+    tags: ['Architecture 🏛️', 'Wine 🍷', 'Travel ✈️'],
+    bio: 'Architect & rooftop enthusiast. Seeking deep conversations over wine or black coffee. Tell me your favorite city!',
+    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=700&q=80',
+    photos: [
+      'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1589156280159-27698a70f29e?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80'
+    ],
+    distance: '35 km', isVerified: true, intent: 'relationship', mutualChance: true,
+    autoReply: 'Hello! Really liked your vibe. What\'s your favorite spot in town?',
+    aiPrompt: 'Portrait of a 30 year old African woman architect smiling, modern office, natural warm lighting'
+  },
+  {
+    id: 'p7', name: 'Emeka', age: 34,
+    tags: ['Tennis 🎾', 'Jazz 🎷', 'Fintech 💳'],
+    bio: 'Fintech founder, tennis player, jazz vinyl collector. Looking for a genuine partner in crime for weekend trips.',
+    image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=700&q=80',
+    photos: [
+      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=700&q=80'
+    ],
+    distance: '55 km', isVerified: false, intent: 'relationship', mutualChance: true,
+    autoReply: 'Hey there! Nice to connect with you. How is your week going?',
+    aiPrompt: 'Portrait of a 34 year old handsome African man in tennis gear, clean aesthetic lighting'
+  },
+  {
+    id: 'p8', name: 'Folake', age: 21,
+    tags: ['Design 🎨', 'Foodie 🍜', 'Afrobeats 💃'],
+    bio: 'Design student & foodie. Show me the best suya joint in town and let us vibe to Burna Boy.',
+    image: 'https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=700&q=80',
+    photos: [
+      'https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=700&q=80'
+    ],
+    distance: '9 km', isVerified: true, intent: 'dating', mutualChance: true,
+    autoReply: 'Hey! Your profile caught my eye. What\'s your go-to weekend plan? ✨',
+    aiPrompt: 'Portrait of a stylish 21 year old African girl smiling warmly, aesthetic lighting'
   }
 ];
 
@@ -108,6 +153,9 @@ const PREMIUM_MATCHES = [
 // ==========================================================
 // APP STATE
 // ==========================================================
+
+const AUTH_SCREENS = ['login', 'signup', 'signupSuccess'];
+const MAIN_SCREENS = ['discovery', 'matches', 'chatsList', 'chat', 'profile', 'settings'];
 
 let appState = {
   isLoggedIn: false,
@@ -148,6 +196,16 @@ let currentUser = {
 };
 
 let profileStack = [...PROFILES_DATA];
+window.profileStack = profileStack;
+var _longPressTimer = null;
+var _reactionPickerOpen = false;
+var _currentReactionSheetData = null;
+var _mpxQueue = [];
+var _mpxActiveIdx = 0;
+var _lightboxCurrentSrc = '';
+var _lightboxCurrentMsgId = '';
+var _lightboxIsVideo = false;
+var _lightboxRotation = 0;
 let matchedUsers = [];
 let conversations = {};
 let blockedUsers = [];
@@ -170,12 +228,15 @@ let deletedConvoIds = (() => {
 let settings = {
   maxDistance: 50,
   minAge: 20, maxAge: 35,
+  verifiedOnly: false,
+  intent: 'all',
   notifMatches: true,
   notifMessages: true,
   notifLikes: false,
   showOnline: true,
   shareLocation: true,
 };
+window.settings = settings;
 
 // Known dummy / AI demo profile IDs
 const DUMMY_USER_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'pm1', 'pm2', 's1', 's2', 's3', 's4', 's5'];
@@ -648,21 +709,20 @@ async function loadProfilesForDiscovery() {
     if (typeof fetchRealUsersFromFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       const realUsers = await fetchRealUsersFromFirestore();
       if (realUsers && realUsers.length > 0) {
-        profileStack = [...realUsers];
-        console.log(`🔥 Discovery stack updated with ${realUsers.length} real Firestore user(s)!`);
+        window._masterDiscoveryPool = [...realUsers];
+        console.log(`🔥 Discovery master pool updated with ${realUsers.length} real Firestore user(s)!`);
       } else {
-        profileStack = [];
+        window._masterDiscoveryPool = [];
         console.log("ℹ️ No other real Firestore users found in database yet. Waiting for new users to register.");
       }
     } else {
-      profileStack = [];
+      window._masterDiscoveryPool = [];
     }
-    renderCardStack();
   } else {
-    // GUEST DEMO MODE: load mock profiles for exploration
-    profileStack = [...PROFILES_DATA];
-    renderCardStack();
+    // GUEST DEMO MODE: load mock profiles into master discovery pool
+    window._masterDiscoveryPool = [...PROFILES_DATA];
   }
+  applyDiscoveryFilters();
 }
 
 // ==========================================================
@@ -908,9 +968,6 @@ function saveToStorage() {
 // SCREEN NAVIGATION
 // ==========================================================
 
-const AUTH_SCREENS = ['login', 'signup', 'signupSuccess'];
-const MAIN_SCREENS = ['discovery', 'matches', 'chatsList', 'chat', 'profile', 'settings'];
-
 function showScreen(screenId, { fromHistory = false } = {}) {
   // Dismiss any open action sheets, reaction pickers, lightboxes, or dropdowns when changing screens
   if (typeof closeReactionPicker === 'function') closeReactionPicker();
@@ -1021,12 +1078,14 @@ function updateHeader(screenId) {
   // Ensure headerRight is visible on main screens
   if (headerRight) headerRight.style.display = 'flex';
 
+  const filterBtn  = document.getElementById('discoveryFilterBtn');
   const searchBtn  = document.getElementById('headerSearchBtn');
   const reportBtn  = document.getElementById('chatReportBtn');
   const upgradeBtn = document.getElementById('upgradeHeaderBtn');
   const matchBtn   = document.getElementById('matchesQuickBtn');
 
   // Exact icon scoping:
+  setHeaderBtnVisible(filterBtn, screenId === 'discovery');
   setHeaderBtnVisible(searchBtn, screenId === 'discovery' || screenId === 'matches');
   setHeaderBtnVisible(matchBtn, screenId === 'discovery');
   setHeaderBtnVisible(reportBtn, screenId === 'discovery');
@@ -1134,6 +1193,7 @@ function updateHeaderForAuth() {
   const nav = document.getElementById('bottomNav');
   if (nav) nav.style.display = 'none';
 }
+window.updateHeader = updateHeader;
 
 function updateBottomNav(screenId) {
   document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
@@ -2590,7 +2650,10 @@ async function doSwipe(dir) {
   }
 
   setTimeout(() => {
+    if (!window._swipedProfileIds) window._swipedProfileIds = new Set();
+    if (profile?.id) window._swipedProfileIds.add(profile.id);
     profileStack.shift();
+    if (typeof updateEmptyStateFeedback === 'function') updateEmptyStateFeedback();
     renderCardStack();
   }, 260);
 
@@ -2598,6 +2661,7 @@ async function doSwipe(dir) {
   if (typeof recordSwipeInBackend === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     const result = await recordSwipeInBackend(profile.id, dir === 'right' ? 'like' : 'pass');
     if (!result.success) {
+      if (profile?.id && window._swipedProfileIds) window._swipedProfileIds.delete(profile.id);
       profileStack.unshift(profile);
       renderCardStack();
       // If rate-limited, open paywall instead of silent toast
@@ -2662,8 +2726,13 @@ function undoSwipe() {
     updateLimitBadges();
   }
 
+  if (appState.lastAction?.profile?.id && window._swipedProfileIds) {
+    window._swipedProfileIds.delete(appState.lastAction.profile.id);
+  }
+
   profileStack.unshift(appState.lastAction.profile);
   appState.lastAction = null;
+  if (typeof updateEmptyStateFeedback === 'function') updateEmptyStateFeedback();
   renderCardStack();
   saveToStorage();
 }
@@ -2673,9 +2742,10 @@ function refreshStack() {
     showToast('Checking for new profiles nearby... 🔍', 'info');
     loadProfilesForDiscovery();
   } else {
-    profileStack = [...PROFILES_DATA];
+    if (window._swipedProfileIds) window._swipedProfileIds.clear();
+    applyDiscoveryFilters();
     appState.lastAction = null;
-    renderCardStack();
+    showToast('Discovery feed refreshed! ✨', 'success');
   }
 }
 
@@ -5481,8 +5551,8 @@ function backspaceEmoji() {
 }
 window.backspaceEmoji = backspaceEmoji;
 
-let _lightboxCurrentSrc = '';
-let _lightboxCurrentMsgId = '';
+_lightboxCurrentSrc = '';
+_lightboxCurrentMsgId = '';
 let _lightboxSwipeBound = false;
 let _lightboxSwipeY = 0;
 let _lightboxSwipeStartY = 0;
@@ -5490,8 +5560,8 @@ let _lightboxSwipeStartX = 0;
 let _lightboxSwipeStartTime = 0;
 let _lightboxIsSwiping = false;
 
-let _lightboxRotation = 0;
-let _lightboxIsVideo = false;
+_lightboxRotation = 0;
+_lightboxIsVideo = false;
 
 function openImageLightbox(src, msgId, isVideo = false) {
   const modal = document.getElementById('chatImageLightbox');
@@ -5615,7 +5685,7 @@ function closeImageLightbox() {
     videoEl.style.display = 'none';
   }
   modal.style.display = 'none';
-  _lightboxCurrentSrc = '';
+  if (typeof _lightboxCurrentSrc !== 'undefined') _lightboxCurrentSrc = '';
   _lightboxCurrentMsgId = '';
   _lightboxIsVideo = false;
   _lightboxRotation = 0;
@@ -6155,8 +6225,8 @@ window.sendImageMessage = sendImageMessage;
 // ==========================================================
 
 /** Pending queue of {file, objectUrl, isVideo} items shown in preview */
-let _mpxQueue = [];
-let _mpxActiveIdx = 0;
+_mpxQueue = [];
+_mpxActiveIdx = 0;
 
 /**
  * Called by chatImageInput onchange — intercepts the file selection
@@ -6214,9 +6284,13 @@ function closeMediaPreview() {
   const overlay = document.getElementById('mediaSendPreview');
   if (overlay) overlay.style.display = 'none';
   // Revoke object URLs to free memory
-  _mpxQueue.forEach(q => URL.revokeObjectURL(q.objectUrl));
-  _mpxQueue = [];
-  _mpxActiveIdx = 0;
+  if (typeof _mpxQueue !== 'undefined' && Array.isArray(_mpxQueue)) {
+    _mpxQueue.forEach(q => { if (q && q.objectUrl && typeof URL !== 'undefined' && URL.revokeObjectURL) URL.revokeObjectURL(q.objectUrl); });
+    _mpxQueue = [];
+  }
+  if (typeof _mpxActiveIdx !== 'undefined') {
+    _mpxActiveIdx = 0;
+  }
   // Clear video src so it stops playing
   const vidEl = document.getElementById('mpxPreviewVideo');
   if (vidEl) { vidEl.pause(); vidEl.src = ''; }
@@ -9157,6 +9231,7 @@ function updateDistanceSetting() {
   if (label) label.textContent = `${settings.maxDistance} km`;
   updateSliderGradient(slider);
   saveToStorage();
+  if (typeof applyDiscoveryFilters === 'function') applyDiscoveryFilters();
 }
 
 function updateAgeSetting() {
@@ -9170,12 +9245,25 @@ function updateAgeSetting() {
   if (minSlider) updateSliderGradient(minSlider);
   if (maxSlider) updateSliderGradient(maxSlider);
   saveToStorage();
+  if (typeof applyDiscoveryFilters === 'function') applyDiscoveryFilters();
 }
 
 function updateToggleSetting(key, el) {
   settings[key] = el.checked;
   saveToStorage();
+  if (key === 'verifiedOnly' && typeof applyDiscoveryFilters === 'function') {
+    applyDiscoveryFilters();
+  }
 }
+
+function updateVerifiedSetting(checked) {
+  settings.verifiedOnly = !!checked;
+  saveToStorage();
+  const filterToggle = document.getElementById('filterVerifiedOnly');
+  if (filterToggle) filterToggle.checked = !!checked;
+  if (typeof applyDiscoveryFilters === 'function') applyDiscoveryFilters();
+}
+window.updateVerifiedSetting = updateVerifiedSetting;
 
 function updateSliderGradient(slider) {
   const min = parseInt(slider.min) || 0;
@@ -9184,6 +9272,354 @@ function updateSliderGradient(slider) {
   const pct = ((val - min) / (max - min)) * 100;
   slider.style.setProperty('--val', `${pct}%`);
 }
+
+// ==========================================================
+// DISCOVERY PREFERENCES & DYNAMIC FILTERING ENGINE
+// ==========================================================
+window._masterDiscoveryPool = [];
+window._swipedProfileIds = new Set();
+let _pendingFilterIntent = 'all';
+
+function openDiscoveryFilterModal() {
+  const modal = document.getElementById('discoveryFilterModal');
+  if (!modal) return;
+
+  const maxDist = parseInt(settings.maxDistance || 50, 10);
+  const minAge = parseInt(settings.minAge || 20, 10);
+  const maxAge = parseInt(settings.maxAge || 35, 10);
+  const verifiedOnly = !!settings.verifiedOnly;
+  _pendingFilterIntent = settings.intent || 'all';
+
+  const distSlider = document.getElementById('filterDistanceSlider');
+  const distVal = document.getElementById('filterDistanceVal');
+  const minAgeSlider = document.getElementById('filterMinAgeSlider');
+  const maxAgeSlider = document.getElementById('filterMaxAgeSlider');
+  const minAgeVal = document.getElementById('filterMinAgeVal');
+  const maxAgeVal = document.getElementById('filterMaxAgeVal');
+  const ageVal = document.getElementById('filterAgeVal');
+  const verifiedToggle = document.getElementById('filterVerifiedOnly');
+  const intentVal = document.getElementById('filterIntentVal');
+
+  if (distSlider) {
+    distSlider.value = maxDist;
+    updateSliderGradient(distSlider);
+  }
+  if (distVal) distVal.textContent = `${maxDist} km`;
+
+  if (minAgeSlider) {
+    minAgeSlider.value = minAge;
+    updateSliderGradient(minAgeSlider);
+  }
+  if (maxAgeSlider) {
+    maxAgeSlider.value = maxAge;
+    updateSliderGradient(maxAgeSlider);
+  }
+  if (minAgeVal) minAgeVal.textContent = minAge;
+  if (maxAgeVal) maxAgeVal.textContent = maxAge;
+  if (ageVal) ageVal.textContent = `${minAge} – ${maxAge}`;
+
+  if (verifiedToggle) verifiedToggle.checked = verifiedOnly;
+
+  document.querySelectorAll('#filterIntentChips .filter-chip').forEach(chip => {
+    chip.classList.toggle('active', chip.dataset.intent === _pendingFilterIntent);
+  });
+  if (intentVal) {
+    const labels = { all: 'Open to all', relationship: 'Long-term', dating: 'Dating', friends: 'Friends' };
+    intentVal.textContent = labels[_pendingFilterIntent] || 'Open to all';
+  }
+
+  updateFilterCountPreview();
+
+  modal.style.display = 'flex';
+  modal.classList.add('open');
+  if (typeof haptic === 'function') haptic('light');
+}
+window.openDiscoveryFilterModal = openDiscoveryFilterModal;
+
+function closeDiscoveryFilterModal() {
+  const modal = document.getElementById('discoveryFilterModal');
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.style.display = 'none';
+}
+window.closeDiscoveryFilterModal = closeDiscoveryFilterModal;
+
+function onFilterDistanceChange(val) {
+  const num = parseInt(val, 10);
+  const distVal = document.getElementById('filterDistanceVal');
+  if (distVal) distVal.textContent = `${num} km`;
+  const slider = document.getElementById('filterDistanceSlider');
+  if (slider) updateSliderGradient(slider);
+  updateFilterCountPreview();
+}
+window.onFilterDistanceChange = onFilterDistanceChange;
+
+function onFilterAgeChange() {
+  const minSlider = document.getElementById('filterMinAgeSlider');
+  const maxSlider = document.getElementById('filterMaxAgeSlider');
+  const minAgeVal = document.getElementById('filterMinAgeVal');
+  const maxAgeVal = document.getElementById('filterMaxAgeVal');
+  const ageVal = document.getElementById('filterAgeVal');
+
+  let min = parseInt(minSlider?.value || 20, 10);
+  let max = parseInt(maxSlider?.value || 35, 10);
+
+  if (min >= max) {
+    max = Math.min(min + 1, 75);
+    if (maxSlider) maxSlider.value = max;
+  }
+
+  if (minAgeVal) minAgeVal.textContent = min;
+  if (maxAgeVal) maxAgeVal.textContent = max;
+  if (ageVal) ageVal.textContent = `${min} – ${max}`;
+
+  if (minSlider) updateSliderGradient(minSlider);
+  if (maxSlider) updateSliderGradient(maxSlider);
+  updateFilterCountPreview();
+}
+window.onFilterAgeChange = onFilterAgeChange;
+
+function onFilterVerifiedToggle(checked) {
+  updateFilterCountPreview();
+}
+window.onFilterVerifiedToggle = onFilterVerifiedToggle;
+
+function selectFilterIntent(intent, btn) {
+  _pendingFilterIntent = intent;
+  document.querySelectorAll('#filterIntentChips .filter-chip').forEach(c => c.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const intentVal = document.getElementById('filterIntentVal');
+  if (intentVal) {
+    const labels = { all: 'Open to all', relationship: 'Long-term', dating: 'Dating', friends: 'Friends' };
+    intentVal.textContent = labels[intent] || 'Open to all';
+  }
+  updateFilterCountPreview();
+  if (typeof haptic === 'function') haptic('selection');
+}
+window.selectFilterIntent = selectFilterIntent;
+
+function getMatchingProfilesCount(criteria) {
+  const pool = (window._masterDiscoveryPool && window._masterDiscoveryPool.length > 0)
+    ? window._masterDiscoveryPool
+    : (isRealUserLoggedIn() ? [] : PROFILES_DATA);
+
+  return pool.filter(p => {
+    const age = parseInt(p.age, 10);
+    if (!isNaN(age) && (age < criteria.minAge || age > criteria.maxAge)) return false;
+
+    const dist = parseInt(String(p.distance || '').replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(dist) && dist > criteria.maxDistance) return false;
+
+    if (criteria.verifiedOnly && !(p.isVerified || p.verified)) return false;
+
+    if (criteria.intent && criteria.intent !== 'all') {
+      const pIntent = (p.intent || '').toLowerCase();
+      if (pIntent && pIntent !== criteria.intent) return false;
+    }
+
+    return true;
+  }).length;
+}
+
+function updateFilterCountPreview() {
+  const dist = parseInt(document.getElementById('filterDistanceSlider')?.value || settings.maxDistance || 50, 10);
+  const minAge = parseInt(document.getElementById('filterMinAgeSlider')?.value || settings.minAge || 20, 10);
+  const maxAge = parseInt(document.getElementById('filterMaxAgeSlider')?.value || settings.maxAge || 35, 10);
+  const verifiedOnly = !!document.getElementById('filterVerifiedOnly')?.checked;
+  const intent = _pendingFilterIntent || 'all';
+
+  const count = getMatchingProfilesCount({ maxDistance: dist, minAge, maxAge, verifiedOnly, intent });
+  const preview = document.getElementById('filterCountPreview');
+  if (preview) {
+    preview.textContent = `(${count} profile${count === 1 ? '' : 's'})`;
+  }
+}
+
+function applyDiscoveryFiltersAndClose() {
+  const dist = parseInt(document.getElementById('filterDistanceSlider')?.value || 50, 10);
+  const minAge = parseInt(document.getElementById('filterMinAgeSlider')?.value || 20, 10);
+  const maxAge = parseInt(document.getElementById('filterMaxAgeSlider')?.value || 35, 10);
+  const verifiedOnly = !!document.getElementById('filterVerifiedOnly')?.checked;
+
+  settings.maxDistance = dist;
+  settings.minAge = minAge;
+  settings.maxAge = maxAge;
+  settings.verifiedOnly = verifiedOnly;
+  settings.intent = _pendingFilterIntent || 'all';
+
+  // Sync with Settings screen controls if present
+  const distSlider = document.getElementById('distanceSlider');
+  const distLabel = document.getElementById('distanceLabel');
+  if (distSlider) {
+    distSlider.value = dist;
+    if (distLabel) distLabel.textContent = `${dist} km`;
+    updateSliderGradient(distSlider);
+  }
+  const minSlider = document.getElementById('minAgeSlider');
+  const maxSlider = document.getElementById('maxAgeSlider');
+  const ageLabel = document.getElementById('ageRangeLabel');
+  if (minSlider) {
+    minSlider.value = minAge;
+    updateSliderGradient(minSlider);
+  }
+  if (maxSlider) {
+    maxSlider.value = maxAge;
+    updateSliderGradient(maxSlider);
+  }
+  if (ageLabel) ageLabel.textContent = `${minAge}–${maxAge}`;
+
+  const verifiedSettingToggle = document.getElementById('settingsVerifiedOnlyToggle');
+  if (verifiedSettingToggle) verifiedSettingToggle.checked = verifiedOnly;
+
+  saveToStorage();
+  applyDiscoveryFilters();
+  closeDiscoveryFilterModal();
+
+  showToast('Preferences updated! Discovering matches ⚡', 'success');
+  if (typeof haptic === 'function') haptic('medium');
+}
+window.applyDiscoveryFiltersAndClose = applyDiscoveryFiltersAndClose;
+
+function resetDiscoveryFilters() {
+  settings.maxDistance = 100;
+  settings.minAge = 18;
+  settings.maxAge = 60;
+  settings.verifiedOnly = false;
+  settings.intent = 'all';
+  _pendingFilterIntent = 'all';
+
+  // Sync modal inputs
+  const distSlider = document.getElementById('filterDistanceSlider');
+  const distVal = document.getElementById('filterDistanceVal');
+  if (distSlider) { distSlider.value = 100; updateSliderGradient(distSlider); }
+  if (distVal) distVal.textContent = '100 km';
+
+  const minSlider = document.getElementById('filterMinAgeSlider');
+  const maxSlider = document.getElementById('filterMaxAgeSlider');
+  const minAgeVal = document.getElementById('filterMinAgeVal');
+  const maxAgeVal = document.getElementById('filterMaxAgeVal');
+  const ageVal = document.getElementById('filterAgeVal');
+  if (minSlider) { minSlider.value = 18; updateSliderGradient(minSlider); }
+  if (maxSlider) { maxSlider.value = 60; updateSliderGradient(maxSlider); }
+  if (minAgeVal) minAgeVal.textContent = '18';
+  if (maxAgeVal) maxAgeVal.textContent = '60';
+  if (ageVal) ageVal.textContent = '18 – 60';
+
+  const verifiedToggle = document.getElementById('filterVerifiedOnly');
+  if (verifiedToggle) verifiedToggle.checked = false;
+
+  document.querySelectorAll('#filterIntentChips .filter-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.intent === 'all');
+  });
+
+  // Sync settings screen
+  const distSlider2 = document.getElementById('distanceSlider');
+  const distLabel2 = document.getElementById('distanceLabel');
+  if (distSlider2) { distSlider2.value = 100; if (distLabel2) distLabel2.textContent = '100 km'; }
+  const minSlider2 = document.getElementById('minAgeSlider');
+  const maxSlider2 = document.getElementById('maxAgeSlider');
+  const ageLabel2 = document.getElementById('ageRangeLabel');
+  if (minSlider2) minSlider2.value = 18;
+  if (maxSlider2) maxSlider2.value = 60;
+  if (ageLabel2) ageLabel2.textContent = '18–60';
+  const verifiedSettingToggle = document.getElementById('settingsVerifiedOnlyToggle');
+  if (verifiedSettingToggle) verifiedSettingToggle.checked = false;
+
+  // Clear swiped in session so all profiles can be seen again
+  if (window._swipedProfileIds) window._swipedProfileIds.clear();
+
+  saveToStorage();
+  applyDiscoveryFilters();
+  closeDiscoveryFilterModal();
+  showToast('Filters reset to default 🔄', 'info');
+  if (typeof haptic === 'function') haptic('light');
+}
+window.resetDiscoveryFilters = resetDiscoveryFilters;
+
+function updateFilterActiveDot() {
+  const dot = document.getElementById('filterActiveDot');
+  if (!dot) return;
+  const isCustom = (
+    (settings.maxDistance && settings.maxDistance < 80) ||
+    (settings.minAge && settings.minAge > 18) ||
+    (settings.maxAge && settings.maxAge < 50) ||
+    !!settings.verifiedOnly ||
+    (settings.intent && settings.intent !== 'all')
+  );
+  dot.style.display = isCustom ? 'block' : 'none';
+}
+
+function updateEmptyStateFeedback() {
+  const emptyEl = document.getElementById('stackEmpty');
+  const titleEl = document.getElementById('emptyTitle') || emptyEl?.querySelector('h3');
+  const subEl = document.getElementById('emptySub') || emptyEl?.querySelector('p');
+  if (!emptyEl) return;
+
+  const isCustom = (
+    (settings.maxDistance && settings.maxDistance < 80) ||
+    (settings.minAge && settings.minAge > 18) ||
+    (settings.maxAge && settings.maxAge < 50) ||
+    !!settings.verifiedOnly ||
+    (settings.intent && settings.intent !== 'all')
+  );
+
+  if (isCustom) {
+    if (titleEl) titleEl.textContent = 'No profiles match your filters 🔍';
+    if (subEl) subEl.textContent = 'Try expanding your maximum distance, age range, or turning off Verified Only to discover more people.';
+  } else {
+    if (titleEl) titleEl.textContent = "You've seen everyone nearby! 🌍";
+    if (subEl) subEl.textContent = 'Expand your search radius or check back later for new profiles.';
+  }
+}
+
+function applyDiscoveryFilters(options = {}) {
+  const curSettings = window.settings || settings;
+  const minAge = parseInt(curSettings.minAge || 18, 10);
+  const maxAge = parseInt(curSettings.maxAge || 60, 10);
+  const maxDistance = parseInt(curSettings.maxDistance || 100, 10);
+  const verifiedOnly = !!curSettings.verifiedOnly;
+  const intent = curSettings.intent || 'all';
+
+  if (!window._masterDiscoveryPool || window._masterDiscoveryPool.length === 0) {
+    if (!isRealUserLoggedIn()) {
+      window._masterDiscoveryPool = [...PROFILES_DATA];
+    }
+  }
+
+  const pool = window._masterDiscoveryPool || [];
+  if (!window._swipedProfileIds) window._swipedProfileIds = new Set();
+
+  profileStack = pool.filter(p => {
+    if (!options.includeSwiped && window._swipedProfileIds.has(p.id)) {
+      return false;
+    }
+
+    const age = parseInt(p.age, 10);
+    if (!isNaN(age)) {
+      if (age < minAge || age > maxAge) return false;
+    }
+
+    const dist = parseInt(String(p.distance || '').replace(/[^0-9]/g, ''), 10);
+    if (!isNaN(dist) && dist > 0) {
+      if (dist > maxDistance) return false;
+    }
+
+    if (verifiedOnly && !(p.isVerified || p.verified)) return false;
+
+    if (intent && intent !== 'all') {
+      const pIntent = (p.intent || '').toLowerCase();
+      if (pIntent && pIntent !== intent) return false;
+    }
+
+    return true;
+  });
+  window.profileStack = profileStack;
+
+  updateFilterActiveDot();
+  updateEmptyStateFeedback();
+  renderCardStack();
+}
+window.applyDiscoveryFilters = applyDiscoveryFilters;
 
 async function handleLogout() {
   if (!confirm('Are you sure you want to log out?')) return;
@@ -11051,8 +11487,8 @@ function clearModalSearch() {
 // MESSAGE REACTIONS & ACTION SHEET — Long press picker
 // ==========================================================
 
-let _longPressTimer = null;
-let _reactionPickerOpen = false;
+_longPressTimer = null;
+_reactionPickerOpen = false;
 let _editingState = null;
 let _pendingForwardMsgId = null;
 
@@ -11243,8 +11679,10 @@ function showReactionPicker(event, matchId, msgId) {
 }
 
 function closeReactionPicker() {
-  clearTimeout(_longPressTimer);
-  _longPressTimer = null;
+  if (typeof _longPressTimer !== 'undefined' && _longPressTimer) {
+    clearTimeout(_longPressTimer);
+    _longPressTimer = null;
+  }
   document.querySelectorAll('#reactionPickerPopup, #reactionPickerBackdrop, .msg-action-backdrop').forEach(el => el.remove());
   _reactionPickerOpen = false;
 }
@@ -11484,7 +11922,7 @@ async function toggleMsgReaction(matchId, msgId, emoji) {
 // ==========================================================
 // WHATSAPP REACTION BOTTOM SHEET (Screenshot 3)
 // ==========================================================
-let _currentReactionSheetData = null;
+_currentReactionSheetData = null;
 
 function openReactionSheet(matchId, msgId, defaultEmojiFilter = 'all') {
   const { msg } = getMessageInfo(msgId);
@@ -11538,7 +11976,9 @@ function filterReactionSheet(emoji) {
 function closeReactionSheet() {
   const modal = document.getElementById('reactionInfoModal');
   if (modal) modal.style.display = 'none';
-  _currentReactionSheetData = null;
+  if (typeof _currentReactionSheetData !== 'undefined') {
+    _currentReactionSheetData = null;
+  }
 }
 
 function renderReactionSheetContent() {
