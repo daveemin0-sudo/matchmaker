@@ -12056,6 +12056,9 @@ body {
   touch-action: pan-y;
   overscroll-behavior-y: contain;
   width: 100% !important;
+}
+
+#profileScreen.active {
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
@@ -12264,11 +12267,14 @@ body {
 /* ── DISCOVERY SCREEN: Fluid Proportions & Protected Card Bounds ── */
 #discoveryScreen {
   width: 100% !important;
+  overflow: hidden !important;
+}
+
+#discoveryScreen.active {
   display: flex !important;
   flex-direction: column !important;
   align-items: center !important;
   justify-content: flex-start !important;
-  overflow: hidden !important;
 }
 
 .discovery-workspace {
@@ -12438,4 +12444,15 @@ body {
   max-width: 520px !important;
   margin: 0 auto !important;
   box-sizing: border-box !important;
+}
+
+/* ==========================================================================
+   UNIVERSAL SCREEN VISIBILITY INTEGRITY
+   Guarantees that inactive screens are 100% suppressed and never leak or overlap.
+   ========================================================================== */
+.screen:not(.active) {
+  display: none !important;
+}
+.screen.active {
+  display: flex !important;
 }
