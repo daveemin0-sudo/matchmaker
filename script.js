@@ -13,7 +13,13 @@ const PROFILES_DATA = [
     id: 'p1', name: 'Zainab', age: 22,
     tags: ['Amapiano 🎵', 'Travel ✈️', 'Coffee ☕'],
     bio: 'Tech lover, massive music head. Let\'s exchange playlists and chill at Lekki beach. Swipe right for positive vibes!',
-    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+    image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80',
+    photos: [
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=700&q=80'
+    ],
     distance: '3 km', mutualChance: true,
     autoReply: 'Hey! Thanks for matching with me 😊 I was just listening to some new Amapiano tracks. Are you into music?',
     aiPrompt: 'Beautiful professional portrait of a 22 year old African woman smiling, Amapiano aesthetic, vibrant lighting, highly detailed studio photo'
@@ -22,7 +28,13 @@ const PROFILES_DATA = [
     id: 'p2', name: 'Tunde', age: 25,
     tags: ['Gamer 🎮', 'Ibadan 🏞️', 'Foodie 🍕'],
     bio: 'Software developer by day, PS5 legend by night. Looking for someone to check out cool lounges in Ibadan.',
-    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=500&q=80',
+    image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=700&q=80',
+    photos: [
+      'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=700&q=80'
+    ],
     distance: '12 km', mutualChance: false,
     autoReply: '',
     aiPrompt: 'Close portrait of a young African man, 25 years old software engineer, tech setup in background, soft twilight lighting, cinematic'
@@ -31,7 +43,13 @@ const PROFILES_DATA = [
     id: 'p3', name: 'Amara', age: 24,
     tags: ['Fashion 👗', 'Aesthetics 📸', 'Brunch 🥂'],
     bio: 'Fashion label designer. Let\'s take aesthetic polaroid pictures together and find the best pancake spot in Lagos.',
-    image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=500&q=80',
+    image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80',
+    photos: [
+      'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=700&q=80'
+    ],
     distance: '7 km', mutualChance: true,
     autoReply: 'Hi! I saw your profile and loved your bio. Are you ready for a photo session? 📸',
     aiPrompt: 'Gorgeous artistic portrait of a creative 24 year old Nigerian fashion designer, studio backdrop with textiles, modern Lagos fashion, high detail'
@@ -40,7 +58,13 @@ const PROFILES_DATA = [
     id: 'p4', name: 'Chidi', age: 27,
     tags: ['Fitness 💪', 'Art 🎨', 'Business 📈'],
     bio: 'Art gallery host. If you love fitness and museum date nights, let\'s connect.',
-    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=500&q=80',
+    image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=700&q=80',
+    photos: [
+      'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1480429370139-e0132c086e2a?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1513956589380-bad6acb9b9d4?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1492447273231-0f8fecec1e3a?auto=format&fit=crop&w=700&q=80'
+    ],
     distance: '5 km', mutualChance: true,
     autoReply: 'Hey! Glad we matched. What\'s your idea of a perfect weekend getaway? 🌊',
     aiPrompt: 'Close headshot of a handsome smiling 27 year old African man, gallery director, blurred artistic oil paintings background, clean lighting'
@@ -49,7 +73,13 @@ const PROFILES_DATA = [
     id: 'p5', name: 'Sade', age: 23,
     tags: ['Books 📚', 'Nature 🌿', 'Yoruba Dem 💫'],
     bio: 'Bookworm and part-time content designer. Looking for honest connections only. Tell me your favorite book!',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=500&q=80',
+    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=700&q=80',
+    photos: [
+      'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=700&q=80',
+      'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80'
+    ],
     distance: '18 km', mutualChance: false,
     autoReply: '',
     aiPrompt: 'Thoughtful close portrait of a 23 year old African girl in a beautiful botanical garden holding a vintage book, natural ambient sunshine'
@@ -2355,15 +2385,67 @@ function buildProfileCard(p, idx) {
       card._photoIndex = i;
       if (photoArea) photoArea.style.backgroundImage = `url("${safeCssUrl(photos[i])}")`;
       card.querySelectorAll('.photo-dot').forEach((dot, di) => dot.classList.toggle('active', di === i));
+      if (typeof haptic === 'function') haptic('light');
     };
-    if (prevZone) prevZone.addEventListener('click', (e) => {
-      if (Math.abs(appState.currentX - appState.startX) > 8) return;
-      e.stopPropagation(); setCardPhoto(card._photoIndex - 1);
-    });
-    if (nextZone) nextZone.addEventListener('click', (e) => {
-      if (Math.abs(appState.currentX - appState.startX) > 8) return;
-      e.stopPropagation(); setCardPhoto(card._photoIndex + 1);
-    });
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchStartTime = 0;
+
+    const handleTap = (zone, dir, e) => {
+      if (e) e.stopPropagation();
+      setCardPhoto(card._photoIndex + dir);
+    };
+
+    if (prevZone) {
+      prevZone.addEventListener('touchstart', (e) => {
+        const t = e.touches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        touchStartTime = Date.now();
+      }, { passive: true });
+
+      prevZone.addEventListener('touchend', (e) => {
+        const dt = Date.now() - touchStartTime;
+        const t = e.changedTouches ? e.changedTouches[0] : null;
+        if (t && dt < 450) {
+          const dist = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
+          if (dist < 22) {
+            handleTap(prevZone, -1, e);
+          }
+        }
+      });
+
+      prevZone.addEventListener('click', (e) => {
+        if (Math.hypot(appState.currentX - appState.startX, appState.currentY - appState.startY) > 22) return;
+        handleTap(prevZone, -1, e);
+      });
+    }
+
+    if (nextZone) {
+      nextZone.addEventListener('touchstart', (e) => {
+        const t = e.touches[0];
+        touchStartX = t.clientX;
+        touchStartY = t.clientY;
+        touchStartTime = Date.now();
+      }, { passive: true });
+
+      nextZone.addEventListener('touchend', (e) => {
+        const dt = Date.now() - touchStartTime;
+        const t = e.changedTouches ? e.changedTouches[0] : null;
+        if (t && dt < 450) {
+          const dist = Math.hypot(t.clientX - touchStartX, t.clientY - touchStartY);
+          if (dist < 22) {
+            handleTap(nextZone, 1, e);
+          }
+        }
+      });
+
+      nextZone.addEventListener('click', (e) => {
+        if (Math.hypot(appState.currentX - appState.startX, appState.currentY - appState.startY) > 22) return;
+        handleTap(nextZone, 1, e);
+      });
+    }
   }
 
   return card;
@@ -10246,8 +10328,9 @@ function reportUser() {
 
   overlay.innerHTML = `
     <div class="whatsapp-dialog-card">
+      <button class="wa-dialog-close-btn" onclick="closeReportModal()" aria-label="Close" title="Close">✕</button>
       <div class="wa-dialog-badge">
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FF2E70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF2E70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           <line x1="12" y1="8" x2="12" y2="12"/>
           <line x1="12" y1="16" x2="12.01" y2="16"/>
@@ -10255,7 +10338,7 @@ function reportUser() {
       </div>
 
       <h3 class="wa-dialog-title">Report or Block ${name}?</h3>
-      <p class="wa-dialog-desc">Blocked contacts will no longer be able to message or call you on hookmebysam. Please select a reason:</p>
+      <p class="wa-dialog-desc">Blocked contacts will no longer be able to message or call you on hookmebysam. Select a reason:</p>
 
       <div class="wa-report-reasons" id="waReportReasons">
         <label class="wa-reason-option active" onclick="selectReportReason(this)">
@@ -10287,14 +10370,16 @@ function reportUser() {
 
       <div class="wa-dialog-actions">
         <button class="wa-dialog-btn wa-dialog-btn-danger" onclick="executeReportAndBlock('${userId}', '${name}')">
-          <span>Report & Block</span>
+          <span>Report &amp; Block</span>
         </button>
-        <button class="wa-dialog-btn wa-dialog-btn-secondary" onclick="blockUser('${userId}', '${name}')">
-          <span>Block Only</span>
-        </button>
-        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeReportModal()">
-          <span>Cancel</span>
-        </button>
+        <div class="wa-dialog-btn-row" style="display:flex;gap:8px;width:100%;">
+          <button class="wa-dialog-btn wa-dialog-btn-secondary" style="flex:1;" onclick="blockUser('${userId}', '${name}')">
+            <span>Block Only</span>
+          </button>
+          <button class="wa-dialog-btn wa-dialog-btn-cancel" style="flex:1;" onclick="closeReportModal()">
+            <span>Cancel</span>
+          </button>
+        </div>
       </div>
     </div>
   `;

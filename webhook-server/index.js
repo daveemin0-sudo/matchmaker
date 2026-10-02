@@ -382,7 +382,8 @@ app.get('/discovery', requireAuth, async (req, res) => {
       if(users.length>=limit || excluded.has(doc.id)) return;
       const d=doc.data()||{}, age=Number(d.age);
       if(!d.image || !Number.isFinite(age) || age<18 || d.active!==true) return;
-      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:d.image,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',isRealUser:true});
+      const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (d.image ? [d.image] : []);
+      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:d.image,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',isRealUser:true});
     });
     res.json({success:true,users});
   } catch (err) {

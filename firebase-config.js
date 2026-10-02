@@ -460,7 +460,10 @@ async function fetchRealUsersFromFirestore() {
     if (typeof data.swipesRemaining === 'number' && typeof updateSwipeCounter === 'function') {
       updateSwipeCounter(data.swipesRemaining);
     }
-    return Array.isArray(data.users) ? data.users : [];
+    return Array.isArray(data.users) ? data.users.map(u => ({
+      ...u,
+      photos: Array.isArray(u.photos) && u.photos.length > 0 ? u.photos : (u.image ? [u.image] : [])
+    })) : [];
   } catch (err) {
     console.warn('Error fetching discovery feed:', err.message);
     return [];
