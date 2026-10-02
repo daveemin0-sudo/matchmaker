@@ -39,8 +39,8 @@
     <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=55">
-  <link rel="stylesheet" href="premium.css?v=55">
+  <link rel="stylesheet" href="style.css?v=56">
+  <link rel="stylesheet" href="premium.css?v=56">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
@@ -204,6 +204,9 @@
             </svg>
             <span class="filter-active-dot" id="filterActiveDot" style="display:none;"></span>
           </div>
+        <!-- Stealth / Incognito mode badge indicator -->
+        <button class="header-btn stealth-mode-btn" id="stealthModeHeaderBadge" style="display:none;" onclick="openSafetyToolkit()" aria-label="Incognito Mode" title="Stealth Mode Active">
+          <span class="stealth-pill-badge">🕵️ Incognito</span>
         </button>
         <button class="header-btn" id="matchesQuickBtn" onclick="switchTab('matches')" aria-label="Matches">
           <div class="header-icon-wrap" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
@@ -873,6 +876,11 @@
                 <path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/>
               </svg>
             </button>
+            <button class="chat-action-icon-btn chat-shield-btn" id="chatSafetyShieldBtn" onclick="openSafetyToolkit()" title="Safety Toolkit" aria-label="Safety Toolkit">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+              </svg>
+            </button>
             <div class="chat-menu-container" style="position:relative">
               <button class="chat-action-icon-btn" id="chatMenuTrigger" onclick="toggleChatOptionsMenu(event)" title="More options" aria-label="More options">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
@@ -881,6 +889,14 @@
               </button>
               <!-- WhatsApp-style 3-Dot Popup Menu -->
               <div class="chat-dropdown-menu" id="chatDropdownMenu" style="display:none">
+                <div class="chat-dropdown-item" onclick="openSafetyToolkit()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                  <span>Safety Toolkit</span>
+                </div>
+                <div class="chat-dropdown-item" onclick="openGentleUnmatchModal()">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+                  <span>Unmatch Contact</span>
+                </div>
                 <div class="chat-dropdown-item" onclick="openChatSearch()">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
                   <span>Search Chat</span>
@@ -1768,6 +1784,40 @@
             </div>
           </div>
 
+          <!-- SECTION: SAFETY & PRIVACY CONTROLS -->
+          <div class="settings-section">
+            <div class="settings-section-label">
+              <span class="section-label-dot" style="background:linear-gradient(135deg,#7000FF,#FF2E70)"></span>
+              Safety &amp; Privacy Controls
+            </div>
+            <div class="settings-card">
+              <div class="settings-row settings-toggle-row">
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(112,0,255,0.12); --icon-color: #A855F7">
+                  <span style="font-size:18px">🕵️</span>
+                </div>
+                <div class="settings-row-body">
+                  <div class="settings-row-label">Stealth / Incognito Mode</div>
+                  <div class="settings-row-sub">Only people you like can view your card</div>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="settingsStealthToggle" onchange="toggleStealthMode(this.checked)">
+                  <span class="toggle-slider"></span>
+                </label>
+              </div>
+
+              <div class="settings-row" onclick="openSafetyToolkit()">
+                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(255,46,112,0.12); --icon-color: #FF2E70">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+                </div>
+                <div class="settings-row-body">
+                  <div class="settings-row-label">Safety Center &amp; Guidelines</div>
+                  <div class="settings-row-sub">Dating rules, emergency tips &amp; tools</div>
+                </div>
+                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
+              </div>
+            </div>
+          </div>
+
           <!-- DANGER & SIGN OUT -->
           <div class="settings-section" style="padding-top:8px">
             <div class="settings-signout-line">
@@ -2201,6 +2251,145 @@
       </div>
     </div>
 
+    <!-- =====================================================
+         SAFETY TOOLKIT & PRIVACY CENTER MODAL
+         ===================================================== -->
+    <div class="safety-modal-overlay" id="safetyToolkitModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="safetyToolkitTitle">
+      <div class="safety-modal-sheet">
+        <div class="safety-grab-bar-wrap" onclick="closeSafetyToolkit()">
+          <div class="safety-grab-bar"></div>
+        </div>
+
+        <div class="safety-sheet-header">
+          <div class="safety-shield-icon-badge">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
+            </svg>
+          </div>
+          <div style="flex:1;text-align:left;">
+            <h3 class="safety-sheet-title" id="safetyToolkitTitle">Safety Center &amp; Privacy</h3>
+            <p class="safety-sheet-sub" id="safetyToolkitContext">Your privacy, control &amp; peace of mind</p>
+          </div>
+          <button type="button" class="safety-close-btn" onclick="closeSafetyToolkit()" aria-label="Close safety toolkit">✕</button>
+        </div>
+
+        <div class="safety-sheet-body">
+          <!-- Quick Safety Actions (if in active chat/profile) -->
+          <div class="safety-section-title">Quick Actions</div>
+          <div class="safety-action-cards" id="safetyQuickActionCards">
+            <div class="safety-action-card" onclick="openGentleUnmatchModal()">
+              <div class="safety-card-icon" style="background:rgba(255,101,84,0.15);color:#FF6554;">🚫</div>
+              <div class="safety-card-content">
+                <div class="safety-card-title">Unmatch Partner</div>
+                <div class="safety-card-desc">Politely end connection and disappear from matches</div>
+              </div>
+              <div class="safety-card-chevron">›</div>
+            </div>
+
+            <div class="safety-action-card" onclick="closeSafetyToolkit(); reportUser();">
+              <div class="safety-card-icon" style="background:rgba(255,46,112,0.15);color:#FF2E70;">⚠️</div>
+              <div class="safety-card-content">
+                <div class="safety-card-title">Report Account</div>
+                <div class="safety-card-desc">Flag inappropriate content, harassment, or impersonation</div>
+              </div>
+              <div class="safety-card-chevron">›</div>
+            </div>
+
+            <div class="safety-action-card" onclick="promptBlockActiveUser()">
+              <div class="safety-card-icon" style="background:rgba(255,61,0,0.15);color:#FF3D00;">🛑</div>
+              <div class="safety-card-content">
+                <div class="safety-card-title">Block Contact</div>
+                <div class="safety-card-desc">Stop all messages, calls, and visibility permanently</div>
+              </div>
+              <div class="safety-card-chevron">›</div>
+            </div>
+          </div>
+
+          <!-- Stealth / Incognito Privacy Card -->
+          <div class="safety-section-title" style="margin-top:16px;">Stealth Mode</div>
+          <div class="safety-privacy-card">
+            <div class="safety-privacy-header">
+              <div class="safety-card-icon" style="background:rgba(112,0,255,0.15);color:#A855F7;">🕵️</div>
+              <div class="safety-card-content">
+                <div class="safety-card-title">Incognito / Stealth Mode</div>
+                <div class="safety-card-desc">Only members you have already Liked can view your card</div>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="safetyStealthToggle" onchange="toggleStealthMode(this.checked)">
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Safe Dating Guidelines -->
+          <div class="safety-section-title" style="margin-top:16px;">Safe Dating Guidelines</div>
+          <div class="safety-tips-list">
+            <div class="safety-tip-item">
+              <span class="safety-tip-bullet">☕</span>
+              <div class="safety-tip-text"><strong>Always meet in public:</strong> For your first few dates, pick vibrant, populated spots like coffee shops or restaurants.</div>
+            </div>
+            <div class="safety-tip-item">
+              <span class="safety-tip-bullet">📍</span>
+              <div class="safety-tip-text"><strong>Share your plans:</strong> Let a close friend or family member know where you're going and who you are meeting.</div>
+            </div>
+            <div class="safety-tip-item">
+              <span class="safety-tip-bullet">🚗</span>
+              <div class="safety-tip-text"><strong>Control your own ride:</strong> Arrive and leave independently so you can depart whenever you feel ready.</div>
+            </div>
+            <div class="safety-tip-item">
+              <span class="safety-tip-bullet">🔒</span>
+              <div class="safety-tip-text"><strong>Guard financial details:</strong> Never transfer funds or share banking details with anyone you meet online.</div>
+            </div>
+          </div>
+
+          <!-- Emergency Support -->
+          <button type="button" class="safety-emergency-btn" onclick="openEmergencyHelp()">
+            <span>🚨 Emergency Helplines &amp; Support</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================
+         GENTLE UNMATCH MODAL
+         ===================================================== -->
+    <div class="safety-modal-overlay" id="unmatchReasonModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="unmatchModalTitle">
+      <div class="unmatch-card">
+        <button type="button" class="unmatch-close-btn" onclick="closeGentleUnmatchModal()" aria-label="Cancel">✕</button>
+        <div class="unmatch-badge-icon">💔</div>
+        <h3 class="unmatch-title" id="unmatchModalTitle">Unmatch with this contact?</h3>
+        <p class="unmatch-desc">They won't be notified, but you'll disappear from each other's matches and conversations immediately.</p>
+
+        <div class="unmatch-reason-options" id="unmatchReasonOptions">
+          <label class="unmatch-reason-chip active" onclick="selectUnmatchReason(this)">
+            <input type="radio" name="unmatchReason" value="no_spark" checked>
+            <span>💭 No spark or connection</span>
+          </label>
+          <label class="unmatch-reason-chip" onclick="selectUnmatchReason(this)">
+            <input type="radio" name="unmatchReason" value="incompatible">
+            <span>🎯 Incompatible goals / values</span>
+          </label>
+          <label class="unmatch-reason-chip" onclick="selectUnmatchReason(this)">
+            <input type="radio" name="unmatchReason" value="taking_break">
+            <span>🏖️ Taking a break from dating</span>
+          </label>
+          <label class="unmatch-reason-chip" onclick="selectUnmatchReason(this)">
+            <input type="radio" name="unmatchReason" value="no_reason">
+            <span>🤐 Prefer not to say</span>
+          </label>
+        </div>
+
+        <div class="unmatch-actions">
+          <button type="button" class="unmatch-confirm-btn" onclick="confirmUnmatch()">
+            Yes, Unmatch
+          </button>
+          <button type="button" class="unmatch-cancel-btn" onclick="closeGentleUnmatchModal()">
+            Keep Match
+          </button>
+        </div>
+      </div>
+    </div>
+
 
 
     <!-- =====================================================
@@ -2455,7 +2644,7 @@
   <script src="firebase-config.js?v=51.0"></script>
 
   <!-- Main Application Logic -->
-  <script src="script.js?v=55"></script>
+  <script src="script.js?v=56"></script>
 
     <!-- =====================================================
          MODAL: PREVIEW AS MATCH (Interactive Discovery Card Preview)

@@ -284,6 +284,14 @@ let appState = {
   boostInterval: null,
   boostSecondsLeft: 0,
   isTypingVisible: false,
+  isStealthMode: (() => {
+    try {
+      return localStorage.getItem('hmbs_stealth_mode') === 'true';
+    } catch (_) {
+      return false;
+    }
+  })(),
+  activeSafetyPartner: null,
 };
 
 let currentUser = {
@@ -992,6 +1000,10 @@ function loadFromStorage() {
         blockedUsers = JSON.parse(savedBlocked);
       } catch (e) {}
     }
+    const savedStealth = localStorage.getItem('hmbs_stealth_mode');
+    if (savedStealth !== null) {
+      appState.isStealthMode = (savedStealth === 'true');
+    }
     // Guarantee all conversation threads appear in matchedUsers even if data is off
     syncMatchedUsersFromConversations();
     sortMatchedUsersByLatest();
@@ -1011,6 +1023,7 @@ function saveToStorage() {
       freeRewinds: appState.freeRewinds,
       freeAiGens: appState.freeAiGens,
     }));
+    localStorage.setItem('hmbs_stealth_mode', String(Boolean(appState.isStealthMode)));
     localStorage.setItem('hmbs_user', JSON.stringify(currentUser));
     localStorage.setItem('hmbs_settings', JSON.stringify(settings));
     localStorage.setItem('hmbs_matches', JSON.stringify(matchedUsers));
@@ -1194,6 +1207,11 @@ function updateHeader(screenId) {
   setHeaderBtnVisible(matchBtn, screenId === 'discovery');
   setHeaderBtnVisible(reportBtn, screenId === 'discovery');
   setHeaderBtnVisible(upgradeBtn, screenId === 'discovery' || screenId === 'matches');
+
+  const stealthBadge = document.getElementById('stealthModeHeaderBadge');
+  if (stealthBadge) {
+    stealthBadge.style.display = (screenId === 'discovery' && appState.isStealthMode) ? 'inline-flex' : 'none';
+  }
 
   // Back button visibility:
   // Main bottom navigation tabs (Discovery, Matches, Messages, Profile) DO NOT have back button beside page name.
@@ -9539,6 +9557,12 @@ function renderSettingsScreen() {
     if (el) el.checked = settings[key];
   }
 
+  // Safety & Stealth Mode toggles
+  const stealthToggle = document.getElementById('settingsStealthToggle');
+  if (stealthToggle) stealthToggle.checked = Boolean(appState.isStealthMode);
+  const safetyStealthToggle = document.getElementById('safetyStealthToggle');
+  if (safetyStealthToggle) safetyStealthToggle.checked = Boolean(appState.isStealthMode);
+
   // VIP status
   const vipStatus = document.getElementById('vipStatusRow');
   if (vipStatus) {
@@ -11750,6 +11774,212 @@ async function executeReportAndBlock(userId, name) {
     showToast('Could not submit the report. Please try again.', 'error');
   }
 }
+
+// ==========================================================
+// SAFETY TOOLKIT, GENTLE UNMATCH & PRIVACY CONTROLS (STEP 5)
+// ==========================================================
+
+function toggleStealthMode(enabled) {
+  appState.isStealthMode = Boolean(enabled);
+  try {
+    localStorage.setItem('hmbs_stealth_mode', String(appState.isStealthMode));
+  } catch (_) {}
+
+  // Sync toggle inputs across screens
+  const sToggle = document.getElementById('settingsStealthToggle');
+  if (sToggle) sToggle.checked = appState.isStealthMode;
+  const safeToggle = document.getElementById('safetyStealthToggle');
+  if (safeToggle) safeToggle.checked = appState.isStealthMode;
+
+  // Sync discovery badge
+  const badge = document.getElementById('stealthModeHeaderBadge');
+  if (badge) {
+    badge.style.display = (appState.currentScreen === 'discovery' && appState.isStealthMode) ? 'inline-flex' : 'none';
+  }
+
+  if (typeof haptic === 'function') haptic('light');
+
+  if (appState.isStealthMode) {
+    showToast('🕵️ Stealth Mode on: Only people you like can see your profile.', 'gold');
+  } else {
+    showToast('👀 Stealth Mode off: You are visible to nearby matches.', 'info');
+  }
+}
+window.toggleStealthMode = toggleStealthMode;
+
+function openSafetyToolkit(targetProfileId) {
+  const partnerId = targetProfileId || appState.currentChatId || appState.activeMatchProfile?.id || appState.activeDetailProfileId || null;
+  let partner = null;
+  if (partnerId) {
+    partner = matchedUsers.find(u => u.id === partnerId) ||
+              PROFILES_DATA.find(u => u.id === partnerId) ||
+              (typeof PREMIUM_MATCHES !== 'undefined' ? PREMIUM_MATCHES.find(u => u.id === partnerId) : null);
+  }
+  appState.activeSafetyPartner = partner || null;
+
+  const titleEl = document.getElementById('safetyToolkitTitle');
+  const contextEl = document.getElementById('safetyToolkitContext');
+
+  if (partner && titleEl && contextEl) {
+    titleEl.textContent = 'Safety & Control';
+    contextEl.textContent = `Manage interaction & privacy with ${partner.name}`;
+  } else if (titleEl && contextEl) {
+    titleEl.textContent = 'Safety Center & Privacy';
+    contextEl.textContent = 'Your privacy, control & peace of mind';
+  }
+
+  const sToggle = document.getElementById('safetyStealthToggle');
+  if (sToggle) sToggle.checked = Boolean(appState.isStealthMode);
+
+  if (typeof hideChatDropdown === 'function') hideChatDropdown();
+
+  const modal = document.getElementById('safetyToolkitModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => modal.classList.add('active'));
+  }
+}
+window.openSafetyToolkit = openSafetyToolkit;
+
+function closeSafetyToolkit() {
+  const modal = document.getElementById('safetyToolkitModal');
+  if (modal) {
+    modal.classList.remove('active');
+    setTimeout(() => {
+      if (!modal.classList.contains('active')) {
+        modal.style.display = 'none';
+      }
+    }, 280);
+  }
+}
+window.closeSafetyToolkit = closeSafetyToolkit;
+
+function openGentleUnmatchModal(targetProfileId) {
+  closeSafetyToolkit();
+  if (typeof hideChatDropdown === 'function') hideChatDropdown();
+
+  const partnerId = targetProfileId || appState.activeSafetyPartner?.id || appState.currentChatId;
+  const partner = matchedUsers.find(u => u.id === partnerId) ||
+                  PROFILES_DATA.find(u => u.id === partnerId) ||
+                  (typeof PREMIUM_MATCHES !== 'undefined' ? PREMIUM_MATCHES.find(u => u.id === partnerId) : null);
+  if (partner) {
+    appState.activeSafetyPartner = partner;
+  }
+
+  const titleEl = document.getElementById('unmatchModalTitle');
+  if (titleEl && partner) {
+    titleEl.textContent = `Unmatch with ${partner.name}?`;
+  }
+
+  // Reset reason selection to default
+  const chips = document.querySelectorAll('.unmatch-reason-chip');
+  chips.forEach((c, idx) => {
+    if (idx === 0) {
+      c.classList.add('active');
+      const radio = c.querySelector('input[type="radio"]');
+      if (radio) radio.checked = true;
+    } else {
+      c.classList.remove('active');
+    }
+  });
+
+  const modal = document.getElementById('unmatchReasonModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => modal.classList.add('active'));
+  }
+}
+window.openGentleUnmatchModal = openGentleUnmatchModal;
+
+function closeGentleUnmatchModal() {
+  const modal = document.getElementById('unmatchReasonModal');
+  if (modal) {
+    modal.classList.remove('active');
+    setTimeout(() => {
+      if (!modal.classList.contains('active')) {
+        modal.style.display = 'none';
+      }
+    }, 280);
+  }
+}
+window.closeGentleUnmatchModal = closeGentleUnmatchModal;
+
+function selectUnmatchReason(el) {
+  document.querySelectorAll('.unmatch-reason-chip').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  const radio = el.querySelector('input[type="radio"]');
+  if (radio) radio.checked = true;
+}
+window.selectUnmatchReason = selectUnmatchReason;
+
+function confirmUnmatch() {
+  const partner = appState.activeSafetyPartner ||
+                  (appState.currentChatId ? matchedUsers.find(u => u.id === appState.currentChatId) : null);
+
+  if (!partner) {
+    closeGentleUnmatchModal();
+    return;
+  }
+
+  const partnerId = partner.id;
+  const partnerName = partner.name || 'this contact';
+
+  // 1. Remove from matchedUsers
+  matchedUsers = matchedUsers.filter(u => u.id !== partnerId);
+
+  // 2. Remove conversation
+  if (conversations[partnerId]) {
+    delete conversations[partnerId];
+  }
+
+  // 3. Mark in firestore if connected
+  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    try {
+      const uid = fbAuth.currentUser.uid;
+      const matchId = [uid, partnerId].sort().join('_');
+      fbDb.collection('matches').doc(matchId).delete().catch(() => {});
+    } catch (_) {}
+  }
+
+  // 4. Save state
+  saveToStorage();
+  updateMatchesNotificationBadge();
+  renderMatchesView();
+
+  // 5. Close sheets/modals if open
+  closeGentleUnmatchModal();
+  if (typeof closeProfileDetailSheet === 'function') closeProfileDetailSheet();
+  if (typeof closeWhatsAppProfile === 'function') closeWhatsAppProfile();
+
+  // 6. If currently inside chat screen with this partner, route back to matches
+  if (appState.currentScreen === 'chat' && appState.currentChatId === partnerId) {
+    appState.currentChatId = null;
+    showScreen('matches');
+  }
+
+  if (typeof haptic === 'function') haptic('light');
+  showToast(`💔 You have unmatched with ${partnerName}.`, 'info');
+}
+window.confirmUnmatch = confirmUnmatch;
+
+function promptBlockActiveUser() {
+  closeSafetyToolkit();
+  const partner = appState.activeSafetyPartner ||
+                  (appState.currentChatId ? (matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId)) : null);
+  if (partner) {
+    blockUser(partner.id, partner.name);
+  } else {
+    reportUser();
+  }
+}
+window.promptBlockActiveUser = promptBlockActiveUser;
+
+function openEmergencyHelp() {
+  closeSafetyToolkit();
+  const msg = '🚨 Emergency Support:\n• Nigeria Emergency: 112\n• US / Intl Emergency: 911 / 999\n• Crisis Text Line: Text HOME to 741741\n• 24/7 Support: support@hookmebysam.com';
+  alert(msg);
+}
+window.openEmergencyHelp = openEmergencyHelp;
 
 // ==========================================================
 // UNBLOCK & BLOCKED CONTACTS MANAGEMENT
