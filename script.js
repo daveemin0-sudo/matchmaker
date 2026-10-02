@@ -11,6 +11,14 @@
 const PROFILES_DATA = [
   {
     id: 'p1', name: 'Zainab', age: 22,
+    occupation: 'Product Designer @ Paystack',
+    education: 'University of Lagos (Unilag)',
+    location: 'Lekki Phase 1, Lagos',
+    height: '5\'7" (170 cm)',
+    zodiac: 'Scorpio ♏',
+    drinking: 'Socially 🍷',
+    smoking: 'Non-smoker 🚭',
+    workout: 'Active (Pilates & Gym) 🧘',
     tags: ['Amapiano 🎵', 'Travel ✈️', 'Coffee ☕'],
     bio: 'Tech lover, massive music head. Let\'s exchange playlists and chill at Lekki beach. Swipe right for positive vibes!',
     image: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80',
@@ -20,12 +28,25 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=700&q=80'
     ],
+    prompts: [
+      { question: 'My simple pleasures...', answer: 'Warm cinnamon rolls, late-night driving playlists, and the sound of rain on Sunday morning.' },
+      { question: 'Together, we could...', answer: 'Explore every rooftop lounge in Lagos, discover hidden art spots, and exchange Spotify blends.' },
+      { question: 'A life goal of mine...', answer: 'Design an award-winning app and spend December watching sunsets in Cape Town.' }
+    ],
     distance: '3 km', isVerified: true, intent: 'dating', mutualChance: true,
     autoReply: 'Hey! Thanks for matching with me 😊 I was just listening to some new Amapiano tracks. Are you into music?',
     aiPrompt: 'Beautiful professional portrait of a 22 year old African woman smiling, Amapiano aesthetic, vibrant lighting, highly detailed studio photo'
   },
   {
     id: 'p2', name: 'Tunde', age: 25,
+    occupation: 'Software Engineer & Indie Game Dev',
+    education: 'University of Ibadan',
+    location: 'Bodija, Ibadan',
+    height: '6\'1" (185 cm)',
+    zodiac: 'Taurus ♉',
+    drinking: 'On special occasions 🥂',
+    smoking: 'Never 🚫',
+    workout: 'Basketball & Weights 🏀',
     tags: ['Gamer 🎮', 'Ibadan 🏞️', 'Foodie 🍕'],
     bio: 'Software developer by day, PS5 legend by night. Looking for someone to check out cool lounges in Ibadan.',
     image: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=700&q=80',
@@ -35,12 +56,25 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=700&q=80'
     ],
+    prompts: [
+      { question: 'A boundary of mine is...', answer: 'Don\'t pause my multiplayer game unless there is freshly delivered jollof rice ready.' },
+      { question: 'The key to my heart is...', answer: 'Competitive banter, good gaming setup recommendations, and exploring underrated food spots.' },
+      { question: 'Two truths and a lie...', answer: 'Built an AI bot for chess, met Burna Boy at a lounge, ranked top 100 in FIFA West Africa.' }
+    ],
     distance: '12 km', isVerified: false, intent: 'friends', mutualChance: false,
     autoReply: '',
     aiPrompt: 'Close portrait of a young African man, 25 years old software engineer, tech setup in background, soft twilight lighting, cinematic'
   },
   {
     id: 'p3', name: 'Amara', age: 24,
+    occupation: 'Fashion Label Creative Director',
+    education: 'Covenant University',
+    location: 'Victoria Island, Lagos',
+    height: '5\'9" (175 cm)',
+    zodiac: 'Leo ♌',
+    drinking: 'Champagne & Cocktails 🍸',
+    smoking: 'Non-smoker 🚭',
+    workout: 'Hot Yoga & Reformer 🧘‍♀️',
     tags: ['Fashion 👗', 'Aesthetics 📸', 'Brunch 🥂'],
     bio: 'Fashion label designer. Let\'s take aesthetic polaroid pictures together and find the best pancake spot in Lagos.',
     image: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80',
@@ -50,12 +84,25 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=700&q=80'
     ],
+    prompts: [
+      { question: 'My ideal Sunday looks like...', answer: 'Golden hour polaroid shoots, bottomless mimosa brunch, and curating fashion moodboards.' },
+      { question: 'Green flags I look for...', answer: 'Consistent communication, someone who appreciates high aesthetics, and spontaneous weekend road trips.' },
+      { question: 'Together, we could...', answer: 'Host unforgettable dinner parties and hunt down the most scenic travel destinations.' }
+    ],
     distance: '7 km', isVerified: true, intent: 'relationship', mutualChance: true,
     autoReply: 'Hi! I saw your profile and loved your bio. Are you ready for a photo session? 📸',
     aiPrompt: 'Gorgeous artistic portrait of a creative 24 year old Nigerian fashion designer, studio backdrop with textiles, modern Lagos fashion, high detail'
   },
   {
     id: 'p4', name: 'Chidi', age: 27,
+    occupation: 'Contemporary Art Curator & Host',
+    education: 'Babcock University',
+    location: 'Ikoyi, Lagos',
+    height: '6\'2" (188 cm)',
+    zodiac: 'Sagittarius ♐',
+    drinking: 'Wine collector 🍷',
+    smoking: 'Socially on rooftops 💨',
+    workout: 'CrossFit & Swimming 🏊',
     tags: ['Fitness 💪', 'Art 🎨', 'Business 📈'],
     bio: 'Art gallery host. If you love fitness and museum date nights, let\'s connect.',
     image: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=700&q=80',
@@ -65,12 +112,25 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1513956589380-bad6acb9b9d4?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1492447273231-0f8fecec1e3a?auto=format&fit=crop&w=700&q=80'
     ],
+    prompts: [
+      { question: 'The best travel story I have...', answer: 'Backpacking across Dakar and ending up curating an impromptu beachside pop-up gallery.' },
+      { question: 'I get along best with people who...', answer: 'Have deep curiosity, appreciate contemporary African art, and never take themselves too seriously.' },
+      { question: 'Dating me is like...', answer: 'VIP invites to gallery openings followed by 2 AM street food runs in high fashion.' }
+    ],
     distance: '5 km', isVerified: true, intent: 'relationship', mutualChance: true,
     autoReply: 'Hey! Glad we matched. What\'s your idea of a perfect weekend getaway? 🌊',
     aiPrompt: 'Close headshot of a handsome smiling 27 year old African man, gallery director, blurred artistic oil paintings background, clean lighting'
   },
   {
     id: 'p5', name: 'Sade', age: 23,
+    occupation: 'Editorial Content Strategist',
+    education: 'Obafemi Awolowo University (OAU)',
+    location: 'Yaba, Lagos',
+    height: '5\'6" (168 cm)',
+    zodiac: 'Virgo ♍',
+    drinking: 'Rarely ☕',
+    smoking: 'Non-smoker 🚭',
+    workout: 'Long nature walks & cycling 🚴‍♀️',
     tags: ['Books 📚', 'Nature 🌿', 'Yoruba Dem 💫'],
     bio: 'Bookworm and part-time content designer. Looking for honest connections only. Tell me your favorite book!',
     image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=700&q=80',
@@ -80,12 +140,25 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80'
     ],
+    prompts: [
+      { question: 'My most controversial opinion...', answer: 'Physical books with highlighted margins will always beat e-readers by a country mile.' },
+      { question: 'I\'ll know it\'s time to delete this app when...', answer: 'We get lost talking about our favorite authors for four hours straight without looking at our phones.' },
+      { question: 'My simple pleasures...', answer: 'Fresh matcha latte, buying flowers for myself, and the smell of old bookstores.' }
+    ],
     distance: '18 km', isVerified: false, intent: 'dating', mutualChance: false,
     autoReply: '',
     aiPrompt: 'Thoughtful close portrait of a 23 year old African girl in a beautiful botanical garden holding a vintage book, natural ambient sunshine'
   },
   {
     id: 'p6', name: 'Kemi', age: 30,
+    occupation: 'Senior Architect & Urban Designer',
+    education: 'University of Lagos & Columbia Univ.',
+    location: 'Banana Island, Ikoyi',
+    height: '5\'8" (173 cm)',
+    zodiac: 'Capricorn ♑',
+    drinking: 'Dry red wine 🍷',
+    smoking: 'Non-smoker 🚭',
+    workout: 'Pilates & Morning jogs 🏃‍♀️',
     tags: ['Architecture 🏛️', 'Wine 🍷', 'Travel ✈️'],
     bio: 'Architect & rooftop enthusiast. Seeking deep conversations over wine or black coffee. Tell me your favorite city!',
     image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=700&q=80',
@@ -95,12 +168,25 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80'
     ],
+    prompts: [
+      { question: 'What I order for the table...', answer: 'Truffle fries, a bold Cabernet, and calamari to share while talking about architecture.' },
+      { question: 'My golden rule in life...', answer: 'Design with purpose, speak with honesty, and always protect your inner peace.' },
+      { question: 'Together, we could...', answer: 'Travel to Lisbon and Milan to study brutalist architecture and taste real gelato.' }
+    ],
     distance: '35 km', isVerified: true, intent: 'relationship', mutualChance: true,
     autoReply: 'Hello! Really liked your vibe. What\'s your favorite spot in town?',
     aiPrompt: 'Portrait of a 30 year old African woman architect smiling, modern office, natural warm lighting'
   },
   {
     id: 'p7', name: 'Emeka', age: 34,
+    occupation: 'Fintech Co-Founder & Angel Investor',
+    education: 'Imperial College London',
+    location: 'Eko Atlantic, Lagos',
+    height: '6\'0" (183 cm)',
+    zodiac: 'Aries ♈',
+    drinking: 'Socially 🥃',
+    smoking: 'Never 🚫',
+    workout: 'Competitive Tennis & Gym 🎾',
     tags: ['Tennis 🎾', 'Jazz 🎷', 'Fintech 💳'],
     bio: 'Fintech founder, tennis player, jazz vinyl collector. Looking for a genuine partner in crime for weekend trips.',
     image: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=700&q=80',
@@ -110,12 +196,25 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=700&q=80'
     ],
+    prompts: [
+      { question: 'Teach me something about...', answer: 'Your favorite underground artists, or how you view the world differently than everyone else.' },
+      { question: 'My love language is...', answer: 'Acts of service, thoughtful surprise trips, and undivided presence without phones.' },
+      { question: 'The hallmark of a great date is...', answer: 'When time completely slips away and the restaurant staff is gently dimming the lights around us.' }
+    ],
     distance: '55 km', isVerified: false, intent: 'relationship', mutualChance: true,
     autoReply: 'Hey there! Nice to connect with you. How is your week going?',
     aiPrompt: 'Portrait of a 34 year old handsome African man in tennis gear, clean aesthetic lighting'
   },
   {
     id: 'p8', name: 'Folake', age: 21,
+    occupation: 'Visual Brand Designer & Stylist',
+    education: 'University of Benin (UNIBEN)',
+    location: 'Surulere, Lagos',
+    height: '5\'5" (165 cm)',
+    zodiac: 'Gemini ♊',
+    drinking: 'Cocktails with friends 🍹',
+    smoking: 'Non-smoker 🚭',
+    workout: 'Dance cardio & Afro-fusion 💃',
     tags: ['Design 🎨', 'Foodie 🍜', 'Afrobeats 💃'],
     bio: 'Design student & foodie. Show me the best suya joint in town and let us vibe to Burna Boy.',
     image: 'https://images.unsplash.com/photo-1523824921871-d6f1a15151f1?auto=format&fit=crop&w=700&q=80',
@@ -124,6 +223,11 @@ const PROFILES_DATA = [
       'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=700&q=80',
       'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=700&q=80'
+    ],
+    prompts: [
+      { question: 'The quickest way to my heart...', answer: 'Spicy Asun, ice-cold Chapman, and taking me to a high-energy live Afrobeats concert.' },
+      { question: 'Don\'t match with me if...', answer: 'You can\'t handle bad car karaoke or impromptu street photography sessions.' },
+      { question: 'I\'m weirdly good at...', answer: 'Guessing people\'s zodiac signs within five minutes of meeting them.' }
     ],
     distance: '9 km', isVerified: true, intent: 'dating', mutualChance: true,
     autoReply: 'Hey! Your profile caught my eye. What\'s your go-to weekend plan? ✨',
@@ -2424,6 +2528,9 @@ function buildProfileCard(p, idx) {
         ${(p.isVerified || p.verified) ? `<span class="verified-icon" title="Verified">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
         </span>` : ''}
+        <button type="button" class="card-info-btn" aria-label="View profile details" title="View profile details" onclick="event.stopPropagation();openProfileDetailSheet('${p.id}', event)">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        </button>
       </div>
       <div class="card-tags">${tagsHTML}</div>
       <p class="card-bio">${escHtml(p.bio || '')}</p>
@@ -2506,6 +2613,15 @@ function buildProfileCard(p, idx) {
         handleTap(nextZone, 1, e);
       });
     }
+  }
+
+  const cardInfo = card.querySelector('.card-info');
+  if (cardInfo) {
+    cardInfo.addEventListener('click', (e) => {
+      if (e.target.closest('.card-info-btn')) return;
+      if (Math.hypot(appState.currentX - appState.startX, appState.currentY - appState.startY) > 16) return;
+      openProfileDetailSheet(p.id, e);
+    });
   }
 
   return card;
@@ -9620,6 +9736,285 @@ function applyDiscoveryFilters(options = {}) {
   renderCardStack();
 }
 window.applyDiscoveryFilters = applyDiscoveryFilters;
+
+// ==========================================================
+// DEEP PROFILE DETAIL SHEET (Hinge/Tinder Expansion)
+// ==========================================================
+
+function openProfileDetailSheet(profileId, event) {
+  if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+
+  // Find the profile from stack, pool, data, or matches
+  let profile = null;
+  if (typeof profileStack !== 'undefined') profile = profileStack.find(p => p.id === profileId);
+  if (!profile && typeof window._masterDiscoveryPool !== 'undefined') profile = window._masterDiscoveryPool.find(p => p.id === profileId);
+  if (!profile && typeof PROFILES_DATA !== 'undefined') profile = PROFILES_DATA.find(p => p.id === profileId);
+  if (!profile && typeof PREMIUM_MATCHES !== 'undefined') profile = PREMIUM_MATCHES.find(p => p.id === profileId);
+  if (!profile && typeof matchedUsers !== 'undefined') profile = matchedUsers.find(p => p.id === profileId);
+  if (!profile && typeof profileStack !== 'undefined' && profileStack.length > 0) profile = profileStack[0];
+
+  if (!profile) {
+    if (typeof showToast === 'function') showToast('Profile details unavailable', 'info');
+    return;
+  }
+
+  appState.activeDetailProfileId = profile.id;
+
+  const modal = document.getElementById('profileDetailModal');
+  const sheet = modal?.querySelector('.profile-detail-sheet');
+  const content = document.getElementById('detailSheetContent');
+  if (!modal || !content) return;
+
+  // Extract photos
+  const photos = [];
+  if (Array.isArray(profile.photos) && profile.photos.length > 0) {
+    profile.photos.forEach(u => { if (u) photos.push(u); });
+  }
+  if (photos.length === 0 && profile.image) photos.push(profile.image);
+  if (photos.length === 0 && profile.avatar) photos.push(profile.avatar);
+  if (photos.length === 0) photos.push('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80');
+
+  // Intent badge text and style
+  const intentMap = {
+    relationship: { label: '💍 Long-term partner', bg: 'rgba(255, 94, 142, 0.16)', color: '#FF5E8E' },
+    dating: { label: '🥂 Casual dating', bg: 'rgba(255, 171, 0, 0.16)', color: '#FFAB00' },
+    friends: { label: '☕ New friends', bg: 'rgba(56, 151, 240, 0.16)', color: '#3897F0' }
+  };
+  const intentInfo = intentMap[profile.intent] || { label: '✨ Open to explore', bg: 'rgba(255, 255, 255, 0.1)', color: '#ffffff' };
+
+  // Dynamic distance string
+  const distanceStr = typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(profile) : (profile.distance || '2 km away');
+
+  // Lifestyle attributes with safe fallbacks
+  const occupation = profile.occupation || profile.job || (profile.bio && profile.bio.includes('developer') ? 'Software Developer' : 'Creative Professional');
+  const education = profile.education || profile.school || 'University Graduate';
+  const location = profile.location || profile.city || 'Lagos, Nigeria';
+  const height = profile.height || '5\'8" (173 cm)';
+  const zodiac = profile.zodiac || 'Star Sign ✨';
+  const drinking = profile.drinking || 'Socially 🍷';
+  const smoking = profile.smoking || 'Non-smoker 🚭';
+  const workout = profile.workout || 'Active lifestyle 🏋️';
+
+  // Prompts
+  const prompts = Array.isArray(profile.prompts) && profile.prompts.length > 0 ? profile.prompts : [
+    { question: 'My simple pleasures...', answer: profile.bio || 'Warm cinnamon rolls, late-night driving playlists, and good banter.' },
+    { question: 'Together, we could...', answer: 'Try out new aesthetic food spots, exchange playlists, and plan spontaneous getaways.' }
+  ];
+
+  // Tags HTML
+  const tagsHTML = (Array.isArray(profile.tags) ? profile.tags : ['Music 🎵', 'Travel ✈️', 'Foodie 🍜'])
+    .map(t => `<span class="detail-tag-chip">${escHtml(t)}</span>`).join('');
+
+  // Build Prompts + Photos interwoven stream
+  let promptsAndPhotosHTML = '';
+  prompts.forEach((pr, pIdx) => {
+    promptsAndPhotosHTML += `
+      <div class="detail-prompt-card">
+        <div class="prompt-card-badge">PROMPT</div>
+        <div class="prompt-question">${escHtml(pr.question)}</div>
+        <div class="prompt-answer">${escHtml(pr.answer)}</div>
+      </div>
+    `;
+    // Interleave photos if available
+    const nextPhoto = photos[pIdx + 1];
+    if (nextPhoto) {
+      promptsAndPhotosHTML += `
+        <div class="detail-photo-card">
+          <img src="${escHtml(nextPhoto)}" alt="${escHtml(profile.name || 'User')}" class="detail-stream-img" loading="lazy">
+        </div>
+      `;
+    }
+  });
+
+  // Remaining photos if any
+  if (photos.length > prompts.length + 1) {
+    for (let pi = prompts.length + 1; pi < photos.length; pi++) {
+      promptsAndPhotosHTML += `
+        <div class="detail-photo-card">
+          <img src="${escHtml(photos[pi])}" alt="${escHtml(profile.name || 'User')}" class="detail-stream-img" loading="lazy">
+        </div>
+      `;
+    }
+  }
+
+  content.innerHTML = `
+    <!-- Hero Photo Container -->
+    <div class="detail-hero-photo-wrap">
+      <img src="${escHtml(photos[0])}" alt="${escHtml(profile.name || 'Profile')}" class="detail-hero-photo">
+      <div class="detail-hero-gradient"></div>
+      <div class="detail-hero-badges">
+        <div class="detail-distance-badge">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          <span>${escHtml(distanceStr)}</span>
+        </div>
+        ${photos.length > 1 ? `<div class="detail-photo-count-badge">📷 ${photos.length} photos</div>` : ''}
+      </div>
+    </div>
+
+    <!-- Name, Verification, and Intent Header -->
+    <div class="detail-header-info">
+      <div class="detail-name-row">
+        <h1 class="detail-profile-name" id="detailSheetName">
+          ${escHtml(profile.name || 'User')}, ${escHtml(profile.age ?? '')}
+        </h1>
+        ${(profile.isVerified || profile.verified) ? `
+          <span class="verified-icon detail-verified-badge" title="Photo Verified Profile">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          </span>
+        ` : ''}
+      </div>
+
+      <div class="detail-pills-row">
+        <div class="detail-intent-pill" style="background:${intentInfo.bg};color:${intentInfo.color}">
+          ${escHtml(intentInfo.label)}
+        </div>
+        <div class="detail-location-pill">
+          📍 ${escHtml(location)}
+        </div>
+      </div>
+    </div>
+
+    <!-- About Me / Bio Section -->
+    <div class="detail-section">
+      <div class="detail-section-title">About Me</div>
+      <div class="detail-bio-card">
+        <p class="detail-bio-text">${escHtml(profile.bio || 'Hey there! Looking to meet genuine, kind people to create great memories with.')}</p>
+      </div>
+    </div>
+
+    <!-- The Basics / Lifestyle Grid -->
+    <div class="detail-section">
+      <div class="detail-section-title">The Basics & Lifestyle</div>
+      <div class="detail-basics-grid">
+        <div class="detail-basic-chip">
+          <div class="basic-chip-icon">💼</div>
+          <div class="basic-chip-info">
+            <span class="basic-chip-label">Work</span>
+            <strong class="basic-chip-val">${escHtml(occupation)}</strong>
+          </div>
+        </div>
+        <div class="detail-basic-chip">
+          <div class="basic-chip-icon">🎓</div>
+          <div class="basic-chip-info">
+            <span class="basic-chip-label">Education</span>
+            <strong class="basic-chip-val">${escHtml(education)}</strong>
+          </div>
+        </div>
+        <div class="detail-basic-chip">
+          <div class="basic-chip-icon">📏</div>
+          <div class="basic-chip-info">
+            <span class="basic-chip-label">Height</span>
+            <strong class="basic-chip-val">${escHtml(height)}</strong>
+          </div>
+        </div>
+        <div class="detail-basic-chip">
+          <div class="basic-chip-icon">♈</div>
+          <div class="basic-chip-info">
+            <span class="basic-chip-label">Zodiac</span>
+            <strong class="basic-chip-val">${escHtml(zodiac)}</strong>
+          </div>
+        </div>
+        <div class="detail-basic-chip">
+          <div class="basic-chip-icon">🏋️</div>
+          <div class="basic-chip-info">
+            <span class="basic-chip-label">Workout</span>
+            <strong class="basic-chip-val">${escHtml(workout)}</strong>
+          </div>
+        </div>
+        <div class="detail-basic-chip">
+          <div class="basic-chip-icon">🍷</div>
+          <div class="basic-chip-info">
+            <span class="basic-chip-label">Drinking</span>
+            <strong class="basic-chip-val">${escHtml(drinking)}</strong>
+          </div>
+        </div>
+        <div class="detail-basic-chip">
+          <div class="basic-chip-icon">🚭</div>
+          <div class="basic-chip-info">
+            <span class="basic-chip-label">Smoking</span>
+            <strong class="basic-chip-val">${escHtml(smoking)}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Prompts and Secondary Photos Flow -->
+    <div class="detail-section">
+      <div class="detail-section-title">Prompts & Moments</div>
+      ${promptsAndPhotosHTML}
+    </div>
+
+    <!-- Passions & Interests -->
+    <div class="detail-section">
+      <div class="detail-section-title">Passions & Interests</div>
+      <div class="detail-tags-cloud">
+        ${tagsHTML}
+      </div>
+    </div>
+
+    <!-- Safety & Report Footer -->
+    <div class="detail-report-section">
+      <button type="button" class="detail-report-link-btn" onclick="openReportFromDetailSheet('${profile.id}')">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span>Report or Block ${escHtml(profile.name || 'User')}</span>
+      </button>
+    </div>
+  `;
+
+  // Reset scroll to top
+  content.scrollTop = 0;
+
+  // Open modal
+  modal.style.display = 'flex';
+  requestAnimationFrame(() => {
+    modal.classList.add('open');
+    if (sheet) sheet.classList.add('open');
+  });
+
+  document.body.style.overflow = 'hidden';
+  if (typeof haptic === 'function') haptic('light');
+}
+window.openProfileDetailSheet = openProfileDetailSheet;
+
+function closeProfileDetailSheet() {
+  const modal = document.getElementById('profileDetailModal');
+  const sheet = modal?.querySelector('.profile-detail-sheet');
+  if (!modal) return;
+
+  if (sheet) sheet.classList.remove('open');
+  modal.classList.remove('open');
+
+  setTimeout(() => {
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+    appState.activeDetailProfileId = null;
+  }, 240);
+}
+window.closeProfileDetailSheet = closeProfileDetailSheet;
+
+function actionFromDetailSheet(action) {
+  if (typeof haptic === 'function') haptic('medium');
+  closeProfileDetailSheet();
+
+  setTimeout(() => {
+    if (action === 'nope' || action === 'pass') {
+      if (typeof triggerManualSwipe === 'function') triggerManualSwipe('left');
+    } else if (action === 'like') {
+      if (typeof triggerManualSwipe === 'function') triggerManualSwipe('right');
+    } else if (action === 'superlike') {
+      if (typeof triggerSuperLike === 'function') triggerSuperLike();
+    }
+  }, 260);
+}
+window.actionFromDetailSheet = actionFromDetailSheet;
+
+function openReportFromDetailSheet(profileId) {
+  closeProfileDetailSheet();
+  setTimeout(() => {
+    if (typeof reportUser === 'function') reportUser();
+  }, 260);
+}
+window.openReportFromDetailSheet = openReportFromDetailSheet;
 
 async function handleLogout() {
   if (!confirm('Are you sure you want to log out?')) return;
