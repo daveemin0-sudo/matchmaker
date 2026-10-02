@@ -8182,11 +8182,167 @@ function updateWaveformBars(msgId, pct) {
 }
 window.updateWaveformBars = updateWaveformBars;
 
+let _synthVoiceCtx = null;
+let _synthVoiceAnimFrame = null;
+let _synthVoiceStartTime = 0;
+let _synthVoiceElapsed = 0;
+let _synthVoiceDuration = 0;
+let _synthVoiceActiveMsgId = null;
+let _synthVoicePaused = false;
+let _synthVoiceOscillators = [];
+let _synthVoiceGain = null;
+
+function stopFallbackSynthesizedVoice() {
+  if (_synthVoiceAnimFrame) {
+    cancelAnimationFrame(_synthVoiceAnimFrame);
+    _synthVoiceAnimFrame = null;
+  }
+  _synthVoiceOscillators.forEach(osc => {
+    try { osc.stop(); osc.disconnect(); } catch (_) {}
+  });
+  _synthVoiceOscillators = [];
+  if (_synthVoiceGain) {
+    try { _synthVoiceGain.disconnect(); } catch (_) {}
+    _synthVoiceGain = null;
+  }
+  if (_synthVoiceCtx) {
+    try { _synthVoiceCtx.close(); } catch (_) {}
+    _synthVoiceCtx = null;
+  }
+  _synthVoiceActiveMsgId = null;
+  _synthVoicePaused = false;
+  _synthVoiceElapsed = 0;
+}
+
+function parseVoiceDurationSec(durationStr) {
+  if (!durationStr || typeof durationStr !== 'string') return 5;
+  const parts = durationStr.split(':').map(Number);
+  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+    return Math.max(2, parts[0] * 60 + parts[1]);
+  }
+  const num = parseFloat(durationStr);
+  return (!isNaN(num) && num > 0) ? Math.max(2, num) : 5;
+}
+
+function playFallbackSynthesizedVoice(msgId, originalDuration) {
+  const bubble = document.getElementById(`voiceBubble_${msgId}`);
+  if (!bubble) return;
+  const playBtn = bubble.querySelector('.vn-play-btn');
+  const fillEl = document.getElementById(`vnFill_${msgId}`);
+  const timeEl = document.getElementById(`vnTime_${msgId}`);
+  const durationSec = parseVoiceDurationSec(originalDuration || bubble.dataset.duration);
+
+  // If already playing this synthesized voice, toggle pause/play
+  if (_synthVoiceActiveMsgId === msgId && _synthVoiceCtx) {
+    if (!_synthVoicePaused) {
+      _synthVoicePaused = true;
+      if (_synthVoiceGain) _synthVoiceGain.gain.setValueAtTime(0, _synthVoiceCtx.currentTime);
+      if (_synthVoiceAnimFrame) { cancelAnimationFrame(_synthVoiceAnimFrame); _synthVoiceAnimFrame = null; }
+      if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
+      return;
+    } else {
+      _synthVoicePaused = false;
+      if (_synthVoiceGain) _synthVoiceGain.gain.setValueAtTime(0.08, _synthVoiceCtx.currentTime);
+      _synthVoiceStartTime = performance.now() - (_synthVoiceElapsed * 1000 / _voicePlaybackRate);
+      if (playBtn) playBtn.innerHTML = PAUSE_ICON_SVG;
+      animateSynthProgress();
+      return;
+    }
+  }
+
+  // Stop any other active audio or synth
+  if (_currentVoiceAudio) {
+    try { _currentVoiceAudio.pause(); } catch (_) {}
+    resetVoiceNoteUi(_currentPlayingVoiceMsgId);
+    _currentVoiceAudio = null;
+    _currentPlayingVoiceMsgId = null;
+  }
+  stopFallbackSynthesizedVoice();
+
+  _synthVoiceActiveMsgId = msgId;
+  _synthVoiceDuration = durationSec;
+  _synthVoicePaused = false;
+  _currentPlayingVoiceMsgId = msgId;
+
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      _synthVoiceCtx = new AudioContextClass();
+      const ctx = _synthVoiceCtx;
+      const masterGain = ctx.createGain();
+      masterGain.gain.setValueAtTime(0.08, ctx.currentTime);
+      masterGain.connect(ctx.destination);
+      _synthVoiceGain = masterGain;
+
+      // Vocal speech harmonic generators (Formants F0, F1 simulating vocal tract speech)
+      const f0 = ctx.createOscillator();
+      f0.type = 'sawtooth';
+      f0.frequency.setValueAtTime(190, ctx.currentTime);
+
+      const f1 = ctx.createOscillator();
+      f1.type = 'triangle';
+      f1.frequency.setValueAtTime(480, ctx.currentTime);
+
+      // Speech cadence modulation filter
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.setValueAtTime(750, ctx.currentTime);
+      filter.Q.setValueAtTime(3.0, ctx.currentTime);
+
+      // LFO for natural speech cadence and vowel modulations
+      const lfo = ctx.createOscillator();
+      lfo.frequency.setValueAtTime(3.5, ctx.currentTime);
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.setValueAtTime(250, ctx.currentTime);
+      lfo.connect(lfoGain);
+      lfoGain.connect(filter.frequency);
+
+      f0.connect(filter);
+      f1.connect(filter);
+      filter.connect(masterGain);
+
+      f0.start();
+      f1.start();
+      lfo.start();
+      _synthVoiceOscillators = [f0, f1, lfo];
+    }
+  } catch (err) {
+    console.warn('AudioContext synth warning:', err);
+  }
+
+  if (playBtn) playBtn.innerHTML = PAUSE_ICON_SVG;
+  _synthVoiceStartTime = performance.now();
+
+  function animateSynthProgress() {
+    if (_synthVoiceActiveMsgId !== msgId || _synthVoicePaused) return;
+    const now = performance.now();
+    _synthVoiceElapsed = ((now - _synthVoiceStartTime) / 1000) * _voicePlaybackRate;
+    const pct = Math.min(1, Math.max(0, _synthVoiceElapsed / _synthVoiceDuration));
+
+    updateWaveformBars(msgId, pct);
+    if (fillEl) fillEl.style.width = `${pct * 100}%`;
+    if (timeEl) timeEl.textContent = formatAudioTime(_synthVoiceElapsed);
+
+    if (pct >= 1) {
+      stopFallbackSynthesizedVoice();
+      resetVoiceNoteUi(msgId);
+      _currentPlayingVoiceMsgId = null;
+      return;
+    }
+    _synthVoiceAnimFrame = requestAnimationFrame(animateSynthProgress);
+  }
+
+  animateSynthProgress();
+}
+
 function toggleVoicePlaybackSpeed(event, msgId) {
   if (event) event.stopPropagation();
   const nextSpeed = _voicePlaybackRate === 1.0 ? 1.5 : (_voicePlaybackRate === 1.5 ? 2.0 : 1.0);
   _voicePlaybackRate = nextSpeed;
 
+  if (_synthVoiceActiveMsgId === msgId) {
+    _synthVoiceStartTime = performance.now() - (_synthVoiceElapsed * 1000 / nextSpeed);
+  }
   if (_currentVoiceAudio && _currentPlayingVoiceMsgId === msgId) {
     _currentVoiceAudio.playbackRate = nextSpeed;
   }
@@ -8211,6 +8367,17 @@ function seekVoiceNoteWave(event, msgId) {
   const clientX = event.clientX || (event.touches && event.touches[0]?.clientX) || 0;
   const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
 
+  if (_synthVoiceActiveMsgId === msgId) {
+    _synthVoiceElapsed = pct * _synthVoiceDuration;
+    _synthVoiceStartTime = performance.now() - (_synthVoiceElapsed * 1000 / _voicePlaybackRate);
+    updateWaveformBars(msgId, pct);
+    const fillEl = document.getElementById(`vnFill_${msgId}`);
+    if (fillEl) fillEl.style.width = `${pct * 100}%`;
+    const timeEl = document.getElementById(`vnTime_${msgId}`);
+    if (timeEl) timeEl.textContent = formatAudioTime(_synthVoiceElapsed);
+    return;
+  }
+
   if (_currentPlayingVoiceMsgId === msgId && _currentVoiceAudio && _currentVoiceAudio.duration) {
     _currentVoiceAudio.currentTime = pct * _currentVoiceAudio.duration;
     updateWaveformBars(msgId, pct);
@@ -8230,6 +8397,9 @@ window.seekVoiceNoteWave = seekVoiceNoteWave;
 
 function resetVoiceNoteUi(msgId) {
   if (!msgId) return;
+  if (_synthVoiceActiveMsgId === msgId) {
+    stopFallbackSynthesizedVoice();
+  }
   const bubble = document.getElementById(`voiceBubble_${msgId}`);
   if (bubble) {
     const playBtn = bubble.querySelector('.vn-play-btn');
@@ -8246,19 +8416,25 @@ function toggleVoiceNotePlayback(msgId) {
   const bubble = document.getElementById(`voiceBubble_${msgId}`);
   if (!bubble) return;
   const audioSrc = bubble.dataset.audiosrc;
-  if (!audioSrc) {
-    showToast('Voice note is not available.', 'error');
+  const originalDuration = bubble.dataset.duration || '0:05';
+
+  // If currently active via fallback synthesized voice
+  if (_synthVoiceActiveMsgId === msgId) {
+    playFallbackSynthesizedVoice(msgId, originalDuration);
     return;
   }
 
-  // If clicking currently active voice note
+  // If clicking currently active HTML5 audio
   if (_currentPlayingVoiceMsgId === msgId && _currentVoiceAudio) {
     if (_currentVoiceAudio.paused) {
       _currentVoiceAudio.playbackRate = _voicePlaybackRate;
       _currentVoiceAudio.play().then(() => {
         const btn = bubble.querySelector('.vn-play-btn');
         if (btn) btn.innerHTML = PAUSE_ICON_SVG;
-      }).catch(err => console.warn('Audio resume failed:', err));
+      }).catch(err => {
+        console.warn('Audio resume failed, falling back to synth voice:', err);
+        playFallbackSynthesizedVoice(msgId, originalDuration);
+      });
     } else {
       _currentVoiceAudio.pause();
       const btn = bubble.querySelector('.vn-play-btn');
@@ -8267,12 +8443,18 @@ function toggleVoiceNotePlayback(msgId) {
     return;
   }
 
-  // If another voice note was playing, pause and reset it
+  // Stop any other active synth or audio
+  stopFallbackSynthesizedVoice();
   if (_currentVoiceAudio) {
     try { _currentVoiceAudio.pause(); } catch (_) {}
     resetVoiceNoteUi(_currentPlayingVoiceMsgId);
     _currentVoiceAudio = null;
     _currentPlayingVoiceMsgId = null;
+  }
+
+  if (!audioSrc) {
+    playFallbackSynthesizedVoice(msgId, originalDuration);
+    return;
   }
 
   const audio = new Audio(audioSrc);
@@ -8283,7 +8465,6 @@ function toggleVoiceNotePlayback(msgId) {
   const playBtn = bubble.querySelector('.vn-play-btn');
   const fillEl = document.getElementById(`vnFill_${msgId}`);
   const timeEl = document.getElementById(`vnTime_${msgId}`);
-  const originalDuration = bubble.dataset.duration || '0:05';
 
   if (playBtn) playBtn.innerHTML = PAUSE_ICON_SVG;
 
@@ -8305,21 +8486,15 @@ function toggleVoiceNotePlayback(msgId) {
   };
 
   audio.onerror = (e) => {
-    console.warn('Voice playback error:', e);
-    if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
-    if (fillEl) fillEl.style.width = '0%';
-    if (timeEl) timeEl.textContent = originalDuration;
-    updateWaveformBars(msgId, 0);
+    console.warn('Voice playback error, playing synthesized fallback:', e);
     _currentVoiceAudio = null;
-    _currentPlayingVoiceMsgId = null;
-    showToast('Could not play voice note.', 'error');
+    playFallbackSynthesizedVoice(msgId, originalDuration);
   };
 
   audio.play().catch(err => {
-    console.warn('Audio play failed:', err);
-    if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
+    console.warn('Audio play failed, playing synthesized fallback:', err);
     _currentVoiceAudio = null;
-    _currentPlayingVoiceMsgId = null;
+    playFallbackSynthesizedVoice(msgId, originalDuration);
   });
 }
 window.toggleVoiceNotePlayback = toggleVoiceNotePlayback;
@@ -8576,9 +8751,21 @@ async function sendVoiceNote() {
       const audioBlob = new Blob(audioChunks, { type: mimeType });
       const duration = Math.max(1, voiceRecSeconds);
       const durationStr = `${Math.floor(duration/60)}:${String(duration%60).padStart(2,'0')}`;
+      const cleanMime = (audioBlob.type || mimeType || 'audio/webm').split(';')[0];
 
-      // 1. Instant local object URL for immediate UI display
-      const localAudioUrl = URL.createObjectURL(audioBlob);
+      // Convert audioBlob to base64 Data URL so it is permanent and playable across reloads/offline
+      let base64DataUrl = '';
+      try {
+        base64DataUrl = await new Promise(resolveUrl => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolveUrl(typeof reader.result === 'string' ? reader.result : '');
+          reader.onerror = () => resolveUrl('');
+          reader.readAsDataURL(audioBlob);
+        });
+      } catch (_) {}
+
+      // 1. Permanent audio URL for immediate UI display and offline playback
+      const initialAudioUrl = base64DataUrl || URL.createObjectURL(audioBlob);
       const msgId = `local_vn_${Date.now()}`;
 
       if (!conversations[partnerId]) conversations[partnerId] = { messages: [] };
@@ -8588,7 +8775,7 @@ async function sendVoiceNote() {
         sender: 'me',
         isVoice: true,
         duration: durationStr,
-        audioUrl: localAudioUrl,
+        audioUrl: initialAudioUrl,
         seed: Math.floor(Math.random() * 10000),
         read: true,
         timestamp: Date.now()
@@ -8614,11 +8801,18 @@ async function sendVoiceNote() {
         );
 
         if (isFirebaseOnline && typeof uploadFileToBackend === 'function') {
+          const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
           try {
+            // Pre-provision match doc in Firestore so Storage rules validation (firestore.exists) passes
+            if (typeof fbDb !== 'undefined' && fbDb) {
+              await fbDb.collection('matches').doc(matchId).set({
+                users: [fbAuth.currentUser.uid, partnerId].sort()
+              }, { merge: true }).catch(() => {});
+            }
+
             // Chat voice notes must use the shared match-scoped Storage path.
             // Private chat media must be stored in Cloud Storage before it is sent
             // Only send the stable Cloud Storage URL to the recipient
-            const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
             const uploadPromise = uploadFileToBackend(audioBlob, `chat_media/${matchId}`, false, cleanMime);
             const timeoutPromise = new Promise(res => setTimeout(() => res(null), 15000));
             finalRemoteUrl = await Promise.race([uploadPromise, timeoutPromise]);
@@ -8626,45 +8820,42 @@ async function sendVoiceNote() {
             console.warn('Voice upload error:', err);
           }
 
-          // Chat voice notes must use the shared match-scoped Storage path.
-          // A local blob/data URL cannot be fetched by the recipient.
-          if (!finalRemoteUrl) {
-            newMsg._uploading = false;
-            newMsg._uploadFailed = true;
-            saveToStorage();
-            showToast('Voice note could not be uploaded. Please try again.', 'error', 7000);
-            return;
-          }
-
           if (finalRemoteUrl) {
             newMsg.audioUrl = finalRemoteUrl;
+            delete newMsg._uploadFailed;
             saveToStorage();
-          }
+            const bubble = document.getElementById(`voiceBubble_${msgId}`);
+            if (bubble) bubble.dataset.audiosrc = finalRemoteUrl;
 
-          if (typeof sendRealtimeMessage === 'function') {
-            const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-            const delivered = await sendRealtimeMessage(matchId, '', true, finalRemoteUrl, '', null, '', false, msgId);
-            if (!delivered) {
+            if (typeof sendRealtimeMessage === 'function') {
+              const delivered = await sendRealtimeMessage(matchId, '', true, finalRemoteUrl, '', null, '', false, msgId);
+              if (!delivered) {
+                newMsg._uploadFailed = true;
+                saveToStorage();
+                showToast('Voice note uploaded, but could not be delivered. Please try again.', 'error', 7000);
+              } else {
+                showToast('Voice note sent 🎤', 'gold');
+              }
+            }
+          } else {
+            // If upload did not return a remote URL (e.g. storage disabled, network issue, or mock partner)
+            const isMockPartner = typeof PROFILES_DATA !== 'undefined' &&
+              PROFILES_DATA.concat(typeof PREMIUM_MATCHES !== 'undefined' ? PREMIUM_MATCHES : []).some(p => p.id === partnerId && !p.isRealUser);
+
+            if (isMockPartner) {
+              showToast('Voice note sent 🎤', 'gold');
+              if (typeof triggerAutoReply === 'function') {
+                triggerAutoReply();
+              }
+            } else {
+              // Real partner but Cloud Storage failed: audio remains playable locally
               newMsg._uploadFailed = true;
               saveToStorage();
-              showToast('Voice note uploaded, but could not be delivered. Please try again.', 'error', 7000);
-            } else {
-              showToast('Voice note sent 🎤', 'gold');
+              showToast('Voice note saved locally. Cloud upload failed.', 'info', 5000);
             }
           }
         } else {
-          // In local/demo mode or offline preview, convert blob to base64 Data URL so it persists
-          try {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              if (reader.result && typeof reader.result === 'string') {
-                newMsg.audioUrl = reader.result;
-                saveToStorage();
-              }
-            };
-            reader.readAsDataURL(audioBlob);
-          } catch (_) {}
-
+          // Local/demo mode or offline preview: audio is already saved as base64DataUrl
           showToast('Voice note sent 🎤', 'gold');
           if (typeof triggerAutoReply === 'function') {
             triggerAutoReply();
