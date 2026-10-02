@@ -153,7 +153,9 @@ const DUMMY_USER_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'pm1', 'pm2', 's1', 's2', 
 function isRealUserLoggedIn() {
   return Boolean(
     (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) ||
-    (appState.isLoggedIn && currentUser.email && !currentUser.email.includes('guest') && !currentUser.email.includes('demo') && currentUser.id && !currentUser.id.startsWith('demo'))
+    (appState.isLoggedIn && (
+      currentUser.email || currentUser.phone || (currentUser.id && currentUser.id !== 'me' && !currentUser.id.startsWith('demo'))
+    ) && !(currentUser.email || '').includes('guest') && !(currentUser.email || '').includes('demo'))
   );
 }
 
@@ -637,6 +639,124 @@ async function loadProfilesForDiscovery() {
 // STORAGE
 // ==========================================================
 
+
+// ==========================================================
+// UNBREAKABLE OFFLINE STORAGE (IndexedDB Cache)
+// Guarantees conversation chats and matches survive offline,
+// airplane mode, data-off, or device reboots.
+// ==========================================================
+const HMBS_IDB_NAME = 'hmbs_offline_v2';
+const HMBS_IDB_STORE = 'app_data';
+
+function openOfflineIdb() {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined' || !window.indexedDB) return resolve(null);
+    try {
+      const req = indexedDB.open(HMBS_IDB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains(HMBS_IDB_STORE)) {
+          db.createObjectStore(HMBS_IDB_STORE);
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => resolve(null);
+    } catch (_) {
+      resolve(null);
+    }
+  });
+}
+
+async function persistToIndexedDB(key, val) {
+  try {
+    const db = await openOfflineIdb();
+    if (!db) return;
+    const tx = db.transaction(HMBS_IDB_STORE, 'readwrite');
+    tx.objectStore(HMBS_IDB_STORE).put(val, key);
+  } catch (_) {}
+}
+
+async function getFromIndexedDB(key) {
+  try {
+    const db = await openOfflineIdb();
+    if (!db) return null;
+    return new Promise((resolve) => {
+      const tx = db.transaction(HMBS_IDB_STORE, 'readonly');
+      const req = tx.objectStore(HMBS_IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch (_) {
+    return null;
+  }
+}
+
+function syncMatchedUsersFromConversations() {
+  if (!conversations || typeof conversations !== 'object') return;
+  for (const [partnerId, convo] of Object.entries(conversations)) {
+    if (!partnerId || !Array.isArray(convo?.messages) || convo.messages.length === 0) continue;
+    if (isContactBlocked(partnerId) || DUMMY_USER_IDS.includes(partnerId)) continue;
+    const exists = matchedUsers.some(u => u.id === partnerId);
+    if (!exists) {
+      const knownProfile = (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA : []).find(p => p.id === partnerId);
+      const lastMsg = convo.messages[convo.messages.length - 1];
+      matchedUsers.push({
+        id: partnerId,
+        name: convo.partnerName || convo.partner?.name || knownProfile?.name || 'Match',
+        image: convo.partnerImage || convo.partner?.image || knownProfile?.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+        age: convo.partner?.age || knownProfile?.age || 24,
+        bio: convo.partner?.bio || knownProfile?.bio || '',
+        lastMessage: lastMsg?.text || (lastMsg?.imageUrl ? '📷 Photo' : (lastMsg?.videoUrl ? '🎥 Video' : (lastMsg?.audioUrl ? '🎵 Voice note' : ''))),
+        lastSender: lastMsg?.senderId || lastMsg?.sender || '',
+        lastUpdated: lastMsg?.timestamp || Date.now()
+      });
+    }
+  }
+}
+
+async function restoreOfflineDataFromIndexedDB() {
+  try {
+    const [cachedConvos, cachedMatches] = await Promise.all([
+      getFromIndexedDB('conversations'),
+      getFromIndexedDB('matchedUsers')
+    ]);
+
+    let changed = false;
+    if (cachedConvos && typeof cachedConvos === 'object') {
+      for (const [id, c] of Object.entries(cachedConvos)) {
+        if (!conversations[id] || !Array.isArray(conversations[id].messages) || conversations[id].messages.length < (c.messages?.length || 0)) {
+          conversations[id] = c;
+          changed = true;
+        }
+      }
+    }
+
+    if (Array.isArray(cachedMatches) && cachedMatches.length > 0) {
+      cachedMatches.forEach(m => {
+        if (!matchedUsers.some(u => u.id === m.id)) {
+          matchedUsers.push(m);
+          changed = true;
+        }
+      });
+    }
+
+    if (changed) {
+      syncMatchedUsersFromConversations();
+      sortMatchedUsersByLatest();
+      if (appState.currentScreen === 'chat' && appState.currentChatId) {
+        renderChatThread();
+      } else if (appState.currentScreen === 'chatsList') {
+        renderChatsInbox();
+      } else if (appState.currentScreen === 'matches') {
+        renderMatchesView();
+      }
+      updateMatchesNotificationBadge();
+    }
+  } catch (err) {
+    console.warn('[OfflineDB] restore error:', err);
+  }
+}
+
 function loadFromStorage() {
   try {
     const saved = localStorage.getItem('hmbs_state');
@@ -678,8 +798,12 @@ function loadFromStorage() {
         blockedUsers = JSON.parse(savedBlocked);
       } catch (e) {}
     }
+    // Guarantee all conversation threads appear in matchedUsers even if data is off
+    syncMatchedUsersFromConversations();
     sortMatchedUsersByLatest();
     updateMatchesNotificationBadge();
+    // Asynchronously restore from IndexedDB in background
+    restoreOfflineDataFromIndexedDB();
   } catch (e) {
     console.warn('Storage load error', e);
   }
@@ -696,18 +820,56 @@ function saveToStorage() {
     localStorage.setItem('hmbs_user', JSON.stringify(currentUser));
     localStorage.setItem('hmbs_settings', JSON.stringify(settings));
     localStorage.setItem('hmbs_matches', JSON.stringify(matchedUsers));
+
     const MAX_MSGS = 60;
     const trimmedConvos = {};
     for (const chatId in conversations) {
       const msgs = conversations[chatId]?.messages;
-      trimmedConvos[chatId] = { ...conversations[chatId], messages: Array.isArray(msgs) ? msgs.slice(-MAX_MSGS) : [] };
+      if (Array.isArray(msgs)) {
+        // Strip large data/blob URLs to protect localStorage quota
+        const safeMsgs = msgs.slice(-MAX_MSGS).map(m => {
+          if (m.imageUrl && m.imageUrl.length > 500 && m.imageUrl.startsWith('data:')) {
+            return { ...m, imageUrl: '' };
+          }
+          if (m.audioUrl && m.audioUrl.length > 500 && m.audioUrl.startsWith('data:')) {
+            return { ...m, audioUrl: '' };
+          }
+          return m;
+        });
+        trimmedConvos[chatId] = { ...conversations[chatId], messages: safeMsgs };
+      }
     }
     localStorage.setItem('hmbs_convos', JSON.stringify(trimmedConvos));
     localStorage.setItem('hmbs_blocked', JSON.stringify(blockedUsers));
+
+    // Persist full conversations and matches to IndexedDB as permanent offline backup
+    persistToIndexedDB('conversations', conversations);
+    persistToIndexedDB('matchedUsers', matchedUsers);
   } catch (e) {
     if (e.name === 'QuotaExceededError' || e.code === 22) {
-      try { localStorage.removeItem('hmbs_convos'); } catch (_) {}
-    } else { console.warn('Storage save error', e); }
+      console.warn('Storage quota exceeded; applying emergency trim without wiping conversations');
+      try {
+        const emergencyConvos = {};
+        for (const chatId in conversations) {
+          const msgs = conversations[chatId]?.messages;
+          emergencyConvos[chatId] = {
+            ...conversations[chatId],
+            messages: Array.isArray(msgs) ? msgs.slice(-20).map(m => ({
+              id: m.id,
+              sender: m.sender,
+              text: m.text || '',
+              timestamp: m.timestamp,
+              read: m.read
+            })) : []
+          };
+        }
+        localStorage.setItem('hmbs_convos', JSON.stringify(emergencyConvos));
+      } catch (innerErr) {
+        console.warn('Emergency convos trim save error:', innerErr);
+      }
+    } else {
+      console.warn('Storage save error', e);
+    }
   }
 }
 
@@ -810,7 +972,7 @@ function updateHeader(screenId) {
     case 'discovery':
       setHeaderBtnVisible(backBtn, false);
       headerTitle.className = 'main-header-logo';
-      headerTitle.innerHTML = '<span class="header-flame-icon">🔥</span><span class="brand-hook">hookme</span><span class="brand-by">by</span><span class="brand-sam">sam</span>';
+      headerTitle.innerHTML = '<span class="header-flame-icon">🔥</span><span class="brand-hook">hookme</span>';
       headerTitle.style.background = '';
       headerTitle.style.webkitBackgroundClip = '';
       headerTitle.style.webkitTextFillColor = '';
@@ -3290,6 +3452,8 @@ function renderConversationList() {
 // ==========================================================
 
 function renderChatsInbox(filterQuery) {
+  // Ensure every partner with existing messages is present in matchedUsers even when offline
+  syncMatchedUsersFromConversations();
   sortMatchedUsersByLatest();
 
   // New matches row in inbox
@@ -4013,8 +4177,36 @@ function openChat(profileId, { fromHistory = false } = {}) {
         const prevMsgs = conversations[profileId]?.messages || [];
         const prevLastTime = prevMsgs.length > 0 ? (prevMsgs[prevMsgs.length - 1].timestamp || 0) : 0;
 
+        // NEVER wipe local cached messages if remote snapshot is empty (e.g. offline, airplane mode, or network blip)
+        let finalMsgs = [];
+        if (validRemoteMsgs.length === 0) {
+          if (currentMsgs.length > 0) {
+            console.log('[Chat] Remote returned 0 messages for ' + profileId + '; preserving ' + currentMsgs.length + ' cached messages.');
+            finalMsgs = currentMsgs;
+          } else {
+            finalMsgs = pendingLocal;
+          }
+        } else {
+          // Merge remote messages with local messages (deduplicating by id / firestoreId / timestamp)
+          const msgMap = new Map();
+          currentMsgs.forEach(m => {
+            const key = m.firestoreId || m.id || (m.sender + '_' + m.timestamp + '_' + (m.text || '').substring(0, 20));
+            msgMap.set(key, m);
+          });
+          validRemoteMsgs.forEach(m => {
+            const key = m.firestoreId || m.id || (m.sender + '_' + m.timestamp + '_' + (m.text || '').substring(0, 20));
+            msgMap.set(key, m);
+          });
+          pendingLocal.forEach(m => {
+            const key = m.id || (m.sender + '_' + m.timestamp);
+            msgMap.set(key, m);
+          });
+          finalMsgs = Array.from(msgMap.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        }
+
         conversations[profileId] = {
-          messages: [...validRemoteMsgs, ...pendingLocal].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+          messages: finalMsgs,
+          lastReadTimestamp: conversations[profileId]?.lastReadTimestamp || Date.now()
         };
         // Mark newly received messages as read
         if (typeof markMessagesReadInFirestore === 'function') {

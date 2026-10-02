@@ -4821,3 +4821,101 @@ body {
 .screen.active {
   display: flex !important;
 }
+
+
+/* ==========================================================================
+   RESPONSIVE TOP BAR: FLUID FIT ACROSS ALL PHONE WIDTHS & DP SETTINGS
+   ========================================================================== */
+.app-shell > .app-header,
+.app-header {
+  width: 100% !important;
+  max-width: 520px !important;
+  margin: 0 auto !important;
+  padding: env(safe-area-inset-top, 0px) clamp(10px, 3.5vw, 16px) 0 clamp(10px, 3.5vw, 16px) !important;
+  height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  position: relative !important;
+  overflow: hidden !important;
+  flex-shrink: 0 !important;
+}
+
+.header-left {
+  display: flex !important;
+  align-items: center !important;
+  gap: clamp(4px, 1.8vw, 8px) !important;
+  min-width: 0 !important;
+  flex: 1 1 auto !important;
+  overflow: hidden !important;
+}
+
+.header-title-wrap {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+}
+
+.main-header-logo {
+  font-family: var(--font-display) !important;
+  font-size: clamp(1.15rem, 4.4vw, 1.48rem) !important;
+  font-weight: 900 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: clamp(4px, 1.5vw, 6px) !important;
+  letter-spacing: -0.6px !important;
+  white-space: nowrap !important;
+  user-select: none !important;
+  cursor: pointer !important;
+  min-width: 0 !important;
+}
+
+.brand-hook {
+  background: linear-gradient(135deg, #D13A63 0%, #E0567F 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.5px !important;
+}
+
+.header-flame-icon {
+  font-size: clamp(1.1rem, 3.8vw, 1.35rem) !important;
+  display: inline-block !important;
+}
+
+.header-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: clamp(2px, 1.5vw, 6px) !important;
+  flex-shrink: 0 !important;
+  justify-content: flex-end !important;
+  min-width: 0 !important;
+}
+
+.header-btn {
+  width: clamp(34px, 8.5vw, 42px) !important;
+  height: clamp(34px, 8.5vw, 42px) !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  box-sizing: border-box !important;
+}
+
+.header-btn svg {
+  width: clamp(18px, 4.8vw, 22px) !important;
+  height: clamp(18px, 4.8vw, 22px) !important;
+}
+
+.global-back-btn {
+  width: clamp(34px, 8.5vw, 40px) !important;
+  height: clamp(34px, 8.5vw, 40px) !important;
+  flex-shrink: 0 !important;
+}
+
+.global-back-btn svg {
+  width: clamp(18px, 4.8vw, 22px) !important;
+  height: clamp(18px, 4.8vw, 22px) !important;
+}

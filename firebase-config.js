@@ -61,6 +61,20 @@ function initBackend() {
       }
       fbAuth = firebase.auth();
       fbDb = firebase.firestore();
+      // Enable Firestore offline persistence so conversations & matches are cached locally in IndexedDB
+      if (fbDb && typeof fbDb.enablePersistence === 'function') {
+        fbDb.enablePersistence({ synchronizeTabs: true }).then(() => {
+          console.log("🔥 Firestore offline persistence enabled (multi-tab sync)");
+        }).catch((err) => {
+          if (err.code === 'failed-precondition') {
+            console.warn("Firestore persistence notice: multiple tabs open");
+          } else if (err.code === 'unimplemented') {
+            console.warn("Firestore persistence not supported in this browser");
+          } else {
+            console.warn("Firestore persistence warning:", err.message);
+          }
+        });
+      }
       fbStorage = firebase.storage();
       console.log("🔥 Firebase initialized — project:", firebaseConfig.projectId);
       listenToAuthChanges();
@@ -512,8 +526,12 @@ function listenToUserMatches(callback) {
           if (partnerId && !isBlocked) {
             try {
               let userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
-              if (userDoc && userDoc.exists) {
-                const data = userDoc.data();
+              let data = (userDoc && userDoc.exists) ? userDoc.data() : null;
+                // Offline fallback: if profile get() returned null while offline, check memory
+                if (!data && typeof matchedUsers !== 'undefined' && Array.isArray(matchedUsers)) {
+                  data = matchedUsers.find(u => u.id === partnerId);
+                }
+                if (data) {
 
                 // Live presence fetch from /presence/{partnerId}
                 let isOnline = false;
@@ -623,7 +641,7 @@ function listenToRealtimeMessages(matchId, callback) {
   try {
     return fbDb.collection('matches').doc(matchId).collection('messages')
       .orderBy('timestamp', 'asc')
-      .onSnapshot(snapshot => {
+      .onSnapshot({ includeMetadataChanges: true }, snapshot => {
         const msgs = snapshot.docs
           .map(doc => ({ id: doc.id, ...doc.data() }))
           .filter(m => !m.deleted);
