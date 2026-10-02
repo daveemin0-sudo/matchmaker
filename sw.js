@@ -1,4 +1,4 @@
-/* hookmebysam Service Worker v44
+/* hookmebysam Service Worker v45
    ------------------------------------------------------------------
    Strategy:
    - App shell (HTML/CSS/JS): NETWORK-FIRST. Always tries the network
@@ -8,7 +8,7 @@
    - Static assets (images/fonts/icons): CACHE-FIRST. These are rarely
      edited, so serving from cache first saves bandwidth and is safe.
    ------------------------------------------------------------------ */
-const SW_VERSION = "v44";
+const SW_VERSION = "v45";
 const CACHE_NAME = `hmbs-${SW_VERSION}`;
 
 const APP_SHELL = [
