@@ -1843,15 +1843,27 @@ body[data-theme="light"]::before {
 }
 
 /* Partner Info Header Bar: STRICTLY STATIC AT TOP (WhatsApp-style) */
+body.in-chat #appHeader,
+.app-shell.in-chat #appHeader,
+#appHeader.is-hidden {
+  display: none !important;
+}
+
+body.in-chat #bottomNav,
+.app-shell.in-chat #bottomNav,
+#bottomNav.is-hidden {
+  display: none !important;
+}
+
 .chat-partner-bar {
   background: rgba(18, 11, 26, 0.95) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(28px) !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  padding: 10px 16px !important;
+  padding: 8px 10px !important;
   display: flex !important;
   align-items: center !important;
-  gap: 10px !important;
+  gap: 6px !important;
   position: sticky !important;
   top: 0 !important;
   left: 0 !important;
@@ -1867,15 +1879,82 @@ body[data-theme="light"]::before {
   border-bottom: 1px solid rgba(0, 0, 0, 0.08) !important;
 }
 
+.chat-back-arrow-btn {
+  width: 28px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
+}
+
 .chat-partner-avatar {
-  width: 44px !important;
-  height: 44px !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
   border-radius: 50% !important;
   background-size: cover !important;
   background-position: center !important;
   border: 2px solid #FF2E70 !important;
-  box-shadow: 0 0 14px rgba(255, 46, 112, 0.4) !important;
+  box-shadow: 0 0 10px rgba(255, 46, 112, 0.35) !important;
   flex-shrink: 0 !important;
+  margin: 0 2px 0 0 !important;
+}
+
+.chat-partner-info {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+}
+
+.chat-partner-name {
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
+  color: var(--text-primary) !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.2 !important;
+}
+
+.chat-call-btns {
+  display: flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+  flex-shrink: 0 !important;
+  margin-left: auto !important;
+}
+
+.chat-action-icon-btn {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  border-radius: 50% !important;
+  border: none !important;
+  background: transparent !important;
+  color: var(--text-primary) !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+.chat-action-icon-btn svg {
+  width: 18px !important;
+  height: 18px !important;
 }
 
 .chat-partner-info {

@@ -139,9 +139,21 @@ html.user-logged-in #discoveryScreen:not(.active) {
 html.user-logged-in #discoveryScreen.active {
   display: flex !important;
 }
-html.user-logged-in #appHeader,
-html.user-logged-in #bottomNav {
-  display: flex !important;
+html.user-logged-in #appHeader:not(.is-hidden),
+html.user-logged-in #bottomNav:not(.is-hidden) {
+  display: flex;
+}
+
+body.in-chat #appHeader,
+.app-shell.in-chat #appHeader,
+#appHeader.is-hidden {
+  display: none !important;
+}
+
+body.in-chat #bottomNav,
+.app-shell.in-chat #bottomNav,
+#bottomNav.is-hidden {
+  display: none !important;
 }
 html.age-gate-passed #ageGateOverlay {
   display: none !important;
@@ -4827,11 +4839,11 @@ label, .form-field label, .auth-form-group label {
 .chat-partner-bar {
   display: flex !important;
   align-items: center !important;
-  gap: 10px !important;
-  padding-top: calc(env(safe-area-inset-top, 0px) + 8px) !important;
-  padding-bottom: 8px !important;
-  padding-left: 14px !important;
-  padding-right: 14px !important;
+  gap: 6px !important;
+  padding-top: calc(env(safe-area-inset-top, 0px) + 6px) !important;
+  padding-bottom: 6px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
   background: var(--bg-elevated) !important;
   border-bottom: 1px solid var(--border-color) !important;
   flex-shrink: 0 !important;
@@ -4842,11 +4854,11 @@ label, .form-field label, .auth-form-group label {
   width: 100% !important;
   z-index: 100 !important;
   box-sizing: border-box !important;
-  min-height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+  min-height: calc(52px + env(safe-area-inset-top, 0px)) !important;
 }
 .chat-back-arrow-btn {
-  width: 36px;
-  height: 36px;
+  width: 28px !important;
+  height: 36px !important;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -4855,9 +4867,9 @@ label, .form-field label, .auth-form-group label {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  padding: 0;
-  margin-right: 2px;
-  flex-shrink: 0;
+  padding: 0 !important;
+  margin: 0 !important;
+  flex-shrink: 0 !important;
   transition: background var(--t-fast), transform var(--t-fast);
 }
 .chat-back-arrow-btn:hover {
@@ -4868,20 +4880,22 @@ label, .form-field label, .auth-form-group label {
   transform: scale(0.92);
 }
 .chat-partner-avatar {
-  width: 42px;
-  height: 42px;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
   border-radius: 50%;
   background-size: cover;
   background-position: center;
   background-color: var(--card-dark);
-  flex-shrink: 0;
+  flex-shrink: 0 !important;
   border: 2px solid var(--accent-pink);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   color: #fff;
+  margin-right: 2px !important;
 }
 .chat-partner-info {
   flex: 1;
@@ -4891,13 +4905,13 @@ label, .form-field label, .auth-form-group label {
   justify-content: center;
 }
 .chat-partner-name {
-  font-size: 0.98rem;
-  font-weight: 700;
+  font-size: 0.95rem !important;
+  font-weight: 700 !important;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  line-height: 1.25;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  line-height: 1.2 !important;
 }
 .chat-partner-status {
   font-size: 0.74rem;
@@ -4919,8 +4933,9 @@ label, .form-field label, .auth-form-group label {
   flex-shrink: 0;
 }
 .chat-action-icon-btn {
-  width: 36px;
-  height: 36px;
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -4929,6 +4944,8 @@ label, .form-field label, .auth-form-group label {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
   transition: background var(--t-fast), color var(--t-fast), transform var(--t-fast);
 }
 .chat-action-icon-btn:hover {

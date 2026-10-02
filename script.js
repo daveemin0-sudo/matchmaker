@@ -904,8 +904,39 @@ function showScreen(screenId, { fromHistory = false } = {}) {
 
   // Show/hide nav and header appropriately
   const isAuth = AUTH_SCREENS.includes(screenId);
+  const isChat = screenId === 'chat';
+
+  if (isChat) {
+    document.body.classList.add('in-chat');
+    const shell = document.querySelector('.app-shell');
+    if (shell) shell.classList.add('in-chat');
+  } else {
+    document.body.classList.remove('in-chat');
+    const shell = document.querySelector('.app-shell');
+    if (shell) shell.classList.remove('in-chat');
+  }
+
   const navEl = document.getElementById('bottomNav');
-  if (navEl) navEl.style.display = (isAuth || screenId === 'chat') ? 'none' : 'flex';
+  if (navEl) {
+    if (isAuth || isChat) {
+      navEl.classList.add('is-hidden');
+      navEl.style.setProperty('display', 'none', 'important');
+    } else {
+      navEl.classList.remove('is-hidden');
+      navEl.style.display = 'flex';
+    }
+  }
+
+  const headerEl = document.getElementById('appHeader');
+  if (headerEl) {
+    if (isAuth || isChat) {
+      headerEl.classList.add('is-hidden');
+      headerEl.style.setProperty('display', 'none', 'important');
+    } else {
+      headerEl.classList.remove('is-hidden');
+      headerEl.style.display = 'flex';
+    }
+  }
 
   const fab = document.getElementById('globalFloatingSearchBtn');
   if (fab) fab.style.display = (isAuth || screenId === 'chat' || screenId === 'chatsList') ? 'none' : 'flex';
@@ -945,8 +976,15 @@ function updateHeader(screenId) {
 
   if (!header) return;
 
-  // Hide global appHeader on auth screens and on chat screen (chat screen has its own WhatsApp-style header)
-  header.style.display = (AUTH_SCREENS.includes(screenId) || screenId === 'chat') ? 'none' : 'flex';
+  // STRICTLY HIDE global appHeader on auth screens and on chat screen (chat has its own WhatsApp-style partner bar)
+  if (AUTH_SCREENS.includes(screenId) || screenId === 'chat') {
+    header.classList.add('is-hidden');
+    header.style.setProperty('display', 'none', 'important');
+    return;
+  } else {
+    header.classList.remove('is-hidden');
+    header.style.display = 'flex';
+  }
 
   if (!backBtn || !headerTitle) return;
 
@@ -958,16 +996,15 @@ function updateHeader(screenId) {
   const upgradeBtn = document.getElementById('upgradeHeaderBtn');
   const matchBtn   = document.getElementById('matchesQuickBtn');
 
-  // Exact icon scoping requested by user:
-  // - Heart (matches): Discovery only
-  // - Report & Block (exclamation): Discovery only (in middle of heart & crown for reporting profiles), strictly hidden on settings, profile, chatsList, matches
-  // - Crown (upgrade): Discovery & Matches
-  // - Search: Discovery & Matches
+  // Exact icon scoping:
   setHeaderBtnVisible(searchBtn, screenId === 'discovery' || screenId === 'matches');
   setHeaderBtnVisible(matchBtn, screenId === 'discovery');
   setHeaderBtnVisible(reportBtn, screenId === 'discovery');
   setHeaderBtnVisible(upgradeBtn, screenId === 'discovery' || screenId === 'matches');
 
+  // Back button visibility:
+  // Main bottom navigation tabs (Discovery, Matches, Messages, Profile) DO NOT have back button beside page name.
+  // Only sub-screens (e.g., Settings) have a back button!
   switch (screenId) {
     case 'discovery':
       setHeaderBtnVisible(backBtn, false);
@@ -978,26 +1015,23 @@ function updateHeader(screenId) {
       headerTitle.style.webkitTextFillColor = '';
       break;
     case 'matches':
-      setHeaderBtnVisible(backBtn, true);
+      setHeaderBtnVisible(backBtn, false);
       setHeaderTitle('Matches');
       break;
     case 'chatsList':
       setHeaderBtnVisible(backBtn, false);
       setHeaderTitle('Messages 💬');
       break;
-    case 'chat': {
-      setHeaderBtnVisible(backBtn, true);
-      const partner = matchedUsers.find(u => u.id === appState.currentChatId);
-      setHeaderTitle(partner ? `${escHtml(partner.name)} <span style="color:var(--green-match);font-size:0.7rem;margin-left:6px">●</span>` : 'Chat');
-      break;
-    }
     case 'profile':
-      setHeaderBtnVisible(backBtn, true);
+      setHeaderBtnVisible(backBtn, false);
       setHeaderTitle('Profile');
       break;
     case 'settings':
       setHeaderBtnVisible(backBtn, true);
       setHeaderTitle('Settings');
+      break;
+    case 'chat':
+      setHeaderBtnVisible(backBtn, false);
       break;
   }
 }
