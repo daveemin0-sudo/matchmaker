@@ -5241,22 +5241,35 @@ function renderChatThread() {
       const audioSrc = msg.audioUrl || '';
       const totalDuration = msg.duration || '0:05';
       const playIconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
+      const waveformHtml = typeof renderVoiceWaveformHtml === 'function' 
+        ? renderVoiceWaveformHtml(msgId, msg.seed || msgId, 28) 
+        : '';
+      const avatarSrc = isSent ? (currentUser?.image || currentUser?.avatar || '') : (partner?.image || partner?.photoUrl || '');
+      const badgeHtml = avatarSrc 
+        ? `<div class="vn-avatar-badge"><img src="${escHtml(avatarSrc)}" alt="" onerror="this.style.display='none'"><span class="vn-mic-badge-icon">🎙️</span></div>`
+        : `<div class="vn-avatar-badge" style="background:linear-gradient(135deg,#FF5E8E,#FF2E70);color:#fff;font-size:14px;">🎙️</div>`;
 
       bubbleHtml = `
         <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" id="voiceBubble_${msgId}" data-audiosrc="${escHtml(audioSrc)}" data-duration="${escHtml(totalDuration)}" ${pressEvents}>
           ${quoteHtml}
           <div class="vn-player-wrap">
+            ${badgeHtml}
             <button class="vn-play-btn" onclick="event.stopPropagation();toggleVoiceNotePlayback('${msgId}')" aria-label="Play voice note">
               ${playIconSvg}
             </button>
             <div class="vn-content-col">
-              <div class="vn-track-wrap" onclick="event.stopPropagation();seekVoiceNote(event, '${msgId}')" title="Tap to seek">
-                <div class="vn-track-fill" id="vnFill_${msgId}">
-                  <div class="vn-track-knob"></div>
+              ${waveformHtml || `
+                <div class="vn-track-wrap" onclick="event.stopPropagation();seekVoiceNote(event, '${msgId}')" title="Tap to seek">
+                  <div class="vn-track-fill" id="vnFill_${msgId}">
+                    <div class="vn-track-knob"></div>
+                  </div>
                 </div>
-              </div>
+              `}
               <div class="vn-meta-row">
-                <span class="vn-duration" id="vnTime_${msgId}">${escHtml(totalDuration)}</span>
+                <div class="vn-meta-left">
+                  <span class="vn-duration" id="vnTime_${msgId}">${escHtml(totalDuration)}</span>
+                  <button type="button" class="vn-speed-btn" onclick="toggleVoicePlaybackSpeed(event, '${msgId}')" title="Playback speed">1x</button>
+                </div>
                 ${timeBadgeHtml}
               </div>
             </div>
@@ -8089,7 +8102,7 @@ function triggerAutoReply() {
 }
 
 // ==========================================================
-// VOICE RECORDING — Real MediaRecorder API
+// VOICE RECORDING & PLAYBACK ENGINE (WhatsApp-Style)
 // ==========================================================
 
 let mediaRecorder = null;
@@ -8097,17 +8110,18 @@ let audioChunks = [];
 let voiceRecTimerInterval = null;
 let voiceRecSeconds = 0;
 
-async function toggleVoiceRecording() {
-  if (!appState.isRecording) {
-    await startVoiceRecording();
-  } else {
-    // If tapping mic again while recording, send it
-    await sendVoiceNote();
-  }
-}
-
 let _currentPlayingVoiceMsgId = null;
 let _currentVoiceAudio = null;
+let _voicePlaybackRate = 1.0;
+
+let _micPressTimer = null;
+let _micTouchStartX = 0;
+let _micTouchStartY = 0;
+let _isMicHolding = false;
+let _isVoiceLocked = false;
+let _liveAudioCtx = null;
+let _liveAnalyser = null;
+let _liveAnimFrame = null;
 
 const PLAY_ICON_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
 const PAUSE_ICON_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
@@ -8119,6 +8133,83 @@ function formatAudioTime(seconds) {
   return `${m}:${String(s).padStart(2, '0')}`;
 }
 
+// Generate deterministic WhatsApp vertical waveform bars
+function renderVoiceWaveformHtml(msgId, seed = 42, barCount = 28) {
+  let barsHtml = '';
+  let hash = 0;
+  const str = String(seed || msgId || 'vn_seed');
+  for (let i = 0; i < str.length; i++) hash = (hash << 5) - hash + str.charCodeAt(i);
+  for (let i = 0; i < barCount; i++) {
+    const pseudo = Math.abs(Math.sin((i + 1) * 0.78 + hash)) * 0.72 + Math.abs(Math.cos(i * 1.35 + hash)) * 0.28;
+    const height = Math.max(4, Math.min(22, Math.round(pseudo * 19 + 3)));
+    barsHtml += `<span class="vn-bar" data-bar-idx="${i}" style="height:${height}px;"></span>`;
+  }
+  return `<div class="vn-waveform-wrap" id="vnWave_${msgId}" onclick="event.stopPropagation();seekVoiceNoteWave(event, '${msgId}')" title="Tap to seek">${barsHtml}</div>`;
+}
+window.renderVoiceWaveformHtml = renderVoiceWaveformHtml;
+
+function updateWaveformBars(msgId, pct) {
+  const wave = document.getElementById(`vnWave_${msgId}`);
+  if (!wave) return;
+  const bars = wave.querySelectorAll('.vn-bar');
+  if (pct <= 0) {
+    bars.forEach(b => b.classList.remove('played'));
+    return;
+  }
+  const activeCount = Math.min(bars.length, Math.round(pct * bars.length));
+  bars.forEach((b, idx) => {
+    if (idx < activeCount) b.classList.add('played');
+    else b.classList.remove('played');
+  });
+}
+window.updateWaveformBars = updateWaveformBars;
+
+function toggleVoicePlaybackSpeed(event, msgId) {
+  if (event) event.stopPropagation();
+  const nextSpeed = _voicePlaybackRate === 1.0 ? 1.5 : (_voicePlaybackRate === 1.5 ? 2.0 : 1.0);
+  _voicePlaybackRate = nextSpeed;
+
+  if (_currentVoiceAudio && _currentPlayingVoiceMsgId === msgId) {
+    _currentVoiceAudio.playbackRate = nextSpeed;
+  }
+
+  const bubble = document.getElementById(`voiceBubble_${msgId}`);
+  if (bubble) {
+    const speedBtn = bubble.querySelector('.vn-speed-btn');
+    if (speedBtn) {
+      speedBtn.textContent = `${nextSpeed}x`;
+      speedBtn.classList.toggle('boosted', nextSpeed > 1);
+    }
+  }
+  if (typeof haptic === 'function') haptic('light');
+}
+window.toggleVoicePlaybackSpeed = toggleVoicePlaybackSpeed;
+
+function seekVoiceNoteWave(event, msgId) {
+  if (event) event.stopPropagation();
+  const wave = document.getElementById(`vnWave_${msgId}`);
+  if (!wave) return;
+  const rect = wave.getBoundingClientRect();
+  const clientX = event.clientX || (event.touches && event.touches[0]?.clientX) || 0;
+  const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+
+  if (_currentPlayingVoiceMsgId === msgId && _currentVoiceAudio && _currentVoiceAudio.duration) {
+    _currentVoiceAudio.currentTime = pct * _currentVoiceAudio.duration;
+    updateWaveformBars(msgId, pct);
+    const fillEl = document.getElementById(`vnFill_${msgId}`);
+    if (fillEl) fillEl.style.width = `${pct * 100}%`;
+  } else {
+    toggleVoiceNotePlayback(msgId);
+    if (_currentVoiceAudio) {
+      _currentVoiceAudio.addEventListener('loadedmetadata', () => {
+        _currentVoiceAudio.currentTime = pct * _currentVoiceAudio.duration;
+        updateWaveformBars(msgId, pct);
+      }, { once: true });
+    }
+  }
+}
+window.seekVoiceNoteWave = seekVoiceNoteWave;
+
 function resetVoiceNoteUi(msgId) {
   if (!msgId) return;
   const bubble = document.getElementById(`voiceBubble_${msgId}`);
@@ -8129,6 +8220,7 @@ function resetVoiceNoteUi(msgId) {
     if (fillEl) fillEl.style.width = '0%';
     const timeEl = document.getElementById(`vnTime_${msgId}`);
     if (timeEl && bubble.dataset.duration) timeEl.textContent = bubble.dataset.duration;
+    updateWaveformBars(msgId, 0);
   }
 }
 
@@ -8144,6 +8236,7 @@ function toggleVoiceNotePlayback(msgId) {
   // If clicking currently active voice note
   if (_currentPlayingVoiceMsgId === msgId && _currentVoiceAudio) {
     if (_currentVoiceAudio.paused) {
+      _currentVoiceAudio.playbackRate = _voicePlaybackRate;
       _currentVoiceAudio.play().then(() => {
         const btn = bubble.querySelector('.vn-play-btn');
         if (btn) btn.innerHTML = PAUSE_ICON_SVG;
@@ -8165,6 +8258,7 @@ function toggleVoiceNotePlayback(msgId) {
   }
 
   const audio = new Audio(audioSrc);
+  audio.playbackRate = _voicePlaybackRate;
   _currentVoiceAudio = audio;
   _currentPlayingVoiceMsgId = msgId;
 
@@ -8177,8 +8271,9 @@ function toggleVoiceNotePlayback(msgId) {
 
   audio.ontimeupdate = () => {
     if (!audio.duration || isNaN(audio.duration)) return;
-    const pct = Math.min(100, Math.max(0, (audio.currentTime / audio.duration) * 100));
-    if (fillEl) fillEl.style.width = `${pct}%`;
+    const pct = Math.min(1, Math.max(0, audio.currentTime / audio.duration));
+    updateWaveformBars(msgId, pct);
+    if (fillEl) fillEl.style.width = `${pct * 100}%`;
     if (timeEl) timeEl.textContent = formatAudioTime(audio.currentTime);
   };
 
@@ -8186,6 +8281,7 @@ function toggleVoiceNotePlayback(msgId) {
     if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
     if (fillEl) fillEl.style.width = '0%';
     if (timeEl) timeEl.textContent = originalDuration;
+    updateWaveformBars(msgId, 0);
     _currentVoiceAudio = null;
     _currentPlayingVoiceMsgId = null;
   };
@@ -8195,6 +8291,7 @@ function toggleVoiceNotePlayback(msgId) {
     if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
     if (fillEl) fillEl.style.width = '0%';
     if (timeEl) timeEl.textContent = originalDuration;
+    updateWaveformBars(msgId, 0);
     _currentVoiceAudio = null;
     _currentPlayingVoiceMsgId = null;
     showToast('Could not play voice note.', 'error');
@@ -8210,28 +8307,7 @@ function toggleVoiceNotePlayback(msgId) {
 window.toggleVoiceNotePlayback = toggleVoiceNotePlayback;
 
 function seekVoiceNote(event, msgId) {
-  event.stopPropagation();
-  const bubble = document.getElementById(`voiceBubble_${msgId}`);
-  if (!bubble) return;
-  const track = event.currentTarget;
-  if (!track) return;
-
-  const rect = track.getBoundingClientRect();
-  const clickX = event.clientX || (event.touches && event.touches[0]?.clientX) || 0;
-  const pct = Math.max(0, Math.min(1, (clickX - rect.left) / rect.width));
-
-  if (_currentPlayingVoiceMsgId === msgId && _currentVoiceAudio && _currentVoiceAudio.duration) {
-    _currentVoiceAudio.currentTime = pct * _currentVoiceAudio.duration;
-    const fillEl = document.getElementById(`vnFill_${msgId}`);
-    if (fillEl) fillEl.style.width = `${pct * 100}%`;
-  } else {
-    toggleVoiceNotePlayback(msgId);
-    if (_currentVoiceAudio) {
-      _currentVoiceAudio.addEventListener('loadedmetadata', () => {
-        _currentVoiceAudio.currentTime = pct * _currentVoiceAudio.duration;
-      }, { once: true });
-    }
-  }
+  seekVoiceNoteWave(event, msgId);
 }
 window.seekVoiceNote = seekVoiceNote;
 
@@ -8241,6 +8317,162 @@ function playVoiceNote(audioUrl, iconEl) {
   }
 }
 window.playVoiceNote = playVoiceNote;
+
+// Pointer & Touch Handlers for Hold-to-Record, Slide-to-Cancel & Lock
+function handleMicPointerDown(e) {
+  if (appState.isRecording && _isVoiceLocked) return;
+  _micTouchStartX = e.clientX || 0;
+  _micTouchStartY = e.clientY || 0;
+  _isMicHolding = false;
+
+  _micPressTimer = setTimeout(async () => {
+    _isMicHolding = true;
+    _isVoiceLocked = false;
+    if (typeof haptic === 'function') haptic('medium');
+
+    const lockEl = document.getElementById('voiceFloatingLock');
+    if (lockEl) lockEl.style.display = 'flex';
+
+    if (!appState.isRecording) {
+      await startVoiceRecording();
+    }
+  }, 220);
+}
+window.handleMicPointerDown = handleMicPointerDown;
+
+function handleMicPointerMove(e) {
+  if (!_isMicHolding || !appState.isRecording || _isVoiceLocked) return;
+  const curX = e.clientX || 0;
+  const curY = e.clientY || 0;
+  const dx = curX - _micTouchStartX;
+  const dy = curY - _micTouchStartY;
+
+  // Slide left to cancel (> 65px left)
+  if (dx < -65) {
+    if (typeof haptic === 'function') haptic('warning');
+    cancelVoiceRecording();
+    _isMicHolding = false;
+    const lockEl = document.getElementById('voiceFloatingLock');
+    if (lockEl) lockEl.style.display = 'none';
+    if (typeof showToast === 'function') showToast('Voice note canceled 🗑️', 'info');
+    return;
+  }
+
+  // Slide up to lock (> 55px upward)
+  if (dy < -55) {
+    _isVoiceLocked = true;
+    _isMicHolding = false;
+    if (typeof haptic === 'function') haptic('success');
+    const lockEl = document.getElementById('voiceFloatingLock');
+    if (lockEl) lockEl.style.display = 'none';
+    const lockedStatus = document.getElementById('voiceLockedStatus');
+    if (lockedStatus) lockedStatus.style.display = 'flex';
+    const slideHint = document.getElementById('voiceSlideHint');
+    if (slideHint) slideHint.style.display = 'none';
+    if (typeof showToast === 'function') showToast('Recording locked 🔒 Hands-free', 'gold');
+  }
+}
+window.handleMicPointerMove = handleMicPointerMove;
+
+function handleMicPointerUp(e) {
+  if (_micPressTimer) {
+    clearTimeout(_micPressTimer);
+    _micPressTimer = null;
+  }
+
+  const lockEl = document.getElementById('voiceFloatingLock');
+  if (lockEl) lockEl.style.display = 'none';
+
+  if (_isMicHolding && !_isVoiceLocked) {
+    _isMicHolding = false;
+    if (voiceRecSeconds < 1) {
+      cancelVoiceRecording();
+      if (typeof showToast === 'function') showToast('Hold to record, release to send', 'info');
+    } else {
+      sendVoiceNote();
+    }
+  }
+}
+window.handleMicPointerUp = handleMicPointerUp;
+
+function handleMicPointerCancel(e) {
+  if (_micPressTimer) {
+    clearTimeout(_micPressTimer);
+    _micPressTimer = null;
+  }
+  const lockEl = document.getElementById('voiceFloatingLock');
+  if (lockEl) lockEl.style.display = 'none';
+  if (_isMicHolding && !_isVoiceLocked) {
+    _isMicHolding = false;
+    cancelVoiceRecording();
+  }
+}
+window.handleMicPointerCancel = handleMicPointerCancel;
+
+function handleMicClick(e) {
+  if (_isMicHolding || _isVoiceLocked) return;
+  toggleVoiceRecording();
+}
+window.handleMicClick = handleMicClick;
+
+async function toggleVoiceRecording() {
+  if (!appState.isRecording) {
+    await startVoiceRecording();
+  } else {
+    await sendVoiceNote();
+  }
+}
+window.toggleVoiceRecording = toggleVoiceRecording;
+
+// Live Audio Visualizer
+function _startLiveAudioVisualizer(stream) {
+  try {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return;
+    _liveAudioCtx = new AudioContextClass();
+    _liveAnalyser = _liveAudioCtx.createAnalyser();
+    _liveAnalyser.fftSize = 64;
+    const source = _liveAudioCtx.createMediaStreamSource(stream);
+    source.connect(_liveAnalyser);
+    const dataArray = new Uint8Array(_liveAnalyser.frequencyBinCount);
+
+    const waveContainer = document.getElementById('voiceLiveWaveform');
+    if (!waveContainer) return;
+    const bars = waveContainer.querySelectorAll('span');
+
+    function animateWave() {
+      if (!_liveAnalyser || !appState.isRecording) return;
+      _liveAnalyser.getByteFrequencyData(dataArray);
+      bars.forEach((bar, i) => {
+        const val = dataArray[i % dataArray.length] || 0;
+        const h = Math.max(4, Math.min(26, Math.round((val / 255) * 24 + 4)));
+        bar.style.height = `${h}px`;
+      });
+      _liveAnimFrame = requestAnimationFrame(animateWave);
+    }
+    animateWave();
+  } catch (err) {
+    console.warn('Live audio visualizer error:', err);
+  }
+}
+
+function _stopLiveAudioVisualizer() {
+  if (_liveAnimFrame) {
+    cancelAnimationFrame(_liveAnimFrame);
+    _liveAnimFrame = null;
+  }
+  if (_liveAudioCtx) {
+    try { _liveAudioCtx.close(); } catch (_) {}
+    _liveAudioCtx = null;
+    _liveAnalyser = null;
+  }
+  const waveContainer = document.getElementById('voiceLiveWaveform');
+  if (waveContainer) {
+    waveContainer.querySelectorAll('span').forEach(b => {
+      b.style.height = '';
+    });
+  }
+}
 
 async function startVoiceRecording() {
   try {
@@ -8268,11 +8500,19 @@ async function startVoiceRecording() {
     // Show waveform bar, hide input bar
     const inputBar = document.querySelector('.chat-input-bar');
     const recordBar = document.getElementById('voiceRecordBar');
+    const lockedStatus = document.getElementById('voiceLockedStatus');
+    const slideHint = document.getElementById('voiceSlideHint');
     if (inputBar) inputBar.style.display = 'none';
     if (recordBar) recordBar.style.display = 'flex';
+    if (lockedStatus) lockedStatus.style.display = 'none';
+    if (slideHint) slideHint.style.display = 'flex';
+
+    // Hook live audio visualizer
+    _startLiveAudioVisualizer(stream);
 
     // Start timer
     const timerEl = document.getElementById('voiceRecTimer');
+    if (timerEl) timerEl.textContent = '0:00';
     voiceRecTimerInterval = setInterval(() => {
       voiceRecSeconds++;
       if (timerEl) timerEl.textContent = `${Math.floor(voiceRecSeconds/60)}:${String(voiceRecSeconds%60).padStart(2,'0')}`;
@@ -8284,10 +8524,17 @@ async function startVoiceRecording() {
     showToast('Microphone access denied. Please allow mic access.', 'error');
   }
 }
+window.startVoiceRecording = startVoiceRecording;
 
 async function sendVoiceNote() {
   if (!mediaRecorder || mediaRecorder.state === 'inactive') return;
   clearInterval(voiceRecTimerInterval);
+  _stopLiveAudioVisualizer();
+
+  const lockEl = document.getElementById('voiceFloatingLock');
+  if (lockEl) lockEl.style.display = 'none';
+  _isVoiceLocked = false;
+  _isMicHolding = false;
 
   return new Promise(resolve => {
     mediaRecorder.onstop = async () => {
@@ -8324,6 +8571,7 @@ async function sendVoiceNote() {
         isVoice: true,
         duration: durationStr,
         audioUrl: localAudioUrl,
+        seed: Math.floor(Math.random() * 10000),
         read: true,
         timestamp: Date.now()
       };
@@ -8345,6 +8593,9 @@ async function sendVoiceNote() {
 
         if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
           try {
+            // Chat voice notes must use the shared match-scoped Storage path.
+            // Private chat media must be stored in Cloud Storage before it is sent
+            // Only send the stable Cloud Storage URL to the recipient
             const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
             const uploadPromise = uploadFileToBackend(audioBlob, `chat_media/${matchId}`, false, cleanMime);
             const timeoutPromise = new Promise(res => setTimeout(() => res(null), 12000));
@@ -8399,6 +8650,12 @@ window.sendVoiceNote = sendVoiceNote;
 
 function cancelVoiceRecording() {
   clearInterval(voiceRecTimerInterval);
+  _stopLiveAudioVisualizer();
+
+  const lockEl = document.getElementById('voiceFloatingLock');
+  if (lockEl) lockEl.style.display = 'none';
+  _isVoiceLocked = false;
+  _isMicHolding = false;
   appState.isRecording = false;
 
   if (mediaRecorder && mediaRecorder.state !== 'inactive') {

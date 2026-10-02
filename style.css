@@ -5383,28 +5383,96 @@ label, .form-field label, .auth-form-group label {
 }
 
 /* ================================================================
-   VOICE RECORDING BAR
+   VOICE RECORDING BAR (WhatsApp-style)
    ================================================================ */
+.voice-floating-lock {
+  position: absolute;
+  bottom: 64px;
+  right: 14px;
+  background: rgba(22, 17, 32, 0.94);
+  border: 1.5px solid rgba(255, 46, 112, 0.5);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 14px rgba(255, 46, 112, 0.35);
+  border-radius: 28px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  z-index: 1000;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  pointer-events: none;
+  animation: bounceLock 1.4s ease infinite;
+}
+.voice-lock-icon { font-size: 1.05rem; }
+.voice-lock-arrow {
+  font-size: 0.65rem;
+  font-weight: 900;
+  color: #FF2E70;
+  animation: arrowBounce 0.7s ease infinite alternate;
+}
+@keyframes arrowBounce {
+  from { transform: translateY(0); }
+  to { transform: translateY(-4px); }
+}
+@keyframes bounceLock {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
 .voice-record-bar {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 14px 14px;
-  background: var(--bg-elevated);
-  border-top: 1px solid var(--border-color);
+  background: var(--bg-elevated, #1A1A24);
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
   flex-shrink: 0;
+  position: relative;
+  box-sizing: border-box;
 }
+
 .voice-cancel-btn {
-  width: 34px; height: 34px;
+  width: 36px; height: 36px;
   border-radius: 50%; border: none;
-  background: rgba(255,61,0,0.12);
+  background: rgba(255, 61, 0, 0.15);
   color: #FF3D00;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  transition: background var(--t-fast);
+  transition: transform var(--t-fast, 0.2s), background var(--t-fast, 0.2s);
 }
-.voice-cancel-btn:hover { background: rgba(255,61,0,0.2); }
+.voice-cancel-btn:hover { background: rgba(255, 61, 0, 0.25); transform: scale(1.06); }
+.voice-cancel-btn:active { transform: scale(0.92); }
+
+.voice-rec-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.voice-rec-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #FF3B30;
+  box-shadow: 0 0 10px #FF3B30;
+  animation: recBlink 1s ease-in-out infinite;
+}
+@keyframes recBlink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.85); }
+}
+
+.voice-rec-timer {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #FF3B30;
+  min-width: 36px;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 .voice-wave-anim {
   flex: 1;
   display: flex;
@@ -5412,41 +5480,67 @@ label, .form-field label, .auth-form-group label {
   justify-content: center;
   gap: 3px;
   height: 32px;
+  min-width: 0;
+  overflow: hidden;
 }
 .voice-wave-anim span {
   width: 3px;
+  min-height: 4px;
+  height: 8px;
   border-radius: 3px;
-  background: var(--accent-pink);
-  animation: voiceWave 0.8s ease infinite;
+  background: #FF2E70;
+  transition: height 0.08s ease;
+  animation: liveWaveDefault 1.1s ease-in-out infinite;
 }
-.voice-wave-anim span:nth-child(1) { height: 8px; animation-delay: 0s; }
-.voice-wave-anim span:nth-child(2) { height: 18px; animation-delay: 0.1s; }
-.voice-wave-anim span:nth-child(3) { height: 26px; animation-delay: 0.2s; }
-.voice-wave-anim span:nth-child(4) { height: 18px; animation-delay: 0.3s; }
-.voice-wave-anim span:nth-child(5) { height: 8px; animation-delay: 0.4s; }
-@keyframes voiceWave {
-  0%, 100% { transform: scaleY(0.5); opacity: 0.6; }
-  50% { transform: scaleY(1); opacity: 1; }
+.voice-wave-anim span:nth-child(2n) { animation-delay: 0.15s; }
+.voice-wave-anim span:nth-child(3n) { animation-delay: 0.3s; }
+.voice-wave-anim span:nth-child(4n) { animation-delay: 0.45s; }
+
+@keyframes liveWaveDefault {
+  0%, 100% { height: 6px; opacity: 0.5; }
+  50% { height: 22px; opacity: 1; }
 }
-.voice-rec-timer {
-  font-size: 0.85rem;
+
+.voice-slide-hint {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.78rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  animation: slideShimmer 2s ease infinite;
+}
+@keyframes slideShimmer {
+  0%, 100% { opacity: 0.4; transform: translateX(0); }
+  50% { opacity: 0.95; transform: translateX(-6px); }
+}
+
+.voice-locked-status {
+  color: #21B06B;
+  font-size: 0.78rem;
   font-weight: 700;
-  color: #FF3D00;
-  min-width: 36px;
+  display: flex;
+  align-items: center;
+  background: rgba(33, 176, 107, 0.14);
+  padding: 4px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(33, 176, 107, 0.3);
   flex-shrink: 0;
 }
+
 .voice-send-btn {
-  width: 42px; height: 42px;
+  width: 40px; height: 40px;
   border-radius: 50%; border: none;
-  background: var(--flame-grad);
+  background: var(--flame-grad, linear-gradient(135deg, #FF5E8E, #FF2E70));
   color: #fff;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
-  box-shadow: 0 4px 14px rgba(209,58,99,0.4);
-  transition: transform var(--t-fast);
+  box-shadow: 0 4px 14px rgba(209, 58, 99, 0.4);
+  transition: transform var(--t-fast, 0.2s);
 }
 .voice-send-btn:hover { transform: scale(1.08); }
+.voice-send-btn:active { transform: scale(0.92); }
 
 /* ================================================================
    EMOJI PICKER PANEL (WhatsApp / iOS Style)
@@ -7844,25 +7938,64 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
    WHATSAPP-STYLE VOICE NOTE PLAYER & PROGRESS BAR
    ========================================================== */
 
+/* ==========================================================
+   WHATSAPP-STYLE VOICE NOTE PLAYER & WAVEFORM SOUNDBARS
+   ========================================================== */
+
 .msg-bubble.audio-bubble {
   padding: 10px 14px !important;
-  min-width: 220px !important;
-  max-width: 260px !important;
+  min-width: 230px !important;
+  max-width: 290px !important;
   box-sizing: border-box !important;
+  border-radius: 18px !important;
+  user-select: none;
 }
 
 .vn-player-wrap {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
 }
 
-.vn-play-btn {
-  width: 40px;
-  height: 40px;
+.vn-avatar-badge {
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+.vn-avatar-badge img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.vn-mic-badge-icon {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  background: #FF2E70;
+  color: #fff;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+}
+
+.vn-play-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.24);
   border: none;
   color: #FFFFFF;
   display: flex;
@@ -7877,7 +8010,7 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 
 .vn-play-btn:hover {
   transform: scale(1.06);
-  background: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.35);
 }
 
 .vn-play-btn:active {
@@ -7885,12 +8018,12 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 }
 
 .msg-bubble.received .vn-play-btn {
-  background: rgba(209, 58, 99, 0.25);
+  background: rgba(255, 46, 112, 0.25);
   color: #FF2E70;
 }
 
 .msg-bubble.received .vn-play-btn:hover {
-  background: rgba(209, 58, 99, 0.38);
+  background: rgba(255, 46, 112, 0.38);
 }
 
 [data-theme="light"] .msg-bubble.sent .vn-play-btn {
@@ -7907,10 +8040,60 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   min-width: 0;
 }
 
+/* Realistic Vertical Waveform Soundbars */
+.vn-waveform-wrap {
+  display: flex;
+  align-items: center;
+  gap: 2.2px;
+  height: 24px;
+  width: 100%;
+  cursor: pointer;
+  padding: 2px 0;
+  box-sizing: border-box;
+}
+
+.vn-bar {
+  flex: 1;
+  max-width: 3.5px;
+  min-width: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.3);
+  transition: background 0.08s ease, transform 0.08s ease;
+  transform-origin: center;
+}
+
+.msg-bubble.received .vn-bar {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.msg-bubble.sent .vn-bar.played {
+  background: #FFFFFF;
+  box-shadow: 0 0 3px rgba(255, 255, 255, 0.6);
+}
+
+.msg-bubble.received .vn-bar.played {
+  background: #FF2E70;
+  box-shadow: 0 0 4px rgba(255, 46, 112, 0.5);
+}
+
+[data-theme="light"] .msg-bubble.sent .vn-bar {
+  background: rgba(0, 0, 0, 0.15);
+}
+[data-theme="light"] .msg-bubble.sent .vn-bar.played {
+  background: #075E54;
+}
+[data-theme="light"] .msg-bubble.received .vn-bar {
+  background: rgba(0, 0, 0, 0.12);
+}
+[data-theme="light"] .msg-bubble.received .vn-bar.played {
+  background: #128C7E;
+}
+
+/* Legacy fallback track */
 .vn-track-wrap {
   position: relative;
   width: 100%;
@@ -7989,10 +8172,49 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
   line-height: 1;
 }
 
+.vn-meta-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .vn-duration {
   font-variant-numeric: tabular-nums;
   font-family: inherit;
   font-size: 11px;
+}
+
+.vn-speed-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 2px 6px;
+  cursor: pointer;
+  line-height: 1;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.vn-speed-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.vn-speed-btn.boosted {
+  background: #FF2E70;
+  border-color: #FF2E70;
+  color: #FFFFFF;
+  box-shadow: 0 0 8px rgba(255, 46, 112, 0.4);
+}
+[data-theme="light"] .vn-speed-btn {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: rgba(0, 0, 0, 0.7);
+}
+[data-theme="light"] .vn-speed-btn.boosted {
+  background: #128C7E;
+  border-color: #128C7E;
+  color: #FFFFFF;
 }
 
 /* ==========================================================
