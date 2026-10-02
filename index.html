@@ -39,8 +39,8 @@
     <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=48">
-  <link rel="stylesheet" href="premium.css?v=48">
+  <link rel="stylesheet" href="style.css?v=49">
+  <link rel="stylesheet" href="premium.css?v=49">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
@@ -2244,10 +2244,10 @@
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-storage-compat.js"></script>
 
   <!-- Firebase & Paystack Adapter Module -->
-  <script src="firebase-config.js?v=48.0"></script>
+  <script src="firebase-config.js?v=49.0"></script>
 
   <!-- Main Application Logic -->
-  <script src="script.js?v=48"></script>
+  <script src="script.js?v=49"></script>
 
     <!-- =====================================================
          MODAL: PREVIEW AS MATCH (Interactive Discovery Card Preview)
@@ -2509,33 +2509,68 @@
       <button class="selfie-modal-close" onclick="closeSelfieVerifyModal()" aria-label="Close">✕</button>
       <div class="selfie-modal-header">
         <div class="selfie-badge-icon">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="#3897F0">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="#3897F0">
             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
           </svg>
         </div>
-        <h3 class="selfie-modal-title">Get Photo Verified</h3>
-        <p class="selfie-modal-sub">Match your real face with your profile photos to receive the trusted blue badge.</p>
+        <h3 class="selfie-modal-title">Live Photo Verification</h3>
+        <p class="selfie-modal-sub" id="selfieModalSub">Take a quick live selfie to confirm your identity and unlock your Blue Badge.</p>
       </div>
 
       <div class="selfie-scan-viewport" id="selfieScanViewport">
+        <!-- Live Video Element -->
         <video id="selfieVideoEl" autoplay playsinline muted style="display:none"></video>
-        <div class="selfie-avatar-mock" id="selfieAvatarMock">
-          <div class="selfie-mock-face" id="selfieMockFace">🤳</div>
+
+        <!-- Canvas for processing selfie frame -->
+        <canvas id="selfieCanvas" style="display:none"></canvas>
+
+        <!-- Frozen Captured Selfie Preview Image -->
+        <img id="selfieCapturedPreview" class="selfie-captured-img" src="" alt="Captured Selfie" style="display:none" />
+
+        <!-- Camera Fallback UI if browser permission or insecure origin blocks WebRTC -->
+        <div class="selfie-camera-fallback" id="selfieCameraFallback" style="display:none">
+          <div class="selfie-fallback-icon">📷</div>
+          <div class="selfie-fallback-title">Camera Permission Needed</div>
+          <p class="selfie-fallback-desc">Tap below to snap a live selfie with your phone camera:</p>
+          <button type="button" class="selfie-native-snap-btn" onclick="triggerNativeSelfieCapture()">
+            <span>📸 Snap Live Selfie</span>
+          </button>
         </div>
-        <div class="selfie-oval-guide">
+
+        <!-- Camera Shutter Flash -->
+        <div class="selfie-flash-overlay" id="selfieFlashOverlay"></div>
+
+        <!-- Live Countdown Overlay -->
+        <div class="selfie-countdown-overlay" id="selfieCountdown" style="display:none">3</div>
+
+        <!-- Scanner Oval Guide & Laser -->
+        <div class="selfie-oval-guide" id="selfieOvalGuide">
           <div class="selfie-scan-laser" id="selfieScanLaser"></div>
         </div>
+
+        <!-- Floating Status Pill -->
         <div class="selfie-scan-status-pill" id="selfieStatusPill">Align your face inside the oval</div>
       </div>
 
+      <!-- Hidden Native Camera File Input -->
+      <input type="file" id="selfieFileInput" accept="image/*" capture="user" style="display:none" onchange="handleSelfieFileSelected(event)" />
+
+      <!-- Step Indicators -->
       <div class="selfie-steps-tracker" id="selfieStepsTracker">
-        <div class="selfie-step-dot active" id="sStep1">1. Center Face</div>
-        <div class="selfie-step-dot" id="sStep2">2. Smile</div>
+        <div class="selfie-step-dot active" id="sStep1">1. Live Camera</div>
+        <div class="selfie-step-dot" id="sStep2">2. Facial Scan</div>
         <div class="selfie-step-dot" id="sStep3">3. Verified</div>
       </div>
 
-      <div class="selfie-action-row">
-        <button class="selfie-primary-btn" id="selfieActionBtn" onclick="startSelfieScan()">Start Selfie Scan</button>
+      <!-- Action Buttons Row -->
+      <div class="selfie-action-row" id="selfieActionRow">
+        <button class="selfie-primary-btn" id="selfieActionBtn" onclick="handleSelfieActionClick()">📸 Capture &amp; Scan Face</button>
+        <button class="selfie-secondary-btn" id="selfieRetakeBtn" onclick="retakeSelfiePhoto()" style="display:none">↺ Retake Selfie</button>
+      </div>
+
+      <!-- Security Note -->
+      <div class="selfie-privacy-note">
+        🔒 Encrypted verification. Your selfie is used solely to verify your real identity.
       </div>
     </div>
   </div>

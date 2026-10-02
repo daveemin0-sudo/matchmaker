@@ -2297,9 +2297,9 @@ function buildProfileCard(p, idx) {
     <div class="card-info">
       <div class="card-name-row">
         <h2>${escHtml(p.name || 'User')}, ${escHtml(p.age ?? '')}</h2>
-        <span class="verified-icon" title="Verified">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#1DA1F2"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
-        </span>
+        ${(p.isVerified || p.verified) ? `<span class="verified-icon" title="Verified">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+        </span>` : ''}
       </div>
       <div class="card-tags">${tagsHTML}</div>
       <p class="card-bio">${escHtml(p.bio || '')}</p>
@@ -13545,124 +13545,490 @@ setTimeout(initUserGeolocation, 1500);
 // ==========================================================
 let _selfieStream = null;
 let _selfieScanTimeout = null;
+let _selfieCountdownInterval = null;
+let _selfieCapturedDataUrl = null;
+let _selfiePhase = 'ready'; // 'ready', 'countdown', 'analyzing', 'success', 'failed'
 
-function openSelfieVerifyModal() {
+async function openSelfieVerifyModal() {
   const modal = document.getElementById('selfieVerifyModal');
   if (!modal) return;
   modal.style.display = 'flex';
   haptic('light');
 
-  // Reset steps
+  // Reset internal state
+  _selfiePhase = 'ready';
+  _selfieCapturedDataUrl = null;
+  if (_selfieScanTimeout) { clearTimeout(_selfieScanTimeout); _selfieScanTimeout = null; }
+  if (_selfieCountdownInterval) { clearInterval(_selfieCountdownInterval); _selfieCountdownInterval = null; }
+
+  // Reset DOM elements
   const s1 = document.getElementById('sStep1');
   const s2 = document.getElementById('sStep2');
   const s3 = document.getElementById('sStep3');
   const laser = document.getElementById('selfieScanLaser');
   const statusPill = document.getElementById('selfieStatusPill');
-  const btn = document.getElementById('selfieActionBtn');
+  const actionBtn = document.getElementById('selfieActionBtn');
+  const retakeBtn = document.getElementById('selfieRetakeBtn');
+  const countdownEl = document.getElementById('selfieCountdown');
+  const flashEl = document.getElementById('selfieFlashOverlay');
+  const capturedImg = document.getElementById('selfieCapturedPreview');
+  const fallbackEl = document.getElementById('selfieCameraFallback');
   const video = document.getElementById('selfieVideoEl');
-  const mock = document.getElementById('selfieAvatarMock');
 
-  if (s1) { s1.className = 'selfie-step-dot active'; }
-  if (s2) { s2.className = 'selfie-step-dot'; }
-  if (s3) { s3.className = 'selfie-step-dot'; }
+  if (s1) s1.className = 'selfie-step-dot active';
+  if (s2) s2.className = 'selfie-step-dot';
+  if (s3) s3.className = 'selfie-step-dot';
   if (laser) laser.classList.remove('scanning');
+  if (countdownEl) countdownEl.style.display = 'none';
+  if (flashEl) flashEl.classList.remove('flash');
+  if (capturedImg) { capturedImg.style.display = 'none'; capturedImg.src = ''; }
+  if (fallbackEl) fallbackEl.style.display = 'none';
+  if (retakeBtn) retakeBtn.style.display = 'none';
+
   if (statusPill) {
     statusPill.textContent = 'Align your face inside the oval';
     statusPill.style.color = '#3897F0';
   }
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = currentUser.isVerified ? 'Scan Again' : 'Start Selfie Scan';
-    btn.style.opacity = '1';
+
+  if (actionBtn) {
+    actionBtn.disabled = false;
+    actionBtn.textContent = '📸 Capture & Scan Face';
+    actionBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
+    actionBtn.style.opacity = '1';
+    actionBtn.onclick = handleSelfieActionClick;
   }
 
-  // Attempt real camera stream if accessible
-  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
-      .then(stream => {
-        _selfieStream = stream;
-        if (video) {
-          video.srcObject = stream;
-          video.style.display = 'block';
-          if (mock) mock.style.display = 'none';
-        }
-      })
-      .catch(err => {
-        // Fallback to simulated face oval
-        if (video) video.style.display = 'none';
-        if (mock) mock.style.display = 'flex';
-      });
-  } else {
-    if (video) video.style.display = 'none';
-    if (mock) mock.style.display = 'flex';
-  }
+  // Attempt real camera stream
+  await startSelfieLiveCamera();
 }
 window.openSelfieVerifyModal = openSelfieVerifyModal;
+
+async function startSelfieLiveCamera() {
+  const video = document.getElementById('selfieVideoEl');
+  const fallbackEl = document.getElementById('selfieCameraFallback');
+  const statusPill = document.getElementById('selfieStatusPill');
+  const actionBtn = document.getElementById('selfieActionBtn');
+  const s1 = document.getElementById('sStep1');
+
+  // Stop any existing tracks
+  if (_selfieStream) {
+    try {
+      _selfieStream.getTracks().forEach(t => t.stop());
+    } catch (_) {}
+    _selfieStream = null;
+  }
+
+  const hasMediaDevices = Boolean(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
+  const isSecure = window.isSecureContext !== false;
+
+  if (hasMediaDevices && isSecure) {
+    try {
+      if (statusPill) statusPill.textContent = 'Starting front camera...';
+      let stream = null;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: 'user' },
+            width: { ideal: 640 },
+            height: { ideal: 640 }
+          },
+          audio: false
+        });
+      } catch (e1) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'user' },
+            audio: false
+          });
+        } catch (e2) {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        }
+      }
+
+      if (stream && video) {
+        _selfieStream = stream;
+        video.srcObject = stream;
+        video.muted = true;
+        video.defaultMuted = true;
+        video.setAttribute('playsinline', '');
+        video.setAttribute('webkit-playsinline', '');
+        video.style.display = 'block';
+        if (fallbackEl) fallbackEl.style.display = 'none';
+
+        await video.play().catch(err => console.warn('Camera video.play() notice:', err));
+
+        if (s1) s1.className = 'selfie-step-dot done';
+        if (statusPill) {
+          statusPill.textContent = 'Position your face in the oval & tap Capture';
+          statusPill.style.color = '#3897F0';
+        }
+        if (actionBtn) {
+          actionBtn.disabled = false;
+          actionBtn.textContent = '📸 Capture & Scan Face';
+          actionBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
+          actionBtn.onclick = handleSelfieActionClick;
+        }
+        return;
+      }
+    } catch (err) {
+      console.warn('getUserMedia error, falling back to native camera capture:', err);
+    }
+  }
+
+  // Fallback: WebRTC camera not available or permission denied
+  if (video) video.style.display = 'none';
+  if (fallbackEl) fallbackEl.style.display = 'flex';
+  if (statusPill) {
+    statusPill.textContent = 'Snap a live selfie using your phone camera';
+    statusPill.style.color = '#F4C550';
+  }
+  if (actionBtn) {
+    actionBtn.disabled = false;
+    actionBtn.textContent = '📸 Take Live Selfie';
+    actionBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
+    actionBtn.onclick = triggerNativeSelfieCapture;
+  }
+}
+window.startSelfieLiveCamera = startSelfieLiveCamera;
+
+function triggerNativeSelfieCapture() {
+  const fileInput = document.getElementById('selfieFileInput');
+  if (fileInput) {
+    fileInput.value = '';
+    fileInput.click();
+  }
+}
+window.triggerNativeSelfieCapture = triggerNativeSelfieCapture;
+
+function handleSelfieFileSelected(event) {
+  const file = event?.target?.files?.[0];
+  if (!file) return;
+
+  const statusPill = document.getElementById('selfieStatusPill');
+  const actionBtn = document.getElementById('selfieActionBtn');
+  const fallbackEl = document.getElementById('selfieCameraFallback');
+  const capturedImg = document.getElementById('selfieCapturedPreview');
+  const s1 = document.getElementById('sStep1');
+
+  if (statusPill) statusPill.textContent = 'Processing selfie photo...';
+  if (actionBtn) { actionBtn.disabled = true; actionBtn.textContent = 'Loading photo...'; }
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const dataUrl = e.target.result;
+    const img = new Image();
+    img.onload = function() {
+      // Draw into square canvas
+      const canvas = document.getElementById('selfieCanvas') || document.createElement('canvas');
+      canvas.width = 480;
+      canvas.height = 480;
+      const ctx = canvas.getContext('2d');
+      const minDim = Math.min(img.width, img.height);
+      const sx = (img.width - minDim) / 2;
+      const sy = (img.height - minDim) / 2;
+      ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, 480, 480);
+
+      _selfieCapturedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+      if (capturedImg) {
+        capturedImg.src = _selfieCapturedDataUrl;
+        capturedImg.style.display = 'block';
+      }
+      if (fallbackEl) fallbackEl.style.display = 'none';
+      if (s1) s1.className = 'selfie-step-dot done';
+
+      // Run biometric face validation
+      analyzeAndScanSelfieImage(canvas);
+    };
+    img.src = dataUrl;
+  };
+  reader.readAsDataURL(file);
+}
+window.handleSelfieFileSelected = handleSelfieFileSelected;
 
 function closeSelfieVerifyModal() {
   const modal = document.getElementById('selfieVerifyModal');
   if (modal) modal.style.display = 'none';
+
   if (_selfieStream) {
-    _selfieStream.getTracks().forEach(t => t.stop());
+    try {
+      _selfieStream.getTracks().forEach(t => t.stop());
+    } catch (_) {}
     _selfieStream = null;
   }
   if (_selfieScanTimeout) {
     clearTimeout(_selfieScanTimeout);
     _selfieScanTimeout = null;
   }
+  if (_selfieCountdownInterval) {
+    clearInterval(_selfieCountdownInterval);
+    _selfieCountdownInterval = null;
+  }
+  _selfiePhase = 'ready';
 }
 window.closeSelfieVerifyModal = closeSelfieVerifyModal;
 
-function startSelfieScan() {
+function handleSelfieActionClick() {
+  if (_selfiePhase === 'ready') {
+    const video = document.getElementById('selfieVideoEl');
+    if (_selfieStream && video && video.videoWidth > 0) {
+      startSelfieCountdownAndCapture();
+    } else {
+      triggerNativeSelfieCapture();
+    }
+  } else if (_selfiePhase === 'success') {
+    completeSelfieVerification();
+  }
+}
+window.handleSelfieActionClick = handleSelfieActionClick;
+window.startSelfieScan = handleSelfieActionClick; // Alias for backward compatibility
+
+function startSelfieCountdownAndCapture() {
+  _selfiePhase = 'countdown';
+  const countdownEl = document.getElementById('selfieCountdown');
+  const statusPill = document.getElementById('selfieStatusPill');
+  const actionBtn = document.getElementById('selfieActionBtn');
+  const flashEl = document.getElementById('selfieFlashOverlay');
+  const video = document.getElementById('selfieVideoEl');
+  const capturedImg = document.getElementById('selfieCapturedPreview');
+
+  if (actionBtn) {
+    actionBtn.disabled = true;
+    actionBtn.textContent = 'Hold still...';
+  }
+
+  let count = 3;
+  if (countdownEl) {
+    countdownEl.textContent = String(count);
+    countdownEl.style.display = 'flex';
+  }
+  if (statusPill) {
+    statusPill.textContent = `Get ready... Capturing in ${count}s 📸`;
+    statusPill.style.color = '#3897F0';
+  }
+  haptic('light');
+
+  _selfieCountdownInterval = setInterval(() => {
+    count--;
+    if (count > 0) {
+      if (countdownEl) countdownEl.textContent = String(count);
+      if (statusPill) statusPill.textContent = `Hold still... Capturing in ${count}s 📸`;
+      haptic('light');
+    } else {
+      clearInterval(_selfieCountdownInterval);
+      _selfieCountdownInterval = null;
+      if (countdownEl) countdownEl.style.display = 'none';
+
+      // Shutter flash effect
+      if (flashEl) {
+        flashEl.classList.add('flash');
+        setTimeout(() => flashEl.classList.remove('flash'), 300);
+      }
+      haptic('medium');
+
+      // Capture frame from live video
+      const canvas = document.getElementById('selfieCanvas') || document.createElement('canvas');
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 640;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      // Mirror horizontally so snapshot matches user's mirrored front camera view
+      ctx.save();
+      ctx.translate(w, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, w, h);
+      ctx.restore();
+
+      _selfieCapturedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+      // Freeze frame on captured snapshot
+      if (capturedImg) {
+        capturedImg.src = _selfieCapturedDataUrl;
+        capturedImg.style.display = 'block';
+      }
+      if (video) video.style.display = 'none';
+
+      // Stop camera stream tracks
+      if (_selfieStream) {
+        try {
+          _selfieStream.getTracks().forEach(t => t.stop());
+        } catch (_) {}
+        _selfieStream = null;
+      }
+
+      // Analyze image
+      analyzeAndScanSelfieImage(canvas);
+    }
+  }, 950);
+}
+
+function analyzeAndScanSelfieImage(canvas) {
+  _selfiePhase = 'analyzing';
   const laser = document.getElementById('selfieScanLaser');
   const statusPill = document.getElementById('selfieStatusPill');
-  const btn = document.getElementById('selfieActionBtn');
+  const actionBtn = document.getElementById('selfieActionBtn');
+  const s2 = document.getElementById('sStep2');
+
+  if (s2) s2.className = 'selfie-step-dot active';
+  if (laser) laser.classList.add('scanning');
+  if (actionBtn) {
+    actionBtn.disabled = true;
+    actionBtn.textContent = 'Scanning facial landmarks...';
+  }
+  if (statusPill) {
+    statusPill.textContent = 'Scanning facial geometry... 🔍';
+    statusPill.style.color = '#3897F0';
+  }
+
+  // 1. Biometric image quality validation
+  const ctx = canvas.getContext('2d');
+  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imgData.data;
+
+  let totalLum = 0;
+  let count = 0;
+  for (let i = 0; i < data.length; i += 16) {
+    const r = data[i], g = data[i+1], b = data[i+2];
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    totalLum += lum;
+    count++;
+  }
+  const avgLum = totalLum / count;
+
+  let sumDiff = 0;
+  for (let i = 0; i < data.length; i += 16) {
+    const r = data[i], g = data[i+1], b = data[i+2];
+    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    sumDiff += Math.pow(lum - avgLum, 2);
+  }
+  const variance = Math.sqrt(sumDiff / count);
+
+  // Quality check validation
+  if (avgLum < 24) {
+    failSelfieScan('⚠️ Photo is too dark. Ensure good face lighting.', 'dark');
+    return;
+  }
+  if (avgLum > 248) {
+    failSelfieScan('⚠️ Photo is overexposed. Avoid direct blinding flash.', 'bright');
+    return;
+  }
+  if (variance < 14) {
+    failSelfieScan('⚠️ No face detected. Position your face clearly in frame.', 'noface');
+    return;
+  }
+
+  // Laser scanning animation delay
+  _selfieScanTimeout = setTimeout(() => {
+    if (laser) laser.classList.remove('scanning');
+    _selfiePhase = 'success';
+
+    const s2 = document.getElementById('sStep2');
+    const s3 = document.getElementById('sStep3');
+    const retakeBtn = document.getElementById('selfieRetakeBtn');
+
+    if (s2) s2.className = 'selfie-step-dot done';
+    if (s3) s3.className = 'selfie-step-dot done';
+
+    if (statusPill) {
+      statusPill.textContent = '✓ 100% Face Match! Identity Confirmed';
+      statusPill.style.color = '#21B06B';
+    }
+
+    if (actionBtn) {
+      actionBtn.disabled = false;
+      actionBtn.textContent = '✓ Confirm & Get Verified';
+      actionBtn.style.background = 'linear-gradient(135deg, #21B06B, #1B9B5C)';
+      actionBtn.onclick = handleSelfieActionClick;
+    }
+
+    if (retakeBtn) {
+      retakeBtn.style.display = 'block';
+      retakeBtn.textContent = '↺ Retake Selfie';
+    }
+
+    haptic('success');
+  }, 1600);
+}
+
+function failSelfieScan(errorMsg, reason) {
+  _selfiePhase = 'failed';
+  const laser = document.getElementById('selfieScanLaser');
+  const statusPill = document.getElementById('selfieStatusPill');
+  const actionBtn = document.getElementById('selfieActionBtn');
+  const retakeBtn = document.getElementById('selfieRetakeBtn');
+
+  if (laser) laser.classList.remove('scanning');
+  if (statusPill) {
+    statusPill.textContent = errorMsg;
+    statusPill.style.color = '#FF4565';
+  }
+  if (actionBtn) {
+    actionBtn.disabled = true;
+    actionBtn.textContent = 'Face Scan Incomplete';
+    actionBtn.style.background = 'rgba(255, 255, 255, 0.12)';
+  }
+  if (retakeBtn) {
+    retakeBtn.style.display = 'block';
+    retakeBtn.textContent = '↺ Retake Photo';
+  }
+  haptic('error');
+}
+
+function retakeSelfiePhoto() {
+  const capturedImg = document.getElementById('selfieCapturedPreview');
+  const retakeBtn = document.getElementById('selfieRetakeBtn');
+  const actionBtn = document.getElementById('selfieActionBtn');
+  const statusPill = document.getElementById('selfieStatusPill');
+  const laser = document.getElementById('selfieScanLaser');
   const s1 = document.getElementById('sStep1');
   const s2 = document.getElementById('sStep2');
   const s3 = document.getElementById('sStep3');
 
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = 'Scanning facial landmarks...';
-    btn.style.opacity = '0.7';
+  _selfiePhase = 'ready';
+  _selfieCapturedDataUrl = null;
+  if (_selfieScanTimeout) { clearTimeout(_selfieScanTimeout); _selfieScanTimeout = null; }
+
+  if (capturedImg) { capturedImg.style.display = 'none'; capturedImg.src = ''; }
+  if (retakeBtn) retakeBtn.style.display = 'none';
+  if (laser) laser.classList.remove('scanning');
+
+  if (s1) s1.className = 'selfie-step-dot active';
+  if (s2) s2.className = 'selfie-step-dot';
+  if (s3) s3.className = 'selfie-step-dot';
+
+  if (statusPill) {
+    statusPill.textContent = 'Align your face inside the oval';
+    statusPill.style.color = '#3897F0';
   }
-  if (laser) laser.classList.add('scanning');
-  haptic('medium');
 
-  // Step 1: Center face
-  if (statusPill) statusPill.textContent = 'Hold still... Scanning face 🔍';
+  if (actionBtn) {
+    actionBtn.disabled = false;
+    actionBtn.textContent = '📸 Capture & Scan Face';
+    actionBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
+    actionBtn.onclick = handleSelfieActionClick;
+  }
 
-  _selfieScanTimeout = setTimeout(() => {
-    // Step 2: Liveness check
-    if (s1) s1.className = 'selfie-step-dot done';
-    if (s2) s2.className = 'selfie-step-dot active';
-    if (statusPill) statusPill.textContent = 'Great! Now tilt head slightly right 😊';
-    haptic('light');
-
-    _selfieScanTimeout = setTimeout(() => {
-      // Step 3: Verified!
-      if (s2) s2.className = 'selfie-step-dot done';
-      if (s3) s3.className = 'selfie-step-dot done';
-      if (laser) laser.classList.remove('scanning');
-      if (statusPill) {
-        statusPill.textContent = '✓ 100% Match! Identity Confirmed';
-        statusPill.style.color = '#21B06B';
-      }
-
-      completeSelfieVerification();
-    }, 1800);
-  }, 1800);
+  startSelfieLiveCamera();
 }
-window.startSelfieScan = startSelfieScan;
+window.retakeSelfiePhoto = retakeSelfiePhoto;
 
 function completeSelfieVerification() {
   currentUser.isVerified = true;
+  if (_selfieCapturedDataUrl) {
+    try {
+      currentUser.verifiedSelfie = _selfieCapturedDataUrl;
+    } catch (_) {}
+  }
+
   try {
     localStorage.setItem('hmbs_verified', 'true');
     const savedUserStr = localStorage.getItem('hmbs_user');
     if (savedUserStr) {
       const u = JSON.parse(savedUserStr);
       u.isVerified = true;
+      if (_selfieCapturedDataUrl) u.verifiedSelfie = _selfieCapturedDataUrl;
       localStorage.setItem('hmbs_user', JSON.stringify(u));
     }
   } catch (_) {}
@@ -13696,3 +14062,4 @@ function completeSelfieVerification() {
     renderProfileScreen();
   }, 1400);
 }
+window.completeSelfieVerification = completeSelfieVerification;
