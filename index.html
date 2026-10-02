@@ -39,8 +39,8 @@
     <link rel="icon" type="image/png" href="favicon.png">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="manifest" href="manifest.json">
-  <link rel="stylesheet" href="style.css?v=53">
-  <link rel="stylesheet" href="premium.css?v=53">
+  <link rel="stylesheet" href="style.css?v=54">
+  <link rel="stylesheet" href="premium.css?v=54">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
@@ -2132,28 +2132,53 @@
     </div>
 
     <!-- =====================================================
-         MATCH POPUP MODAL
+         MATCH POPUP MODAL (Celebration Screen & Icebreakers)
          ===================================================== -->
-    <div class="match-popup" id="matchPopup">
-      <div class="match-heading">It's a Match! 🎉</div>
-      <p class="match-sub">You both liked each other</p>
+    <div class="match-popup" id="matchPopup" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="matchPopupTitle">
+      <div class="match-popup-scroll">
+        <div class="match-heading" id="matchPopupTitle">It's a Match! 🎉</div>
+        <div class="match-compat-badge" id="matchCompatBadge">✨ 98% Compatibility • Shared Vibes</div>
+        <p class="match-sub" id="matchPopupDesc">You and this person liked each other!</p>
 
-      <div class="match-avatars">
-        <div class="match-avatar-circle me-side" id="matchMePhoto"></div>
-        <div class="match-heart">❤️</div>
-        <div class="match-avatar-circle them-side" id="matchThemPhoto"></div>
-      </div>
+        <div class="match-avatars-wrap">
+          <div class="match-avatars">
+            <div class="match-avatar-circle me-side" id="matchMePhoto">
+              <div class="match-pulse-ring me-ring"></div>
+            </div>
+            <div class="match-heart" aria-hidden="true">❤️</div>
+            <div class="match-avatar-circle them-side" id="matchThemPhoto">
+              <div class="match-pulse-ring them-ring"></div>
+            </div>
+          </div>
+        </div>
 
-      <div class="match-match-name" id="matchPopupName"></div>
-      <p class="match-popup-desc" id="matchPopupDesc">You and this person liked each other!</p>
+        <div class="match-match-name" id="matchPopupName"></div>
 
-      <div class="match-popup-btns">
-        <button class="accent-btn" onclick="goToChatFromMatch()">
-          💬 Send a Message
-        </button>
-        <button class="outline-btn" onclick="closeMatchPopup()">
-          Keep Swiping
-        </button>
+        <!-- Dynamic Icebreakers -->
+        <div class="match-icebreaker-container" id="matchIcebreakerContainer">
+          <div class="match-icebreaker-header">✨ Break the ice with 1 tap</div>
+          <div class="match-icebreaker-chips" id="matchIcebreakerChips">
+            <!-- Populated dynamically by triggerMatchPopup -->
+          </div>
+        </div>
+
+        <!-- Inline Quick Message Composer -->
+        <div class="match-quick-composer" id="matchQuickComposer">
+          <input type="text" class="match-quick-input" id="matchQuickInput" placeholder="Say something nice..." maxlength="250" autocomplete="off" onkeydown="if(event.key==='Enter')sendQuickMessageFromMatch()">
+          <button type="button" class="match-quick-send-btn" id="matchQuickSendBtn" onclick="sendQuickMessageFromMatch()" aria-label="Send message" title="Send message">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="match-popup-btns">
+          <button type="button" class="accent-btn match-chat-btn" id="matchChatBtn" onclick="goToChatFromMatch()">
+            💬 Chat Now
+          </button>
+          <button type="button" class="outline-btn match-keep-swiping-btn" onclick="closeMatchPopup()">
+            Keep Swiping
+          </button>
+        </div>
       </div>
     </div>
 
@@ -2411,7 +2436,7 @@
   <script src="firebase-config.js?v=51.0"></script>
 
   <!-- Main Application Logic -->
-  <script src="script.js?v=53"></script>
+  <script src="script.js?v=54"></script>
 
     <!-- =====================================================
          MODAL: PREVIEW AS MATCH (Interactive Discovery Card Preview)

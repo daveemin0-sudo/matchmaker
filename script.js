@@ -3034,15 +3034,18 @@ function playNotificationSound() {
 }
 
 // ==========================================================
-// MATCH POPUP
+// MATCH POPUP CELEBRATION & ICEBREAKERS
 // ==========================================================
 
 function triggerMatchPopup(profile) {
+  if (!profile) return;
+  appState.activeMatchProfile = profile;
+
   if (!matchedUsers.find(u => u.id === profile.id)) {
     matchedUsers.unshift(profile);
-    conversations[profile.id] = {
-      messages: []
-    };
+    if (!conversations[profile.id]) {
+      conversations[profile.id] = { messages: [] };
+    }
     saveToStorage();
     updateMatchesNotificationBadge();
   }
@@ -3054,29 +3057,132 @@ function triggerMatchPopup(profile) {
   const themPhoto = document.getElementById('matchThemPhoto');
   const matchName = document.getElementById('matchPopupName');
   const matchDesc = document.getElementById('matchPopupDesc');
+  const compatBadge = document.getElementById('matchCompatBadge');
+  const chatBtn = document.getElementById('matchChatBtn');
+  const input = document.getElementById('matchQuickInput');
+  const chipsContainer = document.getElementById('matchIcebreakerChips');
 
-  if (mePhoto) mePhoto.style.backgroundImage = `url('${currentUser.image}')`;
-  if (themPhoto) themPhoto.style.backgroundImage = `url('${profile.image}')`;
-  if (matchName) matchName.textContent = profile.name;
-  if (matchDesc) matchDesc.textContent = `You and ${profile.name} liked each other!`;
+  const myImg = currentUser?.image || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80';
+  const themImg = profile.image || (Array.isArray(profile.photos) && profile.photos[0]) || '';
 
-  if (popup) popup.classList.add('open');
+  if (mePhoto) mePhoto.style.backgroundImage = `url("${safeCssUrl(myImg)}")`;
+  if (themPhoto) themPhoto.style.backgroundImage = `url("${safeCssUrl(themImg)}")`;
 
-  // Notification badge & dot
+  const pName = profile.name || 'Your Match';
+  if (matchName) matchName.textContent = pName;
+  if (matchDesc) matchDesc.textContent = `You and ${pName} liked each other!`;
+  if (chatBtn) chatBtn.textContent = `💬 Chat with ${pName}`;
+  if (input) {
+    input.value = '';
+    input.placeholder = `Say something nice to ${pName}...`;
+  }
+
+  if (compatBadge) {
+    const sharedTag = (Array.isArray(profile.tags) && profile.tags.length > 0) ? profile.tags[0] : 'Good Vibes ✨';
+    const percent = Math.floor(Math.random() * 8) + 92;
+    compatBadge.textContent = `🔥 ${percent}% Compatibility • Shared ${sharedTag}`;
+  }
+
+  if (chipsContainer) {
+    const icebreakers = typeof generateIcebreakers === 'function' ? generateIcebreakers(profile) : [
+      `Hey ${pName}! Glad we matched 😊`,
+      `What's your go-to weekend plan in town? 🌴`,
+      `Tell me the story behind your favorite photo! 📸`
+    ];
+    chipsContainer.innerHTML = icebreakers.map(line => `
+      <button type="button" class="match-icebreaker-chip" onclick="selectIcebreakerInMatch(this.textContent.trim())">
+        ${escHtml(line)}
+      </button>
+    `).join('');
+  }
+
+  if (typeof haptic === 'function') haptic('match');
+  if (typeof launchMatchConfetti === 'function') launchMatchConfetti();
+
+  try {
+    const mc = parseInt(localStorage.getItem('hmbs_match_count') || '0', 10) + 1;
+    localStorage.setItem('hmbs_match_count', mc.toString());
+  } catch (_) {}
+
+  if (popup) {
+    popup.style.display = 'flex';
+    requestAnimationFrame(() => {
+      popup.classList.add('open');
+    });
+  }
+
   updateMatchesNotificationBadge();
 }
+window.triggerMatchPopup = triggerMatchPopup;
 
 function closeMatchPopup() {
   const popup = document.getElementById('matchPopup');
-  if (popup) popup.classList.remove('open');
+  if (!popup) return;
+  popup.classList.remove('open');
+  setTimeout(() => {
+    popup.style.display = 'none';
+    appState.activeMatchProfile = null;
+  }, 240);
 }
+window.closeMatchPopup = closeMatchPopup;
 
 function goToChatFromMatch() {
+  const profile = appState.activeMatchProfile || (matchedUsers.length > 0 ? matchedUsers[0] : null);
   closeMatchPopup();
-  if (matchedUsers.length === 0) return;
-  const partner = matchedUsers[0];
-  openChat(partner.id);
+  if (profile && typeof openChat === 'function') {
+    setTimeout(() => openChat(profile.id), 120);
+  }
 }
+window.goToChatFromMatch = goToChatFromMatch;
+
+function selectIcebreakerInMatch(text) {
+  const input = document.getElementById('matchQuickInput');
+  if (input) {
+    input.value = text;
+    input.focus();
+    if (typeof haptic === 'function') haptic('light');
+    input.style.transform = 'scale(1.02)';
+    setTimeout(() => { input.style.transform = 'scale(1)'; }, 150);
+  }
+}
+window.selectIcebreakerInMatch = selectIcebreakerInMatch;
+
+function sendQuickMessageFromMatch() {
+  const input = document.getElementById('matchQuickInput');
+  const text = input ? input.value.trim() : '';
+  const profile = appState.activeMatchProfile || (matchedUsers.length > 0 ? matchedUsers[0] : null);
+
+  if (!profile) {
+    closeMatchPopup();
+    return;
+  }
+
+  if (typeof haptic === 'function') haptic('medium');
+
+  if (text) {
+    if (!conversations[profile.id]) {
+      conversations[profile.id] = { messages: [] };
+    }
+    const msgId = 'msg_' + Date.now();
+    const newMsg = {
+      id: msgId,
+      sender: 'me',
+      text: text,
+      timestamp: Date.now(),
+      status: 'sent',
+      read: true
+    };
+    conversations[profile.id].messages.push(newMsg);
+    saveToStorage();
+    if (typeof showToast === 'function') showToast(`Sent to ${profile.name}! 💬`, 'success');
+  }
+
+  closeMatchPopup();
+  if (typeof openChat === 'function') {
+    setTimeout(() => openChat(profile.id), 150);
+  }
+}
+window.sendQuickMessageFromMatch = sendQuickMessageFromMatch;
 
 // ==========================================================
 // MATCHES & CONVERSATIONS
@@ -14017,53 +14123,7 @@ function generateIcebreakers(profile) {
 }
 window.generateIcebreakers = generateIcebreakers;
 
-// Patch triggerMatchPopup to inject icebreakers
-const _origTriggerMatchPopup = window.triggerMatchPopup;
-window.triggerMatchPopup = function(profile) {
-  haptic('match');
-  if (typeof launchMatchConfetti === 'function') {
-    launchMatchConfetti();
-  }
-  try {
-    const mc = parseInt(localStorage.getItem('hmbs_match_count') || '0', 10) + 1;
-    localStorage.setItem('hmbs_match_count', mc.toString());
-  } catch (_) {}
-
-  if (typeof _origTriggerMatchPopup === 'function') {
-    _origTriggerMatchPopup(profile);
-  }
-
-  // Inject icebreaker chips into the match popup
-  const popup = document.getElementById('matchPopup');
-  if (!popup) return;
-
-  // Remove any previous icebreaker section
-  popup.querySelector('.icebreaker-section')?.remove();
-
-  const icebreakers = generateIcebreakers(profile);
-  if (!icebreakers.length) return;
-
-  const chipsHTML = icebreakers.map(line => `
-    <button class="icebreaker-chip" onclick="sendIcebreakerFromMatch('${escHtml(profile.id)}', this)">${escHtml(line)}</button>
-  `).join('');
-
-  const section = document.createElement('div');
-  section.className = 'icebreaker-section';
-  section.innerHTML = `
-    <div class="icebreaker-label">✨ Start the conversation</div>
-    <div class="icebreaker-chips">${chipsHTML}</div>
-  `;
-
-  // Insert before the button row in the popup
-  const btnsRow = popup.querySelector('.match-popup-btns');
-  if (btnsRow) {
-    btnsRow.parentNode.insertBefore(section, btnsRow);
-  } else {
-    const lastBtn = popup.querySelector('.match-send-btn, .accent-btn, button:last-of-type');
-    if (lastBtn) lastBtn.parentNode.insertBefore(section, lastBtn);
-    else popup.appendChild(section);
-  }
-};
+// Note: triggerMatchPopup natively renders celebration, confetti, and smart icebreaker chips.
 
 
 function sendIcebreakerFromMatch(partnerId, btn) {
@@ -14152,7 +14212,7 @@ function launchMatchConfetti() {
       color: colors[Math.floor(Math.random() * colors.length)],
       rotation: Math.random() * 360,
       rotSpeed: (Math.random() - 0.5) * 10,
-      shape: Math.random() > 0.4 ? 'rect' : 'circle',
+      shape: Math.random() > 0.6 ? 'rect' : (Math.random() > 0.5 ? 'heart' : 'circle'),
       opacity: 1
     });
   }
@@ -14186,6 +14246,13 @@ function launchMatchConfetti() {
 
         if (p.shape === 'rect') {
           ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
+        } else if (p.shape === 'heart') {
+          const s = p.size * 0.65;
+          ctx.beginPath();
+          ctx.moveTo(0, s * 0.3);
+          ctx.bezierCurveTo(-s, -s * 0.5, -s * 1.2, s * 0.3, 0, s * 1.1);
+          ctx.bezierCurveTo(s * 1.2, s * 0.3, s, -s * 0.5, 0, s * 0.3);
+          ctx.fill();
         } else {
           ctx.beginPath();
           ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
