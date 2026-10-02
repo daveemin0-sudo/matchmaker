@@ -868,7 +868,7 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     );
     const defaultExt = isAud ? '.webm' : (isVid ? '.mp4' : '.jpg');
     const safeName = String(file.name || ('file' + defaultExt)).replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
-    const storagePath = (root === 'chat_images' || root === 'chat_videos')
+    const storagePath = (root === 'chat_images' || root === 'chat_videos' || (root === 'chat_media' && matchId))
       ? `chat_media/${matchId}`
       : root;
     const storageRef = fbStorage.ref(`${storagePath}/${uid}/${Date.now()}_${safeName}`);

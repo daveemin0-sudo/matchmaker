@@ -8607,49 +8607,68 @@ async function sendVoiceNote() {
       // 2. BACKGROUND UPLOAD & FIRESTORE DISPATCH (Non-blocking)
       (async () => {
         let finalRemoteUrl = null;
-        const cleanMime = (mimeType.split(';')[0] || 'audio/webm').trim();
+        const isFirebaseOnline = Boolean(
+          typeof fbAuth !== 'undefined' && fbAuth?.currentUser &&
+          typeof fbStorage !== 'undefined' && fbStorage &&
+          !window._firebaseStorageDisabled
+        );
 
-        if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage) {
+        if (isFirebaseOnline && typeof uploadFileToBackend === 'function') {
           try {
             // Chat voice notes must use the shared match-scoped Storage path.
             // Private chat media must be stored in Cloud Storage before it is sent
             // Only send the stable Cloud Storage URL to the recipient
             const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
             const uploadPromise = uploadFileToBackend(audioBlob, `chat_media/${matchId}`, false, cleanMime);
-            const timeoutPromise = new Promise(res => setTimeout(() => res(null), 12000));
+            const timeoutPromise = new Promise(res => setTimeout(() => res(null), 15000));
             finalRemoteUrl = await Promise.race([uploadPromise, timeoutPromise]);
           } catch (err) {
             console.warn('Voice upload error:', err);
           }
-        }
 
-        // Chat voice notes must use the shared match-scoped Storage path.
-        // A local blob/data URL cannot be fetched by the recipient.
-        if (!finalRemoteUrl) {
-          newMsg._uploading = false;
-          newMsg._uploadFailed = true;
-          saveToStorage();
-          showToast('Voice note could not be uploaded. Please try again.', 'error', 7000);
-          return;
-        }
-
-        if (finalRemoteUrl) {
-          newMsg.audioUrl = finalRemoteUrl;
-          saveToStorage();
-        }
-
-        if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-          const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
-          const delivered = await sendRealtimeMessage(matchId, '', true, finalRemoteUrl, '', null, '', false, msgId);
-          if (!delivered) {
+          // Chat voice notes must use the shared match-scoped Storage path.
+          // A local blob/data URL cannot be fetched by the recipient.
+          if (!finalRemoteUrl) {
+            newMsg._uploading = false;
             newMsg._uploadFailed = true;
             saveToStorage();
-            showToast('Voice note uploaded, but could not be delivered. Please try again.', 'error', 7000);
-          } else {
-            showToast('Voice note sent 🎤', 'gold');
+            showToast('Voice note could not be uploaded. Please try again.', 'error', 7000);
+            return;
+          }
+
+          if (finalRemoteUrl) {
+            newMsg.audioUrl = finalRemoteUrl;
+            saveToStorage();
+          }
+
+          if (typeof sendRealtimeMessage === 'function') {
+            const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+            const delivered = await sendRealtimeMessage(matchId, '', true, finalRemoteUrl, '', null, '', false, msgId);
+            if (!delivered) {
+              newMsg._uploadFailed = true;
+              saveToStorage();
+              showToast('Voice note uploaded, but could not be delivered. Please try again.', 'error', 7000);
+            } else {
+              showToast('Voice note sent 🎤', 'gold');
+            }
           }
         } else {
-          triggerAutoReply();
+          // In local/demo mode or offline preview, convert blob to base64 Data URL so it persists
+          try {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              if (reader.result && typeof reader.result === 'string') {
+                newMsg.audioUrl = reader.result;
+                saveToStorage();
+              }
+            };
+            reader.readAsDataURL(audioBlob);
+          } catch (_) {}
+
+          showToast('Voice note sent 🎤', 'gold');
+          if (typeof triggerAutoReply === 'function') {
+            triggerAutoReply();
+          }
         }
       })();
     };
