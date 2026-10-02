@@ -1605,6 +1605,10 @@ async function handleLogin() {
             }
             const vipExpiryMs = uData.vipExpiry?.toMillis ? uData.vipExpiry.toMillis() : 0;
             appState.isVip = Boolean(uData.isVip && (!vipExpiryMs || vipExpiryMs > Date.now()));
+            if (uData.isVerified !== undefined) {
+              currentUser.isVerified = Boolean(uData.isVerified);
+              if (currentUser.isVerified) localStorage.setItem('hmbs_verified', 'true');
+            }
           }
         } catch (e) {
           console.warn("Could not fetch user profile from Firestore:", e);
@@ -8151,27 +8155,46 @@ function renderProfileScreen() {
   if (interestsInput) interestsInput.value = displayInterests.join(', ');
 
   // Dynamic Profile Strength Calculation
-  let strength = 20; // baseline
-  if (photos.length >= 1) strength += 25;
-  if (photos.length >= 3) strength += 15;
-  if (photos.length >= 4) strength += 10;
-  if (displayBio && displayBio.length > 15) strength += 15;
-  if (displayInterests.length >= 2) strength += 15;
-  strength = Math.min(100, Math.max(25, strength));
+  // Baseline (Name, Age, Location): 15%
+  let strength = 15;
+  if (photos.length >= 1) strength += 20; // Main photo
+  if (photos.length >= 2) strength += 15; // Additional photos
+  if (photos.length >= 3) strength += 10; // 3+ photos gallery
+  if (displayBio && displayBio.length > 15) strength += 15; // Engaging bio
+  if (displayInterests && displayInterests.length >= 2) strength += 10; // Passions
+  if (isVerified) strength += 15; // Photo verification blue badge bonus!
+  strength = Math.min(100, Math.max(15, strength));
 
   const strengthVal = document.getElementById('hkStrengthPercent');
   const strengthBar = document.getElementById('hkStrengthBar');
   const strengthHint = document.getElementById('hkStrengthHint');
+  const strengthLink = document.querySelector('.hk-strength-link');
 
   if (strengthVal) strengthVal.textContent = strength + '%';
   if (strengthBar) strengthBar.style.width = strength + '%';
-  if (strengthHint) {
-    if (photos.length <= 1) {
-      strengthHint.textContent = '📸 Add remaining photos to boost discovery visibility by 3.5×';
-    } else if (strength < 90) {
-      strengthHint.textContent = '✨ Add your passions and personal bio to reach 100% Superstar status!';
+  if (strengthLink) {
+    if (strength === 100) {
+      strengthLink.innerHTML = 'Superstar ⭐';
+      strengthLink.style.color = '#F4C550';
     } else {
-      strengthHint.textContent = '🌟 Superstar Profile Active! Your profile gets maximum priority matching.';
+      strengthLink.innerHTML = 'Complete Profile &rarr;';
+      strengthLink.style.color = '';
+    }
+  }
+
+  if (strengthHint) {
+    if (photos.length === 0) {
+      strengthHint.textContent = '📸 Add your first profile photo to start getting matches!';
+    } else if (photos.length < 2) {
+      strengthHint.textContent = '📸 Add at least 1 more photo to boost discovery visibility by 3.5×';
+    } else if (!isVerified) {
+      strengthHint.textContent = '🛡️ Complete selfie photo verification below to earn the Blue Badge & +15% boost!';
+    } else if (!displayBio || displayBio.length < 15) {
+      strengthHint.textContent = '✍️ Add an engaging personal bio to reach 100% Superstar status!';
+    } else if (displayInterests.length < 2) {
+      strengthHint.textContent = '🎵 Add passions and interests to get matched with like-minded people!';
+    } else {
+      strengthHint.textContent = '🌟 100% Superstar Profile Active! Your profile gets maximum priority matching.';
     }
   }
 
@@ -12168,6 +12191,12 @@ function openProfileCardPreview() {
     tagsEl.innerHTML = displayInterests.map(t => `<span class="hk-preview-tag">${escHtml(t)}</span>`).join('');
   }
 
+  const previewBadge = document.getElementById('hkPreviewVerifiedBadge');
+  const isVerifiedUser = currentUser.isVerified === true || localStorage.getItem('hmbs_verified') === 'true';
+  if (previewBadge) {
+    previewBadge.style.display = isVerifiedUser ? 'inline-flex' : 'none';
+  }
+
   _renderPreviewCardPhoto();
   modal.style.display = 'flex';
 }
@@ -13537,7 +13566,10 @@ function openSelfieVerifyModal() {
   if (s2) { s2.className = 'selfie-step-dot'; }
   if (s3) { s3.className = 'selfie-step-dot'; }
   if (laser) laser.classList.remove('scanning');
-  if (statusPill) statusPill.textContent = 'Align your face inside the oval';
+  if (statusPill) {
+    statusPill.textContent = 'Align your face inside the oval';
+    statusPill.style.color = '#3897F0';
+  }
   if (btn) {
     btn.disabled = false;
     btn.textContent = currentUser.isVerified ? 'Scan Again' : 'Start Selfie Scan';
@@ -13635,6 +13667,24 @@ function completeSelfieVerification() {
     }
   } catch (_) {}
 
+  // Sync verified state to Cloud Firestore (both user doc and public profile for matches to see)
+  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    try {
+      const uid = fbAuth.currentUser.uid;
+      fbDb.collection('users').doc(uid).set({
+        isVerified: true,
+        verifiedAt: Date.now()
+      }, { merge: true }).catch(() => {});
+
+      fbDb.collection('public_profiles').doc(uid).set({
+        isVerified: true
+      }, { merge: true }).catch(() => {});
+    } catch (e) {
+      console.warn('Firestore verification sync notice:', e);
+    }
+  }
+
+  saveToStorage();
   haptic('success');
   if (typeof launchMatchConfetti === 'function') {
     launchMatchConfetti();
