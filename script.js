@@ -4560,6 +4560,7 @@ function openChat(profileId, { fromHistory = false } = {}) {
             }
             return {
               id: m.id || null,
+              localId: m.localId || null,
               sender: isMe ? 'me' : 'them',
               senderId: senderId || (isMe ? uid : profileId),
               recipientId: m.recipientId || (isMe ? profileId : uid),
@@ -4586,23 +4587,8 @@ function openChat(profileId, { fromHistory = false } = {}) {
         const clearedAt = parseInt(localStorage.getItem('hmbs_cleared_' + profileId) || '0', 10);
         const validRemoteMsgs = remoteMsgs.filter(m => (m.timestamp || 0) > clearedAt);
 
-        // Retain recently added local pending messages (e.g. photos/videos being uploaded)
+        // Current cached conversation messages
         const currentMsgs = conversations[profileId]?.messages || [];
-        const pendingLocal = currentMsgs.filter(m => {
-          if (!m.id || !String(m.id).startsWith('local_')) return false;
-          if ((m.timestamp || 0) <= clearedAt) return false;
-          // Retain if still uploading or created within the last 15 minutes
-          const isFresh = Boolean(m._uploading) || (Date.now() - (m.timestamp || 0) < 15 * 60 * 1000);
-          if (!isFresh) return false;
-          const alreadyInRemote = validRemoteMsgs.some(rm =>
-            (rm.localId && rm.localId === m.id) ||
-            (rm.videoUrl && (rm.videoUrl === m.videoUrl || rm.videoUrl === m.imageUrl)) ||
-            (rm.imageUrl && (rm.imageUrl === m.imageUrl || rm.imageUrl === m.videoUrl)) ||
-            (rm.audioUrl && rm.audioUrl === m.audioUrl) ||
-            (rm.text && rm.text === m.text && Math.abs((rm.timestamp || 0) - (m.timestamp || 0)) < 6000)
-          );
-          return !alreadyInRemote;
-        });
 
         const prevMsgs = conversations[profileId]?.messages || [];
         const prevLastTime = prevMsgs.length > 0 ? (prevMsgs[prevMsgs.length - 1].timestamp || 0) : 0;
@@ -4614,23 +4600,47 @@ function openChat(profileId, { fromHistory = false } = {}) {
             console.log('[Chat] Remote returned 0 messages for ' + profileId + '; preserving ' + currentMsgs.length + ' cached messages.');
             finalMsgs = currentMsgs;
           } else {
-            finalMsgs = pendingLocal;
+            finalMsgs = [];
           }
         } else {
-          // Merge remote messages with local messages (deduplicating by id / firestoreId / timestamp)
+          // Reconcile remote messages as ground truth, deduplicating against optimistic local messages
           const msgMap = new Map();
-          currentMsgs.forEach(m => {
-            const key = m.firestoreId || m.id || (m.sender + '_' + m.timestamp + '_' + (m.text || '').substring(0, 20));
-            msgMap.set(key, m);
+          const matchedLocalIds = new Set();
+
+          // 1. Populate all valid remote messages
+          validRemoteMsgs.forEach(rm => {
+            const key = rm.firestoreId || rm.id;
+            msgMap.set(key, rm);
+            if (rm.localId) matchedLocalIds.add(rm.localId);
           });
-          validRemoteMsgs.forEach(m => {
-            const key = m.firestoreId || m.id || (m.sender + '_' + m.timestamp + '_' + (m.text || '').substring(0, 20));
-            msgMap.set(key, m);
+
+          // 2. Identify local optimistic messages that already exist in remote by id or matching payload
+          currentMsgs.forEach(lm => {
+            if (!lm || !lm.id || !String(lm.id).startsWith('local_')) return;
+            const alreadyMatched = validRemoteMsgs.some(rm =>
+              (rm.localId && rm.localId === lm.id) ||
+              (rm.firestoreId && rm.firestoreId === lm.firestoreId) ||
+              (rm.text && lm.text && rm.text === lm.text && rm.sender === lm.sender && Math.abs((rm.timestamp || 0) - (lm.timestamp || 0)) < 30000) ||
+              (rm.isVoice && lm.isVoice && rm.sender === lm.sender && (rm.audioUrl === lm.audioUrl || Math.abs((rm.timestamp || 0) - (lm.timestamp || 0)) < 30000)) ||
+              (rm.imageUrl && lm.imageUrl && rm.sender === lm.sender && (rm.imageUrl === lm.imageUrl || Math.abs((rm.timestamp || 0) - (lm.timestamp || 0)) < 30000)) ||
+              (rm.videoUrl && lm.videoUrl && rm.sender === lm.sender && (rm.videoUrl === lm.videoUrl || Math.abs((rm.timestamp || 0) - (lm.timestamp || 0)) < 30000))
+            );
+            if (alreadyMatched) {
+              matchedLocalIds.add(lm.id);
+            }
           });
-          pendingLocal.forEach(m => {
-            const key = m.id || (m.sender + '_' + m.timestamp);
-            msgMap.set(key, m);
+
+          // 3. Keep only genuinely pending local messages that have NOT yet arrived from Firestore
+          currentMsgs.forEach(lm => {
+            if (!lm || !lm.id || !String(lm.id).startsWith('local_')) return;
+            if (matchedLocalIds.has(lm.id)) return;
+            if ((lm.timestamp || 0) <= clearedAt) return;
+            const isFresh = Boolean(lm._uploading) || (Date.now() - (lm.timestamp || 0) < 60 * 1000);
+            if (isFresh) {
+              msgMap.set(lm.id, lm);
+            }
           });
+
           finalMsgs = Array.from(msgMap.values()).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         }
 
@@ -5098,7 +5108,7 @@ function renderChatThread() {
       }
     }
     const msgId = msg.firestoreId || msg.id || `local_${idx}`;
-    if (!msg.firestoreId) msg.firestoreId = msgId;
+    if (!msg.firestoreId && !String(msgId).startsWith('local_')) msg.firestoreId = msgId;
     const timeStr = formatWhatsAppTime(msg.timestamp, msg.time);
 
     // Date separator pill (Today, Yesterday, or Month Day, Year)
@@ -5271,7 +5281,10 @@ function renderChatThread() {
         <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" id="voiceBubble_${msgId}" data-audiosrc="${escHtml(audioSrc)}" data-duration="${escHtml(totalDuration)}" ${pressEvents}>
           ${quoteHtml}
           <div class="vn-player-wrap">
-            ${badgeHtml}
+            <div class="vn-avatar-speed-wrap">
+              ${badgeHtml}
+              <button type="button" class="vn-speed-btn" id="vnSpeed_${msgId}" onclick="event.stopPropagation();toggleVoicePlaybackSpeed(event, '${msgId}')" title="Playback speed">1x</button>
+            </div>
             <button class="vn-play-btn" onclick="event.stopPropagation();toggleVoiceNotePlayback('${msgId}')" aria-label="Play voice note">
               ${playIconSvg}
             </button>
@@ -5284,10 +5297,7 @@ function renderChatThread() {
                 </div>
               `}
               <div class="vn-meta-row">
-                <div class="vn-meta-left">
-                  <span class="vn-duration" id="vnTime_${msgId}">${escHtml(totalDuration)}</span>
-                  <button type="button" class="vn-speed-btn" onclick="toggleVoicePlaybackSpeed(event, '${msgId}')" title="Playback speed">1x</button>
-                </div>
+                <span class="vn-duration" id="vnTime_${msgId}">${escHtml(totalDuration)}</span>
                 ${timeBadgeHtml}
               </div>
             </div>
@@ -8239,12 +8249,14 @@ function playFallbackSynthesizedVoice(msgId, originalDuration) {
       if (_synthVoiceGain) _synthVoiceGain.gain.setValueAtTime(0, _synthVoiceCtx.currentTime);
       if (_synthVoiceAnimFrame) { cancelAnimationFrame(_synthVoiceAnimFrame); _synthVoiceAnimFrame = null; }
       if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
+      bubble.classList.remove('playing');
       return;
     } else {
       _synthVoicePaused = false;
       if (_synthVoiceGain) _synthVoiceGain.gain.setValueAtTime(0.08, _synthVoiceCtx.currentTime);
       _synthVoiceStartTime = performance.now() - (_synthVoiceElapsed * 1000 / _voicePlaybackRate);
       if (playBtn) playBtn.innerHTML = PAUSE_ICON_SVG;
+      bubble.classList.add('playing');
       animateSynthProgress();
       return;
     }
@@ -8269,6 +8281,9 @@ function playFallbackSynthesizedVoice(msgId, originalDuration) {
     if (AudioContextClass) {
       _synthVoiceCtx = new AudioContextClass();
       const ctx = _synthVoiceCtx;
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
       const masterGain = ctx.createGain();
       masterGain.gain.setValueAtTime(0.08, ctx.currentTime);
       masterGain.connect(ctx.destination);
@@ -8311,6 +8326,7 @@ function playFallbackSynthesizedVoice(msgId, originalDuration) {
   }
 
   if (playBtn) playBtn.innerHTML = PAUSE_ICON_SVG;
+  bubble.classList.add('playing');
   _synthVoiceStartTime = performance.now();
 
   function animateSynthProgress() {
@@ -8402,6 +8418,7 @@ function resetVoiceNoteUi(msgId) {
   }
   const bubble = document.getElementById(`voiceBubble_${msgId}`);
   if (bubble) {
+    bubble.classList.remove('playing');
     const playBtn = bubble.querySelector('.vn-play-btn');
     if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
     const fillEl = document.getElementById(`vnFill_${msgId}`);
@@ -8431,6 +8448,7 @@ function toggleVoiceNotePlayback(msgId) {
       _currentVoiceAudio.play().then(() => {
         const btn = bubble.querySelector('.vn-play-btn');
         if (btn) btn.innerHTML = PAUSE_ICON_SVG;
+        bubble.classList.add('playing');
       }).catch(err => {
         console.warn('Audio resume failed, falling back to synth voice:', err);
         playFallbackSynthesizedVoice(msgId, originalDuration);
@@ -8439,6 +8457,7 @@ function toggleVoiceNotePlayback(msgId) {
       _currentVoiceAudio.pause();
       const btn = bubble.querySelector('.vn-play-btn');
       if (btn) btn.innerHTML = PLAY_ICON_SVG;
+      bubble.classList.remove('playing');
     }
     return;
   }
@@ -8467,6 +8486,7 @@ function toggleVoiceNotePlayback(msgId) {
   const timeEl = document.getElementById(`vnTime_${msgId}`);
 
   if (playBtn) playBtn.innerHTML = PAUSE_ICON_SVG;
+  bubble.classList.add('playing');
 
   audio.ontimeupdate = () => {
     if (!audio.duration || isNaN(audio.duration)) return;
@@ -8477,6 +8497,7 @@ function toggleVoiceNotePlayback(msgId) {
   };
 
   audio.onended = () => {
+    bubble.classList.remove('playing');
     if (playBtn) playBtn.innerHTML = PLAY_ICON_SVG;
     if (fillEl) fillEl.style.width = '0%';
     if (timeEl) timeEl.textContent = originalDuration;
@@ -8487,12 +8508,14 @@ function toggleVoiceNotePlayback(msgId) {
 
   audio.onerror = (e) => {
     console.warn('Voice playback error, playing synthesized fallback:', e);
+    bubble.classList.remove('playing');
     _currentVoiceAudio = null;
     playFallbackSynthesizedVoice(msgId, originalDuration);
   };
 
   audio.play().catch(err => {
     console.warn('Audio play failed, playing synthesized fallback:', err);
+    bubble.classList.remove('playing');
     _currentVoiceAudio = null;
     playFallbackSynthesizedVoice(msgId, originalDuration);
   });
@@ -8828,13 +8851,33 @@ async function sendVoiceNote() {
             if (bubble) bubble.dataset.audiosrc = finalRemoteUrl;
 
             if (typeof sendRealtimeMessage === 'function') {
-              const delivered = await sendRealtimeMessage(matchId, '', true, finalRemoteUrl, '', null, '', false, msgId);
+              const delivered = await sendRealtimeMessage(matchId, '', true, finalRemoteUrl, '', null, '', false, msgId, durationStr);
               if (!delivered) {
                 newMsg._uploadFailed = true;
                 saveToStorage();
                 showToast('Voice note uploaded, but could not be delivered. Please try again.', 'error', 7000);
               } else {
                 showToast('Voice note sent 🎤', 'gold');
+
+                // Trigger push notification to partner (fire-and-forget)
+                const myName = (typeof currentUser !== 'undefined' && currentUser?.name) ? currentUser.name : 'Your match';
+                if (fbAuth?.currentUser) {
+                  fbAuth.currentUser.getIdToken().then(token => {
+                    fetch(`${typeof BACKEND_URL !== 'undefined' ? BACKEND_URL : 'https://matchmaker-viwb.onrender.com'}/fcm/new-message`, {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: 'Bearer ' + token
+                      },
+                      body: JSON.stringify({
+                        toUserId: partnerId,
+                        fromUserName: myName,
+                        messageText: `🎤 Voice note (${durationStr})`,
+                        matchId
+                      })
+                    }).catch(() => {});
+                  }).catch(() => {});
+                }
               }
             }
           } else {
@@ -12697,14 +12740,23 @@ function getMessageInfo(msgId) {
   const hist = (currentChatId && conversations[currentChatId]?.messages) ? conversations[currentChatId].messages : [];
   if (!msgId) return { msg: null, idx: -1, hist };
   const sId = String(msgId);
-  if (sId.startsWith('local_')) {
-    const idx = parseInt(sId.replace('local_', ''), 10);
-    return { msg: hist[idx] || null, idx, hist };
+
+  // 1. Direct match by id, firestoreId, or localId
+  let idx = hist.findIndex(m => m && (m.id === sId || m.firestoreId === sId || m.localId === sId));
+
+  // 2. Numeric local index fallback: "local_0", "local_1"
+  if (idx === -1 && /^local_\d+$/.test(sId)) {
+    const num = parseInt(sId.replace('local_', ''), 10);
+    if (!isNaN(num) && hist[num]) {
+      idx = num;
+    }
   }
-  let idx = hist.findIndex(m => m.firestoreId === msgId || m.id === msgId);
+
+  // 3. Fallback position index check
   if (idx === -1) {
     idx = hist.findIndex((m, i) => `local_${i}` === sId);
   }
+
   return { msg: idx !== -1 ? hist[idx] : null, idx, hist };
 }
 
@@ -12941,18 +12993,25 @@ function cancelEditMessage() {
 async function deleteMessagePrompt(matchId, msgId) {
   if (!confirm('Delete this message?')) return;
 
-  const { idx, hist } = getMessageInfo(msgId);
+  const { msg, idx, hist } = getMessageInfo(msgId);
 
+  // Remove from local cache immediately
   if (hist && idx !== -1 && hist[idx]) {
     hist.splice(idx, 1);
   }
 
+  // Determine target firestore message ID to delete
+  const targetFirestoreId = msg?.firestoreId && !String(msg.firestoreId).startsWith('local_')
+    ? msg.firestoreId
+    : (!String(msgId).startsWith('local_') ? msgId : (msg?.id && !String(msg.id).startsWith('local_') ? msg.id : null));
+
   // Delete from Firestore if synced
-  if (!msgId.startsWith('local_') && matchId && matchId !== 'null') {
+  const activeMatchId = matchId || (typeof getActiveMatchId === 'function' ? getActiveMatchId() : null) || appState.currentChatId;
+  if (targetFirestoreId && activeMatchId && activeMatchId !== 'null') {
     if (typeof deleteRealtimeMessage === 'function') {
-      deleteRealtimeMessage(matchId, msgId);
+      deleteRealtimeMessage(activeMatchId, targetFirestoreId);
     } else if (typeof fbDb !== 'undefined' && fbDb) {
-      fbDb.collection('matches').doc(matchId).collection('messages').doc(msgId).delete().catch(() => {});
+      fbDb.collection('matches').doc(activeMatchId).collection('messages').doc(targetFirestoreId).delete().catch(() => {});
     }
   }
 

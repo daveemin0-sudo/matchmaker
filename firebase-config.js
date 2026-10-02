@@ -658,7 +658,7 @@ function listenToRealtimeMessages(matchId, callback) {
   }
 }
 
-async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "", replyTo = null, videoUrl = "", isVideo = false, localId = "") {
+async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = "", imageUrl = "", replyTo = null, videoUrl = "", isVideo = false, localId = "", duration = "") {
   if (!fbDb || !fbAuth?.currentUser || !matchId) return false;
   if (window.currentUser?.suspended === true || (typeof currentUser !== 'undefined' && currentUser?.suspended)) {
     if (typeof showToast === 'function') showToast('Your account is suspended. Messaging is disabled.', 'error');
@@ -707,6 +707,7 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
       imageUrl: isVideoMsg ? '' : (imageUrl || ''),
       videoUrl: isVideoMsg ? (videoUrl || imageUrl || '') : '',
       isVideo: isVideoMsg,
+      duration: duration || (isVoice ? '0:05' : ''),
       read: false,
       timestamp: firebase.firestore.FieldValue.serverTimestamp()
     };
@@ -729,6 +730,21 @@ async function sendRealtimeMessage(matchId, text, isVoice = false, audioUrl = ""
     return false;
   }
 }
+
+async function deleteRealtimeMessage(matchId, messageId) {
+  if (!fbDb || !matchId || !messageId) return false;
+  try {
+    const docRef = fbDb.collection('matches').doc(matchId).collection('messages').doc(messageId);
+    await docRef.delete().catch(async () => {
+      await docRef.set({ deleted: true, text: 'This message was deleted' }, { merge: true }).catch(() => {});
+    });
+    return true;
+  } catch (err) {
+    console.warn('deleteRealtimeMessage failed:', err);
+    return false;
+  }
+}
+window.deleteRealtimeMessage = deleteRealtimeMessage;
 
 async function clearChatMessagesInFirestore(matchId) {
   if (!fbDb || !matchId) return;
@@ -880,7 +896,7 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     try {
       snapshot = await storageRef.put(file, metadata);
     } catch (putErr) {
-      if (putErr?.code === 'storage/bucket-not-found' || putErr?.code === 'storage/project-not-found' || putErr?.message?.includes('CORS') || putErr?.message?.includes('preflight') || putErr?.message?.includes('network')) {
+      if (putErr?.code === 'storage/bucket-not-found' || putErr?.code === 'storage/project-not-found') {
         window._firebaseStorageDisabled = true;
       }
       window._lastMediaUploadError = `Storage upload failed: ${putErr?.code || 'unknown'} — ${putErr?.message || 'unknown error'}`;
@@ -890,7 +906,9 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     const downloadUrl = await snapshot.ref.getDownloadURL();
     return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
   } catch (err) {
-    window._firebaseStorageDisabled = true;
+    if (err?.code === 'storage/bucket-not-found' || err?.code === 'storage/project-not-found') {
+      window._firebaseStorageDisabled = true;
+    }
     window._lastMediaUploadError = window._lastMediaUploadError || `Storage error: ${err?.code || 'unknown'} — ${err?.message || 'unknown error'}`;
     return null;
   }
