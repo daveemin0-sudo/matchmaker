@@ -315,6 +315,65 @@ app.post('/webhook/paystack', async (req, res) => {
   }
 });
 
+/* Retrieve authenticated user's profile with automatic email lookup and migration */
+app.get('/profiles/me', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    const userEmail = req.user.email ? req.user.email.toLowerCase() : '';
+    let snap = await db.collection('users').doc(uid).get();
+
+    // If no document exists under this UID, or name was corrupted with an '@' email fallback, search for real profile
+    let needsMigration = !snap.exists;
+    if (snap.exists) {
+      const data = snap.data() || {};
+      if ((!data.name || data.name.includes('@')) && userEmail) {
+        needsMigration = true;
+      }
+    }
+
+    if (needsMigration && userEmail) {
+      const querySnap = await db.collection('users').where('email', '==', userEmail).get();
+      let candidate = null;
+      for (const d of querySnap.docs) {
+        if (d.id === uid) continue;
+        const cData = d.data() || {};
+        if (cData.name && !cData.name.includes('@')) {
+          candidate = { id: d.id, data: cData };
+          break;
+        }
+      }
+      if (!candidate && !querySnap.empty) {
+        const first = querySnap.docs.find(d => d.id !== uid);
+        if (first) candidate = { id: first.id, data: first.data() || {} };
+      }
+
+      if (candidate) {
+        const oldData = candidate.data;
+        const migratedData = {
+          ...oldData,
+          id: uid,
+          email: userEmail,
+          authProvider: 'google',
+          linkedPreviousUid: candidate.id,
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        };
+        await db.collection('users').doc(uid).set(migratedData, { merge: true });
+        snap = await db.collection('users').doc(uid).get();
+        console.log(`Migrated user profile for ${userEmail} from ${candidate.id} to ${uid}`);
+      }
+    }
+
+    if (!snap.exists) {
+      return res.json({ success: true, exists: false, profile: null });
+    }
+
+    return res.json({ success: true, exists: true, profile: snap.data() });
+  } catch (err) {
+    console.error('profiles/me error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not fetch profile.' });
+  }
+});
+
 /* Authenticated direct payment verification. Never trusts uid/amount from the browser. */
 app.post('/profiles/sync', requireAuth, async (req, res) => {
   try {
@@ -355,7 +414,7 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
       active: d.accountStatus !== 'suspended' && !d.deletedAt,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, {merge:true});
-    res.json({success:true});
+    res.json({success:true, profile: d});
   } catch (err) {
     console.error('profile sync error:', err.message);
     res.status(500).json({success:false,error:'Could not sync profile.'});

@@ -137,6 +137,28 @@ async function syncPublicProfileToBackend() {
   }
 }
 
+// Retrieve authenticated user's profile from trusted backend
+async function fetchUserProfileFromBackend() {
+  if (!fbAuth?.currentUser) return null;
+  try {
+    const token = await fbAuth.currentUser.getIdToken();
+    const res = await fetch(BACKEND_URL + '/profiles/me', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.success && data.exists && data.profile) {
+        return data.profile;
+      }
+    }
+  } catch (err) {
+    console.warn('Backend /profiles/me check failed:', err.message);
+  }
+  return null;
+}
+window.fetchUserProfileFromBackend = fetchUserProfileFromBackend;
+window.BACKEND_URL = BACKEND_URL;
+
 // ----------------------------------------------------------
 // AUTHENTICATION
 // ----------------------------------------------------------
@@ -227,29 +249,49 @@ function listenToAuthChanges() {
            let docData = null;
 
            if (doc && doc.exists) {
-             docData = doc.data();
-           } else if (user.email) {
-             // Query Firestore to see if user previously registered under another UID with this email
+             const d = doc.data();
+             if (d && d.name && !d.name.includes('@')) {
+               docData = d;
+             }
+           }
+
+           // 1. If not found in Firestore doc, query trusted backend /profiles/me (Admin SDK checks email and migrates)
+           if (!docData) {
              try {
-               const emailSnap = await fbDb.collection('users')
-                 .where('email', '==', user.email.toLowerCase())
-                 .limit(1)
-                 .get();
-               if (!emailSnap.empty) {
-                 docData = emailSnap.docs[0].data();
-                 console.log('Found existing user profile in Firestore by email:', docData.name, docData.age);
-                 // Link to this Google UID so both credentials access the exact same account
-                 await fbDb.collection('users').doc(user.uid).set({
-                   ...docData,
-                   id: user.uid,
-                   authProvider: 'google',
-                   linkedPreviousUid: emailSnap.docs[0].id,
-                   updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-                 }, { merge: true }).catch(() => {});
+               const backendProfile = await fetchUserProfileFromBackend();
+               if (backendProfile && backendProfile.name && !backendProfile.name.includes('@')) {
+                 docData = backendProfile;
+                 console.log('✅ Found user profile via backend /profiles/me:', docData.name, docData.username);
                }
              } catch (e) {
-               console.warn('Could not query users by email in Firestore:', e.message);
+               console.warn('Could not query /profiles/me in listenToAuthChanges:', e.message);
              }
+           }
+
+           // 2. If still not found, check localStorage profile cache
+           if (!docData && user.email) {
+             try {
+               const cache = JSON.parse(localStorage.getItem('hmbs_profile_cache') || '{}');
+               const cached = cache[user.email.toLowerCase()];
+               if (cached && cached.name && !cached.name.includes('@')) {
+                 docData = cached;
+                 console.log('✅ Restored user profile from local profile cache:', docData.name);
+               }
+             } catch (_) {}
+           }
+
+           // 3. Fallback to localStorage registered users or hmbs_user
+           if (!docData && user.email) {
+             try {
+               const savedUser = JSON.parse(localStorage.getItem('hmbs_user') || 'null');
+               if (savedUser && savedUser.email && savedUser.email.toLowerCase() === user.email.toLowerCase() && savedUser.name && !savedUser.name.includes('@')) {
+                 docData = savedUser;
+               } else {
+                 const regUsers = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
+                 const localMatch = regUsers.find(u => u.email && u.email.toLowerCase() === user.email.toLowerCase() && u.name && !u.name.includes('@'));
+                 if (localMatch) docData = localMatch;
+               }
+             } catch (_) {}
            }
 
            if (docData) {
@@ -261,62 +303,47 @@ function listenToAuthChanges() {
                return;
              }
              targetUser = Object.assign({}, targetUser, docData);
-             const expiryMs = docData.vipExpiry?.toMillis ? docData.vipExpiry.toMillis() : 0;
+             targetUser.id = user.uid;
+             targetUser.email = (user.email || targetUser.email || '').toLowerCase();
+             targetUser.name = docData.name || docData.displayName || targetUser.name;
+             targetUser.displayName = targetUser.name;
+             targetUser.username = docData.username || targetUser.username;
+
+             const expiryMs = docData.vipExpiry?.toMillis ? docData.vipExpiry.toMillis() : (docData.vipExpiry || 0);
              const vipActive = Boolean(docData.isVip && (!expiryMs || expiryMs > Date.now()));
-             if (typeof appState !== 'undefined') appState.isVip = vipActive;
-             if (window.appState) window.appState.isVip = vipActive;
-           } else {
-             // Brand new user without any existing account in Firestore
-             const regUsers = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
-             const localMatch = regUsers.find(u => u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase());
-             const localCurrent = (typeof currentUser !== 'undefined' && currentUser && currentUser.email && user.email && currentUser.email.toLowerCase() === user.email.toLowerCase() && currentUser.name && !currentUser.name.includes('@')) ? currentUser : null;
-             const existing = localCurrent || localMatch;
-
-             let cleanName = existing?.name || existing?.displayName || '';
-             if (!cleanName || cleanName.includes('@')) {
-               const gName = (user.displayName || '').trim();
-               if (gName && !gName.includes('@')) {
-                 cleanName = gName;
-               } else {
-                 const prefix = (user.email || '').split('@')[0] || 'User';
-                 const cleaned = prefix.replace(/[._0-9]+$/g, '') || prefix;
-                 cleanName = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-               }
+             if (typeof appState !== 'undefined') {
+               appState.isVip = vipActive;
+               appState.isLoggedIn = true;
+             }
+             if (window.appState) {
+               window.appState.isVip = vipActive;
+               window.appState.isLoggedIn = true;
              }
 
-             let cleanUsername = existing?.username || '';
-             if (!cleanUsername || cleanUsername.includes('@') || cleanUsername === 'daveemin0') {
-               const prefix = (user.email || '').split('@')[0] || cleanName;
-               cleanUsername = prefix.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
-               if (cleanUsername.length < 3) cleanUsername = 'user_' + Math.floor(100 + Math.random() * 900);
-             }
-
-             const profileData = {
-               id: user.uid,
-               email: (user.email || '').toLowerCase(),
-               name: cleanName,
-               displayName: cleanName,
-               username: cleanUsername,
-               age: existing?.age || 24,
-               gender: existing?.gender || 'Female',
-               bio: existing?.bio || 'Looking for real connections on hookmebysam ✨',
-               interests: existing?.interests || ['Music 🎵', 'Vibes ✨'],
-               image: existing?.image || user.photoURL || '',
-               avatar: existing?.avatar || user.photoURL || '',
-               photos: (existing?.photos && existing.photos.length > 0) ? existing.photos : (user.photoURL ? [user.photoURL] : []),
-               phone: existing?.phone || '',
-               phoneVerified: Boolean(existing?.phoneVerified),
-               isVip: Boolean(existing?.isVip),
-               authProvider: 'google',
-               createdAt: firebase.firestore.FieldValue.serverTimestamp()
-             };
-
+             // Keep local cache updated
              try {
-               await fbDb.collection('users').doc(user.uid).set(profileData, { merge: true });
-             } catch (e) {
-               console.warn('Could not write initial Google user profile to Firestore:', e.message);
-             }
-             targetUser = Object.assign({}, targetUser, profileData);
+               const cache = JSON.parse(localStorage.getItem('hmbs_profile_cache') || '{}');
+               cache[targetUser.email.toLowerCase()] = { ...targetUser };
+               localStorage.setItem('hmbs_profile_cache', JSON.stringify(cache));
+             } catch (_) {}
+
+             // Sync to Firestore without overwriting with email
+             await fbDb.collection('users').doc(user.uid).set(targetUser, { merge: true }).catch(() => {});
+           } else {
+             // Brand new user without any existing account:
+             // Preserve Google display name if valid, but NEVER use email prefix as name or username!
+             const gName = (user.displayName || '').trim();
+             const cleanName = (gName && !gName.includes('@')) ? gName : '';
+
+             targetUser.id = user.uid;
+             targetUser.email = (user.email || '').toLowerCase();
+             targetUser.name = cleanName;
+             targetUser.displayName = cleanName;
+             targetUser.image = user.photoURL || '';
+             targetUser.avatar = user.photoURL || '';
+             targetUser.photos = user.photoURL ? [user.photoURL] : [];
+             targetUser.authProvider = 'google';
+             // Do NOT write dummy profile with email prefix to Firestore!
            }
 
            if (!window.__userSuspensionListenerAttached) {

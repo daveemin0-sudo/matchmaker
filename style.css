@@ -5139,9 +5139,10 @@ label, .form-field label, .auth-form-group label {
   flex-shrink: 0;
 }
 .chat-action-icon-btn {
-  width: 32px !important;
-  height: 32px !important;
-  min-width: 32px !important;
+  width: 38px !important;
+  height: 38px !important;
+  min-width: 38px !important;
+  min-height: 38px !important;
   border-radius: 50%;
   border: none;
   background: transparent;
@@ -5152,7 +5153,15 @@ label, .form-field label, .auth-form-group label {
   justify-content: center;
   padding: 0 !important;
   flex-shrink: 0 !important;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
   transition: background var(--t-fast), color var(--t-fast), transform var(--t-fast);
+}
+.chat-action-icon-btn svg,
+.chat-action-icon-btn svg * {
+  pointer-events: none !important;
 }
 .chat-action-icon-btn:hover {
   background: rgba(255, 46, 112, 0.12);
@@ -5161,6 +5170,7 @@ label, .form-field label, .auth-form-group label {
 }
 .chat-action-icon-btn:active {
   transform: scale(0.92);
+  background: rgba(255, 46, 112, 0.22);
 }
 .chat-call-btn {
   width: 38px; height: 38px;
@@ -13952,27 +13962,26 @@ body {
    SAFETY TOOLKIT, PRIVACY CONTROLS & GENTLE UNMATCH (STEP 5)
    ============================================================ */
 
-/* Chat Shield Header Button */
-.chat-shield-btn {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.06);
-  color: #F4C550;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: all var(--t-fast) var(--spring);
+/* Chat Shield Header Button (Strictly hidden from header - accessible via 3-dots dropdown menu) */
+.chat-shield-btn,
+#chatSafetyShieldBtn {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
 }
 .chat-shield-btn:hover {
-  background: rgba(244, 197, 80, 0.15);
-  border-color: rgba(244, 197, 80, 0.4);
-  transform: scale(1.08);
+  display: none !important;
 }
 .chat-shield-btn:active {
-  transform: scale(0.95);
+  display: none !important;
 }
 
 /* Stealth Mode Header Badge */
@@ -14380,7 +14389,11 @@ body {
 }
 
 /* Light Mode Overrides for Safety & Unmatch */
-[data-theme="light"] .chat-shield-btn {
+[data-theme="light"] .chat-shield-btn,
+[data-theme="light"] #chatSafetyShieldBtn {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
   background: #F3EADB !important;
   border-color: #EDE3D3 !important;
   color: #B8842B !important;

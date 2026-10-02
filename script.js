@@ -1025,6 +1025,13 @@ function saveToStorage() {
     }));
     localStorage.setItem('hmbs_stealth_mode', String(Boolean(appState.isStealthMode)));
     localStorage.setItem('hmbs_user', JSON.stringify(currentUser));
+    if (currentUser && currentUser.email && currentUser.name && !currentUser.name.includes('@')) {
+      try {
+        const pCache = JSON.parse(localStorage.getItem('hmbs_profile_cache') || '{}');
+        pCache[currentUser.email.toLowerCase()] = { ...currentUser };
+        localStorage.setItem('hmbs_profile_cache', JSON.stringify(pCache));
+      } catch (_) {}
+    }
     localStorage.setItem('hmbs_settings', JSON.stringify(settings));
     localStorage.setItem('hmbs_matches', JSON.stringify(matchedUsers));
 
@@ -2008,47 +2015,84 @@ async function handleGoogleLoginSuccess(user) {
   try { sessionStorage.removeItem('hmbs_google_redirecting'); } catch (_) {}
   resetFailedLoginAttempts();
 
-  // 1. Query Firestore directly for an existing profile (by UID or by email)
   let existingProfile = null;
-  if (typeof fbDb !== 'undefined' && fbDb && user.email) {
+  const userEmail = (user.email || '').toLowerCase();
+
+  // 1. Check if currentUser in memory is already this user with valid name
+  if (currentUser && currentUser.email && currentUser.email.toLowerCase() === userEmail && currentUser.name && !currentUser.name.includes('@')) {
+    existingProfile = { ...currentUser };
+  }
+
+  // 2. Check local profile cache (persists across logouts)
+  if (!existingProfile && userEmail) {
+    try {
+      const cache = JSON.parse(localStorage.getItem('hmbs_profile_cache') || '{}');
+      const cached = cache[userEmail];
+      if (cached && cached.name && !cached.name.includes('@')) {
+        existingProfile = cached;
+        console.log('✅ Found profile in local profile cache:', existingProfile.name);
+      }
+    } catch (_) {}
+  }
+
+  // 3. Query Firestore directly for existing document
+  if (!existingProfile && typeof fbDb !== 'undefined' && fbDb) {
     try {
       const doc = await fbDb.collection('users').doc(user.uid).get();
       if (doc && doc.exists) {
-        existingProfile = doc.data();
-      } else {
-        // Find existing account created with this email (e.g. Email/Password signup)
-        const emailSnap = await fbDb.collection('users')
-          .where('email', '==', user.email.toLowerCase())
-          .limit(1)
-          .get();
-        if (!emailSnap.empty) {
-          existingProfile = emailSnap.docs[0].data();
-          console.log('Found existing user profile in Firestore by email:', existingProfile.name, existingProfile.age);
-          // Link this profile to the Google UID so future logins read it directly
-          await fbDb.collection('users').doc(user.uid).set({
-            ...existingProfile,
-            id: user.uid,
-            authProvider: 'google',
-            linkedPreviousUid: emailSnap.docs[0].id,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true }).catch(() => {});
+        const d = doc.data();
+        if (d && d.name && !d.name.includes('@')) {
+          existingProfile = d;
         }
       }
     } catch (e) {
-      console.warn('Error querying Firestore for profile in handleGoogleLoginSuccess:', e);
+      console.warn('Error reading Firestore users doc in handleGoogleLoginSuccess:', e.message);
     }
   }
 
-  // 2. Fallback to localStorage registered users if Firestore query returned nothing
+  // 4. Query backend /profiles/me (which uses Admin SDK to check UID or email and migrate seamlessly)
   if (!existingProfile) {
-    const regUsers = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
-    existingProfile = regUsers.find(u => u.email && user.email && u.email.toLowerCase() === user.email.toLowerCase()) || null;
+    try {
+      if (typeof fetchUserProfileFromBackend === 'function') {
+        const p = await fetchUserProfileFromBackend();
+        if (p && p.name && !p.name.includes('@')) {
+          existingProfile = p;
+        }
+      } else if (typeof BACKEND_URL !== 'undefined') {
+        const token = await user.getIdToken();
+        const res = await fetch(`${BACKEND_URL}/profiles/me`, {
+          headers: { Authorization: 'Bearer ' + token }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.exists && json.profile && json.profile.name && !json.profile.name.includes('@')) {
+            existingProfile = json.profile;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error checking backend /profiles/me in handleGoogleLoginSuccess:', e.message);
+    }
+  }
+
+  // 5. Fallback to localStorage registered users or hmbs_user
+  if (!existingProfile && userEmail) {
+    try {
+      const savedUser = JSON.parse(localStorage.getItem('hmbs_user') || 'null');
+      if (savedUser && savedUser.email && savedUser.email.toLowerCase() === userEmail && savedUser.name && !savedUser.name.includes('@')) {
+        existingProfile = savedUser;
+      } else {
+        const regUsers = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
+        const match = regUsers.find(u => u.email && u.email.toLowerCase() === userEmail && u.name && !u.name.includes('@'));
+        if (match) existingProfile = match;
+      }
+    } catch (_) {}
   }
 
   if (existingProfile) {
     // Preserve the user's REAL account details completely!
     currentUser.id = user.uid;
-    currentUser.email = (user.email || '').toLowerCase();
+    currentUser.email = userEmail;
     currentUser.name = existingProfile.name || existingProfile.displayName || currentUser.name;
     currentUser.displayName = currentUser.name;
     currentUser.username = existingProfile.username || currentUser.username;
@@ -2063,6 +2107,13 @@ async function handleGoogleLoginSuccess(user) {
     }
     currentUser.isVip = Boolean(existingProfile.isVip);
 
+    // Save to profile cache
+    try {
+      const cache = JSON.parse(localStorage.getItem('hmbs_profile_cache') || '{}');
+      cache[userEmail] = { ...currentUser };
+      localStorage.setItem('hmbs_profile_cache', JSON.stringify(cache));
+    } catch (_) {}
+
     appState.isLoggedIn = true;
     saveToStorage();
     showScreen('discovery');
@@ -2072,20 +2123,15 @@ async function handleGoogleLoginSuccess(user) {
   }
 
   // 3. Genuinely brand new user without any existing account:
+  // Never use email prefix as name or username!
   let cleanName = (user.displayName || '').trim();
-  if (!cleanName || cleanName.includes('@')) {
-    const prefix = (user.email || '').split('@')[0] || 'User';
-    const cleaned = prefix.replace(/[._0-9]+$/g, '') || prefix;
-    cleanName = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
-  }
-  let cleanUsername = (user.email || '').split('@')[0].toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 20);
-  if (cleanUsername.length < 3) cleanUsername = 'user_' + Math.floor(100 + Math.random() * 900);
+  if (cleanName.includes('@')) cleanName = '';
 
   currentUser.id = user.uid;
-  currentUser.email = (user.email || '').toLowerCase();
+  currentUser.email = userEmail;
   currentUser.name = cleanName;
   currentUser.displayName = cleanName;
-  currentUser.username = cleanUsername;
+  currentUser.username = '';
   currentUser.age = 24;
   if (user.photoURL) {
     currentUser.image = user.photoURL;
@@ -2093,14 +2139,14 @@ async function handleGoogleLoginSuccess(user) {
     currentUser.photos = [user.photoURL];
   }
 
-  appState.isLoggedIn = true;
-  saveToStorage();
+  appState.isLoggedIn = false; // Stay logged out until profile setup completes
 
   const nameInput = document.getElementById('signupName');
-  if (nameInput) nameInput.value = cleanName;
+  if (nameInput && cleanName) nameInput.value = cleanName;
   const emailInput = document.getElementById('signupEmail');
   if (emailInput) emailInput.value = currentUser.email;
-  showToast(`Welcome ${cleanName}! Please select your age and gender to complete your profile 🎯`, 'gold');
+
+  showToast(`Welcome ${cleanName || 'Explorer'}! Please complete your profile to start matching 🎯`, 'gold');
   showScreen('signup');
 }
 window.handleGoogleLoginSuccess = handleGoogleLoginSuccess;
@@ -4434,6 +4480,12 @@ let currentEmojiCategory = 'smileys';
 // CHAT NAVIGATION & HEADER (WhatsApp Style)
 // ==========================================================
 function openChat(profileId, { fromHistory = false } = {}) {
+  const _shield = document.getElementById('chatSafetyShieldBtn');
+  if (_shield) {
+    _shield.style.setProperty('display', 'none', 'important');
+    _shield.style.setProperty('pointer-events', 'none', 'important');
+    _shield.style.setProperty('visibility', 'hidden', 'important');
+  }
   if (isContactBlocked(profileId)) {
     showToast('This contact is blocked. Unblock them in Settings to chat.', 'error');
     if (appState.currentChatId === profileId) appState.currentChatId = null;
@@ -6946,7 +6998,18 @@ async function refreshTurnCredentials() {
 
 function currentCallPartner() {
   const partnerId = appState.currentChatId;
-  return matchedUsers.find(u => u.id === partnerId) || PROFILES_DATA.find(u => u.id === partnerId) || null;
+  if (!partnerId) return null;
+  let p = matchedUsers.find(u => u.id === partnerId) || 
+          (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA.find(u => u.id === partnerId) : null) ||
+          (typeof PREMIUM_MATCHES !== 'undefined' ? PREMIUM_MATCHES.find(u => u.id === partnerId) : null) ||
+          (window.__chatPartners && window.__chatPartners[partnerId]) ||
+          null;
+  if (!p) {
+    const nameEl = document.getElementById('chatPartnerName');
+    const name = nameEl?.textContent || 'Match';
+    p = { id: partnerId, name: name };
+  }
+  return p;
 }
 
 function closeCallListeners() {
@@ -7181,31 +7244,54 @@ async function flushPendingRemoteCandidates(pc) {
   }
 }
 
+let _isInitiatingCall = false;
+
 async function startPeerCall(type) {
-  const partner = currentCallPartner();
-  if (!fbAuth?.currentUser || !fbDb || !partner || partner.id === fbAuth.currentUser.uid) {
-    showToast('Calls are available only between signed-in matches.', 'error');
-    return;
-  }
-  if ((window.__blockedUserIds || new Set()).has(partner.id)) {
-    showToast('You cannot call a blocked contact.', 'error');
-    return;
-  }
-  if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
-    showToast('This device/browser does not support secure calling.', 'error');
-    return;
-  }
-
-  if (activePeerConnection) endCall(false);
-
-  const uid = fbAuth.currentUser.uid;
-  const matchId = [uid, partner.id].sort().join('_');
+  if (_isInitiatingCall) return;
+  _isInitiatingCall = true;
 
   try {
+    if (navigator.vibrate) {
+      try { navigator.vibrate(25); } catch (_) {}
+    }
+
+    const partner = currentCallPartner();
+    if (!fbAuth?.currentUser || !fbDb || !partner || partner.id === fbAuth.currentUser.uid) {
+      showToast('Calls are available only between signed-in matches.', 'error');
+      return;
+    }
+    if ((window.__blockedUserIds || new Set()).has(partner.id)) {
+      showToast('You cannot call a blocked contact.', 'error');
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+      showToast('This device/browser does not support secure calling.', 'error');
+      return;
+    }
+
+    if (activePeerConnection) endCall(false);
+
+    const uid = fbAuth.currentUser.uid;
+    const matchId = [uid, partner.id].sort().join('_');
+
+    // IMMEDIATELY show call overlay and play ringtone on the FIRST click without waiting for network!
+    const overlay = document.getElementById(type === 'video' ? 'videoCallOverlay' : 'voiceCallOverlay');
+    const nameEl = document.getElementById(type === 'video' ? 'videoCallName' : 'callName');
+    const avatarEl = document.getElementById(type === 'video' ? 'videoCallAvatar' : 'callAvatar');
+    if (nameEl) nameEl.textContent = partner.name || 'Match';
+    if (avatarEl && (partner.image || partner.photos?.[0] || partner.avatar)) {
+      avatarEl.src = partner.image || partner.photos?.[0] || partner.avatar;
+    }
+    if (overlay) overlay.style.display = 'flex';
+    updateCallUi(type, 'Calling... 📞');
+    playRingtone();
+
     await refreshTurnCredentials();
     const matchDoc = await fbDb.collection('matches').doc(matchId).get();
     const matchUsers = matchDoc.data()?.users;
     if (!matchDoc.exists || !Array.isArray(matchUsers) || !matchUsers.includes(uid) || !matchUsers.includes(partner.id)) {
+      stopRingtone();
+      if (overlay) overlay.style.display = 'none';
       showToast('Calls are available only for mutual matches.', 'error');
       return;
     }
@@ -7221,12 +7307,6 @@ async function startPeerCall(type) {
     activeCallType = type;
     activeCallDirection = 'outgoing';
     pendingRemoteCandidates = [];
-
-    const overlay = document.getElementById(type === 'video' ? 'videoCallOverlay' : 'voiceCallOverlay');
-    const nameEl = document.getElementById(type === 'video' ? 'videoCallName' : 'callName');
-    if (nameEl) nameEl.textContent = partner.name || 'Match';
-    if (overlay) overlay.style.display = 'flex';
-    updateCallUi(type, 'Calling... 📞');
 
     await wireCallPeerConnection(type, pc, callRef);
 
@@ -10658,6 +10738,15 @@ window.openReportFromDetailSheet = openReportFromDetailSheet;
 
 async function handleLogout() {
   if (!confirm('Are you sure you want to log out?')) return;
+
+  // Back up profile data before clearing session so returning sign-ins are instant
+  if (currentUser && currentUser.email && currentUser.name && !currentUser.name.includes('@')) {
+    try {
+      const pCache = JSON.parse(localStorage.getItem('hmbs_profile_cache') || '{}');
+      pCache[currentUser.email.toLowerCase()] = { ...currentUser };
+      localStorage.setItem('hmbs_profile_cache', JSON.stringify(pCache));
+    } catch (_) {}
+  }
 
   // Sign out from Firebase Auth if active
   if (typeof fbAuth !== 'undefined' && fbAuth) {
