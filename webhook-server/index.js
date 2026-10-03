@@ -315,62 +315,87 @@ app.post('/webhook/paystack', async (req, res) => {
   }
 });
 
-/* Retrieve authenticated user's profile with automatic email lookup and migration */
+/* Retrieve authenticated user's own profile. Read-only: it never clones a profile to another uid. */
 app.get('/profiles/me', requireAuth, async (req, res) => {
   try {
-    const uid = req.user.uid;
-    const userEmail = req.user.email ? req.user.email.toLowerCase() : '';
-    let snap = await db.collection('users').doc(uid).get();
-
-    // If no document exists under this UID, or name was corrupted with an '@' email fallback, search for real profile
-    let needsMigration = !snap.exists;
-    if (snap.exists) {
-      const data = snap.data() || {};
-      if ((!data.name || data.name.includes('@')) && userEmail) {
-        needsMigration = true;
-      }
-    }
-
-    if (needsMigration && userEmail) {
-      const querySnap = await db.collection('users').where('email', '==', userEmail).get();
-      let candidate = null;
-      for (const d of querySnap.docs) {
-        if (d.id === uid) continue;
-        const cData = d.data() || {};
-        if (cData.name && !cData.name.includes('@')) {
-          candidate = { id: d.id, data: cData };
-          break;
-        }
-      }
-      if (!candidate && !querySnap.empty) {
-        const first = querySnap.docs.find(d => d.id !== uid);
-        if (first) candidate = { id: first.id, data: first.data() || {} };
-      }
-
-      if (candidate) {
-        const oldData = candidate.data;
-        const migratedData = {
-          ...oldData,
-          id: uid,
-          email: userEmail,
-          authProvider: 'google',
-          linkedPreviousUid: candidate.id,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp()
-        };
-        await db.collection('users').doc(uid).set(migratedData, { merge: true });
-        snap = await db.collection('users').doc(uid).get();
-        console.log(`Migrated user profile for ${userEmail} from ${candidate.id} to ${uid}`);
-      }
-    }
-
+    const snap = await db.collection('users').doc(req.user.uid).get();
     if (!snap.exists) {
       return res.json({ success: true, exists: false, profile: null });
     }
-
     return res.json({ success: true, exists: true, profile: snap.data() });
   } catch (err) {
     console.error('profiles/me error:', err.message);
     return res.status(500).json({ success: false, error: 'Could not fetch profile.' });
+  }
+});
+
+/*
+ * Google account linking.
+ * If a Google sign-in produced a brand-new Firebase uid while an account with the
+ * same verified email already exists (e.g. email/password), link the Google
+ * provider to the EXISTING uid and discard the redundant Google-only auth user.
+ * The client then re-signs in with the Google credential and lands on the
+ * original uid, so profile, chats, matches and followers are all preserved.
+ */
+app.post('/auth/link-google', requireAuth, async (req, res) => {
+  try {
+    const newUid = req.user.uid;
+    const email = String(req.user.email || '').trim().toLowerCase();
+    if (req.user.firebase?.sign_in_provider !== 'google.com' || !email || req.user.email_verified !== true) {
+      return res.json({ success: true, linked: false, reason: 'not-applicable' });
+    }
+    if (!(await persistentRateLimit('link-google:' + newUid, 10, 10 * 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many requests.' });
+    }
+
+    const googleRec = await admin.auth().getUser(newUid);
+    const googleInfo = googleRec.providerData.find(p => p.providerId === 'google.com');
+    // Only ever merge a pure Google-only auth user
+    if (!googleInfo || googleRec.providerData.length !== 1) {
+      return res.json({ success: true, linked: false, reason: 'already-linked' });
+    }
+
+    // Collect other accounts that own this email
+    const candidateUids = new Set();
+    try {
+      const byEmail = await admin.auth().getUserByEmail(email);
+      if (byEmail.uid !== newUid) candidateUids.add(byEmail.uid);
+    } catch (_) {}
+    const fsSnap = await db.collection('users').where('email', 'in', [email, String(req.user.email)]).get();
+    fsSnap.forEach(d => { if (d.id !== newUid) candidateUids.add(d.id); });
+
+    let target = null;
+    for (const cUid of candidateUids) {
+      try {
+        const rec = await admin.auth().getUser(cUid);
+        if (rec.disabled) continue;
+        if (String(rec.email || '').toLowerCase() !== email) continue;
+        if (rec.providerData.some(p => p.providerId === 'google.com')) continue;
+        if (!target || rec.providerData.some(p => p.providerId === 'password')) target = rec;
+      } catch (_) {}
+    }
+    if (!target) return res.json({ success: true, linked: false, reason: 'no-existing-account' });
+
+    // Retire the redundant Google-only auth user (frees the Google identity), then link it
+    await admin.auth().deleteUser(newUid);
+    await admin.auth().updateUser(target.uid, {
+      emailVerified: true,
+      providerToLink: { providerId: 'google.com', uid: googleInfo.uid }
+    });
+
+    // Hide the duplicate profile and flag the real one; existing profile fields are NOT overwritten
+    await db.collection('public_profiles').doc(newUid).set({ active: false, mergedInto: target.uid }, { merge: true }).catch(() => {});
+    await db.collection('users').doc(newUid).set({ mergedInto: target.uid, accountStatus: 'merged' }, { merge: true }).catch(() => {});
+    await db.collection('users').doc(target.uid).set({
+      googleLinked: true,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+
+    console.log(`Linked Google identity to existing account ${target.uid}; removed duplicate ${newUid}`);
+    return res.json({ success: true, linked: true, uid: target.uid });
+  } catch (err) {
+    console.error('link-google error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not link Google account.' });
   }
 });
 
@@ -379,27 +404,7 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
     if (!(await persistentRateLimit('profile-sync:' + uid, 20, 10 * 60 * 1000))) return res.status(429).json({ success:false, error:'Too many profile sync requests.' });
-    let snap = await db.collection('users').doc(uid).get();
-    if (!snap.exists) {
-      const userEmail = req.user.email ? req.user.email.toLowerCase() : '';
-      if (userEmail) {
-        const querySnap = await db.collection('users').where('email', '==', userEmail).limit(1).get();
-        if (!querySnap.empty && querySnap.docs[0].id !== uid) {
-          const oldData = querySnap.docs[0].data();
-          const migratedData = {
-            ...oldData,
-            id: uid,
-            email: userEmail,
-            authProvider: 'google',
-            linkedPreviousUid: querySnap.docs[0].id,
-            updatedAt: admin.firestore.FieldValue.serverTimestamp()
-          };
-          await db.collection('users').doc(uid).set(migratedData, { merge: true });
-          snap = await db.collection('users').doc(uid).get();
-          console.log(`Migrated user profile for ${userEmail} from ${querySnap.docs[0].id} to ${uid}`);
-        }
-      }
-    }
+    const snap = await db.collection('users').doc(uid).get();
     if (!snap.exists) return res.status(404).json({ success:false, error:'Profile not found.' });
     const d = snap.data() || {};
     const age = Number(d.age);

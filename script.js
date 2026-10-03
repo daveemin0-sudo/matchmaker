@@ -454,7 +454,8 @@ function bootApplication() {
   if (typeof fbAuth !== 'undefined' && fbAuth && typeof fbAuth.getRedirectResult === 'function') {
     fbAuth.getRedirectResult().then((result) => {
       if (result && result.user) {
-        handleGoogleLoginSuccess(result.user);
+        const resolver = typeof window.resolveGoogleSignIn === 'function' ? window.resolveGoogleSignIn(result) : Promise.resolve(result.user);
+        resolver.then(u => handleGoogleLoginSuccess(u));
       }
     }).catch((err) => {
       if (err && err.code) {
@@ -2210,8 +2211,9 @@ function handleGoogleLogin() {
 
     // Try popup first (fast, works on desktop and modern mobile browsers when initiated by click)
     fbAuth.signInWithPopup(provider)
-      .then((result) => {
-        handleGoogleLoginSuccess(result.user);
+      .then(async (result) => {
+        const u = typeof window.resolveGoogleSignIn === 'function' ? await window.resolveGoogleSignIn(result) : result.user;
+        handleGoogleLoginSuccess(u);
       })
       .catch((err) => {
         console.warn("signInWithPopup result code:", err.code, err.message);
@@ -8957,11 +8959,21 @@ async function sendVoiceNote() {
             }
 
             // Chat voice notes must use the shared match-scoped Storage path.
-            // Private chat media must be stored in Cloud Storage before it is sent
-            // Only send the stable Cloud Storage URL to the recipient
-            const uploadPromise = uploadFileToBackend(audioBlob, `chat_media/${matchId}`, false, cleanMime);
-            const timeoutPromise = new Promise(res => setTimeout(() => res(null), 15000));
-            finalRemoteUrl = await Promise.race([uploadPromise, timeoutPromise]);
+            // Retry the upload (a single slow/failed attempt previously meant the
+            // message was never delivered to the recipient).
+            for (let attempt = 1; attempt <= 3 && !finalRemoteUrl; attempt++) {
+              const uploadPromise = uploadFileToBackend(audioBlob, `chat_media/${matchId}`, false, cleanMime);
+              const timeoutPromise = new Promise(res => setTimeout(() => res(null), 45000));
+              finalRemoteUrl = await Promise.race([uploadPromise, timeoutPromise]);
+              if (!finalRemoteUrl && attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
+            }
+            if (!finalRemoteUrl) {
+              console.warn('Voice upload failed after retries:', window._lastMediaUploadError);
+              // Fallback: deliver short notes inline (Firestore docs are limited to 1MiB)
+              if (base64DataUrl && base64DataUrl.length < 700 * 1024) {
+                finalRemoteUrl = base64DataUrl;
+              }
+            }
           } catch (err) {
             console.warn('Voice upload error:', err);
           }

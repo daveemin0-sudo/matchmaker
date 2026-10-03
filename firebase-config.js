@@ -84,11 +84,13 @@ function initBackend() {
         fbAuth.getRedirectResult().then((result) => {
           if (result && result.user) {
             console.log("🔥 Google redirect sign-in success:", result.user.email);
-            if (typeof handleGoogleLoginSuccess === 'function') {
-              handleGoogleLoginSuccess(result.user);
-            } else if (typeof window.handleGoogleLoginSuccess === 'function') {
-              window.handleGoogleLoginSuccess(result.user);
-            }
+            window.resolveGoogleSignIn(result).then((user) => {
+              if (typeof handleGoogleLoginSuccess === 'function') {
+                handleGoogleLoginSuccess(user);
+              } else if (typeof window.handleGoogleLoginSuccess === 'function') {
+                window.handleGoogleLoginSuccess(user);
+              }
+            });
           }
         }).catch((err) => {
           console.warn("Google redirect auth error:", err);
@@ -158,6 +160,33 @@ async function fetchUserProfileFromBackend() {
 }
 window.fetchUserProfileFromBackend = fetchUserProfileFromBackend;
 window.BACKEND_URL = BACKEND_URL;
+
+// Account linking for Google sign-in. If the Google identity produced a new
+// uid but the same verified email already belongs to an existing account, the
+// backend links Google to that existing account; we then sign in again with the
+// Google credential so the ORIGINAL uid (profile, chats, matches) is used.
+async function resolveGoogleSignIn(result) {
+  const user = result && result.user;
+  if (!user) return user;
+  try {
+    const token = await user.getIdToken(true);
+    const res = await fetch(BACKEND_URL + '/auth/link-google', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!res.ok) return user;
+    const data = await res.json();
+    if (data && data.linked && result.credential) {
+      await fbAuth.signOut();
+      const relinked = await fbAuth.signInWithCredential(result.credential);
+      return relinked.user;
+    }
+  } catch (err) {
+    console.warn('Google account linking check failed:', err.message);
+  }
+  return fbAuth.currentUser || user;
+}
+window.resolveGoogleSignIn = resolveGoogleSignIn;
 
 // ----------------------------------------------------------
 // AUTHENTICATION
