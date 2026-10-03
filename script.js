@@ -5255,9 +5255,13 @@ function renderChatThread() {
     ? [fbAuth.currentUser.uid, partnerId].sort().join('_')
     : null;
 
+  const partner = (typeof matchedUsers !== 'undefined' ? matchedUsers : []).find(u => u.id === partnerId) || 
+                  (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA : []).find(u => u.id === partnerId) || 
+                  (conversations[partnerId]?.partner) || null;
+  const partnerName = partner ? escHtml(partner.name) : (conversations[partnerId]?.partnerName || 'your match');
+  const partnerPhoto = partner?.image || partner?.photoUrl || partner?.avatar || conversations[partnerId]?.partnerImage || '';
+
   if (hist.length === 0) {
-    const partner = (typeof matchedUsers !== 'undefined' ? matchedUsers : []).find(u => u.id === partnerId) || (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA : []).find(u => u.id === partnerId);
-    const partnerName = partner ? escHtml(partner.name) : 'your match';
     container.innerHTML = `
       <div class="chat-match-milestone" style="text-align:center;padding:28px 16px 36px;color:var(--txt-muted);">
         <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 12px;background:var(--grad-flame);display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 8px 24px rgba(255,46,112,0.3)">🔥</div>
@@ -5465,7 +5469,7 @@ function renderChatThread() {
       const waveformHtml = typeof renderVoiceWaveformHtml === 'function' 
         ? renderVoiceWaveformHtml(msgId, msg.seed || msgId, 28) 
         : '';
-      const avatarSrc = isSent ? (currentUser?.image || currentUser?.avatar || '') : (partner?.image || partner?.photoUrl || '');
+      const avatarSrc = isSent ? (currentUser?.image || currentUser?.avatar || '') : (partnerPhoto || partner?.image || partner?.photoUrl || '');
       const badgeHtml = avatarSrc 
         ? `<div class="vn-avatar-badge"><img src="${escHtml(avatarSrc)}" alt="" onerror="this.style.display='none'"><span class="vn-mic-badge-icon">🎙️</span></div>`
         : `<div class="vn-avatar-badge" style="background:linear-gradient(135deg,#FF5E8E,#FF2E70);color:#fff;font-size:14px;">🎙️</div>`;
