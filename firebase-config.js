@@ -981,7 +981,9 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
 
     let snapshot;
     try {
-      snapshot = await storageRef.put(file, metadata);
+      const putPromise = storageRef.put(file, metadata);
+      const putTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Storage put timeout')), 3500));
+      snapshot = await Promise.race([putPromise, putTimeout]);
       const downloadUrl = await snapshot.ref.getDownloadURL();
       return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
     } catch (putErr) {
@@ -989,7 +991,7 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
         window._firebaseStorageDisabled = true;
       }
       window._lastMediaUploadError = `Storage upload failed: ${putErr?.code || 'unknown'} — ${putErr?.message || 'unknown error'}`;
-      console.warn('Direct Firebase Storage put failed, attempting backend upload fallback:', putErr?.message);
+      console.warn('Direct Firebase Storage put failed/timed out, attempting backend upload fallback:', putErr?.message);
 
       // Attempt backend proxy upload to bypass browser CORS / client storage restrictions
       try {

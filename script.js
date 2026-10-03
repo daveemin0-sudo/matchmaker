@@ -634,14 +634,13 @@ function applyMatchesUpdate(realMatches) {
         if (!alreadyExists && !isOlderOrRead) {
           const isViewing = (appState.currentScreen === 'chat' && appState.currentChatId === m.id);
           const isVoicePreview = m.lastMessage.includes('Voice note') || m.lastMessage.includes('🎤');
-          // If viewing the chat, the Firestore realtime messages listener loads the full voice note.
-          // When outside the chat, only push non-voice messages or push with isVoice flag
-          if (!isViewing && !isVoicePreview) {
+          if (!isViewing) {
             msgs.push({
               id: 'remote_' + msgTime,
               sender: 'them',
               senderId: m.lastSender,
               text: m.lastMessage,
+              isVoice: isVoicePreview,
               read: false,
               timestamp: msgTime
             });
@@ -1174,7 +1173,7 @@ function saveToStorage() {
           if (m.imageUrl && m.imageUrl.length > 500 && m.imageUrl.startsWith('data:')) {
             return { ...m, imageUrl: '' };
           }
-          if (m.audioUrl && m.audioUrl.length > 250 * 1024 && m.audioUrl.startsWith('data:')) {
+          if (m.audioUrl && m.audioUrl.length > 800 * 1024 && m.audioUrl.startsWith('data:')) {
             return { ...m, audioUrl: '' };
           }
           return m;
@@ -9073,40 +9072,30 @@ async function sendVoiceNote() {
       // 2. BACKGROUND UPLOAD & FIRESTORE DISPATCH (Non-blocking)
       (async () => {
         let finalRemoteUrl = null;
-        const isFirebaseOnline = Boolean(
-          typeof fbAuth !== 'undefined' && fbAuth?.currentUser &&
-          typeof fbStorage !== 'undefined' && fbStorage &&
-          !window._firebaseStorageDisabled
-        );
+        const currentUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : null;
 
-        if (isFirebaseOnline && typeof uploadFileToBackend === 'function') {
-          const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+        if (currentUid) {
+          const matchId = [currentUid, partnerId].sort().join('_');
           try {
             // Pre-provision match doc in Firestore so Storage rules validation (firestore.exists) passes
             if (typeof fbDb !== 'undefined' && fbDb) {
               await fbDb.collection('matches').doc(matchId).set({
-                users: [fbAuth.currentUser.uid, partnerId].sort()
+                users: [currentUid, partnerId].sort()
               }, { merge: true }).catch(() => {});
             }
 
-            // Chat voice notes must use the shared match-scoped Storage path.
-            // Retry the upload (a single slow/failed attempt previously meant the
-            // message was never delivered to the recipient).
-            for (let attempt = 1; attempt <= 3 && !finalRemoteUrl; attempt++) {
+            if (typeof uploadFileToBackend === 'function') {
               const uploadPromise = uploadFileToBackend(audioBlob, `chat_media/${matchId}`, false, cleanMime);
-              const timeoutPromise = new Promise(res => setTimeout(() => res(null), 45000));
+              const timeoutPromise = new Promise(res => setTimeout(() => res(null), 6000));
               finalRemoteUrl = await Promise.race([uploadPromise, timeoutPromise]);
-              if (!finalRemoteUrl && attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt));
-            }
-            if (!finalRemoteUrl) {
-              console.warn('Voice upload failed after retries:', window._lastMediaUploadError);
-              // Fallback: deliver short notes inline (Firestore docs are limited to 1MiB)
-              if (base64DataUrl && base64DataUrl.length < 700 * 1024) {
-                finalRemoteUrl = base64DataUrl;
-              }
             }
           } catch (err) {
             console.warn('Voice upload error:', err);
+          }
+
+          // Immediate guaranteed fallback: deliver inline base64 if cloud upload was slow or unavailable
+          if (!finalRemoteUrl && base64DataUrl && base64DataUrl.length < 800 * 1024) {
+            finalRemoteUrl = base64DataUrl;
           }
 
           if (finalRemoteUrl) {
