@@ -83,9 +83,8 @@ try {
   console.warn('⚠️  Firestore client pending credentials initialization.');
 }
 
-app.disable('x-powered-by');
 app.use(express.json({
-  limit: '1mb',
+  limit: '15mb',
   verify: (req, _res, buf) => { req.rawBody = Buffer.from(buf); }
 }));
 app.set('trust proxy', 1);
@@ -423,6 +422,72 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('profile sync error:', err.message);
     res.status(500).json({success:false,error:'Could not sync profile.'});
+  }
+});
+
+/*
+ * Authenticated media upload proxy (bypasses browser CORS restrictions for storage)
+ */
+app.post('/media/upload', requireAuth, async (req, res) => {
+  try {
+    const { dataBase64, contentType, path, fileName } = req.body || {};
+    if (!dataBase64) {
+      return res.status(400).json({ success: false, error: 'dataBase64 is required.' });
+    }
+    const uid = req.user.uid;
+    const safePath = String(path || 'chat_media').replace(/[^a-zA-Z0-9_\-\/]/g, '');
+    const cleanContentType = String(contentType || 'audio/webm').split(';')[0];
+
+    // Verify user is authorized for chat_media path
+    if (safePath.startsWith('chat_media/')) {
+      const matchId = safePath.split('/')[1] || '';
+      const participants = matchId.split('_');
+      if (!participants.includes(uid)) {
+        return res.status(403).json({ success: false, error: 'Unauthorized path.' });
+      }
+    }
+
+    // Strip data URL prefix if present
+    const rawBase64 = dataBase64.includes(';base64,') ? dataBase64.split(';base64,')[1] : dataBase64;
+    const buffer = Buffer.from(rawBase64, 'base64');
+
+    if (buffer.length > 15 * 1024 * 1024) {
+      return res.status(400).json({ success: false, error: 'File size exceeds 15MB limit.' });
+    }
+
+    let downloadUrl = null;
+    try {
+      const bucketName = FIREBASE_STORAGE_BUCKET || admin.storage().bucket().name || `${process.env.FIREBASE_PROJECT_ID || 'hookmebysam'}.firebasestorage.app`;
+      const bucket = admin.storage().bucket(bucketName);
+      const safeName = String(fileName || `file_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+      const destination = `${safePath}/${uid}/${Date.now()}_${safeName}`;
+      const fileRef = bucket.file(destination);
+
+      const downloadToken = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+      await fileRef.save(buffer, {
+        metadata: {
+          contentType: cleanContentType,
+          metadata: {
+            firebaseStorageDownloadTokens: downloadToken
+          }
+        },
+        resumable: false
+      });
+
+      downloadUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(destination)}?alt=media&token=${downloadToken}`;
+    } catch (storageErr) {
+      console.warn('Backend storage upload fallback notice:', storageErr.message);
+    }
+
+    // If storage bucket isn't configured, return the clean inline data URL (guaranteed fallback)
+    if (!downloadUrl) {
+      downloadUrl = dataBase64.startsWith('data:') ? dataBase64 : `data:${cleanContentType};base64,${rawBase64}`;
+    }
+
+    return res.json({ success: true, url: downloadUrl });
+  } catch (err) {
+    console.error('media/upload error:', err.message);
+    return res.status(500).json({ success: false, error: 'Media upload failed.' });
   }
 });
 

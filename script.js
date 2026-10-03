@@ -541,7 +541,33 @@ function isContactBlocked(userId) {
 
 // Reusable handler to process matches & messages payload from Firestore
 function applyMatchesUpdate(realMatches) {
-  if (!realMatches || realMatches.length === 0) return;
+  if (!Array.isArray(realMatches)) return;
+  const currentUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : (currentUser?.id || null);
+
+  // Authoritatively isolate matches for real users:
+  // If the user has 0 matches or only a subset of matches, remove any previous account's stale matches!
+  if (currentUid && !isGuestMode()) {
+    const realIds = new Set(realMatches.map(m => m.id));
+    matchedUsers = (matchedUsers || []).filter(u => realIds.has(u.id));
+
+    // Also prune conversation threads that do not belong to this user's authorized matches
+    for (const chatId in conversations) {
+      if (!realIds.has(chatId) && chatId !== appState.currentChatId) {
+        delete conversations[chatId];
+      }
+    }
+  }
+
+  if (realMatches.length === 0) {
+    window._initialMatchesLoaded = true;
+    sortMatchedUsersByLatest();
+    renderMatchesView();
+    if (typeof renderChatsInbox === 'function') renderChatsInbox();
+    updateMatchesNotificationBadge();
+    saveToStorage();
+    return;
+  }
+
   let hasNewIncomingMessage = false;
   realMatches.forEach(m => {
     if (!m || !m.id || isContactBlocked(m.id)) {
@@ -601,16 +627,21 @@ function applyMatchesUpdate(realMatches) {
 
         if (!alreadyExists && !isOlderOrRead) {
           const isViewing = (appState.currentScreen === 'chat' && appState.currentChatId === m.id);
-          msgs.push({
-            id: 'remote_' + msgTime,
-            sender: 'them',
-            senderId: m.lastSender,
-            text: m.lastMessage,
-            read: isViewing,
-            timestamp: msgTime
-          });
-          msgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-          movePartnerToTop(m.id);
+          const isVoicePreview = m.lastMessage.includes('Voice note') || m.lastMessage.includes('🎤');
+          // If viewing the chat, the Firestore realtime messages listener loads the full voice note.
+          // When outside the chat, only push non-voice messages or push with isVoice flag
+          if (!isViewing && !isVoicePreview) {
+            msgs.push({
+              id: 'remote_' + msgTime,
+              sender: 'them',
+              senderId: m.lastSender,
+              text: m.lastMessage,
+              read: false,
+              timestamp: msgTime
+            });
+            msgs.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            movePartnerToTop(m.id);
+          }
 
           if (!isViewing) {
             hasNewIncomingMessage = true;
@@ -895,8 +926,92 @@ async function getFromIndexedDB(key) {
   }
 }
 
+// ----------------------------------------------------------
+// PER-USER CACHE ISOLATION
+// Every locally cached conversation/match/blocked list belongs to exactly one
+// Firebase uid ('hmbs_cache_owner'). When a different uid signs in (or the user
+// logs out) all user-specific local state is wiped so it can never leak to the
+// next account. Firestore remains the source of truth and repopulates it.
+// ----------------------------------------------------------
+async function clearOfflineIdbUserData() {
+  try {
+    const db = await openOfflineIdb();
+    if (!db) return;
+    await new Promise((resolve) => {
+      const tx = db.transaction(HMBS_IDB_STORE, 'readwrite');
+      tx.objectStore(HMBS_IDB_STORE).clear();
+      tx.oncomplete = resolve;
+      tx.onerror = resolve;
+      tx.onabort = resolve;
+    });
+  } catch (_) {}
+}
+
+async function purgeUserScopedData() {
+  try {
+    if (typeof window._activeMatchesListener === 'function') {
+      window._activeMatchesListener();
+      window._activeMatchesListener = null;
+    }
+  } catch (_) {}
+  try {
+    if (typeof activeRealtimeListener === 'function') {
+      activeRealtimeListener();
+      activeRealtimeListener = null;
+    }
+  } catch (_) {}
+  try {
+    if (typeof _activePresenceListener === 'function') {
+      _activePresenceListener();
+      _activePresenceListener = null;
+    }
+  } catch (_) {}
+  conversations = {};
+  matchedUsers = [];
+  blockedUsers = [];
+  profileStack = [];
+  appState.currentChatId = null;
+  appState.isLoggedIn = false;
+  appState.isVip = false;
+  window.__blockedUserIds = new Set();
+  window.__currentAuthUid = null;
+  if (currentUser && typeof currentUser === 'object') {
+    Object.keys(currentUser).forEach(k => { delete currentUser[k]; });
+  }
+  window.currentUser = {};
+  try {
+    ['hmbs_state', 'hmbs_user', 'hmbs_matches', 'hmbs_convos', 'hmbs_blocked', 'hmbs_cache_owner', 'hmbs_deleted_convos'].forEach(k => localStorage.removeItem(k));
+    Object.keys(localStorage).filter(k => k.startsWith('hmbs_cleared_')).forEach(k => localStorage.removeItem(k));
+  } catch (_) {}
+  await clearOfflineIdbUserData();
+
+  try {
+    if (typeof renderConversationList === 'function') renderConversationList();
+    if (typeof renderChatsInbox === 'function') renderChatsInbox();
+    if (typeof renderMatchesView === 'function') renderMatchesView();
+    if (typeof updateMatchesNotificationBadge === 'function') updateMatchesNotificationBadge();
+  } catch (_) {}
+}
+window.purgeUserScopedData = purgeUserScopedData;
+
+// Call as soon as the authenticated uid is known.
+async function ensureCacheOwner(uid) {
+  if (!uid) return;
+  let owner = null;
+  try { owner = localStorage.getItem('hmbs_cache_owner'); } catch (_) {}
+  if (owner && owner !== uid) {
+    console.log('[Isolation] Cache owner changed (' + owner + ' -> ' + uid + '); purging previous user data');
+    await purgeUserScopedData();
+  }
+  try { localStorage.setItem('hmbs_cache_owner', uid); } catch (_) {}
+  window.__currentAuthUid = uid;
+}
+window.ensureCacheOwner = ensureCacheOwner;
+
 function syncMatchedUsersFromConversations() {
   if (!conversations || typeof conversations !== 'object') return;
+  const currentUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : null;
+  if (!currentUid && !isGuestMode()) return;
   for (const [partnerId, convo] of Object.entries(conversations)) {
     if (!partnerId || !Array.isArray(convo?.messages) || convo.messages.length === 0) continue;
     if (isContactBlocked(partnerId) || DUMMY_USER_IDS.includes(partnerId)) continue;
@@ -920,10 +1035,16 @@ function syncMatchedUsersFromConversations() {
 
 async function restoreOfflineDataFromIndexedDB() {
   try {
+    // Only restore a cache that belongs to the signed-in user (or, before auth resolves, a stamped owner)
+    const owner = localStorage.getItem('hmbs_cache_owner');
+    const liveUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : null;
+    if (!owner || (liveUid && liveUid !== owner)) return;
     const [cachedConvos, cachedMatches] = await Promise.all([
       getFromIndexedDB('conversations'),
       getFromIndexedDB('matchedUsers')
     ]);
+    const nowUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : null;
+    if (localStorage.getItem('hmbs_cache_owner') !== owner || (nowUid && nowUid !== owner)) return;
 
     let changed = false;
     if (cachedConvos && typeof cachedConvos === 'object') {
@@ -1047,7 +1168,7 @@ function saveToStorage() {
           if (m.imageUrl && m.imageUrl.length > 500 && m.imageUrl.startsWith('data:')) {
             return { ...m, imageUrl: '' };
           }
-          if (m.audioUrl && m.audioUrl.length > 500 && m.audioUrl.startsWith('data:')) {
+          if (m.audioUrl && m.audioUrl.length > 250 * 1024 && m.audioUrl.startsWith('data:')) {
             return { ...m, audioUrl: '' };
           }
           return m;
@@ -10803,6 +10924,15 @@ async function handleLogout() {
     } catch (_) {}
   }
 
+  // Purge all user-scoped data, in-memory state, IndexedDB, and listeners
+  try {
+    if (typeof purgeUserScopedData === 'function') {
+      await purgeUserScopedData();
+    }
+  } catch (err) {
+    console.warn("Purge user scoped data warning:", err);
+  }
+
   // Sign out from Firebase Auth if active
   if (typeof fbAuth !== 'undefined' && fbAuth) {
     try {
@@ -10813,10 +10943,9 @@ async function handleLogout() {
   }
 
   appState.isLoggedIn = false;
-  localStorage.removeItem('hmbs_state');
-  localStorage.removeItem('hmbs_user');
-  localStorage.removeItem('hmbs_matches');
-  localStorage.removeItem('hmbs_convos');
+  try {
+    ['hmbs_state', 'hmbs_user', 'hmbs_matches', 'hmbs_convos', 'hmbs_blocked', 'hmbs_cache_owner', 'hmbs_deleted_convos'].forEach(k => localStorage.removeItem(k));
+  } catch (_) {}
   location.reload();
 }
 

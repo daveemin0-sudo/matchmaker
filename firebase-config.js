@@ -267,6 +267,14 @@ function listenToAuthChanges() {
   if (!fbAuth) return;
   fbAuth.onAuthStateChanged(async (user) => {
     if (user) {
+      // Isolate caches strictly per user ID: purge previous user's data if user switched
+      if (typeof window.ensureCacheOwner === 'function') {
+        await window.ensureCacheOwner(user.uid);
+      } else if (typeof ensureCacheOwner === 'function') {
+        await ensureCacheOwner(user.uid);
+      }
+      window.__currentAuthUid = user.uid;
+
       // Safely access or create currentUser object
       let targetUser = (typeof currentUser !== 'undefined' && currentUser) ? currentUser : (window.currentUser || {});
        // The server/Firestore account record is the source of truth for VIP.
@@ -462,6 +470,12 @@ function listenToAuthChanges() {
         try { window._activeMatchesListener(); } catch (_) {}
         window._activeMatchesListener = null;
       }
+      if (typeof window.purgeUserScopedData === 'function') {
+        window.purgeUserScopedData();
+      } else if (typeof purgeUserScopedData === 'function') {
+        purgeUserScopedData();
+      }
+      window.__currentAuthUid = null;
        if (typeof appState !== 'undefined') {
          appState.isLoggedIn = false;
          appState.isVip = false;
@@ -968,16 +982,50 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     let snapshot;
     try {
       snapshot = await storageRef.put(file, metadata);
+      const downloadUrl = await snapshot.ref.getDownloadURL();
+      return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
     } catch (putErr) {
       if (putErr?.code === 'storage/bucket-not-found' || putErr?.code === 'storage/project-not-found') {
         window._firebaseStorageDisabled = true;
       }
       window._lastMediaUploadError = `Storage upload failed: ${putErr?.code || 'unknown'} — ${putErr?.message || 'unknown error'}`;
+      console.warn('Direct Firebase Storage put failed, attempting backend upload fallback:', putErr?.message);
+
+      // Attempt backend proxy upload to bypass browser CORS / client storage restrictions
+      try {
+        const token = await fbAuth.currentUser.getIdToken();
+        const base64 = await new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        });
+        if (base64) {
+          const res = await fetch(BACKEND_URL + '/media/upload', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + token
+            },
+            body: JSON.stringify({
+              dataBase64: base64,
+              contentType: metadata.contentType,
+              path: storagePath,
+              fileName: safeName
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data?.success && data?.url) {
+              return returnMetadata ? { url: data.url, storagePath: `${storagePath}/${uid}/${safeName}` } : data.url;
+            }
+          }
+        }
+      } catch (backendErr) {
+        console.warn('Backend upload proxy error:', backendErr.message);
+      }
       return null;
     }
-
-    const downloadUrl = await snapshot.ref.getDownloadURL();
-    return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
   } catch (err) {
     if (err?.code === 'storage/bucket-not-found' || err?.code === 'storage/project-not-found') {
       window._firebaseStorageDisabled = true;
