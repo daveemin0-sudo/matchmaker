@@ -363,6 +363,12 @@ function isRealUserLoggedIn() {
   );
 }
 
+function isGuestMode() {
+  return !isRealUserLoggedIn();
+}
+window.isRealUserLoggedIn = isRealUserLoggedIn;
+window.isGuestMode = isGuestMode;
+
 // ==========================================================
 // AGE GATE — 18+ verification (COPPA / dating-app law)
 // ==========================================================
@@ -546,7 +552,7 @@ function applyMatchesUpdate(realMatches) {
 
   // Authoritatively isolate matches for real users:
   // If the user has 0 matches or only a subset of matches, remove any previous account's stale matches!
-  if (currentUid && !isGuestMode()) {
+  if (currentUid && (typeof isRealUserLoggedIn === 'function' ? isRealUserLoggedIn() : !isGuestMode())) {
     const realIds = new Set(realMatches.map(m => m.id));
     matchedUsers = (matchedUsers || []).filter(u => realIds.has(u.id));
 
@@ -1011,7 +1017,7 @@ window.ensureCacheOwner = ensureCacheOwner;
 function syncMatchedUsersFromConversations() {
   if (!conversations || typeof conversations !== 'object') return;
   const currentUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : null;
-  if (!currentUid && !isGuestMode()) return;
+  if (!currentUid && (typeof isRealUserLoggedIn === 'function' ? isRealUserLoggedIn() : false)) return;
   for (const [partnerId, convo] of Object.entries(conversations)) {
     if (!partnerId || !Array.isArray(convo?.messages) || convo.messages.length === 0) continue;
     if (isContactBlocked(partnerId) || DUMMY_USER_IDS.includes(partnerId)) continue;
