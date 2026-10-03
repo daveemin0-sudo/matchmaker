@@ -178,6 +178,7 @@ async function backendSignUp(email, password, userData) {
       id: user.uid,
       email: email,
       name: userData.name || 'User',
+      username: (userData.username || userData.name || 'user').toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user',
       age: userData.age || 24,
       bio: userData.bio || '',
       gender: userData.gender || 'Male',
@@ -299,15 +300,18 @@ function listenToAuthChanges() {
                targetUser.suspended = true;
                if (typeof showToast === 'function') showToast('Your account has been suspended by an administrator.', 'error');
                if (typeof fbAuth.signOut === 'function') fbAuth.signOut();
-               if (typeof logoutUser === 'function') logoutUser();
+               if (typeof handleLogout === 'function') handleLogout();
                return;
              }
              targetUser = Object.assign({}, targetUser, docData);
              targetUser.id = user.uid;
              targetUser.email = (user.email || targetUser.email || '').toLowerCase();
-             targetUser.name = docData.name || docData.displayName || targetUser.name;
+             targetUser.name = docData.name || docData.displayName || targetUser.name || 'User';
              targetUser.displayName = targetUser.name;
-             targetUser.username = docData.username || targetUser.username;
+             // Guarantee username is never undefined!
+             targetUser.username = (docData.username || targetUser.username || targetUser.name || 'user')
+               .toLowerCase()
+               .replace(/[^a-z0-9_]/g, '') || 'user';
 
              const expiryMs = docData.vipExpiry?.toMillis ? docData.vipExpiry.toMillis() : (docData.vipExpiry || 0);
              const vipActive = Boolean(docData.isVip && (!expiryMs || expiryMs > Date.now()));
@@ -327,8 +331,21 @@ function listenToAuthChanges() {
                localStorage.setItem('hmbs_profile_cache', JSON.stringify(cache));
              } catch (_) {}
 
-             // Sync to Firestore without overwriting with email
-             await fbDb.collection('users').doc(user.uid).set(targetUser, { merge: true }).catch(() => {});
+             // Only write to Firestore if document does not exist yet (avoid redundant overwrites)
+             if (!doc || !doc.exists) {
+               const cleanPayload = {};
+               for (const [k, v] of Object.entries(targetUser)) {
+                 if (v !== undefined && typeof v !== 'function') {
+                   cleanPayload[k] = v;
+                 }
+               }
+               cleanPayload.username = targetUser.username || 'user';
+               try {
+                 await fbDb.collection('users').doc(user.uid).set(cleanPayload, { merge: true });
+               } catch (e) {
+                 console.warn('Profile sync notice:', e.message);
+               }
+             }
            } else {
              // Brand new user without any existing account:
              // Preserve Google display name if valid, but NEVER use email prefix as name or username!
@@ -354,7 +371,7 @@ function listenToAuthChanges() {
                  if (d.suspended === true || d.accountStatus === 'suspended') {
                    window.alert('Your account has been suspended by an administrator for violating community guidelines.');
                    if (typeof fbAuth.signOut === 'function') fbAuth.signOut();
-                   if (typeof logoutUser === 'function') logoutUser();
+                   if (typeof handleLogout === 'function') handleLogout();
                    window.location.reload();
                  }
                }

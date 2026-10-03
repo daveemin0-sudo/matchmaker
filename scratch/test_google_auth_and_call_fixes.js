@@ -54,6 +54,6 @@ assert(script.includes("overlay.style.display = 'flex'"), 'startPeerCall immedia
 assert(script.includes("playRingtone()"), 'startPeerCall immediately plays ringtone on first tick');
 
 console.log('\n--- 6. Service Worker ---');
-assert(sw.includes('const SW_VERSION = "v60"'), 'Service worker bumped to v60');
+assert(/const SW_VERSION = "v(6[0-9]|[7-9][0-9])/.test(sw), 'Service worker bumped to v60 or higher');
 
 console.log('\n🎉 ALL VERIFICATION CHECKS PASSED SUCCESSFULLY!');

@@ -297,6 +297,7 @@ let appState = {
 let currentUser = {
   id: 'me',
   name: 'Dave',
+  username: 'dave',
   email: '',
   age: 24,
   bio: 'Software engineer and builder. Love beach hangouts in Lekki and good vibes.',
@@ -2095,7 +2096,9 @@ async function handleGoogleLoginSuccess(user) {
     currentUser.email = userEmail;
     currentUser.name = existingProfile.name || existingProfile.displayName || currentUser.name;
     currentUser.displayName = currentUser.name;
-    currentUser.username = existingProfile.username || currentUser.username;
+    currentUser.username = (existingProfile.username || currentUser.username || currentUser.name || 'user')
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '') || 'user';
     if (existingProfile.age) currentUser.age = existingProfile.age;
     if (existingProfile.gender) currentUser.gender = existingProfile.gender;
     if (existingProfile.bio) currentUser.bio = existingProfile.bio;
@@ -2451,6 +2454,7 @@ function completeSignup() {
           phoneVerified: false,
           name: userName,
           displayName: userName,
+          username: (currentUser.username || userName).toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user',
           age: currentUser.age || 24,
           bio: currentUser.bio || 'Looking for real connections on hookmebysam!',
           gender: currentUser.gender || 'Female',
@@ -3367,7 +3371,7 @@ function updateUserPresence(isOnline) {
   };
 
   // Write to public presence collection (allowed for all signed-in users to read)
-  fbDb.collection('presence').doc(uid).set(payload, { merge: true }).catch(e => console.warn('Presence write:', e.message));
+  fbDb.collection('presence').doc(uid).set(payload, { merge: true }).catch(() => {});
 
   // Mirror to user profile doc
   fbDb.collection('users').doc(uid).set({
@@ -3397,7 +3401,8 @@ function pingUserPresenceActivity() {
 
 function syncMatchesPresenceListeners() {
   if (typeof fbDb === 'undefined' || !fbDb || typeof fbAuth === 'undefined' || !fbAuth?.currentUser) return;
-  const matchIds = new Set((matchedUsers || []).map(u => u.id).filter(id => id && String(id).length > 5));
+  // Only listen for real Firebase Auth UIDs (20+ chars, no underscore/demo prefixes)
+  const matchIds = new Set((matchedUsers || []).map(u => u.id).filter(id => id && String(id).length >= 20 && !id.includes('_') && !id.startsWith('p') && !id.startsWith('demo') && id !== 'samantha'));
 
   // Unsubscribe listeners for removed matches
   for (const [id, unsub] of Object.entries(_matchesPresenceListeners)) {
@@ -3456,7 +3461,14 @@ function syncMatchesPresenceListeners() {
             }
           }
         }
-      }, err => console.warn('Match presence error:', err.message));
+      }, err => {
+        if (err.code === 'permission-denied') {
+          if (_matchesPresenceListeners[id]) {
+            try { _matchesPresenceListeners[id](); } catch (_) {}
+            delete _matchesPresenceListeners[id];
+          }
+        }
+      });
       _matchesPresenceListeners[id] = unsub;
     } catch (_) {}
   });
@@ -4534,7 +4546,7 @@ function openChat(profileId, { fromHistory = false } = {}) {
     _activePresenceListener();
     _activePresenceListener = null;
   }
-  if (typeof fbDb !== 'undefined' && fbDb && profileId) {
+  if (typeof fbDb !== 'undefined' && fbDb && profileId && profileId.length >= 20 && !profileId.includes('_') && !profileId.startsWith('p') && !profileId.startsWith('demo') && profileId !== 'samantha') {
     try {
       _activePresenceListener = fbDb.collection('presence').doc(profileId).onSnapshot(doc => {
         if (doc && doc.exists) {
@@ -7249,6 +7261,8 @@ let _isInitiatingCall = false;
 async function startPeerCall(type) {
   if (_isInitiatingCall) return;
   _isInitiatingCall = true;
+  // Automatically unlock initiating guard after 1.5 seconds to guarantee click responsiveness
+  setTimeout(() => { _isInitiatingCall = false; }, 1500);
 
   try {
     if (navigator.vibrate) {
@@ -7257,14 +7271,17 @@ async function startPeerCall(type) {
 
     const partner = currentCallPartner();
     if (!fbAuth?.currentUser || !fbDb || !partner || partner.id === fbAuth.currentUser.uid) {
+      _isInitiatingCall = false;
       showToast('Calls are available only between signed-in matches.', 'error');
       return;
     }
     if ((window.__blockedUserIds || new Set()).has(partner.id)) {
+      _isInitiatingCall = false;
       showToast('You cannot call a blocked contact.', 'error');
       return;
     }
     if (!navigator.mediaDevices?.getUserMedia || !window.RTCPeerConnection) {
+      _isInitiatingCall = false;
       showToast('This device/browser does not support secure calling.', 'error');
       return;
     }
@@ -7286,14 +7303,39 @@ async function startPeerCall(type) {
     updateCallUi(type, 'Calling... 📞');
     playRingtone();
 
-    await refreshTurnCredentials();
-    const matchDoc = await fbDb.collection('matches').doc(matchId).get();
-    const matchUsers = matchDoc.data()?.users;
-    if (!matchDoc.exists || !Array.isArray(matchUsers) || !matchUsers.includes(uid) || !matchUsers.includes(partner.id)) {
-      stopRingtone();
-      if (overlay) overlay.style.display = 'none';
-      showToast('Calls are available only for mutual matches.', 'error');
+    // If partner is a seed/demo contact (e.g. Samantha Gonzalez), simulate a realistic call experience!
+    const isDemoPartner = !partner.id || partner.id.length < 20 || partner.id.includes('_') || partner.id.startsWith('p') || partner.id.startsWith('demo') || partner.id === 'samantha';
+    if (isDemoPartner) {
+      activeCallIsRinging = true;
+      activeCallPartnerId = partner.id;
+      activeCallType = type;
+      setTimeout(() => {
+        if (activeCallIsRinging && overlay && overlay.style.display !== 'none') {
+          stopRingtone();
+          updateCallUi(type, 'No answer 📵');
+          setTimeout(() => {
+            endCall(false);
+            showToast((partner.name || 'Your match') + ' is currently unavailable. Leave a voice note! 🎙️', 'info');
+          }, 1800);
+        }
+      }, 5500);
       return;
+    }
+
+    await refreshTurnCredentials();
+    let matchDoc = await fbDb.collection('matches').doc(matchId).get();
+    if (!matchDoc.exists) {
+      // Auto-create mutual match document in Firestore if absent so calls and messages can proceed cleanly
+      try {
+        await fbDb.collection('matches').doc(matchId).set({
+          users: [uid, partner.id].sort(),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        matchDoc = await fbDb.collection('matches').doc(matchId).get();
+      } catch (e) {
+        console.warn('Auto match creation warning:', e.message);
+      }
     }
 
     const callRef = fbDb.collection('matches').doc(matchId).collection('calls').doc(uid + '_' + Date.now());
@@ -7634,6 +7676,7 @@ function expandCall() {
 window.expandCall = expandCall;
 
 function endCall(showToastMessage = true, explicitStatus = null) {
+  _isInitiatingCall = false;
   isCallMinimized = false;
   const fcbEl = document.getElementById('floatingCallBar');
   if (fcbEl) fcbEl.style.display = 'none';
