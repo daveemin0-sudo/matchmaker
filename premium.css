@@ -66,7 +66,7 @@ body::before {
   gap: 10px;
 }
 
-.app-header h1, #headerTitle {
+.app-header h1.main-header-logo, #headerTitle.main-header-logo {
   font-family: var(--font-display) !important;
   font-size: 1.45rem !important;
   font-weight: 900 !important;
@@ -76,6 +76,17 @@ body::before {
   -webkit-text-fill-color: transparent !important;
   background-clip: text !important;
   filter: drop-shadow(0 0 14px rgba(209, 58, 99, 0.35)) !important;
+}
+
+.app-header h1.screen-header-title, #headerTitle.screen-header-title {
+  font-family: var(--font-display) !important;
+  font-size: 1.35rem !important;
+  font-weight: 900 !important;
+  letter-spacing: -0.4px !important;
+  background: transparent !important;
+  -webkit-text-fill-color: var(--txt-primary) !important;
+  color: var(--txt-primary) !important;
+  filter: none !important;
 }
 
 .header-vip-badge {
@@ -3596,6 +3607,17 @@ body[data-theme="light"] {
 
 [data-theme="light"] #headerTitle {
   color: #140C1D !important;
+  -webkit-text-fill-color: #140C1D !important;
+  background: transparent !important;
+  filter: none !important;
+}
+
+[data-theme="light"] #headerTitle.main-header-logo {
+  background: var(--flame-grad) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  background-clip: text !important;
+  filter: drop-shadow(0 0 14px rgba(209, 58, 99, 0.35)) !important;
 }
 
 [data-theme="light"] .header-btn,
@@ -4997,4 +5019,469 @@ body {
 .global-back-btn svg {
   width: clamp(18px, 4.8vw, 22px) !important;
   height: clamp(18px, 4.8vw, 22px) !important;
+}
+
+/* ==========================================================================
+   COMPREHENSIVE DUAL-THEME POLISH SYSTEM (DARK & LIGHT PERFECTION)
+   Guarantees 100% readability, WCAG contrast, luxurious aesthetics & harmony
+   ========================================================================== */
+
+/* --- 1. ACCENT & FILLED BUTTONS (High contrast text in both themes) --- */
+.accent-btn,
+button.accent-btn,
+.filter-apply-btn,
+.selfie-primary-btn {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .accent-btn,
+[data-theme="light"] button.accent-btn,
+[data-theme="light"] #editProfileModal .accent-btn,
+[data-theme="light"] #forgotPasswordModal .accent-btn,
+[data-theme="light"] #phoneVerifyModal .accent-btn,
+[data-theme="light"] #phoneVerificationModal .accent-btn,
+[data-theme="light"] #forwardModal .accent-btn,
+[data-theme="light"] #languageModal .accent-btn,
+[data-theme="light"] .filter-apply-btn {
+  color: #FFFFFF !important;
+  -webkit-text-fill-color: #FFFFFF !important;
+  background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
+  box-shadow: 0 6px 20px rgba(180, 25, 75, 0.28) !important;
+}
+
+/* --- 2. DISCOVERY FILTER MODAL (Light & Dark Polish) --- */
+[data-theme="light"] .discovery-filter-sheet {
+  background: #FFFFFF !important;
+  border: 1px solid #E5DFEC !important;
+  box-shadow: 0 24px 60px rgba(20, 12, 29, 0.16) !important;
+}
+[data-theme="light"] .sheet-drag-handle {
+  background: rgba(0, 0, 0, 0.2) !important;
+}
+[data-theme="light"] .filter-sheet-header {
+  border-bottom: 1px solid #EFEAF4 !important;
+}
+[data-theme="light"] .filter-sheet-title {
+  color: #140C1D !important;
+}
+[data-theme="light"] .filter-reset-btn {
+  color: #B71855 !important;
+}
+[data-theme="light"] .filter-close-btn {
+  background: #F3EEF8 !important;
+  color: #140C1D !important;
+}
+[data-theme="light"] .filter-close-btn:hover {
+  background: #E8E0F0 !important;
+}
+[data-theme="light"] .filter-group {
+  background: #FAF7FC !important;
+  border: 1px solid #ECE4F2 !important;
+}
+[data-theme="light"] .filter-group-label,
+[data-theme="light"] .filter-toggle-title {
+  color: #140C1D !important;
+}
+[data-theme="light"] .filter-toggle-desc {
+  color: #524760 !important;
+}
+[data-theme="light"] .filter-val-badge {
+  color: #9C1045 !important;
+  background: #FCE8F0 !important;
+  font-weight: 800 !important;
+}
+[data-theme="light"] .slider-marks {
+  color: #635773 !important;
+  font-weight: 500 !important;
+}
+[data-theme="light"] .filter-chips-row button.filter-chip {
+  background: #FFFFFF !important;
+  border: 1.5px solid #DDD3E5 !important;
+  color: #22152F !important;
+  font-weight: 600 !important;
+}
+[data-theme="light"] .filter-chips-row button.filter-chip:hover {
+  background: #F7F3FA !important;
+}
+[data-theme="light"] .filter-chips-row button.filter-chip.active {
+  background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
+  border-color: #8E1538 !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(180, 25, 75, 0.28) !important;
+}
+
+/* --- 3. SELFIE VERIFICATION MODAL (Light & Dark Polish) --- */
+[data-theme="light"] .selfie-modal-card {
+  background: #FFFFFF !important;
+  border: 1px solid #E5DFEC !important;
+  box-shadow: 0 24px 60px rgba(20, 12, 29, 0.16) !important;
+}
+[data-theme="light"] .selfie-modal-close {
+  background: #F3EEF8 !important;
+  color: #140C1D !important;
+}
+[data-theme="light"] .selfie-modal-title {
+  color: #140C1D !important;
+}
+[data-theme="light"] .selfie-modal-sub {
+  color: #4D4359 !important;
+}
+[data-theme="light"] .selfie-step-dot {
+  background: #F0EAF5 !important;
+  color: #4D4258 !important;
+  font-weight: 600 !important;
+}
+[data-theme="light"] .selfie-step-dot.active {
+  background: #0277BD !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .selfie-step-dot.done {
+  background: #1B5E20 !important;
+  color: #FFFFFF !important;
+}
+[data-theme="light"] .selfie-privacy-note {
+  color: #554A62 !important;
+}
+[data-theme="light"] .selfie-secondary-btn {
+  background: #F4EEF8 !important;
+  border-color: #DDD4E5 !important;
+  color: #22152F !important;
+}
+
+[data-theme="dark"] .selfie-step-dot,
+.selfie-step-dot {
+  color: #BDB7C8 !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+[data-theme="dark"] .selfie-step-dot.active,
+.selfie-step-dot.active {
+  color: #FFFFFF !important;
+  background: rgba(56, 151, 240, 0.5) !important;
+}
+[data-theme="dark"] .selfie-privacy-note,
+.selfie-privacy-note {
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+/* --- 4. SIGNUP SUCCESS WELCOME SCREEN (Light & Dark Polish) --- */
+[data-theme="light"] .success-shell {
+  background: radial-gradient(circle at 50% 20%, #FFF0F5 0%, #FAF7F2 60%, #F5EEF9 100%) !important;
+}
+[data-theme="light"] .success-title {
+  color: #140C1D !important;
+}
+[data-theme="light"] .success-sub {
+  color: #382C40 !important;
+  font-weight: 500 !important;
+}
+[data-theme="light"] .success-stats {
+  background: #FFFFFF !important;
+  border: 1px solid #E5DFEC !important;
+  box-shadow: 0 6px 20px rgba(30, 15, 45, 0.06) !important;
+}
+[data-theme="light"] .stat-label {
+  color: #4E4259 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .success-hint {
+  color: #4D4159 !important;
+  font-weight: 500 !important;
+}
+[data-theme="light"] .brand-by {
+  color: #554862 !important;
+  font-weight: 700 !important;
+}
+
+/* --- 5. BOTTOM NAVIGATION BAR & HEADER (Light & Dark Polish) --- */
+[data-theme="light"] .bottom-nav {
+  background: rgba(255, 255, 255, 0.98) !important;
+  border-top: 1px solid #EDE4F2 !important;
+  box-shadow: 0 -4px 20px rgba(25, 12, 35, 0.05) !important;
+}
+[data-theme="light"] .nav-tab {
+  color: #524760 !important;
+}
+[data-theme="light"] .nav-tab:hover {
+  color: #1E122A !important;
+}
+[data-theme="light"] .nav-tab.active {
+  color: #B71855 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .nav-tab.active svg {
+  stroke: #B71855 !important;
+  fill: rgba(183, 24, 85, 0.12) !important;
+}
+
+[data-theme="dark"] .nav-tab,
+.nav-tab {
+  color: #A098AD !important;
+}
+[data-theme="dark"] .nav-tab.active,
+.nav-tab.active {
+  color: #FF5E8E !important;
+}
+
+/* --- 6. AUTH SCREENS & DIALOGS POLISH --- */
+[data-theme="light"] .auth-tab {
+  background: #F3EEF7 !important;
+  color: #3F334D !important;
+}
+[data-theme="light"] .auth-tab.active {
+  background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(180, 25, 75, 0.28) !important;
+}
+[data-theme="light"] .auth-forgot {
+  color: #B71855 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .auth-switch-text span {
+  color: #B71855 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .auth-divider {
+  color: #554862 !important;
+  font-weight: 600 !important;
+}
+[data-theme="light"] .guest-btn {
+  color: #2D2138 !important;
+  border: 1.5px dashed #C8BED2 !important;
+  background: #FFFFFF !important;
+  font-weight: 600 !important;
+}
+[data-theme="light"] .guest-btn:hover {
+  background: #F9F5FC !important;
+  border-color: #B5A8C2 !important;
+}
+
+[data-theme="dark"] .auth-forgot,
+.auth-forgot {
+  color: #FF6694 !important;
+}
+[data-theme="dark"] .auth-switch-text span,
+.auth-switch-text span {
+  color: #FF6694 !important;
+}
+
+/* --- 7. SETTINGS SCREEN ENHANCEMENTS --- */
+[data-theme="light"] .settings-slider-value {
+  color: #9C1045 !important;
+  font-weight: 800 !important;
+}
+[data-theme="light"] .settings-online-status {
+  color: #0E7039 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .settings-badge-chip {
+  color: #8C4000 !important;
+  background: #FFF3E0 !important;
+  border: 1px solid #FFD180 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .settings-badge-chip.verified {
+  color: #0E7039 !important;
+  background: #E8F5E9 !important;
+  border-color: #A5D6A7 !important;
+}
+[data-theme="light"] .settings-signout-btn {
+  background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 6px 18px rgba(183, 24, 85, 0.25) !important;
+}
+[data-theme="light"] .settings-delete-btn {
+  background: #FFF2F6 !important;
+  border: 1.5px solid #C2185B !important;
+  color: #9C1045 !important;
+  font-weight: 800 !important;
+}
+[data-theme="light"] .settings-footer-copy {
+  color: #4D4258 !important;
+}
+[data-theme="light"] .settings-footer-copy strong {
+  color: #1E1328 !important;
+}
+
+[data-theme="dark"] .settings-footer-copy,
+.settings-footer-copy {
+  color: #A098AD !important;
+}
+[data-theme="dark"] .settings-footer-copy strong,
+.settings-footer-copy strong {
+  color: #EDE7F6 !important;
+}
+[data-theme="dark"] .settings-delete-btn,
+.settings-delete-btn {
+  background: rgba(243, 38, 112, 0.12) !important;
+  border-color: #FF5E8E !important;
+  color: #FF85AB !important;
+}
+[data-theme="dark"] .settings-signout-btn,
+.settings-signout-btn {
+  background: linear-gradient(135deg, #D13A63 0%, #9C1844 100%) !important;
+  color: #FFFFFF !important;
+}
+
+/* --- 8. PROFILE SCREEN & BADGES --- */
+[data-theme="light"] .hk-vpc-badge {
+  background: #E1F0FF !important;
+  color: #01579B !important;
+  border: 1px solid #81D4FA !important;
+  font-weight: 800 !important;
+}
+[data-theme="light"] .hk-vpc-btn {
+  background: linear-gradient(135deg, #0288D1, #01579B) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(2, 136, 209, 0.3) !important;
+}
+[data-theme="light"] .hk-section-title {
+  color: #4D4258 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .hk-strength-link {
+  color: #9C1045 !important;
+  font-weight: 800 !important;
+}
+[data-theme="light"] .preview-card-btn,
+[data-theme="light"] #profilePreviewBtn {
+  color: #8E1538 !important;
+  border-color: #E8BFCD !important;
+  background: #FFF5F8 !important;
+}
+
+/* --- 9. VIP & PAYWALL GOLD POLISH --- */
+[data-theme="light"] .vip-card-badge {
+  color: #724D00 !important;
+  background: #FFF3CC !important;
+  border: 1px solid #FFD54F !important;
+  font-weight: 800 !important;
+}
+[data-theme="light"] #tgCountdownTimer {
+  color: #7A5300 !important;
+  font-weight: 800 !important;
+}
+[data-theme="light"] .tg-th-free {
+  color: #4D4258 !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .tg-secure-footer {
+  color: #4D4258 !important;
+}
+[data-theme="light"] .tg-price-struck {
+  color: #635770 !important;
+}
+[data-theme="light"] .tg-ti-sub {
+  color: #554A62 !important;
+}
+
+/* --- 10. SAFETY & UNMATCH CONFIRMATION MODALS --- */
+.unmatch-confirm-btn {
+  background: linear-gradient(135deg, #C62828, #8E0000) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+[data-theme="light"] .safety-section-title {
+  color: #4D4258 !important;
+  font-weight: 700 !important;
+}
+
+/* --- 11. FINISHING CONTRAST REFINEMENTS (DARK & LIGHT) --- */
+.filter-age-sub-label {
+  color: rgba(255, 255, 255, 0.72) !important;
+  font-weight: 500 !important;
+}
+.filter-age-val {
+  color: #FF6584 !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .filter-age-sub-label {
+  color: #524760 !important;
+  font-weight: 600 !important;
+}
+[data-theme="light"] .filter-age-val {
+  color: #9C1045 !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .auth-hero-italic {
+  color: #8C5B00 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .section-count {
+  color: #524760 !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="light"] #editProfileModal .form-hint,
+[data-theme="light"] #editProfileModal span {
+  color: #524760 !important;
+}
+
+[data-theme="light"] .settings-row-sub {
+  color: #524760 !important;
+  font-weight: 500 !important;
+}
+
+[data-theme="dark"] .settings-slider-value,
+.settings-slider-value {
+  color: #FF6584 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="dark"] .slider-marks,
+.slider-marks {
+  color: #A098AD !important;
+  font-weight: 500 !important;
+}
+
+.auth-tab.active {
+  background: linear-gradient(135deg, #D13A63 0%, #9C1844 100%) !important;
+  color: #FFFFFF !important;
+}
+
+.hk-vpc-btn,
+button#hkVerifyBtn.hk-vpc-btn {
+  background: linear-gradient(135deg, #0288D1 0%, #01579B 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 14px rgba(2, 136, 209, 0.3) !important;
+}
+
+[data-theme="dark"] .hk-vpc-badge,
+.hk-vpc-badge {
+  color: #82C4FF !important;
+  background: rgba(43, 144, 235, 0.18) !important;
+  border-color: rgba(43, 144, 235, 0.35) !important;
+}
+
+[data-theme="light"] .hk-hero-preview-btn,
+[data-theme="light"] .preview-card-btn,
+[data-theme="light"] #profilePreviewBtn {
+  background: #FFF0F4 !important;
+  border: 1.5px solid #D13A63 !important;
+  color: #7A1638 !important;
+}
+[data-theme="light"] .hk-hero-preview-btn span,
+[data-theme="light"] .preview-card-btn span,
+[data-theme="light"] #profilePreviewBtn span {
+  color: #7A1638 !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] #safetyToolkitModal span,
+[data-theme="light"] .safety-emergency-btn span,
+[data-theme="light"] .safety-btn-danger span {
+  color: #990000 !important;
+  font-weight: 700 !important;
+}
+
+.selfie-primary-btn,
+#selfieActionBtn.selfie-primary-btn {
+  background: linear-gradient(135deg, #0288D1 0%, #01579B 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 16px rgba(1, 87, 155, 0.35) !important;
 }

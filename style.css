@@ -8935,13 +8935,13 @@ body[data-theme="light"],
   color: #15121A !important;
 }
 
-[data-theme="light"] #editProfileModal button,
-[data-theme="light"] #forgotPasswordModal button,
-[data-theme="light"] #forwardModal button,
-[data-theme="light"] #phoneVerifyModal button,
-[data-theme="light"] #phoneVerificationModal button,
-[data-theme="light"] #languageModal button,
-[data-theme="light"] #legalModalInner button {
+[data-theme="light"] #editProfileModal button:not(.accent-btn),
+[data-theme="light"] #forgotPasswordModal button:not(.accent-btn),
+[data-theme="light"] #forwardModal button:not(.accent-btn),
+[data-theme="light"] #phoneVerifyModal button:not(.accent-btn),
+[data-theme="light"] #phoneVerificationModal button:not(.accent-btn),
+[data-theme="light"] #languageModal button:not(.accent-btn),
+[data-theme="light"] #legalModalInner button:not(.accent-btn) {
   color: #3F3747 !important;
 }
 

@@ -1689,7 +1689,7 @@
                 </div>
                 <div class="settings-row-info" style="flex:1;display:flex;flex-direction:column;gap:2px;">
                   <span class="settings-row-label">Verified Profiles Only</span>
-                  <span class="settings-row-sub" style="font-size:0.75rem;opacity:0.65;">Only discover members with photo verification</span>
+                  <span class="settings-row-sub" style="font-size:0.75rem;">Only discover members with photo verification</span>
                 </div>
                 <label class="switch" for="settingsVerifiedOnlyToggle">
                   <input type="checkbox" id="settingsVerifiedOnlyToggle" onchange="updateVerifiedSetting(this.checked)">
@@ -2110,11 +2110,11 @@
             <div class="filter-slider-wrap">
               <div style="display:flex;gap:12px;align-items:center;">
                 <div style="flex:1;">
-                  <div style="font-size:0.75rem;color:rgba(255,255,255,0.6);margin-bottom:4px;">Min: <strong id="filterMinAgeVal" style="color:#FF5E8E;">20</strong></div>
+                  <div class="filter-age-sub-label" style="font-size:0.75rem;margin-bottom:4px;">Min: <strong id="filterMinAgeVal" class="filter-age-val">20</strong></div>
                   <input type="range" class="range-slider" id="filterMinAgeSlider" min="18" max="60" value="20" oninput="onFilterAgeChange()">
                 </div>
                 <div style="flex:1;">
-                  <div style="font-size:0.75rem;color:rgba(255,255,255,0.6);margin-bottom:4px;">Max: <strong id="filterMaxAgeVal" style="color:#FF5E8E;">35</strong></div>
+                  <div class="filter-age-sub-label" style="font-size:0.75rem;margin-bottom:4px;">Max: <strong id="filterMaxAgeVal" class="filter-age-val">35</strong></div>
                   <input type="range" class="range-slider" id="filterMaxAgeSlider" min="19" max="75" value="35" oninput="onFilterAgeChange()">
                 </div>
               </div>

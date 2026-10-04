@@ -1405,13 +1405,16 @@ function setTheme(theme) {
   } catch (e) {}
 
   const targets = [document.documentElement, document.body, document.querySelector('.app-shell')].filter(Boolean);
+  // Keep data-theme="dark" on <html> (matches the boot script in index.html) so
+  // [data-theme="dark"] rules keep applying after a runtime toggle.
   targets.forEach(el => {
     if (theme === 'light') el.setAttribute('data-theme', 'light');
+    else if (el === document.documentElement) el.setAttribute('data-theme', 'dark');
     else el.removeAttribute('data-theme');
   });
 
   const metaTheme = document.getElementById('metaThemeColor');
-  if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#FFFFFF' : '#0A0710');
+  if (metaTheme) metaTheme.setAttribute('content', theme === 'light' ? '#FAF5EC' : '#0A0710');
 
   if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar) {
     window.Capacitor.Plugins.StatusBar.setOverlaysWebView({ overlay: false }).catch(() => {});
