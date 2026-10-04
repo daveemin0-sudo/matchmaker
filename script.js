@@ -2977,10 +2977,100 @@ window.startChatWithIcebreaker = startChatWithIcebreaker;
 // SWIPE ENGINE
 // ==========================================================
 
+// ==========================================================
+// TODAY'S TOP PICK (DAILY CURATED RECOMMENDATION)
+// ==========================================================
+window._currentTopPickId = null;
+
+function renderTodayTopPick() {
+  const cardEl = document.getElementById('todayTopPickCard');
+  if (!cardEl) return;
+
+  const pool = (Array.isArray(profileStack) && profileStack.length > 0)
+    ? profileStack
+    : (Array.isArray(PROFILES_DATA) ? PROFILES_DATA : []);
+
+  if (pool.length === 0) {
+    cardEl.style.display = 'none';
+    return;
+  }
+
+  const matchedIds = new Set(Array.isArray(matchedUsers) ? matchedUsers.map(u => u.id) : []);
+  const validCandidates = pool.filter(p => {
+    if (!p || !p.id) return false;
+    if (isContactBlocked(p.id)) return false;
+    if (window._swipedProfileIds && window._swipedProfileIds.has(p.id)) return false;
+    if (matchedIds.has(p.id)) return false;
+    return true;
+  });
+  if (validCandidates.length === 0) {
+    cardEl.style.display = 'none';
+    return;
+  }
+
+  let bestCandidate = null;
+  let bestScore = -1;
+  let bestCompat = null;
+
+  validCandidates.forEach(p => {
+    const compat = typeof calculateCompatibility === 'function'
+      ? calculateCompatibility(currentUser, p)
+      : { score: 90, headline: 'Great Chemistry', reasons: [] };
+
+    const voiceBonus = p.voiceIntro ? 2 : 0;
+    const verifiedBonus = (p.isVerified || p.verified) ? 1 : 0;
+    const totalScore = compat.score + voiceBonus + verifiedBonus;
+
+    if (totalScore > bestScore) {
+      bestScore = totalScore;
+      bestCandidate = p;
+      bestCompat = compat;
+    }
+  });
+
+  if (!bestCandidate) {
+    cardEl.style.display = 'none';
+    return;
+  }
+
+  window._currentTopPickId = bestCandidate.id;
+
+  const avatarImg = document.getElementById('topPickAvatarImg');
+  const nameEl = document.getElementById('topPickName');
+  const compatPill = document.getElementById('topPickCompatPill');
+  const reasonEl = document.getElementById('topPickReason');
+  const verifiedEl = document.getElementById('topPickVerified');
+
+  const photo = bestCandidate.photos?.[0] || bestCandidate.image || bestCandidate.avatar || '';
+  if (avatarImg && photo) avatarImg.src = photo;
+  if (nameEl) nameEl.textContent = `${bestCandidate.name || 'Match'}, ${bestCandidate.age ?? ''}`;
+  if (compatPill && bestCompat) compatPill.textContent = `${bestCompat.score}% Match`;
+  if (reasonEl && bestCompat) {
+    const reasonText = bestCompat.reasons?.[0] || 'Exceptional chemistry and vibe';
+    reasonEl.textContent = `${bestCompat.headline} • ${reasonText}`;
+  }
+  if (verifiedEl) {
+    verifiedEl.style.display = (bestCandidate.isVerified || bestCandidate.verified) ? 'inline' : 'none';
+  }
+
+  cardEl.style.display = 'flex';
+}
+window.renderTodayTopPick = renderTodayTopPick;
+
+function openTopPickDetail(event) {
+  if (event) event.stopPropagation();
+  if (!window._currentTopPickId) return;
+  if (typeof openProfileDetailSheet === 'function') {
+    openProfileDetailSheet(window._currentTopPickId, event);
+  }
+}
+window.openTopPickDetail = openTopPickDetail;
+
 function renderCardStack() {
   const stack = document.getElementById('cardStack');
   const emptyState = document.getElementById('stackEmpty');
   const controls = document.getElementById('actionRow');
+  const topPickEl = document.getElementById('todayTopPickCard');
 
   if (!stack) return;
   stack.innerHTML = '';
@@ -2988,6 +3078,7 @@ function renderCardStack() {
   if (profileStack.length === 0) {
     if (emptyState) emptyState.style.display = 'flex';
     if (controls) { controls.style.opacity = '0.25'; controls.style.pointerEvents = 'none'; }
+    if (topPickEl) topPickEl.style.display = 'none';
     return;
   }
 
@@ -3010,6 +3101,10 @@ function renderCardStack() {
     }
 
     stack.appendChild(card);
+  }
+
+  if (typeof renderTodayTopPick === 'function') {
+    renderTodayTopPick();
   }
 }
 

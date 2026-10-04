@@ -691,6 +691,33 @@
             <span class="swipe-reset-timer" id="swipeResetTimer" title="Daily likes reset countdown">Refills in --:--</span>
           </div>
 
+          <!-- Today's Top Pick Curated Hero Card -->
+          <div class="today-top-pick-card" id="todayTopPickCard" style="display:none" role="region" aria-label="Today's Top Pick">
+            <div class="top-pick-left" onclick="openTopPickDetail(event)">
+              <div class="top-pick-avatar-wrap">
+                <img class="top-pick-avatar-img" id="topPickAvatarImg" src="" alt="Top Pick" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120'">
+                <div class="top-pick-sparkle-badge">⭐</div>
+              </div>
+              <div class="top-pick-text-col">
+                <div class="top-pick-header-row">
+                  <span class="top-pick-kicker">TODAY'S TOP PICK</span>
+                  <span class="top-pick-compat-pill" id="topPickCompatPill">98% Match</span>
+                </div>
+                <div class="top-pick-name-row">
+                  <span class="top-pick-name" id="topPickName">Amara, 24</span>
+                  <span class="top-pick-verified" id="topPickVerified">🛡️</span>
+                </div>
+                <div class="top-pick-reason" id="topPickReason">High chemistry & shared passions</div>
+              </div>
+            </div>
+            <div class="top-pick-actions">
+              <button type="button" class="top-pick-view-btn" onclick="openTopPickDetail(event)" title="View profile details">
+                <span>View</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+          </div>
+
           <!-- Card Stack -->
           <div class="card-stack" id="cardStack">
             <!-- Rendered by JS -->

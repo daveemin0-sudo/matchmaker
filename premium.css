@@ -6402,4 +6402,164 @@ button#hkVerifyBtn.hk-vpc-btn {
   color: #D13A63 !important;
 }
 
+/* ==========================================================
+   TODAY'S TOP PICK HERO CARD (DISCOVERY)
+   ========================================================== */
+.today-top-pick-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(22, 14, 34, 0.95), rgba(38, 20, 48, 0.95)) !important;
+  border: 1.5px solid rgba(227, 179, 77, 0.4) !important;
+  box-shadow: 0 8px 24px rgba(227, 179, 77, 0.15), 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+  border-radius: 18px;
+  padding: 10px 14px;
+  margin: 6px 16px 12px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  animation: slideInDown 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  user-select: none;
+}
+.today-top-pick-card:hover {
+  border-color: rgba(227, 179, 77, 0.7) !important;
+  transform: translateY(-1.5px);
+  box-shadow: 0 10px 28px rgba(227, 179, 77, 0.22) !important;
+}
+.top-pick-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+.top-pick-avatar-wrap {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+}
+.top-pick-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #E3B34D;
+  box-shadow: 0 0 10px rgba(227, 179, 77, 0.4);
+}
+.top-pick-sparkle-badge {
+  position: absolute;
+  bottom: -3px;
+  right: -3px;
+  background: linear-gradient(135deg, #FFD700, #FFA500);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  border: 1.5px solid #160E22;
+}
+.top-pick-text-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.top-pick-header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.top-pick-kicker {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #E3B34D;
+  text-transform: uppercase;
+}
+.top-pick-compat-pill {
+  background: rgba(227, 179, 77, 0.16);
+  border: 1px solid rgba(227, 179, 77, 0.35);
+  border-radius: 999px;
+  padding: 1px 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #FFD56B;
+}
+.top-pick-name-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.top-pick-name {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.top-pick-verified {
+  font-size: 0.82rem;
+}
+.top-pick-reason {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+.top-pick-actions {
+  display: flex;
+  align-items: center;
+}
+.top-pick-view-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #D13A63, #E3B34D);
+  border: none;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 8px rgba(209, 58, 99, 0.3);
+}
+.top-pick-view-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 14px rgba(209, 58, 99, 0.45);
+}
+
+/* Light Theme Overrides */
+[data-theme="light"] .today-top-pick-card {
+  background: linear-gradient(135deg, #FFFDF8, #FFF5EB) !important;
+  border-color: rgba(227, 179, 77, 0.5) !important;
+  box-shadow: 0 6px 18px rgba(227, 179, 77, 0.15), 0 1px 4px rgba(0, 0, 0, 0.05) !important;
+}
+[data-theme="light"] .top-pick-name {
+  color: #1F2937 !important;
+}
+[data-theme="light"] .top-pick-reason {
+  color: #4B5563 !important;
+}
+[data-theme="light"] .top-pick-compat-pill {
+  background: #FEF3C7 !important;
+  border-color: #F59E0B !important;
+  color: #B45309 !important;
+}
+[data-theme="light"] .top-pick-sparkle-badge {
+  border-color: #FFFFFF !important;
+}
+
+
 
