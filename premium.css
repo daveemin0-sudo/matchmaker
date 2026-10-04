@@ -6177,3 +6177,229 @@ button#hkVerifyBtn.hk-vpc-btn {
   box-shadow: 0 3px 10px rgba(219, 39, 119, 0.12) !important;
 }
 
+/* ==========================================================
+   CONVERSATIONAL ONBOARDING: INTENTS & PERSONALITY SPARK
+   ========================================================== */
+.ob-intent-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin-top: 6px;
+}
+
+.ob-intent-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 11px 14px;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+.ob-intent-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+.ob-intent-card:active {
+  transform: scale(0.98);
+}
+.ob-intent-card.selected {
+  background: linear-gradient(135deg, rgba(209, 58, 99, 0.2), rgba(227, 179, 77, 0.14)) !important;
+  border-color: #FF5E8E !important;
+  box-shadow: 0 4px 16px rgba(209, 58, 99, 0.2);
+}
+.ob-intent-emoji {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+.ob-intent-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ob-intent-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+.ob-intent-card.selected .ob-intent-title {
+  color: #FF7597;
+}
+.ob-intent-desc {
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.6);
+  line-height: 1.3;
+}
+
+/* Personality Vibe Spark */
+.ob-vibe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 6px;
+}
+.ob-vibe-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ob-vibe-row-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+.ob-vibe-pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ob-vibe-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 6px 13px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ob-vibe-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+}
+.ob-vibe-chip.selected {
+  background: linear-gradient(135deg, rgba(209, 58, 99, 0.25), rgba(124, 58, 237, 0.25));
+  border-color: #FF5E8E;
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(209, 58, 99, 0.25);
+}
+
+/* Green Flag Chips */
+.ob-flags-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.ob-flag-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  padding: 7px 13px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.ob-flag-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+}
+.ob-flag-chip.selected {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10B981;
+  color: #34D399;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.2);
+}
+
+/* Signup Intent Selector */
+.signup-intent-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.signup-intent-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+.signup-intent-pill:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+}
+.signup-intent-pill.selected {
+  background: linear-gradient(135deg, rgba(209, 58, 99, 0.25), rgba(227, 179, 77, 0.16));
+  border-color: #FF5E8E;
+  color: #FF7597;
+  font-weight: 700;
+  box-shadow: 0 2px 10px rgba(209, 58, 99, 0.22);
+}
+
+/* Light Mode Overrides */
+[data-theme="light"] .ob-intent-card {
+  background: #FFFFFF !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+[data-theme="light"] .ob-intent-title {
+  color: #111827 !important;
+}
+[data-theme="light"] .ob-intent-desc {
+  color: #6B7280 !important;
+}
+[data-theme="light"] .ob-intent-card.selected {
+  background: #FDF2F8 !important;
+  border-color: #D13A63 !important;
+  box-shadow: 0 4px 12px rgba(209, 58, 99, 0.12) !important;
+}
+[data-theme="light"] .ob-intent-card.selected .ob-intent-title {
+  color: #D13A63 !important;
+}
+[data-theme="light"] .ob-vibe-row-title {
+  color: #374151 !important;
+}
+[data-theme="light"] .ob-vibe-chip {
+  background: #F3F4F6 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #374151 !important;
+}
+[data-theme="light"] .ob-vibe-chip.selected {
+  background: #FDF2F8 !important;
+  border-color: #D13A63 !important;
+  color: #D13A63 !important;
+}
+[data-theme="light"] .ob-flag-chip {
+  background: #F3F4F6 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #374151 !important;
+}
+[data-theme="light"] .ob-flag-chip.selected {
+  background: #ECFDF5 !important;
+  border-color: #059669 !important;
+  color: #059669 !important;
+}
+[data-theme="light"] .signup-intent-pill {
+  background: #F9FAFB !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #374151 !important;
+}
+[data-theme="light"] .signup-intent-pill.selected {
+  background: #FDF2F8 !important;
+  border-color: #D13A63 !important;
+  color: #D13A63 !important;
+}
+
+

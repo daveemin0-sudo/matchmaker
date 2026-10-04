@@ -2530,6 +2530,15 @@ function nextSignupStep() {
     }
     currentUser.bio = bio;
     currentUser.location = location || 'Lagos, Nigeria';
+    currentUser.intent = appState.signupIntent || 'relationship';
+    if (!Array.isArray(currentUser.prompts) || currentUser.prompts.length === 0) {
+      currentUser.prompts = [
+        { question: 'My biggest green flag', answer: 'Consistent communication & genuine energy' }
+      ];
+    }
+    if (typeof calculateProfileCompleteness === 'function') {
+      calculateProfileCompleteness();
+    }
   }
 
   if (appState.signupStep < 4) {
@@ -15594,7 +15603,7 @@ window.loadProfilesForDiscovery = async function() {
 };
 
 // ==========================================================
-// ONBOARDING WIZARD — 4-step new-user flow
+// ONBOARDING WIZARD — 5-step conversational new-user flow
 // ==========================================================
 const _obState = {
   currentStep: 1,
@@ -15602,6 +15611,13 @@ const _obState = {
   age: '',
   gender: 'Male',
   interestedIn: '',
+  intent: 'relationship',
+  personality: {
+    nightVibe: 'night_out',
+    escape: 'beach',
+    comms: 'texts',
+    greenFlag: 'Consistent communication'
+  },
   interests: [],
   bio: ''
 };
@@ -15644,9 +15660,9 @@ function _obShowStep(stepNum) {
 
   // Show/hide skip button
   const skipBtn = document.getElementById('obSkipBtn');
-  if (skipBtn) skipBtn.style.display = stepNum < 4 ? 'block' : 'none';
+  if (skipBtn) skipBtn.style.display = stepNum < 5 ? 'block' : 'none';
 
-  // Show/hide back button (visible on steps 2, 3, 4)
+  // Show/hide back button (visible on steps 2, 3, 4, 5)
   const backBtn = document.getElementById('obBackBtn');
   if (backBtn) backBtn.style.display = stepNum > 1 ? 'inline-flex' : 'none';
 
@@ -15670,7 +15686,6 @@ function selectObGender(el) {
 window.selectObGender = selectObGender;
 
 function selectObInterestIn(el) {
-  // Only within the "interested in" grid (second .ob-name-section in step2)
   const grid = el.closest('.ob-gender-grid');
   if (grid) grid.querySelectorAll('.ob-gender-opt').forEach(o => o.classList.remove('selected'));
   el.classList.add('selected');
@@ -15678,6 +15693,42 @@ function selectObInterestIn(el) {
   haptic('light');
 }
 window.selectObInterestIn = selectObInterestIn;
+
+function selectObIntent(el) {
+  document.querySelectorAll('#obIntentGrid .ob-intent-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  _obState.intent = el.dataset.intent || 'relationship';
+  haptic('light');
+}
+window.selectObIntent = selectObIntent;
+
+function selectObVibe(btn, key) {
+  const pair = btn.closest('.ob-vibe-pair');
+  if (pair) pair.querySelectorAll('.ob-vibe-chip').forEach(c => c.classList.remove('selected'));
+  btn.classList.add('selected');
+  if (!_obState.personality) _obState.personality = {};
+  _obState.personality[key] = btn.dataset.val;
+  haptic('light');
+}
+window.selectObVibe = selectObVibe;
+
+function selectObGreenFlag(el) {
+  document.querySelectorAll('#obFlagsGrid .ob-flag-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  if (!_obState.personality) _obState.personality = {};
+  _obState.personality.greenFlag = el.textContent.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\s]+/gu, '').trim();
+  haptic('light');
+}
+window.selectObGreenFlag = selectObGreenFlag;
+
+function selectSignupIntent(intent, el) {
+  document.querySelectorAll('#signupIntentGrid .signup-intent-pill').forEach(p => p.classList.remove('selected'));
+  if (el) el.classList.add('selected');
+  appState.signupIntent = intent;
+  currentUser.intent = intent;
+  haptic('light');
+}
+window.selectSignupIntent = selectSignupIntent;
 
 function toggleObInterest(el) {
   const isSelected = el.classList.contains('selected');
@@ -15722,10 +15773,11 @@ function obNext(fromStep) {
     _obState.age  = age;
     _obShowStep(2);
   } else if (fromStep === 2) {
-    // Gender is pre-selected, just move on
     _obShowStep(3);
   } else if (fromStep === 3) {
     _obShowStep(4);
+  } else if (fromStep === 4) {
+    _obShowStep(5);
   }
 }
 window.obNext = obNext;
@@ -15744,6 +15796,28 @@ async function obFinish() {
   if (_obState.bio)   currentUser.bio  = _obState.bio;
   if (_obState.interests.length) currentUser.interests = _obState.interests;
   if (_obState.interestedIn) currentUser.interestedIn = _obState.interestedIn;
+  if (_obState.intent) currentUser.intent = _obState.intent;
+
+  currentUser.lifestyle = {
+    ...(currentUser.lifestyle || {}),
+    nightVibe: _obState.personality?.nightVibe || 'night_out',
+    escape: _obState.personality?.escape || 'beach',
+    comms: _obState.personality?.comms || 'texts'
+  };
+
+  const greenFlag = _obState.personality?.greenFlag || 'Consistent communication';
+  const weekendText = _obState.personality?.nightVibe === 'night_out'
+    ? 'Out exploring vibrant music & spots 🎶'
+    : 'Cozy dinner & great conversation at home 🛋️';
+
+  currentUser.prompts = [
+    { question: 'My biggest green flag', answer: greenFlag },
+    { question: 'Ideal weekend', answer: weekendText }
+  ];
+
+  if (typeof calculateProfileCompleteness === 'function') {
+    calculateProfileCompleteness();
+  }
 
   currentUser.displayName = currentUser.name;
   appState.isLoggedIn = true;

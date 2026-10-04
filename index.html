@@ -469,10 +469,31 @@
             <div class="auth-error" id="signupError2"></div>
           </div>
 
-          <!-- Step 3: Bio & Location -->
+          <!-- Step 3: Bio, Intent & Location -->
           <div class="signup-step" id="signupStep3">
             <div class="signup-step-title">Tell Your Story ✍️</div>
-            <p class="signup-step-sub">A great bio gets 3x more matches. Be authentic!</p>
+            <p class="signup-step-sub">A great bio and clear intentions lead to 3x higher compatibility!</p>
+
+            <div class="auth-form-group">
+              <label>What are you looking for?</label>
+              <div class="signup-intent-grid" id="signupIntentGrid">
+                <div class="signup-intent-pill selected" data-intent="relationship" onclick="selectSignupIntent('relationship', this)">
+                  <span>💘</span> Serious Relationship
+                </div>
+                <div class="signup-intent-pill" data-intent="long-term dating" onclick="selectSignupIntent('long-term dating', this)">
+                  <span>🥂</span> Long-term, open to short
+                </div>
+                <div class="signup-intent-pill" data-intent="casual dating" onclick="selectSignupIntent('casual dating', this)">
+                  <span>✨</span> Casual Dating
+                </div>
+                <div class="signup-intent-pill" data-intent="friendship" onclick="selectSignupIntent('friendship', this)">
+                  <span>☕</span> New Friends
+                </div>
+                <div class="signup-intent-pill" data-intent="figuring it out" onclick="selectSignupIntent('figuring it out', this)">
+                  <span>🧭</span> Still Figuring Out
+                </div>
+              </div>
+            </div>
 
             <div class="auth-form-group">
               <label>Your Bio</label>
@@ -2886,6 +2907,7 @@
         <span class="ob-dot"></span>
         <span class="ob-dot"></span>
         <span class="ob-dot"></span>
+        <span class="ob-dot"></span>
       </div>
       <button class="ob-skip-btn" onclick="skipOnboarding()" id="obSkipBtn">Skip</button>
     </div>
@@ -2931,8 +2953,96 @@
       <button class="ob-next-btn" onclick="obNext(2)">Continue <span>→</span></button>
     </div>
 
-    <!-- Step 3: Pick interests -->
+    <!-- Step 3: Relationship Intent & Personality Vibe -->
     <div class="ob-step" id="obStep3">
+      <div class="ob-hero-emoji">💘</div>
+      <h1 class="ob-title">What's your dating vibe?</h1>
+      <p class="ob-sub">Matching with shared intentions and energy is the secret to great chemistry.</p>
+
+      <div class="ob-name-section">
+        <label class="ob-label">Relationship Intention</label>
+        <div class="ob-intent-grid" id="obIntentGrid">
+          <div class="ob-intent-card selected" data-intent="relationship" onclick="selectObIntent(this)">
+            <span class="ob-intent-emoji">💘</span>
+            <div class="ob-intent-info">
+              <div class="ob-intent-title">Serious Relationship</div>
+              <div class="ob-intent-desc">Looking for genuine, lasting partnership</div>
+            </div>
+          </div>
+          <div class="ob-intent-card" data-intent="long-term dating" onclick="selectObIntent(this)">
+            <span class="ob-intent-emoji">🥂</span>
+            <div class="ob-intent-info">
+              <div class="ob-intent-title">Long-term, open to short</div>
+              <div class="ob-intent-desc">Open to seeing where mutual chemistry goes</div>
+            </div>
+          </div>
+          <div class="ob-intent-card" data-intent="casual dating" onclick="selectObIntent(this)">
+            <span class="ob-intent-emoji">✨</span>
+            <div class="ob-intent-info">
+              <div class="ob-intent-title">Casual dating & fun</div>
+              <div class="ob-intent-desc">Spontaneous dates and positive energy</div>
+            </div>
+          </div>
+          <div class="ob-intent-card" data-intent="friendship" onclick="selectObIntent(this)">
+            <span class="ob-intent-emoji">☕</span>
+            <div class="ob-intent-info">
+              <div class="ob-intent-title">New friends & connections</div>
+              <div class="ob-intent-desc">Expanding my circle with awesome people</div>
+            </div>
+          </div>
+          <div class="ob-intent-card" data-intent="figuring it out" onclick="selectObIntent(this)">
+            <span class="ob-intent-emoji">🧭</span>
+            <div class="ob-intent-info">
+              <div class="ob-intent-title">Still figuring it out</div>
+              <div class="ob-intent-desc">Exploring connections with zero pressure</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ob-name-section" style="margin-top:16px">
+        <label class="ob-label">Quick-Fire Spark ⚡</label>
+        <div class="ob-vibe-list">
+          <div class="ob-vibe-row">
+            <span class="ob-vibe-row-title">Weekend Vibe:</span>
+            <div class="ob-vibe-pair" data-key="nightVibe">
+              <button type="button" class="ob-vibe-chip selected" data-val="night_out" onclick="selectObVibe(this, 'nightVibe')">🌙 Night Out</button>
+              <button type="button" class="ob-vibe-chip" data-val="staying_in" onclick="selectObVibe(this, 'nightVibe')">🛋️ Staying In</button>
+            </div>
+          </div>
+          <div class="ob-vibe-row">
+            <span class="ob-vibe-row-title">Getaway:</span>
+            <div class="ob-vibe-pair" data-key="escape">
+              <button type="button" class="ob-vibe-chip selected" data-val="beach" onclick="selectObVibe(this, 'escape')">🏖️ Beach</button>
+              <button type="button" class="ob-vibe-chip" data-val="mountains" onclick="selectObVibe(this, 'escape')">🏔️ Mountains</button>
+            </div>
+          </div>
+          <div class="ob-vibe-row">
+            <span class="ob-vibe-row-title">Stay in touch:</span>
+            <div class="ob-vibe-pair" data-key="comms">
+              <button type="button" class="ob-vibe-chip selected" data-val="texts" onclick="selectObVibe(this, 'comms')">💬 Texting</button>
+              <button type="button" class="ob-vibe-chip" data-val="calls" onclick="selectObVibe(this, 'comms')">📞 Spontaneous Calls</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ob-name-section" style="margin-top:16px">
+        <label class="ob-label">My Biggest Green Flag 💚</label>
+        <div class="ob-flags-grid" id="obFlagsGrid">
+          <span class="ob-flag-chip selected" onclick="selectObGreenFlag(this)">💬 Consistent communication</span>
+          <span class="ob-flag-chip" onclick="selectObGreenFlag(this)">💖 Kindness to servers</span>
+          <span class="ob-flag-chip" onclick="selectObGreenFlag(this)">🧠 Emotional maturity</span>
+          <span class="ob-flag-chip" onclick="selectObGreenFlag(this)">🔥 Passion for goals</span>
+          <span class="ob-flag-chip" onclick="selectObGreenFlag(this)">😂 Laughing easily</span>
+        </div>
+      </div>
+
+      <button class="ob-next-btn" onclick="obNext(3)">Continue <span>→</span></button>
+    </div>
+
+    <!-- Step 4: Pick interests -->
+    <div class="ob-step" id="obStep4">
       <div class="ob-hero-emoji">🎯</div>
       <h1 class="ob-title">What are you into?</h1>
       <p class="ob-sub">Pick up to 5 passions — this is what sparks conversations.</p>
@@ -2959,11 +3069,11 @@
         <span class="ob-interest-tag" onclick="toggleObInterest(this)">📸 Photography</span>
       </div>
       <div class="ob-interest-count" id="obInterestCount">0 / 5 selected</div>
-      <button class="ob-next-btn" onclick="obNext(3)">Continue <span>→</span></button>
+      <button class="ob-next-btn" onclick="obNext(4)">Continue <span>→</span></button>
     </div>
 
-    <!-- Step 4: Bio + photo hint -->
-    <div class="ob-step" id="obStep4">
+    <!-- Step 5: Bio + photo hint -->
+    <div class="ob-step" id="obStep5">
       <div class="ob-hero-emoji">🔥</div>
       <h1 class="ob-title">One last thing</h1>
       <p class="ob-sub">A great bio gets 3× more matches. Tell people what makes you special.</p>
