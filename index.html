@@ -1523,6 +1523,18 @@
           </div>
 
           <div class="profile-form">
+            <!-- Profile Completeness Meter -->
+            <div class="profile-completeness-card" id="profileCompletenessCard">
+              <div class="completeness-header">
+                <span class="completeness-title">Profile Completeness</span>
+                <span class="completeness-pct" id="profileCompletenessPct">85%</span>
+              </div>
+              <div class="completeness-bar-wrap">
+                <div class="completeness-bar-fill" id="profileCompletenessFill" style="width:85%"></div>
+              </div>
+              <div class="completeness-tip" id="profileCompletenessTip">Tip: Add relationship goals and personality prompts to get 3x more meaningful matches!</div>
+            </div>
+
             <div class="form-field">
               <label>Display Name</label>
               <input class="form-input" id="editName" type="text" placeholder="Your name">
@@ -1544,6 +1556,93 @@
             <div class="form-field">
               <label>Interests (comma separated)</label>
               <input class="form-input" id="editInterests" type="text" placeholder="Tech 💻, Fitness 💪, Music 🎵">
+            </div>
+
+            <!-- Relationship Intention -->
+            <div class="form-field">
+              <label>Relationship Intention 🎯</label>
+              <select class="form-input form-select" id="editIntent">
+                <option value="relationship">💍 Serious Relationship / Marriage</option>
+                <option value="longterm">💫 Long-term Dating</option>
+                <option value="dating">🥂 Casual Dating &amp; Good Vibes</option>
+                <option value="friends">☕ Friendship First</option>
+                <option value="figuring_out">✨ Still Figuring It Out</option>
+              </select>
+            </div>
+
+            <!-- Lifestyle Attributes -->
+            <div class="form-grid-2" style="display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);gap:12px;width:100%">
+              <div class="form-field">
+                <label>Work &amp; Career 💼</label>
+                <input class="form-input" id="editOccupation" type="text" placeholder="e.g. Product Designer">
+              </div>
+              <div class="form-field">
+                <label>Education 🎓</label>
+                <input class="form-input" id="editEducation" type="text" placeholder="e.g. University Graduate">
+              </div>
+            </div>
+
+            <div class="form-grid-2" style="display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);gap:12px;width:100%">
+              <div class="form-field">
+                <label>Workout &amp; Fitness 🏋️</label>
+                <select class="form-input form-select" id="editWorkout">
+                  <option value="Active (Gym &amp; Sports)">Active (Gym &amp; Sports) 🏋️</option>
+                  <option value="Pilates, Yoga &amp; Walks">Pilates, Yoga &amp; Walks 🧘</option>
+                  <option value="Occasionally active">Occasionally active 🚶</option>
+                  <option value="Rarely / Prefer relaxing">Rarely / Prefer relaxing 🛋️</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label>Drinking 🍷</label>
+                <select class="form-input form-select" id="editDrinking">
+                  <option value="Socially on weekends">Socially on weekends 🥂</option>
+                  <option value="Never / Teetotaler">Never / Teetotaler 🚫</option>
+                  <option value="Most evenings">Most evenings 🍷</option>
+                  <option value="Rarely">Rarely ☕</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label>Smoking 🚭</label>
+              <select class="form-input form-select" id="editSmoking">
+                <option value="Non-smoker">Non-smoker 🚭</option>
+                <option value="Social smoker">Social smoker 💨</option>
+                <option value="Regular smoker">Regular smoker 🚬</option>
+              </select>
+            </div>
+
+            <!-- Personality Prompt -->
+            <div class="form-field">
+              <label>Personality Prompt 💡</label>
+              <select class="form-input form-select" id="editPromptQ1" style="margin-bottom:8px">
+                <option value="My ideal Sunday looks like...">My ideal Sunday looks like...</option>
+                <option value="My simple pleasures...">My simple pleasures...</option>
+                <option value="A boundary of mine is...">A boundary of mine is...</option>
+                <option value="The key to my heart is...">The key to my heart is...</option>
+                <option value="Biggest green flag I look for...">Biggest green flag I look for...</option>
+                <option value="Something I'll never compromise on...">Something I'll never compromise on...</option>
+              </select>
+              <textarea class="form-textarea" id="editPromptA1" rows="2" placeholder="Your authentic answer..."></textarea>
+            </div>
+
+            <!-- Voice Introduction in Profile -->
+            <div class="form-field">
+              <label>Voice Introduction 🎙️</label>
+              <div class="edit-voice-box">
+                <div class="edit-voice-text" id="editVoiceStatus">Add a short 10–15s voice intro to let matches hear your voice and personality!</div>
+                <div class="edit-voice-btn-row">
+                  <button type="button" class="outline-btn" id="editVoiceRecordBtn" onclick="toggleEditVoiceRecord()" style="padding:8px 14px;font-size:0.85rem">
+                    🎙️ Record Intro
+                  </button>
+                  <button type="button" class="outline-btn" id="editVoicePlayBtn" onclick="playMyVoiceIntro()" style="display:none;padding:8px 14px;font-size:0.85rem">
+                    ▶️ Listen
+                  </button>
+                  <button type="button" class="text-btn" id="editVoiceDeleteBtn" onclick="deleteMyVoiceIntro()" style="display:none;color:#ff4466;font-size:0.82rem">
+                    Remove
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div class="save-feedback" id="profileSaveFeedback">✓ Profile saved successfully!</div>

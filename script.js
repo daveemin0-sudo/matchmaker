@@ -33,6 +33,7 @@ const PROFILES_DATA = [
       { question: 'Together, we could...', answer: 'Explore every rooftop lounge in Lagos, discover hidden art spots, and exchange Spotify blends.' },
       { question: 'A life goal of mine...', answer: 'Design an award-winning app and spend December watching sunsets in Cape Town.' }
     ],
+    voiceIntro: { duration: '0:14', text: "Hey! I'm Zainab. I love listening to fresh Amapiano, designing sleek apps, and discovering new coffee spots in Lagos. Swipe right and say hi!" },
     distance: '3 km', isVerified: true, intent: 'dating', mutualChance: true,
     autoReply: 'Hey! Thanks for matching with me 😊 I was just listening to some new Amapiano tracks. Are you into music?',
     aiPrompt: 'Beautiful professional portrait of a 22 year old African woman smiling, Amapiano aesthetic, vibrant lighting, highly detailed studio photo'
@@ -61,6 +62,7 @@ const PROFILES_DATA = [
       { question: 'The key to my heart is...', answer: 'Competitive banter, good gaming setup recommendations, and exploring underrated food spots.' },
       { question: 'Two truths and a lie...', answer: 'Built an AI bot for chess, met Burna Boy at a lounge, ranked top 100 in FIFA West Africa.' }
     ],
+    voiceIntro: { duration: '0:16', text: "What's up, I'm Tunde. Software dev by day, PS5 legend by night. If you love banter, good tech discussions, and authentic jollof rice, let's connect!" },
     distance: '12 km', isVerified: false, intent: 'friends', mutualChance: false,
     autoReply: '',
     aiPrompt: 'Close portrait of a young African man, 25 years old software engineer, tech setup in background, soft twilight lighting, cinematic'
@@ -89,6 +91,7 @@ const PROFILES_DATA = [
       { question: 'Green flags I look for...', answer: 'Consistent communication, someone who appreciates high aesthetics, and spontaneous weekend road trips.' },
       { question: 'Together, we could...', answer: 'Host unforgettable dinner parties and hunt down the most scenic travel destinations.' }
     ],
+    voiceIntro: { duration: '0:15', text: "Hey there! I'm Amara. Fashion designer and aesthetic enthusiast. I'm all about spontaneous road trips, aesthetic photography, and good vibes. Looking forward to meeting someone special!" },
     distance: '7 km', isVerified: true, intent: 'relationship', mutualChance: true,
     autoReply: 'Hi! I saw your profile and loved your bio. Are you ready for a photo session? 📸',
     aiPrompt: 'Gorgeous artistic portrait of a creative 24 year old Nigerian fashion designer, studio backdrop with textiles, modern Lagos fashion, high detail'
@@ -117,6 +120,7 @@ const PROFILES_DATA = [
       { question: 'I get along best with people who...', answer: 'Have deep curiosity, appreciate contemporary African art, and never take themselves too seriously.' },
       { question: 'Dating me is like...', answer: 'VIP invites to gallery openings followed by 2 AM street food runs in high fashion.' }
     ],
+    voiceIntro: { duration: '0:18', text: "Hello! I'm Chidi. Contemporary art curator and fitness lover. If your idea of a great date includes gallery walks, good wine, and deep conversation, we'll get along great." },
     distance: '5 km', isVerified: true, intent: 'relationship', mutualChance: true,
     autoReply: 'Hey! Glad we matched. What\'s your idea of a perfect weekend getaway? 🌊',
     aiPrompt: 'Close headshot of a handsome smiling 27 year old African man, gallery director, blurred artistic oil paintings background, clean lighting'
@@ -145,6 +149,7 @@ const PROFILES_DATA = [
       { question: 'I\'ll know it\'s time to delete this app when...', answer: 'We get lost talking about our favorite authors for four hours straight without looking at our phones.' },
       { question: 'My simple pleasures...', answer: 'Fresh matcha latte, buying flowers for myself, and the smell of old bookstores.' }
     ],
+    voiceIntro: { duration: '0:15', text: "Hi! I'm Sade. Huge bookworm, content strategist, and lover of quiet nature walks. Tell me your favorite book when we match!" },
     distance: '18 km', isVerified: false, intent: 'dating', mutualChance: false,
     autoReply: '',
     aiPrompt: 'Thoughtful close portrait of a 23 year old African girl in a beautiful botanical garden holding a vintage book, natural ambient sunshine'
@@ -173,6 +178,7 @@ const PROFILES_DATA = [
       { question: 'My golden rule in life...', answer: 'Design with purpose, speak with honesty, and always protect your inner peace.' },
       { question: 'Together, we could...', answer: 'Travel to Lisbon and Milan to study brutalist architecture and taste real gelato.' }
     ],
+    voiceIntro: { duration: '0:14', text: "Hey! I'm Kemi. Medical doctor and wellness enthusiast. Looking for genuine connection with someone ambitious, kind, and emotionally grounded." },
     distance: '35 km', isVerified: true, intent: 'relationship', mutualChance: true,
     autoReply: 'Hello! Really liked your vibe. What\'s your favorite spot in town?',
     aiPrompt: 'Portrait of a 30 year old African woman architect smiling, modern office, natural warm lighting'
@@ -201,6 +207,7 @@ const PROFILES_DATA = [
       { question: 'My love language is...', answer: 'Acts of service, thoughtful surprise trips, and undivided presence without phones.' },
       { question: 'The hallmark of a great date is...', answer: 'When time completely slips away and the restaurant staff is gently dimming the lights around us.' }
     ],
+    voiceIntro: { duration: '0:17', text: "Hey everyone, I'm Emeka. Fintech founder and avid runner. Looking for someone with a great sense of humor who loves traveling and trying new restaurants." },
     distance: '55 km', isVerified: false, intent: 'relationship', mutualChance: true,
     autoReply: 'Hey there! Nice to connect with you. How is your week going?',
     aiPrompt: 'Portrait of a 34 year old handsome African man in tennis gear, clean aesthetic lighting'
@@ -229,6 +236,7 @@ const PROFILES_DATA = [
       { question: 'Don\'t match with me if...', answer: 'You can\'t handle bad car karaoke or impromptu street photography sessions.' },
       { question: 'I\'m weirdly good at...', answer: 'Guessing people\'s zodiac signs within five minutes of meeting them.' }
     ],
+    voiceIntro: { duration: '0:15', text: "Hi! I'm Folake. Brand marketer and live music fan. Catch me at concerts or hosting dinner with friends. Let's make memorable moments together!" },
     distance: '9 km', isVerified: true, intent: 'dating', mutualChance: true,
     autoReply: 'Hey! Your profile caught my eye. What\'s your go-to weekend plan? ✨',
     aiPrompt: 'Portrait of a stylish 21 year old African girl smiling warmly, aesthetic lighting'
@@ -558,8 +566,11 @@ function applyMatchesUpdate(realMatches) {
 
     // Also prune conversation threads that do not belong to this user's authorized matches
     for (const chatId in conversations) {
-      if (!realIds.has(chatId) && chatId !== appState.currentChatId) {
+      if (!realIds.has(chatId)) {
         delete conversations[chatId];
+        if (appState.currentChatId === chatId) {
+          appState.currentChatId = null;
+        }
       }
     }
   }
@@ -952,6 +963,12 @@ async function clearOfflineIdbUserData() {
   } catch (_) {}
 }
 
+function getScopedStorageKey(baseKey, uid) {
+  const targetUid = uid || (typeof fbAuth !== 'undefined' && fbAuth?.currentUser ? fbAuth.currentUser.uid : (currentUser?.id || window.__currentAuthUid || null));
+  return targetUid ? 'hmbs_' + targetUid + '_' + baseKey : 'hmbs_guest_' + baseKey;
+}
+window.getScopedStorageKey = getScopedStorageKey;
+
 async function purgeUserScopedData() {
   try {
     if (typeof window._activeMatchesListener === 'function') {
@@ -979,6 +996,7 @@ async function purgeUserScopedData() {
   appState.isLoggedIn = false;
   appState.isVip = false;
   window.__blockedUserIds = new Set();
+  const oldUid = window.__currentAuthUid;
   window.__currentAuthUid = null;
   if (currentUser && typeof currentUser === 'object') {
     Object.keys(currentUser).forEach(k => { delete currentUser[k]; });
@@ -986,7 +1004,10 @@ async function purgeUserScopedData() {
   window.currentUser = {};
   try {
     ['hmbs_state', 'hmbs_user', 'hmbs_matches', 'hmbs_convos', 'hmbs_blocked', 'hmbs_cache_owner', 'hmbs_deleted_convos'].forEach(k => localStorage.removeItem(k));
-    Object.keys(localStorage).filter(k => k.startsWith('hmbs_cleared_')).forEach(k => localStorage.removeItem(k));
+    if (oldUid) {
+      ['hmbs_' + oldUid + '_convos', 'hmbs_' + oldUid + '_matches', 'hmbs_' + oldUid + '_blocked', 'hmbs_' + oldUid + '_deleted_convos'].forEach(k => localStorage.removeItem(k));
+    }
+    Object.keys(localStorage).filter(k => k.startsWith('hmbs_cleared_') || k.startsWith('hmbs_guest_')).forEach(k => localStorage.removeItem(k));
   } catch (_) {}
   await clearOfflineIdbUserData();
 
@@ -1004,12 +1025,13 @@ async function ensureCacheOwner(uid) {
   if (!uid) return;
   let owner = null;
   try { owner = localStorage.getItem('hmbs_cache_owner'); } catch (_) {}
-  if (owner && owner !== uid) {
+  if (owner !== uid) {
     console.log('[Isolation] Cache owner changed (' + owner + ' -> ' + uid + '); purging previous user data');
     await purgeUserScopedData();
   }
   try { localStorage.setItem('hmbs_cache_owner', uid); } catch (_) {}
   window.__currentAuthUid = uid;
+  loadFromStorage(uid);
 }
 window.ensureCacheOwner = ensureCacheOwner;
 
@@ -1087,8 +1109,22 @@ async function restoreOfflineDataFromIndexedDB() {
   }
 }
 
-function loadFromStorage() {
+function loadFromStorage(scopedUid) {
   try {
+    const currentUid = scopedUid || (typeof fbAuth !== 'undefined' && fbAuth?.currentUser ? fbAuth.currentUser.uid : (currentUser?.id || window.__currentAuthUid || null));
+    const convosKey = typeof getScopedStorageKey === 'function' ? getScopedStorageKey('convos', currentUid) : 'hmbs_convos';
+    const matchesKey = typeof getScopedStorageKey === 'function' ? getScopedStorageKey('matches', currentUid) : 'hmbs_matches';
+    const blockedKey = typeof getScopedStorageKey === 'function' ? getScopedStorageKey('blocked', currentUid) : 'hmbs_blocked';
+
+    // Prune legacy un-namespaced storage keys to avoid unauthenticated leakage
+    if (currentUid) {
+      try {
+        localStorage.removeItem('hmbs_convos');
+        localStorage.removeItem('hmbs_matches');
+        localStorage.removeItem('hmbs_blocked');
+      } catch (_) {}
+    }
+
     const saved = localStorage.getItem('hmbs_state');
     if (saved) {
       const data = JSON.parse(saved);
@@ -1114,19 +1150,27 @@ function loadFromStorage() {
     if (savedSettings) {
       settings = { ...settings, ...JSON.parse(savedSettings) };
     }
-    const savedMatches = localStorage.getItem('hmbs_matches');
+    const savedMatches = localStorage.getItem(matchesKey);
     if (savedMatches) {
-      matchedUsers = JSON.parse(savedMatches);
+      try {
+        matchedUsers = JSON.parse(savedMatches);
+      } catch (_) { matchedUsers = []; }
+    } else {
+      matchedUsers = [];
     }
-    const savedConvos = localStorage.getItem('hmbs_convos');
+    const savedConvos = localStorage.getItem(convosKey);
     if (savedConvos) {
-      conversations = JSON.parse(savedConvos);
+      try {
+        conversations = JSON.parse(savedConvos);
+      } catch (_) { conversations = {}; }
+    } else {
+      conversations = {};
     }
-    const savedBlocked = localStorage.getItem('hmbs_blocked');
+    const savedBlocked = localStorage.getItem(blockedKey);
     if (savedBlocked) {
       try {
         blockedUsers = JSON.parse(savedBlocked);
-      } catch (e) {}
+      } catch (e) { blockedUsers = []; }
     }
     const savedStealth = localStorage.getItem('hmbs_stealth_mode');
     if (savedStealth !== null) {
@@ -1161,7 +1205,12 @@ function saveToStorage() {
       } catch (_) {}
     }
     localStorage.setItem('hmbs_settings', JSON.stringify(settings));
-    localStorage.setItem('hmbs_matches', JSON.stringify(matchedUsers));
+    const currentUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser ? fbAuth.currentUser.uid : (currentUser?.id || window.__currentAuthUid || null));
+    const convosKey = typeof getScopedStorageKey === 'function' ? getScopedStorageKey('convos', currentUid) : 'hmbs_convos';
+    const matchesKey = typeof getScopedStorageKey === 'function' ? getScopedStorageKey('matches', currentUid) : 'hmbs_matches';
+    const blockedKey = typeof getScopedStorageKey === 'function' ? getScopedStorageKey('blocked', currentUid) : 'hmbs_blocked';
+    localStorage.setItem(matchesKey, JSON.stringify(matchedUsers));
+    localStorage.setItem(blockedKey, JSON.stringify(blockedUsers));
 
     const MAX_MSGS = 60;
     const trimmedConvos = {};
@@ -1181,7 +1230,7 @@ function saveToStorage() {
         trimmedConvos[chatId] = { ...conversations[chatId], messages: safeMsgs };
       }
     }
-    localStorage.setItem('hmbs_convos', JSON.stringify(trimmedConvos));
+    localStorage.setItem(convosKey, JSON.stringify(trimmedConvos));
     localStorage.setItem('hmbs_blocked', JSON.stringify(blockedUsers));
 
     // Persist full conversations and matches to IndexedDB as permanent offline backup
@@ -1970,6 +2019,7 @@ async function handleLogin() {
       resetFailedLoginAttempts();
       currentUser.email = userCredential.user.email;
       currentUser.id = userCredential.user.uid;
+      await ensureCacheOwner(userCredential.user.uid);
 
       if (typeof fbDb !== 'undefined' && fbDb) {
         try {
@@ -2145,6 +2195,7 @@ async function handleGoogleLoginSuccess(user) {
   if (!user) return;
   try { sessionStorage.removeItem('hmbs_google_redirecting'); } catch (_) {}
   resetFailedLoginAttempts();
+  if (user.uid) await ensureCacheOwner(user.uid);
 
   let existingProfile = null;
   const userEmail = (user.email || '').toLowerCase();
@@ -2648,6 +2699,271 @@ function completeSignup() {
   }, 600);
 }
 
+
+// ==========================================================
+// INTELLIGENT MATCHMAKING & COMPATIBILITY ENGINE
+// ==========================================================
+
+function calculateCompatibility(me, partner) {
+  if (!partner) {
+    return {
+      score: 88,
+      headline: 'Great Chemistry ✨',
+      reasons: ['High mutual chemistry', 'Active verified member on HookMeBySam'],
+      icebreakers: ["Hey there! Glad we connected 😊 What made you smile today?", "What's the best weekend plan you've had recently? 🌴"],
+      sharedTags: []
+    };
+  }
+
+  const myInterests = Array.isArray(me?.interests)
+    ? me.interests
+    : (typeof me?.interests === 'string' ? me.interests.split(',').map(s => s.trim()) : ['Music 🎵', 'Travel ✈️', 'Foodie 🍕']);
+  const theirInterests = Array.isArray(partner?.tags)
+    ? partner.tags
+    : (Array.isArray(partner?.interests) ? partner.interests : []);
+
+  // Clean text helper (removes emojis and symbols)
+  const norm = (s) => String(s || '').replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').toLowerCase().trim();
+  const myNorm = myInterests.map(norm).filter(Boolean);
+
+  const shared = [];
+  theirInterests.forEach(item => {
+    const ni = norm(item);
+    if (ni && myNorm.some(m => m.includes(ni) || ni.includes(m))) {
+      shared.push(item);
+    }
+  });
+
+  let score = 76; // Matchmaking affinity baseline
+  const reasons = [];
+
+  // 1. Relationship Intent Synergy (up to +12 pts)
+  const myIntent = (me?.intent || 'relationship').toLowerCase();
+  const theirIntent = (partner?.intent || 'relationship').toLowerCase();
+
+  if (myIntent === theirIntent || (myIntent.includes('relat') && theirIntent.includes('relat'))) {
+    score += 12;
+    if (theirIntent.includes('relat') || theirIntent.includes('marriage') || theirIntent === 'long-term dating') {
+      reasons.push('You both share the same vision for a serious, meaningful connection');
+    } else if (theirIntent.includes('dat') || theirIntent.includes('casual')) {
+      reasons.push('Both seeking exciting dates, chemistry, and spontaneous adventures');
+    } else if (theirIntent.includes('friend')) {
+      reasons.push('Both interested in genuine friendships and expanding close circles');
+    } else {
+      reasons.push('Aligned dating goals and compatible relationship intentions');
+    }
+  } else if ((myIntent.includes('relat') && theirIntent.includes('marriage')) || (myIntent.includes('marriage') && theirIntent.includes('relat'))) {
+    score += 10;
+    reasons.push('Complementary aspirations for a serious, lasting partnership');
+  } else {
+    score += 4;
+  }
+
+  // 2. Shared Passions & Interests (up to +12 pts)
+  if (shared.length >= 3) {
+    score += 12;
+    const cleanNames = shared.slice(0, 3).map(s => s.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim());
+    reasons.push(`Shared passions for ${cleanNames.join(', ')}`);
+  } else if (shared.length > 0) {
+    score += shared.length * 4;
+    const cleanNames = shared.map(s => s.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim());
+    reasons.push(`Both love ${cleanNames.join(' & ')}`);
+  } else if (theirInterests.length > 0) {
+    score += 4;
+    const cleanTag = theirInterests[0].replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim();
+    reasons.push(`Exciting complementary passions in ${cleanTag}`);
+  }
+
+  // 3. Lifestyle Synergy (up to +8 pts)
+  const myWorkout = norm(me?.workout || me?.lifestyle?.workout || 'active');
+  const theirWorkout = norm(partner?.workout || '');
+  if ((myWorkout.includes('fit') || myWorkout.includes('gym') || myWorkout.includes('active') || myWorkout.includes('yoga') || myWorkout.includes('walk')) &&
+      (theirWorkout.includes('fit') || theirWorkout.includes('gym') || theirWorkout.includes('active') || theirWorkout.includes('yoga') || theirWorkout.includes('weights') || theirWorkout.includes('swim') || theirWorkout.includes('pilates'))) {
+    score += 5;
+    reasons.push('Both value an active, healthy, and energetic lifestyle');
+  }
+
+  const mySmoking = norm(me?.smoking || me?.lifestyle?.smoking || 'non');
+  const theirSmoking = norm(partner?.smoking || '');
+  if (theirSmoking.includes('never') || theirSmoking.includes('non') || theirSmoking.includes('rarely') || mySmoking.includes('never') || mySmoking.includes('non')) {
+    score += 3;
+    reasons.push('Compatible lifestyle preferences & healthy everyday habits');
+  }
+
+  // 4. Verification & Authentic Profile Bonus (+3 pts)
+  if (partner?.isVerified || partner?.verified) {
+    score += 3;
+    reasons.push('Verified authentic identity & vetted photos 🛡️');
+  }
+
+  // Normalized affinity bounds: 84% - 98%
+  score = Math.min(98, Math.max(84, score));
+
+  // Determine headline
+  let headline = 'Exceptional Match 🔥';
+  if (score >= 94) headline = 'Exceptional Chemistry 🔥';
+  else if (score >= 89) headline = 'High Compatibility ✨';
+  else headline = 'Strong Potential 💫';
+
+  if (reasons.length < 2) {
+    reasons.push('Complementary communication styles & positive energy');
+  }
+
+  // Tailored Conversation Starters based on their profile prompts & tags
+  const pName = partner?.name || 'them';
+  const icebreakers = [];
+
+  // Interest-based icebreaker
+  if (shared.length > 0) {
+    const topic = shared[0].replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim();
+    if (topic.toLowerCase().includes('music') || topic.toLowerCase().includes('afrobeat') || topic.toLowerCase().includes('amapiano')) {
+      icebreakers.push(`"Saw we both love music! What artist or album are you playing on repeat right now? 🎵"`);
+    } else if (topic.toLowerCase().includes('travel')) {
+      icebreakers.push(`"You love traveling — what's the most unforgettable trip you've ever taken? ✈️"`);
+    } else if (topic.toLowerCase().includes('food') || topic.toLowerCase().includes('brunch')) {
+      icebreakers.push(`"Fellow foodie here! What's your #1 underrated spot in town right now? 🍕"`);
+    } else {
+      icebreakers.push(`"Tell me about your favorite thing about ${topic}!"`);
+    }
+  }
+
+  // Prompt-based icebreaker
+  if (Array.isArray(partner?.prompts) && partner.prompts.length > 0) {
+    const q1 = partner.prompts[0]?.question || '';
+    if (q1.includes('pleasures')) {
+      icebreakers.push(`"Your answer about simple pleasures resonated with me. What's next on your bucket list?"`);
+    } else if (q1.includes('Sunday')) {
+      icebreakers.push(`"Your ideal Sunday sounds awesome. Best brunch in town or relaxing at home?"`);
+    } else if (q1.includes('boundary') || q1.includes('green flag')) {
+      icebreakers.push(`"Loved your prompt answer! What's something that instantly earns your respect?"`);
+    }
+  }
+
+  if (icebreakers.length < 3) {
+    icebreakers.push(`"Hey ${pName}! Glad we matched 😊 What made you smile today?"`);
+  }
+  if (icebreakers.length < 3) {
+    icebreakers.push(`"What's your go-to way to unwind after a productive week? 🌴"`);
+  }
+
+  return {
+    score,
+    headline,
+    reasons: reasons.slice(0, 3),
+    icebreakers: icebreakers.slice(0, 3),
+    sharedTags: shared
+  };
+}
+window.calculateCompatibility = calculateCompatibility;
+
+// ==========================================================
+// VOICE INTRODUCTION PLAYBACK ENGINE
+// ==========================================================
+
+let _currentVoiceIntroProfileId = null;
+
+function playProfileVoiceIntro(profileId, event) {
+  if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
+  const profile = (typeof profileStack !== 'undefined' ? profileStack.find(p => p.id === profileId) : null) ||
+                  (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA.find(p => p.id === profileId) : null) ||
+                  (typeof matchedUsers !== 'undefined' ? matchedUsers.find(p => p.id === profileId) : null);
+
+  if (!profile || !profile.voiceIntro) {
+    if (typeof showToast === 'function') showToast('Voice intro unavailable for this profile', 'info');
+    return;
+  }
+
+  const pName = profile.name || 'them';
+  const text = profile.voiceIntro.text || `Hey! I'm ${pName}. Looking forward to connecting on HookMeBySam!`;
+
+  // Toggle off if currently speaking
+  if (_currentVoiceIntroProfileId === profileId && window.speechSynthesis && window.speechSynthesis.speaking) {
+    window.speechSynthesis.cancel();
+    _resetVoiceIntroUI(profileId);
+    _currentVoiceIntroProfileId = null;
+    return;
+  }
+
+  if (window.speechSynthesis) {
+    window.speechSynthesis.cancel();
+  }
+  if (_currentVoiceIntroProfileId) {
+    _resetVoiceIntroUI(_currentVoiceIntroProfileId);
+  }
+
+  _currentVoiceIntroProfileId = profileId;
+  _setVoiceIntroUIPlaying(profileId);
+
+  if ('speechSynthesis' in window) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.96;
+    utterance.pitch = 1.04;
+
+    const voices = window.speechSynthesis.getVoices();
+    const voiceMatch = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha')));
+    if (voiceMatch) utterance.voice = voiceMatch;
+
+    utterance.onend = () => {
+      _resetVoiceIntroUI(profileId);
+      _currentVoiceIntroProfileId = null;
+    };
+    utterance.onerror = () => {
+      _resetVoiceIntroUI(profileId);
+      _currentVoiceIntroProfileId = null;
+    };
+
+    window.speechSynthesis.speak(utterance);
+    if (typeof haptic === 'function') haptic('light');
+  } else {
+    if (typeof showToast === 'function') showToast(`🎙️ ${pName}: "${text}"`, 'gold', 5000);
+    setTimeout(() => {
+      _resetVoiceIntroUI(profileId);
+      _currentVoiceIntroProfileId = null;
+    }, 4000);
+  }
+}
+window.playProfileVoiceIntro = playProfileVoiceIntro;
+
+function _setVoiceIntroUIPlaying(profileId) {
+  const cardWaves = document.getElementById(`cardVoiceWaves_${profileId}`);
+  if (cardWaves) cardWaves.classList.add('playing');
+  const cardBtn = document.getElementById(`cardVoiceBtn_${profileId}`);
+  if (cardBtn) cardBtn.classList.add('playing');
+  const detailPill = document.getElementById(`detailVoicePlayPill_${profileId}`);
+  if (detailPill) detailPill.classList.add('playing');
+  const detailText = document.getElementById(`detailVoiceBtnText_${profileId}`);
+  if (detailText) detailText.textContent = 'Pause Intro';
+}
+
+function _resetVoiceIntroUI(profileId) {
+  const cardWaves = document.getElementById(`cardVoiceWaves_${profileId}`);
+  if (cardWaves) cardWaves.classList.remove('playing');
+  const cardBtn = document.getElementById(`cardVoiceBtn_${profileId}`);
+  if (cardBtn) cardBtn.classList.remove('playing');
+  const detailPill = document.getElementById(`detailVoicePlayPill_${profileId}`);
+  if (detailPill) detailPill.classList.remove('playing');
+  const detailText = document.getElementById(`detailVoiceBtnText_${profileId}`);
+  const profile = typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA.find(p => p.id === profileId) : null;
+  if (detailText) detailText.textContent = `Listen to ${profile?.name || 'them'}`;
+}
+
+function startChatWithIcebreaker(partnerId, text) {
+  if (typeof closeProfileDetailModal === 'function') closeProfileDetailModal();
+  if (typeof openChat === 'function') {
+    openChat(partnerId);
+    setTimeout(() => {
+      const input = document.getElementById('chatInput');
+      if (input) {
+        input.value = text;
+        input.focus();
+        if (typeof onChatInputChange === 'function') onChatInputChange();
+        if (typeof haptic === 'function') haptic('light');
+      }
+    }, 240);
+  }
+}
+window.startChatWithIcebreaker = startChatWithIcebreaker;
+
 // ==========================================================
 // SWIPE ENGINE
 // ==========================================================
@@ -2710,6 +3026,18 @@ function buildProfileCard(p, idx) {
     `<div class="photo-dot${i === 0 ? ' active' : ''}"></div>`
   ).join('') || '<div class="photo-dot active"></div>';
 
+  const compat = typeof calculateCompatibility === 'function'
+    ? calculateCompatibility(currentUser, p)
+    : { score: 92, headline: 'High Chemistry', reasons: ['High chemistry & shared positive energy'], icebreakers: [] };
+
+  const voiceIntroBtnHtml = p.voiceIntro ? `
+    <button type="button" class="card-voice-intro-btn" id="cardVoiceBtn_${p.id}" onclick="event.stopPropagation();playProfileVoiceIntro('${p.id}', event)" aria-label="Listen to voice introduction" title="Listen to voice intro">
+      <span class="card-voice-mic-icon">🎙️</span>
+      <span class="card-voice-label">Voice Intro</span>
+      <span class="card-voice-waves" id="cardVoiceWaves_${p.id}"><span></span><span></span><span></span></span>
+    </button>
+  ` : '';
+
   card.innerHTML = `
     <div class="card-photo-area">
       <div class="card-photo-dots">${dotsHTML}</div>
@@ -2717,14 +3045,21 @@ function buildProfileCard(p, idx) {
         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
         ${escHtml(typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(p) : (p.distance || '2 km away'))}
       </div>
+      ${voiceIntroBtnHtml}
       <div class="stamp stamp-like">LIKE</div>
       <div class="stamp stamp-nope">NOPE</div>
       ${photos.length > 1 ? '<div class="card-photo-tap-prev"></div><div class="card-photo-tap-next"></div>' : ''}
     </div>
     <div class="card-info">
+      <!-- Why You Click Compatibility Pill -->
+      <div class="card-compat-pill" onclick="event.stopPropagation();openProfileDetailSheet('${p.id}', event)" title="Click to view full matchmaking reasons">
+        <span class="compat-pill-badge">${compat.score}% MATCH</span>
+        <span class="compat-pill-reason">${escHtml(compat.reasons[0] || 'High Chemistry')}</span>
+        <span class="compat-pill-arrow">›</span>
+      </div>
       <div class="card-name-row">
         <h2>${escHtml(p.name || 'User')}, ${escHtml(p.age ?? '')}</h2>
-        ${(p.isVerified || p.verified) ? `<span class="verified-icon" title="Verified">
+        ${(p.isVerified || p.verified) ? `<span class="verified-icon" title="Photo Verified Authentic Profile">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
         </span>` : ''}
         <button type="button" class="card-info-btn" aria-label="View profile details" title="View profile details" onclick="event.stopPropagation();openProfileDetailSheet('${p.id}', event)">
@@ -3276,18 +3611,22 @@ function triggerMatchPopup(profile) {
     input.placeholder = `Say something nice to ${pName}...`;
   }
 
+  const compat = typeof calculateCompatibility === 'function'
+    ? calculateCompatibility(currentUser, profile)
+    : { score: 94, headline: 'Exceptional Chemistry 🔥', reasons: ['Shared positive vibes and lifestyle'], icebreakers: [] };
+
   if (compatBadge) {
-    const sharedTag = (Array.isArray(profile.tags) && profile.tags.length > 0) ? profile.tags[0] : 'Good Vibes ✨';
-    const percent = Math.floor(Math.random() * 8) + 92;
-    compatBadge.textContent = `🔥 ${percent}% Compatibility • Shared ${sharedTag}`;
+    compatBadge.textContent = `🔥 ${compat.score}% Compatibility • ${compat.reasons[0]}`;
   }
 
   if (chipsContainer) {
-    const icebreakers = typeof generateIcebreakers === 'function' ? generateIcebreakers(profile) : [
-      `Hey ${pName}! Glad we matched 😊`,
-      `What's your go-to weekend plan in town? 🌴`,
-      `Tell me the story behind your favorite photo! 📸`
-    ];
+    const icebreakers = (compat && compat.icebreakers && compat.icebreakers.length > 0)
+      ? compat.icebreakers
+      : (typeof generateIcebreakers === 'function' ? generateIcebreakers(profile) : [
+          `Hey ${pName}! Glad we matched 😊`,
+          `What's your go-to weekend plan in town? 🌴`,
+          `Tell me the story behind your favorite photo! 📸`
+        ]);
     chipsContainer.innerHTML = icebreakers.map(line => `
       <button type="button" class="match-icebreaker-chip" onclick="selectIcebreakerInMatch(this.textContent.trim())">
         ${escHtml(line)}
@@ -6918,7 +7257,8 @@ async function confirmMediaSend() {
 
       if (typeof uploadFileToBackend === 'function' && typeof fbStorage !== 'undefined' && fbStorage && !window._firebaseStorageDisabled && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
         try {
-          const up = uploadFileToBackend(fileToUpload, 'chat_media', false, isVideo2 ? (f2.type || 'video/mp4') : 'image/jpeg');
+          const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+          const up = uploadFileToBackend(fileToUpload, `chat_media/${matchId}`, false, isVideo2 ? (f2.type || 'video/mp4') : 'image/jpeg');
           const timeout = new Promise(r => setTimeout(() => r(null), isVideo2 ? 120000 : 40000));
           const res = await Promise.race([up, timeout]);
           if (res && typeof res === 'string' && res.startsWith('http')) cloudUrl = res;
@@ -9220,6 +9560,65 @@ function renderProfileScreen() {
   const bioInput = document.getElementById('editBio');
   const locInput = document.getElementById('editLocation');
   const interestsInput = document.getElementById('editInterests');
+  const intentInput = document.getElementById('editIntent');
+  const occInput = document.getElementById('editOccupation');
+  const eduInput = document.getElementById('editEducation');
+  const workoutInput = document.getElementById('editWorkout');
+  const drinkInput = document.getElementById('editDrinking');
+  const smokeInput = document.getElementById('editSmoking');
+  const promptQ1 = document.getElementById('editPromptQ1');
+  const promptA1 = document.getElementById('editPromptA1');
+
+  if (intentInput) intentInput.value = currentUser.intent || 'relationship';
+  if (occInput) occInput.value = currentUser.occupation || currentUser.lifestyle?.occupation || '';
+  if (eduInput) eduInput.value = currentUser.education || currentUser.lifestyle?.education || '';
+  if (workoutInput) workoutInput.value = currentUser.workout || currentUser.lifestyle?.workout || 'Active (Gym & Sports)';
+  if (drinkInput) drinkInput.value = currentUser.drinking || currentUser.lifestyle?.drinking || 'Socially on weekends';
+  if (smokeInput) smokeInput.value = currentUser.smoking || currentUser.lifestyle?.smoking || 'Non-smoker';
+
+  const userPrompts = Array.isArray(currentUser.prompts) && currentUser.prompts.length > 0
+    ? currentUser.prompts[0]
+    : { question: 'My ideal Sunday looks like...', answer: '' };
+  if (promptQ1) promptQ1.value = userPrompts.question || 'My ideal Sunday looks like...';
+  if (promptA1) promptA1.value = userPrompts.answer || '';
+
+  // Voice Intro status in Edit Profile
+  const voiceStatus = document.getElementById('editVoiceStatus');
+  const voicePlayBtn = document.getElementById('editVoicePlayBtn');
+  const voiceDelBtn = document.getElementById('editVoiceDeleteBtn');
+  if (currentUser.voiceIntro && currentUser.voiceIntro.duration) {
+    if (voiceStatus) voiceStatus.textContent = `✓ Voice intro recorded (${currentUser.voiceIntro.duration})`;
+    if (voicePlayBtn) voicePlayBtn.style.display = 'inline-flex';
+    if (voiceDelBtn) voiceDelBtn.style.display = 'inline-flex';
+  } else {
+    if (voiceStatus) voiceStatus.textContent = 'Add a short 10–15s voice intro to let matches hear your voice!';
+    if (voicePlayBtn) voicePlayBtn.style.display = 'none';
+    if (voiceDelBtn) voiceDelBtn.style.display = 'none';
+  }
+
+  // Profile Completeness Meter
+  let pct = 20;
+  if (currentUser.name && currentUser.age) pct += 15;
+  if (currentUser.bio && currentUser.bio.length >= 10) pct += 15;
+  if (Array.isArray(currentUser.photos) && currentUser.photos.length >= 2) pct += 20;
+  else if (currentUser.image || currentUser.avatar) pct += 10;
+  if (Array.isArray(currentUser.interests) && currentUser.interests.length >= 2) pct += 15;
+  if (currentUser.intent) pct += 5;
+  if (currentUser.workout || currentUser.occupation) pct += 5;
+  if (currentUser.voiceIntro || (Array.isArray(currentUser.prompts) && currentUser.prompts.length > 0 && currentUser.prompts[0].answer)) pct += 5;
+  pct = Math.min(100, pct);
+
+  const fillEl = document.getElementById('profileCompletenessFill');
+  const pctEl = document.getElementById('profileCompletenessPct');
+  const tipEl = document.getElementById('profileCompletenessTip');
+  if (fillEl) fillEl.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '%';
+  if (tipEl) {
+    if (pct >= 95) tipEl.textContent = '🌟 All-star profile! You get maximum visibility in recommendations.';
+    else if (!currentUser.voiceIntro) tipEl.textContent = 'Tip: Add a voice introduction to reach 100% and get 3x more matches!';
+    else if (!currentUser.photos || currentUser.photos.length < 3) tipEl.textContent = 'Tip: Profiles with 3+ photos get 4x more mutual likes!';
+    else tipEl.textContent = 'Tip: Add your lifestyle preferences to unlock high-affinity match suggestions.';
+  }
 
   const displayName = currentUser.name || currentUser.displayName || 'User';
   const displayAge = currentUser.age || 24;
@@ -9821,6 +10220,23 @@ function saveProfile() {
   if (interestsVal) {
     currentUser.interests = interestsVal.split(',').map(s => s.trim()).filter(Boolean);
   }
+
+  const intentVal = document.getElementById('editIntent')?.value || 'relationship';
+  const occVal = document.getElementById('editOccupation')?.value.trim() || '';
+  const eduVal = document.getElementById('editEducation')?.value.trim() || '';
+  const workoutVal = document.getElementById('editWorkout')?.value || 'Active (Gym & Sports)';
+  const drinkVal = document.getElementById('editDrinking')?.value || 'Socially on weekends';
+  const smokeVal = document.getElementById('editSmoking')?.value || 'Non-smoker';
+  const q1Val = document.getElementById('editPromptQ1')?.value || 'My ideal Sunday looks like...';
+  const a1Val = document.getElementById('editPromptA1')?.value.trim() || '';
+
+  currentUser.intent = intentVal;
+  currentUser.occupation = occVal;
+  currentUser.education = eduVal;
+  currentUser.workout = workoutVal;
+  currentUser.drinking = drinkVal;
+  currentUser.smoking = smokeVal;
+  currentUser.prompts = a1Val ? [{ question: q1Val, answer: a1Val }] : [];
 
   saveToStorage();
   renderProfileScreen();
@@ -10657,6 +11073,9 @@ function openProfileDetailSheet(profileId, event) {
   }
 
   appState.activeDetailProfileId = profile.id;
+  const compat = typeof calculateCompatibility === 'function'
+    ? calculateCompatibility(currentUser, profile)
+    : { score: 92, headline: 'High Chemistry', reasons: ['High chemistry and compatible vibes'], icebreakers: [] };
 
   const modal = document.getElementById('profileDetailModal');
   const sheet = modal?.querySelector('.profile-detail-sheet');
@@ -10768,6 +11187,53 @@ function openProfileDetailSheet(profileId, event) {
         </div>
         <div class="detail-location-pill">
           📍 ${escHtml(location)}
+        </div>
+      </div>
+    </div>
+
+    <!-- Matchmaking Insights Card: Why You Two Click -->
+    <div class="detail-section detail-compat-section">
+      <div class="detail-compat-card">
+        <div class="compat-card-top">
+          <div class="compat-score-circle">
+            <div class="compat-score-val">${compat.score}%</div>
+            <div class="compat-score-lbl">MATCH</div>
+          </div>
+          <div class="compat-card-text">
+            <div class="compat-headline">${escHtml(compat.headline)}</div>
+            <div class="compat-subhead">Matchmaking insights &amp; lifestyle alignment</div>
+          </div>
+        </div>
+        <div class="compat-reasons-list">
+          ${compat.reasons.map(r => `
+            <div class="compat-reason-item">
+              <span class="compat-reason-check">✓</span>
+              <span class="compat-reason-txt">${escHtml(r)}</span>
+            </div>
+          `).join('')}
+        </div>
+        ${profile.voiceIntro ? `
+          <div class="detail-voice-intro-box">
+            <div class="voice-intro-header">
+              <span class="voice-intro-icon">🎙️</span>
+              <span class="voice-intro-title">Voice Introduction (${escHtml(profile.voiceIntro.duration || '0:15')})</span>
+            </div>
+            <button type="button" class="voice-intro-play-pill" id="detailVoicePlayPill_${profile.id}" onclick="playProfileVoiceIntro('${profile.id}', event)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span id="detailVoiceBtnText_${profile.id}">Listen to ${escHtml(profile.name)}</span>
+              <span class="voice-mini-waves" id="detailVoiceWaves_${profile.id}"><span></span><span></span><span></span><span></span></span>
+            </button>
+          </div>
+        ` : ''}
+        <div class="compat-icebreakers-box">
+          <div class="compat-icebreakers-header">✨ Recommended Icebreakers:</div>
+          <div class="compat-icebreaker-chips">
+            ${compat.icebreakers.map(ib => `
+              <button type="button" class="compat-icebreaker-chip" onclick="startChatWithIcebreaker('${profile.id}', ${JSON.stringify(ib)})">
+                ${escHtml(ib)}
+              </button>
+            `).join('')}
+          </div>
         </div>
       </div>
     </div>
@@ -16115,3 +16581,89 @@ function completeSelfieVerification() {
   }, 1400);
 }
 window.completeSelfieVerification = completeSelfieVerification;
+
+
+// Voice Intro Recording in Profile
+let _editVoiceRecorder = null;
+let _editVoiceChunks = [];
+let _editVoiceTimer = null;
+let _editVoiceSeconds = 0;
+
+async function toggleEditVoiceRecord() {
+  const btn = document.getElementById('editVoiceRecordBtn');
+  const status = document.getElementById('editVoiceStatus');
+  if (!_editVoiceRecorder || _editVoiceRecorder.state === 'inactive') {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      _editVoiceRecorder = new MediaRecorder(stream);
+      _editVoiceChunks = [];
+      _editVoiceSeconds = 0;
+
+      _editVoiceRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) _editVoiceChunks.push(e.data);
+      };
+
+      _editVoiceRecorder.onstop = async () => {
+        stream.getTracks().forEach(t => t.stop());
+        clearInterval(_editVoiceTimer);
+        const blob = new Blob(_editVoiceChunks, { type: 'audio/webm' });
+        const dur = Math.max(1, _editVoiceSeconds);
+        const durStr = '0:' + String(dur).padStart(2, '0');
+
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          currentUser.voiceIntro = {
+            duration: durStr,
+            audioUrl: reader.result,
+            text: 'Voice introduction by ' + (currentUser.name || 'me')
+          };
+          saveToStorage();
+          renderProfileScreen();
+          showToast('Voice intro saved! 🎙️', 'gold');
+        };
+        reader.readAsDataURL(blob);
+      };
+
+      _editVoiceRecorder.start();
+      _editVoiceTimer = setInterval(() => {
+        _editVoiceSeconds++;
+        if (status) status.textContent = '🎙️ Recording... 0:' + String(_editVoiceSeconds).padStart(2, '0') + ' (Tap button to stop)';
+        if (_editVoiceSeconds >= 20) toggleEditVoiceRecord();
+      }, 1000);
+
+      if (btn) btn.innerHTML = '⏹️ Stop Recording';
+      if (status) status.textContent = '🎙️ Recording... 0:00 (Tap button to stop)';
+      if (typeof haptic === 'function') haptic('medium');
+    } catch (err) {
+      console.warn('Voice record error:', err);
+      showToast('Microphone access needed to record voice intro', 'error');
+    }
+  } else {
+    _editVoiceRecorder.stop();
+    if (btn) btn.innerHTML = '🎙️ Record Intro';
+  }
+}
+window.toggleEditVoiceRecord = toggleEditVoiceRecord;
+
+function playMyVoiceIntro() {
+  if (!currentUser?.voiceIntro?.audioUrl) {
+    showToast('No voice intro recorded yet', 'info');
+    return;
+  }
+  const audio = new Audio(currentUser.voiceIntro.audioUrl);
+  audio.play().catch(e => {
+    console.warn('Audio play error:', e);
+    showToast('Could not play audio', 'error');
+  });
+}
+window.playMyVoiceIntro = playMyVoiceIntro;
+
+function deleteMyVoiceIntro() {
+  if (confirm('Remove your voice introduction?')) {
+    currentUser.voiceIntro = null;
+    saveToStorage();
+    renderProfileScreen();
+    showToast('Voice intro removed', 'info');
+  }
+}
+window.deleteMyVoiceIntro = deleteMyVoiceIntro;
