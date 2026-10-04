@@ -17135,3 +17135,94 @@ function deleteMyVoiceIntro() {
   }
 }
 window.deleteMyVoiceIntro = deleteMyVoiceIntro;
+
+// ==========================================================
+// LIVE NETWORK CONNECTIVITY MONITOR
+// ==========================================================
+let _networkBannerTimer = null;
+
+function updateNetworkStatus(isOnline, isManualRetry = false) {
+  const banner = document.getElementById('networkStatusBanner');
+  const icon = document.getElementById('netStatusIcon');
+  const text = document.getElementById('netStatusText');
+  const retryBtn = document.getElementById('netStatusRetryBtn');
+  if (!banner) return;
+
+  if (_networkBannerTimer) {
+    clearTimeout(_networkBannerTimer);
+    _networkBannerTimer = null;
+  }
+
+  if (!isOnline) {
+    banner.className = 'network-status-banner offline';
+    if (icon) icon.textContent = '📡';
+    if (text) text.textContent = 'Waiting for network... Messages will sync once connected.';
+    if (retryBtn) {
+      retryBtn.style.display = 'inline-block';
+      retryBtn.textContent = 'Retry';
+    }
+    banner.style.display = 'flex';
+  } else {
+    banner.className = 'network-status-banner online';
+    if (icon) icon.textContent = '⚡';
+    if (text) text.textContent = 'Connected • Real-time syncing active';
+    if (retryBtn) retryBtn.style.display = 'none';
+    banner.style.display = 'flex';
+
+    // Auto-sync active screen / conversations
+    if (typeof appState !== 'undefined' && appState.currentChatId && typeof renderChatThread === 'function') {
+      renderChatThread();
+    }
+    if (typeof loadProfilesForDiscovery === 'function' && appState?.currentScreen === 'discovery') {
+      loadProfilesForDiscovery();
+    }
+
+    _networkBannerTimer = setTimeout(() => {
+      banner.style.opacity = '0';
+      banner.style.transform = 'translate(-50%, -12px)';
+      setTimeout(() => {
+        banner.style.display = 'none';
+        banner.style.opacity = '';
+        banner.style.transform = '';
+      }, 320);
+    }, 2500);
+  }
+}
+window.updateNetworkStatus = updateNetworkStatus;
+
+async function retryNetworkConnection() {
+  const banner = document.getElementById('networkStatusBanner');
+  const retryBtn = document.getElementById('netStatusRetryBtn');
+  if (retryBtn) retryBtn.textContent = 'Checking...';
+
+  try {
+    await fetch(`https://www.gstatic.com/generate_204?_=${Date.now()}`, { mode: 'no-cors', cache: 'no-store' });
+    updateNetworkStatus(true, true);
+  } catch (_) {
+    if (retryBtn) retryBtn.textContent = 'Retry';
+    if (banner) {
+      banner.classList.remove('shake');
+      banner.offsetWidth; // trigger reflow
+      banner.classList.add('shake');
+    }
+    if (typeof showToast === 'function') {
+      showToast('⚠️ Still offline. Please check your connection.', 'error');
+    }
+  }
+}
+window.retryNetworkConnection = retryNetworkConnection;
+
+function initNetworkMonitor() {
+  window.addEventListener('online', () => updateNetworkStatus(true));
+  window.addEventListener('offline', () => updateNetworkStatus(false));
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+    updateNetworkStatus(false);
+  }
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initNetworkMonitor);
+} else {
+  initNetworkMonitor();
+}
+

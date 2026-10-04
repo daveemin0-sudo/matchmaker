@@ -240,6 +240,13 @@
       </div>
     </div>
 
+    <!-- Live Network Connectivity Banner -->
+    <div class="network-status-banner" id="networkStatusBanner" style="display:none" role="status" aria-live="polite">
+      <span class="net-status-icon" id="netStatusIcon">📡</span>
+      <span class="net-status-text" id="netStatusText">Waiting for network...</span>
+      <button type="button" class="net-status-retry-btn" id="netStatusRetryBtn" onclick="retryNetworkConnection()" title="Retry connection">Retry</button>
+    </div>
+
     <!-- =========================================================
          SCREENS CONTAINER
          ========================================================= -->
