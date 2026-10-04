@@ -35,3 +35,4 @@ build/
 android/app/build/
 android/.gradle/
 *.zip
+scratch/
