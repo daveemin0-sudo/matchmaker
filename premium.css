@@ -5936,3 +5936,244 @@ button#hkVerifyBtn.hk-vpc-btn {
   gap: 8px;
   flex-wrap: wrap;
 }
+
+/* ==========================================================
+   TAP-TO-RETRY FOR FAILED MESSAGES & VOICE NOTES
+   ========================================================== */
+.msg-failed-retry-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 4px 10px;
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.38);
+  border-radius: 12px;
+  color: #ff6b6b;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.12);
+}
+.msg-failed-retry-bar:hover {
+  background: rgba(239, 68, 68, 0.26);
+  color: #ff8585;
+  transform: translateY(-1px);
+}
+.msg-failed-retry-bar:active {
+  transform: scale(0.96);
+}
+.msg-failed-retry-icon {
+  font-size: 0.8rem;
+  animation: retryPulse 1.6s ease-in-out infinite;
+}
+@keyframes retryPulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.18); opacity: 1; }
+}
+.is-failed-msg .msg-bubble {
+  opacity: 0.85;
+  border: 1.5px solid rgba(239, 68, 68, 0.45) !important;
+}
+
+[data-theme="light"] .msg-failed-retry-bar {
+  background: rgba(220, 38, 38, 0.1) !important;
+  border-color: rgba(220, 38, 38, 0.3) !important;
+  color: #dc2626 !important;
+  box-shadow: 0 1px 4px rgba(220, 38, 38, 0.08) !important;
+}
+[data-theme="light"] .is-failed-msg .msg-bubble {
+  border-color: rgba(220, 38, 38, 0.4) !important;
+}
+
+/* ==========================================================
+   IN-CHAT AI CONVERSATION ASSISTANT
+   ========================================================== */
+.chat-ai-assist-btn {
+  color: #F59E0B !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.chat-ai-assist-btn:hover {
+  color: #FBBF24 !important;
+  background: rgba(245, 158, 11, 0.18) !important;
+  transform: scale(1.06);
+}
+.chat-ai-assist-btn.active {
+  background: rgba(245, 158, 11, 0.28) !important;
+  color: #FCD34D !important;
+  box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
+}
+
+.chat-ai-suggestions-panel {
+  background: rgba(22, 14, 34, 0.97) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+  padding: 10px 14px 12px !important;
+  animation: slideUpAiPanel 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+  width: 100%;
+}
+@keyframes slideUpAiPanel {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.chat-ai-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 9px;
+  gap: 10px;
+}
+.chat-ai-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+.chat-ai-panel-icon {
+  font-size: 0.95rem;
+}
+.chat-ai-panel-label {
+  letter-spacing: -0.01em;
+}
+.chat-ai-panel-badge {
+  background: linear-gradient(135deg, rgba(255, 94, 142, 0.22), rgba(124, 58, 237, 0.22));
+  border: 1px solid rgba(255, 94, 142, 0.4);
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #FF7597;
+  letter-spacing: 0.02em;
+}
+.chat-ai-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.chat-ai-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+  padding: 4px 9px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.chat-ai-refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
+  transform: translateY(-1px);
+}
+.chat-ai-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 6px;
+  transition: color 0.15s ease;
+}
+.chat-ai-close-btn:hover {
+  color: #FFFFFF;
+}
+
+.chat-ai-chips-list {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.chat-ai-chips-list::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-ai-chip {
+  flex: 0 0 auto;
+  max-width: 82%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: #FFFFFF;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.35;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  user-select: none;
+}
+.chat-ai-chip:hover {
+  background: linear-gradient(135deg, rgba(209, 58, 99, 0.25), rgba(124, 58, 237, 0.22));
+  border-color: rgba(255, 94, 142, 0.45);
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 14px rgba(209, 58, 99, 0.2);
+}
+.chat-ai-chip:active {
+  transform: scale(0.97);
+}
+.chat-ai-chip-icon {
+  font-size: 0.88rem;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+.chat-ai-chip-txt {
+  flex: 1;
+}
+
+/* Light Mode Overrides for Chat AI */
+[data-theme="light"] .chat-ai-suggestions-panel {
+  background: #FFFFFF !important;
+  border-top-color: rgba(0, 0, 0, 0.09) !important;
+  border-bottom-color: rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+}
+[data-theme="light"] .chat-ai-panel-title {
+  color: #111827 !important;
+}
+[data-theme="light"] .chat-ai-refresh-btn {
+  background: #F3F4F6 !important;
+  border-color: rgba(0, 0, 0, 0.08) !important;
+  color: #374151 !important;
+}
+[data-theme="light"] .chat-ai-refresh-btn:hover {
+  background: #E5E7EB !important;
+  color: #111827 !important;
+}
+[data-theme="light"] .chat-ai-close-btn {
+  color: #6B7280 !important;
+}
+[data-theme="light"] .chat-ai-close-btn:hover {
+  color: #111827 !important;
+}
+[data-theme="light"] .chat-ai-chip {
+  background: #F9FAFB !important;
+  border-color: rgba(0, 0, 0, 0.1) !important;
+  color: #1F2937 !important;
+}
+[data-theme="light"] .chat-ai-chip:hover {
+  background: #FDF2F8 !important;
+  border-color: rgba(219, 39, 119, 0.35) !important;
+  box-shadow: 0 3px 10px rgba(219, 39, 119, 0.12) !important;
+}
+

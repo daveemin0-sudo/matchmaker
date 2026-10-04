@@ -4980,6 +4980,7 @@ function openChat(profileId, { fromHistory = false } = {}) {
   // Mark all incoming messages in this chat as read and refresh badge
   markConversationAsRead(profileId);
   updateMatchesNotificationBadge();
+  if (typeof closeChatAiAssistant === 'function') closeChatAiAssistant();
 
   // Populate WhatsApp-style in-chat header
   const partner = matchedUsers.find(u => u.id === profileId) || PROFILES_DATA.find(u => u.id === profileId);
@@ -5852,8 +5853,15 @@ function renderChatThread() {
         </div>`;
     }
 
+    const isFailed = Boolean(isSent && (msg._uploadFailed || msg._failed));
+    const failedRetryHtml = isFailed ? `
+      <div class="msg-failed-retry-bar" onclick="event.stopPropagation();retryFailedMessage('${partnerId}', '${msgId}')" role="button" tabindex="0" title="Tap to retry sending">
+        <span class="msg-failed-retry-icon">⚠️</span>
+        <span class="msg-failed-retry-text">Couldn't send • Tap to retry</span>
+      </div>` : '';
+
     html += `
-      <div class="msg-row ${isSent ? 'sent' : 'received'}" data-msg-id="${msgId}"
+      <div class="msg-row ${isSent ? 'sent' : 'received'} ${isFailed ? 'is-failed-msg' : ''}" data-msg-id="${msgId}"
         ontouchstart="handleMsgTouchStart(event, '${msgId}')"
         ontouchmove="handleMsgTouchMove(event, '${msgId}')"
         ontouchend="handleMsgTouchEnd(event, '${msgId}')"
@@ -5869,12 +5877,285 @@ function renderChatThread() {
         ${forwardedHtml}
         ${bubbleHtml}
         ${reactionBar}
+        ${failedRetryHtml}
       </div>`;
   });
 
   container.innerHTML = html;
   container.scrollTop = container.scrollHeight;
 }
+
+// ==========================================================
+// TAP-TO-RETRY ENGINE FOR FAILED MESSAGES & VOICE NOTES
+// ==========================================================
+async function retryFailedMessage(partnerId, msgId) {
+  if (!partnerId || !msgId) return;
+  const conv = conversations[partnerId];
+  if (!conv || !Array.isArray(conv.messages)) return;
+  const msg = conv.messages.find(m => m.id === msgId);
+  if (!msg) return;
+
+  delete msg._uploadFailed;
+  delete msg._failed;
+  msg._uploading = true;
+  renderChatThread();
+  showToast('Retrying sending...', 'info', 2200);
+
+  try {
+    const isVoice = Boolean(msg.isVoice);
+    const isVideo = Boolean(msg.videoUrl || msg.isVideo);
+    const isImage = Boolean(msg.imageUrl);
+
+    if (isVoice) {
+      let cloudUrl = msg.audioUrl;
+      const isCloud = cloudUrl && typeof cloudUrl === 'string' && cloudUrl.startsWith('http');
+      if (!isCloud && typeof uploadFileToBackend === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+        const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+        try {
+          const res = await fetch(cloudUrl);
+          const blob = await res.blob();
+          const uploadedUrl = await uploadFileToBackend(blob, `chat_media/${matchId}`);
+          if (uploadedUrl && typeof uploadedUrl === 'string' && uploadedUrl.startsWith('http')) {
+            cloudUrl = uploadedUrl;
+            msg.audioUrl = cloudUrl;
+          }
+        } catch (e) {
+          console.warn('retryFailedMessage: voice re-upload failed:', e);
+        }
+      }
+
+      if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+        const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+        const delivered = await sendRealtimeMessage(matchId, '', true, cloudUrl, '', null, '', false, msgId, msg.duration || '0:05');
+        if (!delivered) {
+          msg._uploadFailed = true;
+          delete msg._uploading;
+          renderChatThread();
+          saveToStorage();
+          showToast('Failed to send voice note. Tap to retry.', 'error', 4500);
+          return;
+        }
+      } else {
+        if (typeof triggerAutoReply === 'function') triggerAutoReply();
+      }
+      delete msg._uploading;
+      renderChatThread();
+      saveToStorage();
+      showToast('Voice note sent! 🎤', 'gold');
+    } else if (isVideo || isImage) {
+      let mediaUrl = isVideo ? msg.videoUrl : msg.imageUrl;
+      const isCloud = mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('http');
+      if (!isCloud && typeof uploadFileToBackend === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+        const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+        try {
+          const res = await fetch(mediaUrl);
+          const blob = await res.blob();
+          const uploadedUrl = await uploadFileToBackend(blob, `chat_media/${matchId}`);
+          if (uploadedUrl && typeof uploadedUrl === 'string' && uploadedUrl.startsWith('http')) {
+            mediaUrl = uploadedUrl;
+            if (isVideo) msg.videoUrl = mediaUrl;
+            else msg.imageUrl = mediaUrl;
+          }
+        } catch (e) {
+          console.warn('retryFailedMessage: media re-upload failed:', e);
+        }
+      }
+
+      if (!mediaUrl || (!mediaUrl.startsWith('http') && typeof fbAuth !== 'undefined' && fbAuth?.currentUser)) {
+        msg._uploadFailed = true;
+        delete msg._uploading;
+        renderChatThread();
+        saveToStorage();
+        showToast('Media upload failed. Check connection & tap to retry.', 'error', 5000);
+        return;
+      }
+
+      if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+        const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+        const delivered = await sendRealtimeMessage(
+          matchId,
+          isVideo ? 'Video' : 'Photo',
+          false,
+          '',
+          isVideo ? '' : mediaUrl,
+          msg.replyTo || null,
+          isVideo ? mediaUrl : '',
+          isVideo,
+          msgId
+        );
+        if (!delivered) {
+          msg._uploadFailed = true;
+          delete msg._uploading;
+          renderChatThread();
+          saveToStorage();
+          showToast('Failed to deliver media. Tap to retry.', 'error', 5000);
+          return;
+        }
+      }
+      delete msg._uploading;
+      renderChatThread();
+      saveToStorage();
+      showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
+    } else {
+      // Standard text message
+      if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+        const matchId = [fbAuth.currentUser.uid, partnerId].sort().join('_');
+        const delivered = await sendRealtimeMessage(matchId, msg.text, false, '', '', msg.replyTo || null, '', false, msgId);
+        if (!delivered) {
+          msg._uploadFailed = true;
+          delete msg._uploading;
+          renderChatThread();
+          saveToStorage();
+          showToast('Could not send message. Tap to retry.', 'error', 5000);
+          return;
+        }
+      } else {
+        if (typeof triggerAutoReply === 'function') triggerAutoReply();
+      }
+      delete msg._uploading;
+      renderChatThread();
+      saveToStorage();
+      showToast('Message sent! ✨', 'info');
+    }
+  } catch (err) {
+    console.error('retryFailedMessage error:', err);
+    msg._uploadFailed = true;
+    delete msg._uploading;
+    renderChatThread();
+    saveToStorage();
+    showToast('Send error. Please try again.', 'error');
+  }
+}
+window.retryFailedMessage = retryFailedMessage;
+
+// ==========================================================
+// IN-CHAT AI CONVERSATION ASSISTANT ENGINE
+// ==========================================================
+function getPartnerProfileForChat(partnerId) {
+  if (!partnerId) return null;
+  return (Array.isArray(matchedUsers) ? matchedUsers.find(u => u.id === partnerId) : null) ||
+         (Array.isArray(PROFILES_DATA) ? PROFILES_DATA.find(u => u.id === partnerId) : null) ||
+         (typeof PREMIUM_MATCHES !== 'undefined' && Array.isArray(PREMIUM_MATCHES) ? PREMIUM_MATCHES.find(u => u.id === partnerId) : null) ||
+         null;
+}
+
+function getChatAiSuggestions(partnerId) {
+  const partner = getPartnerProfileForChat(partnerId);
+  const compat = typeof calculateCompatibility === 'function' ? calculateCompatibility(currentUser, partner) : null;
+  
+  const pool = [];
+  
+  // 1. Personalized compatibility icebreakers
+  if (compat && Array.isArray(compat.icebreakers)) {
+    compat.icebreakers.forEach(ib => {
+      const clean = ib.replace(/^["']|["']$/g, '').trim();
+      if (clean) pool.push({ icon: '✨', text: clean });
+    });
+  }
+
+  // 2. Profile prompts or bio questions
+  if (partner?.prompts && Array.isArray(partner.prompts) && partner.prompts.length > 0) {
+    const promptObj = partner.prompts[0];
+    const q = promptObj.question || 'About you';
+    const a = promptObj.answer || '';
+    if (a) {
+      pool.push({
+        icon: '💬',
+        text: `Your answer to "${q}" caught my eye! Tell me more about that?`
+      });
+    }
+  }
+
+  // 3. Shared interest or interest question
+  const tags = partner?.tags || partner?.interests || [];
+  if (Array.isArray(tags) && tags.length > 0) {
+    const tag = tags[0].replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim();
+    pool.push({
+      icon: '🎯',
+      text: `I noticed you're into ${tag}. What got you passionate about it?`
+    });
+  }
+
+  // 4. Fun playful starters
+  pool.push({
+    icon: '☕',
+    text: `Quick icebreaker: what does your ideal low-key Sunday look like?`
+  });
+  pool.push({
+    icon: '🎶',
+    text: `If you had to pick one song that always puts you in a good mood, what is it?`
+  });
+  pool.push({
+    icon: '🍕',
+    text: `Spontaneous debate: best comfort food spot in the city?`
+  });
+
+  return pool;
+}
+
+function toggleChatAiAssistant() {
+  const panel = document.getElementById('chatAiSuggestionsPanel');
+  const btn = document.getElementById('chatAiAssistBtn');
+  if (!panel) return;
+  const isHidden = panel.style.display === 'none' || !panel.style.display;
+  if (isHidden) {
+    refreshChatAiSuggestions();
+    panel.style.display = 'block';
+    if (btn) btn.classList.add('active');
+  } else {
+    closeChatAiAssistant();
+  }
+}
+window.toggleChatAiAssistant = toggleChatAiAssistant;
+
+function closeChatAiAssistant() {
+  const panel = document.getElementById('chatAiSuggestionsPanel');
+  const btn = document.getElementById('chatAiAssistBtn');
+  if (panel) panel.style.display = 'none';
+  if (btn) btn.classList.remove('active');
+}
+window.closeChatAiAssistant = closeChatAiAssistant;
+
+function refreshChatAiSuggestions() {
+  const partnerId = appState.currentChatId;
+  const listEl = document.getElementById('chatAiChipsList');
+  const badgeEl = document.getElementById('chatAiCompatibilityBadge');
+  if (!listEl) return;
+
+  const partner = getPartnerProfileForChat(partnerId);
+  const compat = typeof calculateCompatibility === 'function' ? calculateCompatibility(currentUser, partner) : null;
+  if (badgeEl && compat) {
+    badgeEl.textContent = `${compat.score}% Chemistry`;
+  }
+
+  const allSuggestions = getChatAiSuggestions(partnerId);
+  const shuffled = allSuggestions.sort(() => 0.5 - Math.random()).slice(0, 5);
+
+  let chipsHtml = '';
+  shuffled.forEach(s => {
+    chipsHtml += `
+      <div class="chat-ai-chip" onclick="selectChatAiSuggestion('${escHtml(s.text).replace(/'/g, "\\'")}')" role="button" tabindex="0">
+        <span class="chat-ai-chip-icon">${s.icon}</span>
+        <span class="chat-ai-chip-txt">${escHtml(s.text)}</span>
+      </div>`;
+  });
+
+  listEl.innerHTML = chipsHtml;
+}
+window.refreshChatAiSuggestions = refreshChatAiSuggestions;
+
+function selectChatAiSuggestion(text) {
+  if (!text) return;
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  input.value = text;
+  input.style.height = 'auto';
+  input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+  if (typeof onChatInputChange === 'function') onChatInputChange();
+  closeChatAiAssistant();
+  input.focus();
+}
+window.selectChatAiSuggestion = selectChatAiSuggestion;
 
 // ==========================================================
 // SWIPE TO REPLY & QUOTE REPLY HANDLERS
@@ -8621,7 +8902,25 @@ function sendMessage() {
   // Send via real-time Firebase if logged in, otherwise handle local demo mode
   if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
     const matchId = [fbAuth.currentUser.uid, appState.currentChatId].sort().join('_');
-    sendRealtimeMessage(matchId, text, false, "", "", replyPayload, "", false, localMsgId);
+    sendRealtimeMessage(matchId, text, false, "", "", replyPayload, "", false, localMsgId)
+      .then(delivered => {
+        if (!delivered) {
+          const target = conversations[appState.currentChatId]?.messages?.find(m => m.id === localMsgId);
+          if (target) {
+            target._uploadFailed = true;
+            renderChatThread();
+            saveToStorage();
+          }
+        }
+      }).catch(err => {
+        console.warn('sendMessage real-time error:', err);
+        const target = conversations[appState.currentChatId]?.messages?.find(m => m.id === localMsgId);
+        if (target) {
+          target._uploadFailed = true;
+          renderChatThread();
+          saveToStorage();
+        }
+      });
 
     // Trigger push notification to partner (fire-and-forget)
     const myName = currentUser.name || 'Your match';
