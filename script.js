@@ -1411,7 +1411,7 @@ function updateHeader(screenId) {
       break;
     case 'matches':
       setHeaderBtnVisible(backBtn, false);
-      setHeaderTitle('Matches');
+      setHeaderTitle('Matches & Likes ✨');
       break;
     case 'chatsList':
       setHeaderBtnVisible(backBtn, false);
@@ -3843,12 +3843,65 @@ window.sendQuickMessageFromMatch = sendQuickMessageFromMatch;
 // ==========================================================
 
 function renderMatchesView() {
+  renderMatchesConnectionsGrid();
   renderNewMatchesBubbles();
   renderConversationList();
   renderChatsInbox(); // keep chat inbox in sync
   if (typeof syncMatchesPresenceListeners === 'function') {
     syncMatchesPresenceListeners();
   }
+}
+
+function renderMatchesConnectionsGrid() {
+  const grid = document.getElementById('matchesGrid');
+  const countEl = document.getElementById('matchesCount');
+  if (countEl) {
+    countEl.textContent = (matchedUsers || []).length;
+  }
+  if (!grid) return;
+
+  if (!matchedUsers || matchedUsers.length === 0) {
+    grid.innerHTML = `
+      <div class="matches-empty-state">
+        <div class="matches-empty-icon">🔥</div>
+        <h3 class="matches-empty-title">No matches yet</h3>
+        <p class="matches-empty-desc">Swipe right on profiles you like in Discover. When they like you back, they'll appear here!</p>
+        <button class="matches-empty-cta" onclick="switchTab('discovery')">Start Swiping</button>
+      </div>
+    `;
+    return;
+  }
+
+  grid.innerHTML = matchedUsers.map(u => {
+    const userStatus = typeof getUserOnlineStatus === 'function' ? getUserOnlineStatus(u) : { isOnline: false };
+    const compat = typeof calculateCompatibility === 'function' ? calculateCompatibility(currentUser, u) : null;
+    const compatScore = (compat && compat.score) ? compat.score : 88;
+
+    const tags = Array.isArray(u.tags) ? u.tags : (Array.isArray(u.interests) ? u.interests : []);
+    const tagDisplay = tags.length > 0 ? tags[0] : (u.location || 'New connection');
+
+    return `
+      <div class="match-connection-card" onclick="openChat('${u.id}')">
+        <div class="match-card-media" style="background-image:url('${escHtml(u.image || '')}')">
+          <div class="match-card-gradient"></div>
+          ${userStatus.isOnline ? '<span class="match-card-online-badge"><span class="online-pulse-dot"></span> Active</span>' : ''}
+          <div class="match-card-compat-pill">
+            <span>✨ ${compatScore}%</span>
+          </div>
+        </div>
+        <div class="match-card-info">
+          <div class="match-card-name-row">
+            <h4 class="match-card-name">${escHtml(u.name)}${u.age ? `, ${u.age}` : ''}</h4>
+            ${u.verified ? '<svg class="verified-badge-mini" viewBox="0 0 24 24" width="14" height="14" fill="#3897f0" style="vertical-align:middle;flex-shrink:0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' : ''}
+          </div>
+          <p class="match-card-sub">${escHtml(tagDisplay)}</p>
+          <button class="match-card-chat-btn" onclick="event.stopPropagation();openChat('${u.id}')">
+            <span>Say Hi 👋</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 function renderNewMatchesBubbles() {

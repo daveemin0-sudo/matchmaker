@@ -884,6 +884,233 @@ body.keyboard-open #globalFloatingSearchBtn {
   background-size: 800px 100%;
 }
 
+/* --- 10B. MATCHES & LIKES CONNECTIONS HUB --- */
+.matches-connections-section {
+  margin-top: 18px;
+}
+
+.matches-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-top: 10px;
+}
+
+.match-connection-card {
+  position: relative;
+  background: rgba(22, 16, 32, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 18px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.match-connection-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(209, 58, 99, 0.45);
+  box-shadow: 0 12px 30px rgba(209, 58, 99, 0.18);
+}
+
+.match-connection-card:active {
+  transform: scale(0.98);
+}
+
+.match-card-media {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.15;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-color: #1a1622;
+}
+
+.match-card-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 40%, rgba(12, 8, 18, 0.85) 100%);
+}
+
+.match-card-online-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(46, 213, 115, 0.3);
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #2ed573;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  z-index: 2;
+}
+
+.online-pulse-dot {
+  width: 6px;
+  height: 6px;
+  background-color: #2ed573;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #2ed573;
+}
+
+.match-card-compat-pill {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(209, 58, 99, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  padding: 3px 8px;
+  border-radius: 20px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+  z-index: 2;
+  box-shadow: 0 4px 12px rgba(209, 58, 99, 0.4);
+}
+
+.match-card-info {
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.match-card-name-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+
+.match-card-name {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-card-sub {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--txt-muted, rgba(255, 255, 255, 0.6));
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.match-card-chat-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 7px 0;
+  background: linear-gradient(135deg, #d13a63 0%, #e05353 100%);
+  border: none;
+  border-radius: 12px;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  box-shadow: 0 4px 12px rgba(209, 58, 99, 0.3);
+}
+
+.match-card-chat-btn:hover {
+  filter: brightness(1.1);
+  transform: scale(1.02);
+}
+
+.match-card-chat-btn:active {
+  transform: scale(0.98);
+}
+
+/* Empty state */
+.matches-empty-state {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 36px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  margin-top: 6px;
+}
+
+.matches-empty-icon {
+  font-size: 2.6rem;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 4px 14px rgba(209, 58, 99, 0.35));
+}
+
+.matches-empty-title {
+  margin: 0 0 6px;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.matches-empty-desc {
+  margin: 0 0 16px;
+  font-size: 0.82rem;
+  color: var(--txt-muted, rgba(255, 255, 255, 0.6));
+  line-height: 1.45;
+  max-width: 260px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.matches-empty-cta {
+  background: linear-gradient(135deg, #d13a63 0%, #e05353 100%);
+  border: none;
+  border-radius: 24px;
+  padding: 9px 20px;
+  color: #ffffff;
+  font-size: 0.84rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(209, 58, 99, 0.35);
+  transition: transform 0.15s ease;
+}
+
+.matches-empty-cta:hover {
+  transform: scale(1.03);
+}
+
+/* Light theme overrides */
+[data-theme="light"] .match-connection-card {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="light"] .match-card-name {
+  color: #111111;
+}
+
+[data-theme="light"] .matches-empty-state {
+  background: rgba(0, 0, 0, 0.02);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="light"] .matches-empty-title {
+  color: #111111;
+}
+
 /* --- 11. RAYA / TINDER PLATINUM PAYWALL MODAL --- */
 .paywall-modal {
   backdrop-filter: blur(28px) !important;
