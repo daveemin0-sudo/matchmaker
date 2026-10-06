@@ -254,8 +254,16 @@ html.age-gate-passed #ageGateOverlay {
 .app-header.hidden,
 .bottom-nav.hidden,
 .app-shell.is-auth .app-header,
-.app-shell.is-auth .bottom-nav {
+.app-shell.is-auth .bottom-nav,
+body.keyboard-visible .bottom-nav,
+body.keyboard-open .bottom-nav,
+.app-shell.keyboard-visible .bottom-nav,
+.app-shell.keyboard-open .bottom-nav,
+body.keyboard-visible #globalFloatingSearchBtn,
+body.keyboard-open #globalFloatingSearchBtn {
   display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .header-left {

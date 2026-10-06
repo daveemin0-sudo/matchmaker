@@ -15092,15 +15092,28 @@ if (document.readyState === 'loading') {
 }
 
 // Mobile Keyboard Behavior: Lock chat header at top (WhatsApp style), adjust safe area, and handle dismissals
-(function initMobileKeyboardChatHandler() {
+(function initMobileKeyboardHandler() {
   const chatInputEl = document.getElementById('chatInput');
   const chatMessagesEl = document.getElementById('chatMessages');
+  const appShell = document.querySelector('.app-shell');
+  let kbBlurTimer = null;
 
-  function alignChatViewport() {
+  function updateKeyboardState(isKbOpen) {
+    document.body.classList.toggle('keyboard-visible', isKbOpen);
+    document.body.classList.toggle('keyboard-open', isKbOpen);
+    if (appShell) {
+      appShell.classList.toggle('keyboard-visible', isKbOpen);
+      appShell.classList.toggle('keyboard-open', isKbOpen);
+    }
+  }
+
+  function alignViewport() {
+    const isKbOpen = window.visualViewport
+      ? (window.visualViewport.height < window.innerHeight - 70)
+      : false;
+    updateKeyboardState(isKbOpen);
+
     if (appState.currentScreen === 'chat') {
-      const isKbOpen = window.visualViewport ? (window.visualViewport.height < window.innerHeight - 80) : false;
-      document.body.classList.toggle('keyboard-visible', isKbOpen);
-
       window.scrollTo(0, 0);
       document.body.scrollTop = 0;
       if (chatMessagesEl) {
@@ -15110,7 +15123,7 @@ if (document.readyState === 'loading') {
   }
 
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', alignChatViewport);
+    window.visualViewport.addEventListener('resize', alignViewport);
     window.visualViewport.addEventListener('scroll', () => {
       if (appState.currentScreen === 'chat') {
         window.scrollTo(0, 0);
@@ -15118,22 +15131,39 @@ if (document.readyState === 'loading') {
     });
   }
 
-  if (chatInputEl) {
-    chatInputEl.addEventListener('focus', () => {
-      document.body.classList.add('keyboard-visible');
-      window.scrollTo(0, 0);
-      setTimeout(alignChatViewport, 100);
-      setTimeout(alignChatViewport, 300);
-    });
+  // Global focusin / focusout for instant virtual keyboard reaction across all screens
+  document.addEventListener('focusin', (e) => {
+    const target = e.target;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      const type = (target.getAttribute('type') || '').toLowerCase();
+      if (!['checkbox', 'radio', 'range', 'file', 'button', 'submit'].includes(type)) {
+        if (kbBlurTimer) {
+          clearTimeout(kbBlurTimer);
+          kbBlurTimer = null;
+        }
+        updateKeyboardState(true);
+        if (appState.currentScreen === 'chat') {
+          window.scrollTo(0, 0);
+          setTimeout(alignViewport, 100);
+          setTimeout(alignViewport, 300);
+        }
+      }
+    }
+  }, { passive: true });
 
-    chatInputEl.addEventListener('blur', () => {
-      setTimeout(() => {
-        if (!chatInputEl.matches(':focus')) {
-          document.body.classList.remove('keyboard-visible');
+  document.addEventListener('focusout', (e) => {
+    const target = e.target;
+    if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+      kbBlurTimer = setTimeout(() => {
+        const active = document.activeElement;
+        const stillTyping = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+        if (!stillTyping) {
+          const isKbOpen = window.visualViewport ? (window.visualViewport.height < window.innerHeight - 70) : false;
+          updateKeyboardState(isKbOpen);
         }
       }, 150);
-    });
-  }
+    }
+  }, { passive: true });
 
   // Tap on chat messages area dismisses virtual keyboard (WhatsApp & Telegram style)
   if (chatMessagesEl) {

@@ -752,8 +752,16 @@ body::before {
 
 .bottom-nav[style*="display: none"],
 .bottom-nav[style*="display:none"],
-.app-shell:has(.auth-screen.active) .bottom-nav {
+.app-shell:has(.auth-screen.active) .bottom-nav,
+body.keyboard-visible .bottom-nav,
+body.keyboard-open .bottom-nav,
+.app-shell.keyboard-visible .bottom-nav,
+.app-shell.keyboard-open .bottom-nav,
+body.keyboard-visible #globalFloatingSearchBtn,
+body.keyboard-open #globalFloatingSearchBtn {
   display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
 }
 
 .nav-tab {
