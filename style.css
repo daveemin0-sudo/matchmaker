@@ -9439,6 +9439,9 @@ body[data-theme="light"],
 .msg-row {
   position: relative !important;
   touch-action: pan-y !important;
+}
+.msg-row.swiping,
+.msg-row.swiped {
   transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) !important;
 }
 .swipe-reply-icon {

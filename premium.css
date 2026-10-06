@@ -2628,10 +2628,10 @@ body.in-chat #bottomNav,
   backdrop-filter: blur(28px) saturate(190%) !important;
   -webkit-backdrop-filter: blur(28px) !important;
   border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-  padding-top: 10px !important;
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
-  padding-left: 14px !important;
-  padding-right: 14px !important;
+  padding-top: 8px !important;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px) !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
   display: flex !important;
   align-items: center !important;
   gap: 8px !important;
@@ -2645,12 +2645,30 @@ body.in-chat #bottomNav,
   z-index: 90 !important;
 }
 
+.chat-input-pill {
+  flex: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 24px !important;
+  padding: 3px 6px !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+}
+.chat-input-pill:focus-within {
+  border-color: rgba(255, 46, 112, 0.5) !important;
+  box-shadow: 0 0 0 2px rgba(255, 46, 112, 0.15) !important;
+}
+
 .chat-icon-btn {
-  width: 38px !important;
-  height: 38px !important;
+  width: 34px !important;
+  height: 34px !important;
   border-radius: 50% !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: transparent !important;
+  border: none !important;
   color: var(--txt-secondary, #E4E0EE) !important;
   display: flex !important;
   align-items: center !important;
@@ -2660,24 +2678,27 @@ body.in-chat #bottomNav,
   flex-shrink: 0 !important;
 }
 .chat-icon-btn:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
   color: #FFFFFF !important;
 }
 
 .chat-field {
   flex: 1 !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 24px !important;
-  padding: 10px 16px !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  padding: 7px 8px !important;
   color: #FFFFFF !important;
-  font-size: 0.9rem !important;
+  font-size: 0.92rem !important;
+  line-height: 1.4 !important;
   outline: none !important;
-  transition: all 0.2s ease !important;
+  resize: none !important;
+  min-width: 0 !important;
 }
 .chat-field:focus {
-  border-color: #FF2E70 !important;
-  box-shadow: 0 0 0 3px rgba(255, 46, 112, 0.2) !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 .chat-send-btn {

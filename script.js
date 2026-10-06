@@ -15160,28 +15160,24 @@ if (document.readyState === 'loading') {
     }
   }
 
+  let scrollRaf = null;
+
   function alignViewport() {
     const isKbOpen = window.visualViewport
       ? (window.visualViewport.height < window.innerHeight - 70)
       : false;
     updateKeyboardState(isKbOpen);
 
-    if (appState.currentScreen === 'chat') {
-      window.scrollTo(0, 0);
-      document.body.scrollTop = 0;
-      if (chatMessagesEl) {
+    if (appState.currentScreen === 'chat' && chatMessagesEl) {
+      if (scrollRaf) cancelAnimationFrame(scrollRaf);
+      scrollRaf = requestAnimationFrame(() => {
         chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight;
-      }
+      });
     }
   }
 
   if (window.visualViewport) {
     window.visualViewport.addEventListener('resize', alignViewport);
-    window.visualViewport.addEventListener('scroll', () => {
-      if (appState.currentScreen === 'chat') {
-        window.scrollTo(0, 0);
-      }
-    });
   }
 
   // Global focusin / focusout for instant virtual keyboard reaction across all screens
@@ -15196,9 +15192,7 @@ if (document.readyState === 'loading') {
         }
         updateKeyboardState(true);
         if (appState.currentScreen === 'chat') {
-          window.scrollTo(0, 0);
-          setTimeout(alignViewport, 100);
-          setTimeout(alignViewport, 300);
+          setTimeout(alignViewport, 150);
         }
       }
     }
