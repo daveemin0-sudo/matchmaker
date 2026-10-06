@@ -39,3 +39,29 @@ test('live network connectivity banner exists with auto-reconnect handling', () 
   assert.ok(js.includes('function updateNetworkStatus'), 'Missing updateNetworkStatus');
   assert.ok(js.includes('function retryNetworkConnection'), 'Missing retryNetworkConnection');
 });
+
+test('legal modals, header search, and search modal overlay exist without duplicate IDs', () => {
+  // Legal modals
+  assert.ok(js.includes('function openTermsModal'), 'Missing openTermsModal');
+  assert.ok(js.includes('function openPrivacyModal'), 'Missing openPrivacyModal');
+  assert.ok(html.includes('openTermsModal()'), 'Missing openTermsModal call in HTML');
+  assert.ok(html.includes('openPrivacyModal()'), 'Missing openPrivacyModal call in HTML');
+
+  // Header search & search modal
+  assert.ok(html.includes('id="headerSearchBtn"'), 'Missing headerSearchBtn');
+  assert.ok(html.includes('id="searchModalOverlay"'), 'Missing searchModalOverlay');
+  assert.ok(html.includes('id="searchModalInput"'), 'Missing searchModalInput');
+  assert.ok(html.includes('id="clearModalSearchBtn"'), 'Missing clearModalSearchBtn');
+  assert.ok(html.includes('id="searchModalResults"'), 'Missing searchModalResults');
+  assert.ok(js.includes('function openSearchModal'), 'Missing openSearchModal');
+  assert.ok(js.includes('function closeSearchModal'), 'Missing closeSearchModal');
+
+  // No duplicate IDs in HTML
+  const idCounts = {};
+  const idMatches = html.matchAll(/id="(\w+)"/g);
+  for (const m of idMatches) {
+    idCounts[m[1]] = (idCounts[m[1]] || 0) + 1;
+  }
+  const duplicates = Object.entries(idCounts).filter(([_, c]) => c > 1).map(([id]) => id);
+  assert.deepEqual(duplicates, [], `Found duplicate HTML IDs: ${duplicates.join(', ')}`);
+});

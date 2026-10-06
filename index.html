@@ -135,8 +135,8 @@
         <strong style="color:#FF2D78">hookmebysam</strong> is a dating platform exclusively for adults aged
         <strong style="color:#FFF">18 years and older.</strong><br><br>
         By continuing, you confirm that you are at least 18 years old and agree to our
-        <span onclick="window.open('#terms','_blank')" style="color:#FF2D78;cursor:pointer;text-decoration:underline">Terms of Service</span> and
-        <span onclick="window.open('#privacy','_blank')" style="color:#FF2D78;cursor:pointer;text-decoration:underline">Privacy Policy</span>.
+        <span onclick="openTermsModal()" style="color:#FF2D78;cursor:pointer;text-decoration:underline">Terms of Service</span> and
+        <span onclick="openPrivacyModal()" style="color:#FF2D78;cursor:pointer;text-decoration:underline">Privacy Policy</span>.
       </p>
       <button id="ageGateConfirmBtn" onclick="confirmAgeGate()" style="
         width:100%;padding:16px;border:none;border-radius:20px;
@@ -204,6 +204,16 @@
             </svg>
             <span class="filter-active-dot" id="filterActiveDot" style="display:none;"></span>
           </div>
+        </button>
+        <!-- Search People button — opens direct user search on Discovery and Matches -->
+        <button class="header-btn" id="headerSearchBtn" onclick="openSearchModal()" aria-label="Search People" title="Search People">
+          <div class="header-icon-wrap" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+          </div>
+        </button>
         <!-- Stealth / Incognito mode badge indicator -->
         <button class="header-btn stealth-mode-btn" id="stealthModeHeaderBadge" style="display:none;" onclick="openSafetyToolkit()" aria-label="Incognito Mode" title="Stealth Mode Active">
           <span class="stealth-pill-badge">🕵️ Incognito</span>
@@ -2868,41 +2878,31 @@
     </div>
 
     <!-- =====================================================
-         MODAL: SAFETY & VERIFICATION TOOLKIT
+         MODAL: SEARCH REGISTERED USERS (Discovery / Direct Connect)
          ===================================================== -->
-    <div class="modal-overlay" id="safetyToolkitModal" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;z-index:99998;background:rgba(0,0,0,0.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)">
-      <div class="safety-modal-sheet">
-        <div class="safety-modal-header">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:1.3rem">🛡️</span>
-            <h2 style="margin:0;font-size:1.25rem;font-weight:700;color:#FFF">Safety &amp; Trust Center</h2>
+    <div id="searchModalOverlay" class="search-modal-overlay" style="display:none;position:fixed;inset:0;z-index:99996;background:rgba(0,0,0,0.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:flex-start;justify-content:center;padding:16px;" onclick="if(event.target===this)closeSearchModal()">
+      <div class="search-modal-card" style="width:100%;max-width:540px;background:linear-gradient(180deg,#1C112A 0%,#0C0816 100%);border:1px solid rgba(255,255,255,0.12);border-radius:24px;box-shadow:0 24px 60px rgba(0,0,0,0.7);overflow:hidden;margin-top:24px;display:flex;flex-direction:column;max-height:85vh;">
+        <!-- Header -->
+        <div style="padding:18px 20px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.3rem;">🔍</span>
+            <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:#FFF;">Search People</h3>
           </div>
-          <button onclick="closeSafetyToolkitModal()" class="safety-modal-close-btn" aria-label="Close">✕</button>
+          <button type="button" onclick="closeSearchModal()" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:32px;height:32px;color:#FFF;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" aria-label="Close search">✕</button>
         </div>
-        <div class="safety-modal-content">
-          <div class="safety-card-item">
-            <div class="safety-item-icon check">✓</div>
-            <div class="safety-item-text">
-              <div class="safety-item-title">Photo Verified Profile</div>
-              <div class="safety-item-desc">Your profile is actively verified by HookMe AI anti-catfish filters.</div>
-            </div>
-          </div>
-          <div class="safety-card-item" onclick="closeSafetyToolkitModal();switchTab('settings')">
-            <div class="safety-item-icon block">🚫</div>
-            <div class="safety-item-text">
-              <div class="safety-item-title">Block &amp; Report Management</div>
-              <div class="safety-item-desc">Manage your blocked contacts and reports anytime in Settings.</div>
-            </div>
-          </div>
-          <div class="safety-card-item">
-            <div class="safety-item-icon lock">🔒</div>
-            <div class="safety-item-text">
-              <div class="safety-item-title">End-to-End Chat Privacy</div>
-              <div class="safety-item-desc">Your personal contact details and location remain strictly confidential.</div>
-            </div>
+        <!-- Input row -->
+        <div style="padding:14px 20px;position:relative;">
+          <div style="position:relative;display:flex;align-items:center;">
+            <input type="text" id="searchModalInput" placeholder="Search by name, bio, or email..." oninput="handleModalSearchInput(event)" style="width:100%;padding:12px 38px 12px 16px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:14px;color:#FFF;font-size:0.95rem;outline:none;" autocomplete="off">
+            <button id="clearModalSearchBtn" type="button" onclick="clearModalSearch()" style="display:none;position:absolute;right:10px;background:none;border:none;color:rgba(255,255,255,0.5);font-size:1rem;cursor:pointer;padding:4px;" aria-label="Clear">✕</button>
           </div>
         </div>
-        <button class="accent-btn" onclick="closeSafetyToolkitModal()" style="width:100%;margin-top:16px">Done</button>
+        <!-- Results container -->
+        <div id="searchModalResults" style="padding:10px 20px 24px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;">
+          <div style="text-align:center;padding:32px 16px;color:rgba(255,255,255,0.5);font-size:0.88rem">
+            Type a name or email above to search registered accounts 🔍
+          </div>
+        </div>
       </div>
     </div>
 

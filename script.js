@@ -15042,6 +15042,16 @@ function closeLegalModal() {
   document.body.style.overflow = '';
 }
 
+function openTermsModal() {
+  showLegalModal('terms');
+}
+window.openTermsModal = openTermsModal;
+
+function openPrivacyModal() {
+  showLegalModal('privacy');
+}
+window.openPrivacyModal = openPrivacyModal;
+
 // Ensure hardware back/forward navigation is initialized
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initNavigationHistory);
@@ -15203,14 +15213,24 @@ function hkPrevPreviewPhoto(e) {
 }
 
 function openSafetyToolkitModal() {
-  const m = document.getElementById('safetyToolkitModal');
-  if (m) m.style.display = 'flex';
+  if (typeof openSafetyToolkit === 'function') {
+    openSafetyToolkit();
+  } else {
+    const m = document.getElementById('safetyToolkitModal');
+    if (m) m.style.display = 'flex';
+  }
 }
+window.openSafetyToolkitModal = openSafetyToolkitModal;
 
 function closeSafetyToolkitModal() {
-  const m = document.getElementById('safetyToolkitModal');
-  if (m) m.style.display = 'none';
+  if (typeof closeSafetyToolkit === 'function') {
+    closeSafetyToolkit();
+  } else {
+    const m = document.getElementById('safetyToolkitModal');
+    if (m) m.style.display = 'none';
+  }
 }
+window.closeSafetyToolkitModal = closeSafetyToolkitModal;
 
 function triggerProfileBoost() {
   if (appState.isBoostActive) {
