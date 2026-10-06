@@ -2074,6 +2074,17 @@
         <div class="nav-active-dot"></div>
       </button>
 
+      <button class="nav-tab" data-tab="chatsList" onclick="switchTab('chatsList')" aria-label="Messages">
+        <div class="nav-icon-wrap" style="position:relative;display:inline-flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24">
+            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+          </svg>
+          <span class="nav-count-badge" id="chatsNavBadge" style="display:none">0</span>
+        </div>
+        Messages
+        <div class="nav-active-dot"></div>
+      </button>
+
       <button class="nav-tab" data-tab="profile" onclick="switchTab('profile')" aria-label="Profile">
         <svg viewBox="0 0 24 24">
           <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>

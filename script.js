@@ -3522,6 +3522,7 @@ function getTotalUnreadCount() {
 
 function updateMatchesNotificationBadge() {
   const badge = document.getElementById('matchesNavBadge');
+  const chatsBadge = document.getElementById('chatsNavBadge');
   const headerBadge = document.getElementById('headerMatchesCountBadge');
   const headerDot = document.getElementById('headerNotifDot');
   const count = getTotalUnreadCount();
@@ -3536,6 +3537,17 @@ function updateMatchesNotificationBadge() {
     } else {
       badge.style.display = 'none';
       badge.textContent = '0';
+    }
+  }
+
+  // Mirror unread count on the dedicated Messages nav tab
+  if (chatsBadge) {
+    if (count > 0) {
+      chatsBadge.textContent = count > 99 ? '99+' : count;
+      chatsBadge.style.display = 'inline-flex';
+    } else {
+      chatsBadge.style.display = 'none';
+      chatsBadge.textContent = '0';
     }
   }
 
@@ -4517,6 +4529,26 @@ function renderChatsInbox(filterQuery) {
   // Ensure every partner with existing messages is present in matchedUsers even when offline
   syncMatchedUsersFromConversations();
   sortMatchedUsersByLatest();
+
+  // --- SKELETON STATE: show shimmer while Firestore hasn't delivered the first batch yet ---
+  const isRealUser = typeof isRealUserLoggedIn === 'function' ? isRealUserLoggedIn() : false;
+  if (isRealUser && !window._initialMatchesLoaded && !filterQuery) {
+    const col = document.getElementById('chatsConvoList');
+    if (col && col.children.length === 0) {
+      const skeletonItem = () => `
+        <div class="convo-skeleton-item">
+          <div class="convo-skeleton-avatar"></div>
+          <div class="convo-skeleton-body">
+            <div class="convo-skeleton-line convo-skeleton-name"></div>
+            <div class="convo-skeleton-line convo-skeleton-preview"></div>
+          </div>
+          <div class="convo-skeleton-time"></div>
+        </div>`;
+      col.innerHTML = skeletonItem() + skeletonItem() + skeletonItem() + skeletonItem();
+    }
+    return; // Don't overwrite skeleton with empty state — wait for real data
+  }
+  // ---
 
   // New matches row in inbox
   const matchesRow = document.getElementById('chatsNewMatchesRow');
@@ -9832,7 +9864,7 @@ async function sendVoiceNote() {
 
             if (typeof uploadFileToBackend === 'function') {
               const uploadPromise = uploadFileToBackend(audioBlob, `chat_media/${matchId}`, false, cleanMime);
-              const timeoutPromise = new Promise(res => setTimeout(() => res(null), 6000));
+              const timeoutPromise = new Promise(res => setTimeout(() => res(null), 20000));
               finalRemoteUrl = await Promise.race([uploadPromise, timeoutPromise]);
             }
           } catch (err) {

@@ -798,7 +798,85 @@ body::before {
   box-shadow: 0 0 8px #FF2E70 !important;
 }
 
-/* --- 10. RAYA / TINDER PLATINUM PAYWALL MODAL --- */
+/* --- 10. CONVERSATION LIST SKELETON LOADING STATE --- */
+@keyframes hmbs-shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
+.convo-skeleton-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  pointer-events: none;
+  user-select: none;
+}
+
+.convo-skeleton-avatar,
+.convo-skeleton-line,
+.convo-skeleton-time {
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    rgba(255,255,255,0.05) 25%,
+    rgba(255,255,255,0.13) 50%,
+    rgba(255,255,255,0.05) 75%
+  );
+  background-size: 800px 100%;
+  animation: hmbs-shimmer 1.4s infinite linear;
+}
+
+.convo-skeleton-avatar {
+  width: 50px;
+  height: 50px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.convo-skeleton-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.convo-skeleton-name {
+  height: 14px;
+  width: 55%;
+  border-radius: 7px;
+}
+
+.convo-skeleton-preview {
+  height: 12px;
+  width: 80%;
+  border-radius: 7px;
+  opacity: 0.6;
+}
+
+.convo-skeleton-time {
+  width: 30px;
+  height: 10px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+
+[data-theme="light"] .convo-skeleton-avatar,
+[data-theme="light"] .convo-skeleton-line,
+[data-theme="light"] .convo-skeleton-time {
+  background: linear-gradient(
+    90deg,
+    rgba(0,0,0,0.06) 25%,
+    rgba(0,0,0,0.13) 50%,
+    rgba(0,0,0,0.06) 75%
+  );
+  background-size: 800px 100%;
+}
+
+/* --- 11. RAYA / TINDER PLATINUM PAYWALL MODAL --- */
 .paywall-modal {
   backdrop-filter: blur(28px) !important;
   -webkit-backdrop-filter: blur(28px) !important;

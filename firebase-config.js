@@ -596,7 +596,42 @@ async function searchUsersInFirestore(queryText) {
   }
 }
 
-// Real-time listener for user's matches
+// Cache of fetched public profiles to eliminate redundant N+1 queries across realtime snapshot updates
+const _publicProfilesCache = new Map();
+
+// Helper to resolve partner profile fast from memory cache, local matchedUsers, or Firestore in parallel
+async function resolvePartnerProfile(partnerId) {
+  if (!partnerId) return null;
+  if (_publicProfilesCache.has(partnerId)) {
+    return _publicProfilesCache.get(partnerId);
+  }
+  // Check memory
+  if (typeof matchedUsers !== 'undefined' && Array.isArray(matchedUsers)) {
+    const existing = matchedUsers.find(u => u.id === partnerId);
+    if (existing && existing.name && existing.image) {
+      _publicProfilesCache.set(partnerId, existing);
+      return existing;
+    }
+  }
+  try {
+    const userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
+    if (userDoc && userDoc.exists) {
+      const data = userDoc.data();
+      const profile = {
+        name: data.displayName || data.name || 'Match',
+        age: data.age || 24,
+        bio: data.bio || '',
+        image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+        interests: data.interests || []
+      };
+      _publicProfilesCache.set(partnerId, profile);
+      return profile;
+    }
+  } catch (_) {}
+  return null;
+}
+
+// Real-time listener for user's matches (Parallelized, cached, non-blocking)
 function listenToUserMatches(callback) {
   if (!fbDb || !fbAuth?.currentUser) return null;
   const currentUserId = fbAuth.currentUser.uid;
@@ -605,66 +640,76 @@ function listenToUserMatches(callback) {
     return fbDb.collection('matches')
       .where('users', 'array-contains', currentUserId)
       .onSnapshot(async (snapshot) => {
-        const matchedProfiles = [];
-        for (const doc of snapshot.docs) {
+        const validMatchDocs = snapshot.docs.filter(doc => {
           const matchData = doc.data();
-          if (matchData.blocked === true) continue;
+          if (matchData.blocked === true) return false;
           const partnerId = matchData.users?.find(id => id !== currentUserId);
-          const isBlocked = !partnerId ||
-            (window.__blockedUserIds && window.__blockedUserIds.has(partnerId)) ||
+          if (!partnerId) return false;
+          const isBlocked = (window.__blockedUserIds && window.__blockedUserIds.has(partnerId)) ||
             (typeof blockedUsers !== 'undefined' && Array.isArray(blockedUsers) && blockedUsers.some(b => b.id === partnerId));
-          if (partnerId && !isBlocked) {
-            try {
-              let userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
-              let data = (userDoc && userDoc.exists) ? userDoc.data() : null;
-                // Offline fallback: if profile get() returned null while offline, check memory
-                if (!data && typeof matchedUsers !== 'undefined' && Array.isArray(matchedUsers)) {
-                  data = matchedUsers.find(u => u.id === partnerId);
-                }
-                if (data) {
+          return !isBlocked;
+        });
 
-                // Live presence fetch from /presence/{partnerId}
-                let isOnline = false;
-                let lastSeenMs = 0;
-                try {
-                  const presDoc = await fbDb.collection('presence').doc(partnerId).get().catch(() => null);
-                  if (presDoc && presDoc.exists) {
-                    const pd = presDoc.data();
-                    if (typeof pd.lastSeen === 'number') lastSeenMs = pd.lastSeen;
-                    else if (pd.lastSeen?.toMillis) lastSeenMs = pd.lastSeen.toMillis();
-                    else if (pd.lastSeen?.seconds) lastSeenMs = pd.lastSeen.seconds * 1000;
-                    else if (pd.updatedAt) lastSeenMs = pd.updatedAt;
-                    isOnline = Boolean(pd.isOnline && lastSeenMs && (Date.now() - lastSeenMs < 4 * 60 * 1000));
-                    if (typeof _presenceCache !== 'undefined') {
-                      _presenceCache[partnerId] = { isOnline, lastSeen: lastSeenMs };
-                    }
-                  }
-                } catch (_) {}
+        // Parallel resolve of all partner profiles simultaneously
+        const profilePromises = validMatchDocs.map(async (doc) => {
+          const matchData = doc.data();
+          const partnerId = matchData.users?.find(id => id !== currentUserId);
+          const data = await resolvePartnerProfile(partnerId);
+          if (!data) return null;
 
-                matchedProfiles.push({
-                  id: partnerId,
-                  name: data.displayName || data.name || 'Match',
-                  age: data.age || 24,
-                  bio: data.bio || '',
-                  image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
-                  tags: data.interests || [],
-                  distance: '2 km',
-                  lastMessage: matchData.lastMessage || '',
-                  lastSender: matchData.lastSender || '',
-                  lastUpdated: matchData.lastUpdated?.toMillis ? matchData.lastUpdated.toMillis() : (matchData.createdAt?.toMillis ? matchData.createdAt.toMillis() : Date.now()),
-                  isOnline,
-                  lastSeen: lastSeenMs,
-                  isRealUser: true
-                });
-              }
-            } catch (e) {
-              console.warn("Error loading match profile:", e);
-            }
-          }
-        }
+          // Cached presence if known
+          const presCached = typeof _presenceCache !== 'undefined' ? _presenceCache[partnerId] : null;
+
+          return {
+            id: partnerId,
+            name: data.displayName || data.name || 'Match',
+            age: data.age || 24,
+            bio: data.bio || '',
+            image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+            tags: data.interests || [],
+            distance: '2 km',
+            lastMessage: matchData.lastMessage || '',
+            lastSender: matchData.lastSender || '',
+            lastUpdated: matchData.lastUpdated?.toMillis ? matchData.lastUpdated.toMillis() : (matchData.createdAt?.toMillis ? matchData.createdAt.toMillis() : Date.now()),
+            isOnline: Boolean(presCached?.isOnline),
+            lastSeen: presCached?.lastSeen || 0,
+            isRealUser: true
+          };
+        });
+
+        const results = await Promise.all(profilePromises);
+        const matchedProfiles = results.filter(Boolean);
+
         // Sort matches by latest updated descending so new messages immediately go to the top
         matchedProfiles.sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
+
+        // Immediately invoke callback with ready matches!
         callback(matchedProfiles);
+
+        // Non-blocking background presence refresh (does not stall conversation list)
+        (async () => {
+          try {
+            const presChecks = matchedProfiles.slice(0, 10).map(async (p) => {
+              const presDoc = await fbDb.collection('presence').doc(p.id).get().catch(() => null);
+              if (presDoc && presDoc.exists) {
+                const pd = presDoc.data();
+                let lastSeenMs = 0;
+                if (typeof pd.lastSeen === 'number') lastSeenMs = pd.lastSeen;
+                else if (pd.lastSeen?.toMillis) lastSeenMs = pd.lastSeen.toMillis();
+                else if (pd.lastSeen?.seconds) lastSeenMs = pd.lastSeen.seconds * 1000;
+                else if (pd.updatedAt) lastSeenMs = pd.updatedAt;
+                const isOnline = Boolean(pd.isOnline && lastSeenMs && (Date.now() - lastSeenMs < 4 * 60 * 1000));
+                if (typeof _presenceCache !== 'undefined') {
+                  _presenceCache[p.id] = { isOnline, lastSeen: lastSeenMs };
+                }
+                p.isOnline = isOnline;
+                p.lastSeen = lastSeenMs;
+              }
+            });
+            await Promise.all(presChecks);
+          } catch (_) {}
+        })();
+
       }, (error) => {
         console.warn("Firestore matches listener offline/disabled:", error.message);
       });
@@ -674,7 +719,7 @@ function listenToUserMatches(callback) {
   }
 }
 
-// One-shot direct fetch of user matches (ideal for pull-to-refresh & app resume)
+// One-shot direct fetch of user matches (Parallelized & fast for pull-to-refresh & app resume)
 async function fetchUserMatchesDirectly() {
   if (!fbDb || !fbAuth?.currentUser) return [];
   const currentUserId = fbAuth.currentUser.uid;
@@ -682,38 +727,39 @@ async function fetchUserMatchesDirectly() {
     const snapshot = await fbDb.collection('matches')
       .where('users', 'array-contains', currentUserId)
       .get();
-    const matchedProfiles = [];
-    for (const doc of snapshot.docs) {
+
+    const validMatchDocs = snapshot.docs.filter(doc => {
       const matchData = doc.data();
-      if (matchData.blocked === true) continue;
+      if (matchData.blocked === true) return false;
       const partnerId = matchData.users?.find(id => id !== currentUserId);
-      const isBlocked = !partnerId ||
-        (window.__blockedUserIds && window.__blockedUserIds.has(partnerId)) ||
+      if (!partnerId) return false;
+      const isBlocked = (window.__blockedUserIds && window.__blockedUserIds.has(partnerId)) ||
         (typeof blockedUsers !== 'undefined' && Array.isArray(blockedUsers) && blockedUsers.some(b => b.id === partnerId));
-      if (partnerId && !isBlocked) {
-        try {
-          let userDoc = await fbDb.collection('public_profiles').doc(partnerId).get().catch(() => null);
-          if (userDoc && userDoc.exists) {
-            const data = userDoc.data();
-            matchedProfiles.push({
-              id: partnerId,
-              name: data.displayName || data.name || 'Match',
-              age: data.age || 24,
-              bio: data.bio || '',
-              image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
-              tags: data.interests || [],
-              distance: '2 km',
-              lastMessage: matchData.lastMessage || '',
-              lastSender: matchData.lastSender || '',
-              lastUpdated: matchData.lastUpdated?.toMillis ? matchData.lastUpdated.toMillis() : (matchData.createdAt?.toMillis ? matchData.createdAt.toMillis() : Date.now()),
-              isRealUser: true
-            });
-          }
-        } catch (e) {
-          console.warn("Error loading match profile directly:", e);
-        }
-      }
-    }
+      return !isBlocked;
+    });
+
+    const profilePromises = validMatchDocs.map(async (doc) => {
+      const matchData = doc.data();
+      const partnerId = matchData.users?.find(id => id !== currentUserId);
+      const data = await resolvePartnerProfile(partnerId);
+      if (!data) return null;
+      return {
+        id: partnerId,
+        name: data.displayName || data.name || 'Match',
+        age: data.age || 24,
+        bio: data.bio || '',
+        image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+        tags: data.interests || [],
+        distance: '2 km',
+        lastMessage: matchData.lastMessage || '',
+        lastSender: matchData.lastSender || '',
+        lastUpdated: matchData.lastUpdated?.toMillis ? matchData.lastUpdated.toMillis() : (matchData.createdAt?.toMillis ? matchData.createdAt.toMillis() : Date.now()),
+        isRealUser: true
+      };
+    });
+
+    const results = await Promise.all(profilePromises);
+    const matchedProfiles = results.filter(Boolean);
     matchedProfiles.sort((a, b) => (b.lastUpdated || 0) - (a.lastUpdated || 0));
     return matchedProfiles;
   } catch (err) {
@@ -982,7 +1028,7 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     let snapshot;
     try {
       const putPromise = storageRef.put(file, metadata);
-      const putTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Storage put timeout')), 3500));
+      const putTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Storage put timeout')), 25000));
       snapshot = await Promise.race([putPromise, putTimeout]);
       const downloadUrl = await snapshot.ref.getDownloadURL();
       return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
