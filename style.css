@@ -1,8 +1,3 @@
-/* ============================================================
-   hookmebysam — Premium Dating App Design System v6
-   "Lagos After Dark" — obsidian, ember wine & gold foil
-   ============================================================ */
-
 /* --- Design Tokens --- */
 :root {
   /* Type — Use platform system-ui so Android inherits user-configured device font */
@@ -85,7 +80,9 @@
 /* ============================================================
    RESET & BASE
    ============================================================ */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   margin: 0; padding: 0;
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -139,54 +136,16 @@ html.user-logged-in #discoveryScreen:not(.active) {
 html.user-logged-in #discoveryScreen.active {
   display: flex !important;
 }
-html.user-logged-in #appHeader:not(.is-hidden),
-html.user-logged-in #bottomNav:not(.is-hidden) {
-  display: flex;
-}
 
-body.in-chat #appHeader,
-.app-shell.in-chat #appHeader,
-#appHeader.is-hidden {
-  display: none !important;
-}
-
-body.in-chat #bottomNav,
-.app-shell.in-chat #bottomNav,
-#bottomNav.is-hidden {
-  display: none !important;
-}
 html.age-gate-passed #ageGateOverlay {
   display: none !important;
 }
 
-/* ============================================================
-   APP SHELL — True Full-Viewport App Container (No Black Bars)
-   ============================================================ */
-.app-shell {
-  width: 100%;
-  max-width: 480px;
-  height: 100% !important;
-  height: 100vh !important;
-  height: 100dvh !important;
-  min-height: 100% !important;
-  min-height: 100dvh !important;
-  max-height: 100dvh !important;
-  background: var(--bg);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  position: relative;
-  margin: 0 auto;
-  padding: 0 !important;
-  box-sizing: border-box;
-  border-radius: 0 !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
 /* Mobile Screens: True 100% full-screen without letterboxing or black bars */
 @media (max-width: 768px) {
-  html, body {
+
+  html,
+body {
     background: var(--bg) !important;
     width: 100% !important;
     height: 100% !important;
@@ -196,24 +155,13 @@ html.age-gate-passed #ageGateOverlay {
     margin: 0 !important;
     overflow: hidden !important;
   }
-  .app-shell {
-    width: 100% !important;
-    max-width: 520px !important;
-    height: 100% !important;
-    height: 100vh !important;
-    height: 100dvh !important;
-    min-height: 100dvh !important;
-    max-height: 100dvh !important;
-    border-radius: 0 !important;
-    border: none !important;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.45) !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-  }
+  
+
 }
 
 /* Desktop/Simulation: Flush full-height container with seamless background */
 @media (min-width: 769px) {
+
   body {
     background: var(--bg) !important;
     padding: 0 !important;
@@ -221,44 +169,14 @@ html.age-gate-passed #ageGateOverlay {
   [data-theme="light"] body {
     background: var(--bg) !important;
   }
-  .app-shell {
-    border-radius: 0 !important;
-    border: none !important;
-    height: 100% !important;
-    height: 100vh !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-    box-shadow: 0 0 50px rgba(0, 0, 0, 0.25) !important;
-  }
+  
+
 }
 
 /* ============================================================
    APP HEADER
    ============================================================ */
-.app-header {
-  height: calc(56px + env(safe-area-inset-top, 0px)) !important;
-  padding-top: env(safe-area-inset-top, 0px) !important;
-  padding-left: 16px !important;
-  padding-right: 16px !important;
-  padding-bottom: 0 !important;
-  box-sizing: border-box !important;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  z-index: 100;
-  flex-shrink: 0;
-}
 
-.app-header.hidden,
-.bottom-nav.hidden,
-.app-shell.is-auth .app-header,
-.app-shell.is-auth .bottom-nav,
-body.keyboard-visible .bottom-nav,
-body.keyboard-open .bottom-nav,
-.app-shell.keyboard-visible .bottom-nav,
-.app-shell.keyboard-open .bottom-nav,
 body.keyboard-visible #globalFloatingSearchBtn,
 body.keyboard-open #globalFloatingSearchBtn {
   display: none !important;
@@ -266,90 +184,6 @@ body.keyboard-open #globalFloatingSearchBtn {
   pointer-events: none !important;
 }
 
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.global-back-btn {
-  background: var(--bg-elevated);
-  border: none;
-  color: var(--txt-primary);
-  cursor: pointer;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: var(--r-pill);
-  transition: background var(--t-fast) var(--ease);
-  flex-shrink: 0;
-}
-.global-back-btn:hover { background: rgba(255,255,255,0.1); }
-
-.header-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.app-header h1 {
-  font-family: var(--font-display);
-  font-size: 1.5rem;
-  font-weight: 900;
-  background: var(--flame-grad);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  letter-spacing: -0.5px;
-}
-
-.header-vip-badge {
-  background: var(--gold-grad);
-  color: #2E1A08;
-  font-size: 0.6rem;
-  font-weight: 900;
-  padding: 3px 8px;
-  border-radius: var(--r-xs);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  display: none;
-  box-shadow: var(--shadow-gold);
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex: 1;
-  justify-content: flex-end;
-}
-
-.header-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--txt-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  width: 42px;
-  height: 42px;
-  border-radius: var(--r-pill);
-  transition: all var(--t-fast) var(--ease);
-}
-.header-btn:hover { background: var(--bg-elevated); color: var(--txt-primary); }
-
-.header-btn.is-hidden,
-.header-btn[style*="display: none"],
-.header-btn[style*="display:none"],
-#chatReportBtn.is-hidden,
-#upgradeHeaderBtn.is-hidden,
-#matchesQuickBtn.is-hidden,
-#headerSearchBtn.is-hidden,
 .story-close-btn.is-hidden,
 .story-close-btn[style*="display: none"],
 .story-close-btn[style*="display:none"],
@@ -358,39 +192,10 @@ body.keyboard-open #globalFloatingSearchBtn {
   display: none !important;
 }
 
-.notif-dot {
-  position: absolute;
-  top: 8px; right: 8px;
-  width: 9px; height: 9px;
-  background: var(--flame-1);
-  border-radius: 50%;
-  display: none;
-  border: 2px solid var(--bg);
-  animation: pulseDot 2s ease-in-out infinite;
-}
 @keyframes pulseDot {
   0%, 100% { transform: scale(1); opacity: 1; }
   50% { transform: scale(1.4); opacity: 0.7; }
 }
-
-/* ============================================================
-   SCREEN SYSTEM
-   ============================================================ */
-.screens-container {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-  min-height: 0;
-}
-
-.screen {
-  position: absolute;
-  inset: 0;
-  display: none;
-  flex-direction: column;
-  background: var(--bg);
-}
-.screen.active { display: flex; }
 
 /* ============================================================
    AUTH SCREENS — Login & Sign Up
@@ -629,7 +434,8 @@ input[type="number"].auth-input {
   font-weight: 600;
   margin: 2px 0;
 }
-.auth-divider::before, .auth-divider::after {
+.auth-divider::before,
+.auth-divider::after {
   content: '';
   flex: 1;
   height: 1px;
@@ -1787,8 +1593,6 @@ input[type="number"].auth-input {
 }
 .ice-chip:hover { background: rgba(209,58,99,0.1); border-color: var(--flame-1); }
 
-/* Chat input bar */
-
 /* Voice recording overlay */
 .voice-overlay {
   position: absolute;
@@ -1983,7 +1787,8 @@ input[type="number"].auth-input {
   min-width: 0 !important;
   width: 100% !important;
 }
-.form-input, .form-textarea {
+.form-input,
+.form-textarea {
   width: 100% !important;
   max-width: 100% !important;
   box-sizing: border-box !important;
@@ -1999,8 +1804,10 @@ input[type="number"].auth-input {
   transition: border-color var(--t-fast), box-shadow var(--t-fast);
   font-weight: 500;
 }
-.form-input::placeholder, .form-textarea::placeholder { color: var(--txt-muted); }
-.form-input:focus, .form-textarea:focus {
+.form-input::placeholder,
+.form-textarea::placeholder { color: var(--txt-muted); }
+.form-input:focus,
+.form-textarea:focus {
   border-color: var(--flame-1);
   box-shadow: 0 0 0 3px rgba(209,58,99,0.12);
 }
@@ -2030,7 +1837,6 @@ input[type="number"].auth-input {
   text-align: center;
 }
 
-/* AI Lab card */
 /* AI Lab card — no gold border, plain surface */
 .ai-lab-card {
   background: linear-gradient(145deg, rgba(26,18,40,0.98) 0%, rgba(14,14,18,0.99) 100%);
@@ -2602,136 +2408,12 @@ input[type="number"].auth-input {
   text-decoration: underline;
 }
 
-/* ============================================================
-   BOTTOM NAVIGATION — Tinder-style clean tabs
-   ============================================================ */
-.bottom-nav {
-  display: flex;
-  height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-  padding-top: 0 !important;
-  padding-left: 8px !important;
-  padding-right: 8px !important;
-  box-sizing: border-box !important;
-  border-top: 1px solid var(--border);
-  background: var(--bg);
-  flex-shrink: 0;
-  position: relative;
-  z-index: 100;
-}
-
-.nav-tab {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--txt-muted);
-  font-size: 0.62rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  transition: color var(--t-fast) var(--ease);
-  padding: 8px 0;
-  position: relative;
-}
-.nav-tab { color: var(--txt-muted); }
-.nav-tab svg {
-  width: 22px; height: 22px;
-  fill: currentColor;
-  transition: transform var(--t-mid) var(--spring);
-}
-.nav-tab:hover { color: var(--txt-secondary); }
-.nav-tab:hover svg { transform: scale(1.1); }
-/* Active tab — gold, single language */
-.nav-tab.active { color: var(--gold-1); }
-.nav-tab.active svg { transform: scale(1.05); }
-
-/* Active indicator dot */
-.nav-active-dot {
-  position: absolute;
-  bottom: 6px;
-  width: 4px; height: 4px;
-  background: var(--gold-grad);
-  border-radius: 50%;
-  opacity: 0;
-  transition: opacity var(--t-fast);
-}
-.nav-tab.active .nav-active-dot { opacity: 1; }
-
 /* Real-Time Notification Badge Beside Heart Matches Logo */
-.nav-icon-wrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.nav-count-badge {
-  position: absolute;
-  top: -5px;
-  right: -9px;
-  background: linear-gradient(135deg, #FF2E70, #FF6584);
-  color: #ffffff;
-  font-size: 0.65rem;
-  font-weight: 800;
-  font-family: inherit;
-  min-width: 17px;
-  height: 17px;
-  line-height: 17px;
-  padding: 0 4px;
-  border-radius: 9px;
-  border: 1.5px solid var(--bg, #0B0710);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 8px rgba(255, 46, 112, 0.65);
-  pointer-events: none;
-  z-index: 10;
-  letter-spacing: 0;
-  text-transform: none;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.nav-count-badge.badge-pop {
-  animation: badgePopAnim 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.header-count-badge {
-  position: absolute;
-  top: -4px;
-  right: -7px;
-  background: linear-gradient(135deg, #FF2E70, #FF6584);
-  color: #ffffff;
-  font-size: 0.62rem;
-  font-weight: 800;
-  min-width: 16px;
-  height: 16px;
-  line-height: 16px;
-  padding: 0 3.5px;
-  border-radius: 8px;
-  border: 1.5px solid var(--bg, #0B0710);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 6px rgba(255, 46, 112, 0.6);
-  pointer-events: none;
-  z-index: 10;
-}
 
 @keyframes badgePopAnim {
   0% { transform: scale(0.3); opacity: 0; }
   60% { transform: scale(1.3); opacity: 1; }
   100% { transform: scale(1); opacity: 1; }
-}
-
-[data-theme="light"] .nav-count-badge,
-[data-theme="light"] .header-count-badge {
-  border-color: #ffffff !important;
 }
 
 /* ============================================================
@@ -3446,9 +3128,6 @@ input[type="number"].auth-input {
 }
 
 /* ============================================================
-   MATCH POPUP MODAL
-   ============================================================ */
-/* ============================================================
    MATCH POPUP MODAL (Celebration Screen & Icebreakers)
    ============================================================ */
 .match-popup {
@@ -3769,10 +3448,6 @@ input[type="number"].auth-input {
   background: rgba(255, 255, 255, 0.08);
 }
 
-/* ============================================================
-   UTILITY BUTTONS
-   ============================================================ */
-
 /* Primary accent button — flame gradient, pill shape */
 .accent-btn {
   width: 100%;
@@ -3837,66 +3512,13 @@ input[type="number"].auth-input {
 }
 .secondary-btn:hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.18); }
 
-/* Toast notification */
-.toast-notification {
-  position: fixed;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(-24px);
-  background: var(--bg-elevated);
-  color: var(--txt-primary);
-  border: 1px solid var(--border);
-  padding: 12px 24px;
-  border-radius: var(--r-pill);
-  font-weight: 700;
-  font-size: 0.88rem;
-  z-index: 100000;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-  opacity: 0;
-  transition: all 0.38s var(--spring);
-  white-space: nowrap;
-  pointer-events: none;
-}
-.toast-notification.visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
 /* ============================================================
    BRAND LOGO STYLING — hookmebysam
    ============================================================ */
 
-.main-header-logo {
-  font-family: var(--font-display);
-  font-size: 1.45rem;
-  font-weight: 900;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  letter-spacing: -0.8px;
-  user-select: none;
-  cursor: pointer;
-}
-
-.header-flame-icon {
-  font-size: 1.35rem;
-  display: inline-block;
-  animation: flamePulse 2.5s ease-in-out infinite;
-  filter: drop-shadow(0 0 8px rgba(209, 58, 99, 0.6));
-}
-
 @keyframes flamePulse {
   0%, 100% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 8px rgba(209, 58, 99, 0.6)); }
   50% { transform: scale(1.15) rotate(3deg); filter: drop-shadow(0 0 16px rgba(224, 86, 127, 0.9)); }
-}
-
-.brand-hook {
-  background: linear-gradient(135deg, #D13A63 0%, #E0567F 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-weight: 900;
-  letter-spacing: -0.5px;
 }
 
 .brand-by {
@@ -3915,14 +3537,6 @@ input[type="number"].auth-input {
   background-clip: text;
   font-weight: 900;
   letter-spacing: -0.5px;
-}
-
-.screen-header-title {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
-  font-weight: 900;
-  color: var(--txt-primary);
-  letter-spacing: -0.3px;
 }
 
 /* Auth hero brand logo */
@@ -3967,7 +3581,6 @@ input[type="number"].auth-input {
 
 html[data-theme="light"],
 body[data-theme="light"],
-.app-shell[data-theme="light"],
 [data-theme="light"] {
   --bg: #FAF5EC;
   --bg-surface: #FFFFFF;
@@ -3985,11 +3598,6 @@ body[data-theme="light"],
   --shadow-sm: 0 2px 8px rgba(0,0,0,0.04);
   --shadow-md: 0 8px 24px rgba(15, 23, 42, 0.06);
   --shadow-xl: 0 20px 50px rgba(15, 23, 42, 0.12);
-}
-
-[data-theme="light"] .app-shell {
-  background: var(--bg);
-  border-color: #D9CCB4;
 }
 
 /* Settings Light Theme Polish */
@@ -4082,40 +3690,14 @@ body[data-theme="light"],
   color: #15121A !important;
 }
 
-[data-theme="light"] .app-header {
-  background: #FFFFFF;
-  border-bottom-color: #EDE3D3;
-}
-
-[data-theme="light"] .header-btn {
-  color: #6E5C52;
-}
-[data-theme="light"] .header-btn:hover {
-  background: #F3EADB;
-  color: #221527;
-}
-
-[data-theme="light"] .bottom-nav {
-  background: #FFFFFF;
-  border-top-color: #EDE3D3;
-}
-
-[data-theme="light"] .nav-tab {
-  color: #8C7C6E;
-}
-[data-theme="light"] .nav-tab:hover {
-  color: #5A4A52;
-}
-[data-theme="light"] .nav-tab.active {
-  color: var(--flame-1);
-}
-
 /* Text clarity and readability enforcement for both themes */
-body, .app-shell {
+body {
   color: var(--txt-primary);
 }
 
-label, .form-field label, .auth-form-group label {
+label,
+.form-field label,
+.auth-form-group label {
   color: var(--txt-secondary);
   font-weight: 700;
   font-size: 0.82rem;
@@ -4124,7 +3706,10 @@ label, .form-field label, .auth-form-group label {
   display: block;
 }
 
-.profile-display-name, .profile-name, .convo-name, .match-match-name {
+.profile-display-name,
+.profile-name,
+.convo-name,
+.match-match-name {
   color: var(--txt-primary) !important;
 }
 
@@ -4490,7 +4075,7 @@ label, .form-field label, .auth-form-group label {
   filter: drop-shadow(0 2px 6px rgba(255,184,0,0.4));
 }
 
-.vip-crown-svg .gem-top  { fill: #D13A63; filter: drop-shadow(0 0 5px #D13A63); }
+.vip-crown-svg .gem-top { fill: #D13A63; filter: drop-shadow(0 0 5px #D13A63); }
 .vip-crown-svg .gem-side { fill: #4BB0FF; filter: drop-shadow(0 0 4px #4BB0FF); }
 .vip-crown-svg .gem-base { fill: #D13A63; opacity: 0.88; }
 
@@ -6088,7 +5673,8 @@ label, .form-field label, .auth-form-group label {
   position: relative;
   overflow: hidden;
 }
-.signup-photo-card:hover, .signup-photo-card:active {
+.signup-photo-card:hover,
+.signup-photo-card:active {
   background: rgba(255, 46, 112, 0.08);
   border-color: var(--flame-2);
 }
@@ -6158,6 +5744,7 @@ label, .form-field label, .auth-form-group label {
 }
 
 @media (max-width: 380px) {
+
   .signup-photo-card {
     padding: 12px;
     gap: 10px;
@@ -6171,6 +5758,7 @@ label, .form-field label, .auth-form-group label {
     padding: 6px 10px;
     font-size: 0.72rem;
   }
+
 }
 
 /* ================================================================
@@ -6260,7 +5848,6 @@ label, .form-field label, .auth-form-group label {
   pointer-events: none;
   z-index: 3;
 }
-
 
 /* ================================================================
    AVATAR EDIT BUTTON — improved
@@ -7953,10 +7540,6 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 }
 
 /* ==========================================================
-   WHATSAPP-STYLE VOICE NOTE PLAYER & PROGRESS BAR
-   ========================================================== */
-
-/* ==========================================================
    WHATSAPP-STYLE VOICE NOTE PLAYER & WAVEFORM SOUNDBARS
    ========================================================== */
 
@@ -8354,63 +7937,10 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 /* ============================================================
    PULL TO REFRESH & AUTO-REFRESH INDICATOR (Icon Only - WhatsApp Style)
    ============================================================ */
-.ptr-indicator {
-  position: fixed;
-  top: 14px;
-  left: 50%;
-  transform: translate3d(-50%, -90px, 0);
-  z-index: 99999;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(30, 42, 50, 0.96);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5), 0 0 12px rgba(0, 168, 132, 0.25);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 50%;
-  width: 42px;
-  height: 42px;
-  padding: 0;
-  pointer-events: none;
-  opacity: 0;
-  transition: transform 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.2s ease, border-color 0.2s ease;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.ptr-indicator.ptr-pulling {
-  opacity: 1;
-  transition: none;
-}
-
-.ptr-indicator.ptr-refreshing {
-  opacity: 1;
-  transform: translate3d(-50%, 16px, 0) !important;
-  transition: transform 0.25s ease, opacity 0.25s ease;
-}
-
-.ptr-icon {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #00a884;
-  transition: transform 0.1s linear;
-}
-
-.ptr-indicator.ptr-refreshing .ptr-icon {
-  animation: ptrSpin 0.75s linear infinite;
-}
 
 @keyframes ptrSpin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
-}
-
-.ptr-text {
-  display: none !important;
 }
 
 /* ============================================================
@@ -8633,6 +8163,7 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 }
 
 @media (max-width: 380px) {
+
   .settings-modern-row { padding: 15px 13px; gap: 12px; }
   .settings-modern-icon { width: 52px; height: 52px; flex-basis: 52px; border-radius: 16px; }
   .settings-modern .settings-row-label { font-size: .95rem; }
@@ -8640,46 +8171,7 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
   .settings-modern-toggle { width: 50px; }
   .settings-signout-line { gap: 10px; }
   .settings-privacy-link { font-size: .8rem; }
-}
 
-
-/* ============================================================
-   APP LAYOUT + LIGHT THEME ACCESSIBILITY PASS
-   Keep header at top, content in the middle, navigation at bottom.
-   ============================================================ */
-.app-shell {
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-.app-shell > .app-header {
-  order: 0 !important;
-  flex: 0 0 auto !important;
-}
-
-.app-shell > .screens-container {
-  order: 1 !important;
-  flex: 1 1 auto !important;
-  min-height: 0 !important;
-  position: relative !important;
-  overflow: hidden !important;
-}
-
-.app-shell > .bottom-nav {
-  order: 2 !important;
-  flex: 0 0 calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-  height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-  position: relative !important;
-  inset: auto !important;
-  top: auto !important;
-  right: auto !important;
-  bottom: auto !important;
-  left: auto !important;
-  width: 100% !important;
-}
-
-.screen.active {
-  min-height: 0;
 }
 
 /* The settings page should scroll freely inside the screen, clearing the header and bottom nav. */
@@ -8716,51 +8208,9 @@ body.edit-profile-modal-open .simple-avatar-pencil-badge {
 }
 
 [data-theme="light"] body,
-body[data-theme="light"],
-[data-theme="light"] .app-shell {
+body[data-theme="light"] {
   background: #FFFFFF !important;
   color: #15121A !important;
-}
-
-[data-theme="light"] .screen,
-[data-theme="light"] .screens-container {
-  background: #FFFFFF !important;
-  color: #15121A;
-}
-
-[data-theme="light"] .app-header {
-  background: #FFFFFF !important;
-  border-bottom: 1px solid #E7E3EA !important;
-}
-
-[data-theme="light"] .app-header h1 {
-  -webkit-text-fill-color: transparent;
-}
-
-[data-theme="light"] .header-btn,
-[data-theme="light"] .global-back-btn {
-  color: #4D4655 !important;
-}
-
-[data-theme="light"] .header-btn:hover,
-[data-theme="light"] .global-back-btn:hover {
-  background: #F3F0F5 !important;
-  color: #15121A !important;
-}
-
-[data-theme="light"] .bottom-nav {
-  background: #FFFFFF !important;
-  border-top: 1px solid #E7E3EA !important;
-  box-shadow: 0 -6px 20px rgba(21,18,26,.05);
-}
-
-[data-theme="light"] .nav-tab {
-  color: #746C7D !important;
-}
-
-[data-theme="light"] .nav-tab:hover,
-[data-theme="light"] .nav-tab.active {
-  color: #F32670 !important;
 }
 
 /* Common headings, subtitles, empty states and section labels */
@@ -8902,7 +8352,6 @@ body[data-theme="light"],
 [data-theme="light"] .swipe-card .card-bio {
   color: #FFFFFF !important;
 }
-
 
 /* Light-mode modal readability: override legacy inline dark-theme text safely. */
 [data-theme="light"] #editProfileModal > .edit-modal-sheet,
@@ -9096,11 +8545,6 @@ body[data-theme="light"],
 [data-theme="light"] .story-viewer {
   color: #FFFFFF;
 }
-
-/* ================================================================
-   WHATSAPP-STYLE CHAT EXPERIENCES: CALL CARDS, TIMESTAMPS, DATES,
-   SWIPE-TO-REPLY, QUOTED REPLIES & IN-CHAT SEARCH
-   ================================================================ */
 
 /* --- Date Separator Pill --- */
 .chat-date-separator {
@@ -10009,10 +9453,6 @@ body[data-theme="light"],
 }
 
 /* ================================================================
-   MEDIA PRE-SEND PREVIEW MODAL (WhatsApp-style)
-   Positioned absolute within .app-shell so it NEVER escapes the frame
-   ================================================================ */
-/* ================================================================
    BESPOKE HOOKME MEDIA PRE-SEND PREVIEW MODAL
    Luxury obsidian glass backdrop, flame gradients, refined pill
    ================================================================ */
@@ -10057,7 +9497,8 @@ body[data-theme="light"],
   transition: all 0.15s ease;
   flex-shrink: 0;
 }
-.mpx-icon-btn:hover, .mpx-icon-btn:active {
+.mpx-icon-btn:hover,
+.mpx-icon-btn:active {
   background: rgba(255, 255, 255, 0.16);
   border-color: rgba(255, 255, 255, 0.25);
   transform: scale(0.96);
@@ -10202,7 +9643,8 @@ body[data-theme="light"],
   cursor: pointer;
   transition: all 0.15s ease;
 }
-.mpx-add-media-btn:hover, .mpx-add-media-btn:active {
+.mpx-add-media-btn:hover,
+.mpx-add-media-btn:active {
   background: rgba(255, 255, 255, 0.18);
   border-color: rgba(255, 255, 255, 0.3);
   transform: scale(0.96);
@@ -10457,7 +9899,6 @@ body[data-theme="light"],
   color: #111827;
   border-color: rgba(0, 0, 0, 0.12);
 }
-
 
 /* ==========================================================================
    HOOKME BESPOKE LUXURY DATING PROFILE & DISCOVERY PREVIEW STYLES
@@ -11014,7 +10455,8 @@ body[data-theme="light"],
   object-fit: cover;
   display: block;
 }
-.hk-preview-tap-left, .hk-preview-tap-right {
+.hk-preview-tap-left,
+.hk-preview-tap-right {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -11162,7 +10604,6 @@ body[data-theme="light"],
   margin-top: 3px;
   line-height: 1.4;
 }
-
 
 /* ================================================================
    IMAGE / VIDEO MESSAGE CAPTION & LUXURY BUBBLE STYLES
@@ -11560,8 +11001,8 @@ body[data-theme="light"],
   height: 14px;
   border-radius: 7px;
 }
-.sk-line.wide  { width: 55%; }
-.sk-line.med   { width: 38%; }
+.sk-line.wide { width: 55%; }
+.sk-line.med { width: 38%; }
 .sk-line.short { width: 70%; height: 11px; }
 .sk-line.sk-shimmer { animation-delay: 0.2s; }
 
@@ -11652,7 +11093,7 @@ body[data-theme="light"],
   border-color: rgba(209,58,99,0.2);
 }
 [data-theme="light"] .pwa-banner-title { color: #1a1a2e; }
-[data-theme="light"] .pwa-banner-sub   { color: #666; }
+[data-theme="light"] .pwa-banner-sub { color: #666; }
 
 /* =============================================================
    AI ICEBREAKER SUGGESTIONS IN MATCH POPUP
@@ -11688,7 +11129,8 @@ body[data-theme="light"],
   transition: all 0.2s;
   font-family: inherit;
 }
-.icebreaker-chip:hover, .icebreaker-chip:active {
+.icebreaker-chip:hover,
+.icebreaker-chip:active {
   background: rgba(209,58,99,0.12);
   border-color: rgba(209,58,99,0.4);
   color: #fff;
@@ -11698,9 +11140,9 @@ body[data-theme="light"],
 /* Light theme onboarding */
 [data-theme="light"] #onboardingWizard { background: #faf5ec; }
 [data-theme="light"] .ob-header { background: #faf5ec; }
-[data-theme="light"] .ob-title  { color: #1a1a2e; }
-[data-theme="light"] .ob-sub    { color: #666; }
-[data-theme="light"] .ob-input  { background: #fff; border-color: rgba(0,0,0,0.12); color: #1a1a2e; }
+[data-theme="light"] .ob-title { color: #1a1a2e; }
+[data-theme="light"] .ob-sub { color: #666; }
+[data-theme="light"] .ob-input { background: #fff; border-color: rgba(0,0,0,0.12); color: #1a1a2e; }
 [data-theme="light"] .ob-input::placeholder { color: #aaa; }
 [data-theme="light"] .ob-gender-opt { background: #fff; border-color: rgba(0,0,0,0.1); color: #444; }
 [data-theme="light"] .ob-interest-tag { background: #fff; border-color: rgba(0,0,0,0.1); color: #555; }
@@ -11729,7 +11171,8 @@ body[data-theme="light"],
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   padding: 0;
 }
-.ob-back-btn:hover, .ob-back-btn:active {
+.ob-back-btn:hover,
+.ob-back-btn:active {
   background: rgba(255, 255, 255, 0.18);
   transform: scale(0.94);
 }
@@ -11902,7 +11345,9 @@ body[data-theme="light"],
   line-height: 1;
   padding: 4px;
 }
-.rating-star-btn:hover, .rating-star-btn.hovered, .rating-star-btn.active {
+.rating-star-btn:hover,
+.rating-star-btn.hovered,
+.rating-star-btn.active {
   color: #E3B34D;
   transform: scale(1.28);
   filter: drop-shadow(0 0 12px rgba(227, 179, 77, 0.65));
@@ -11943,7 +11388,8 @@ body[data-theme="light"],
   margin-bottom: 8px;
   font-family: inherit;
 }
-.rating-submit-btn:hover, .rating-submit-btn:active {
+.rating-submit-btn:hover,
+.rating-submit-btn:active {
   transform: translateY(-1px);
   box-shadow: 0 6px 24px rgba(209, 58, 99, 0.5);
 }
@@ -12017,7 +11463,8 @@ body.keyboard-visible .chat-input-bar {
   font-family: inherit;
   transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.chat-empty-ib-btn:hover, .chat-empty-ib-btn:active {
+.chat-empty-ib-btn:hover,
+.chat-empty-ib-btn:active {
   background: rgba(209, 58, 99, 0.14);
   border-color: rgba(209, 58, 99, 0.4);
   color: #fff;
@@ -12114,9 +11561,6 @@ body.keyboard-visible .chat-input-bar {
 .wa-toggle-switch input:checked + .wa-toggle-slider:before {
   transform: translateX(20px);
 }
-
-
-
 
 /* ── Photo Verification / Selfie Check Prompt Card ── */
 .hk-verify-prompt-card {
@@ -12506,7 +11950,6 @@ body.keyboard-visible .chat-input-bar {
   opacity: 0 !important;
 }
 
-
 /* Textarea Auto-sizing and Autofill-suppression */
 textarea.chat-field {
   resize: none !important;
@@ -12524,7 +11967,6 @@ textarea.chat-field {
 textarea.chat-field::-webkit-scrollbar {
   display: none !important;
 }
-
 
 /* Profile Section Headings */
 .hk-section-title {
@@ -12626,16 +12068,6 @@ textarea.chat-field::-webkit-scrollbar {
   box-shadow: 0 10px 30px rgba(227, 179, 77, 0.2);
 }
 
-
-
-
-
-/* ==========================================================================
-   RESPONSIVE DP WIDTH & ACCESSIBILITY FONT-SCALING REINFORCEMENTS
-   Ensures cards never spill objects, profile is always centered, and all
-   elements fit fluidly across all Android "Smallest width" (DP) settings.
-   ========================================================================== */
-
 /* Universal centering of App Shell & Core Layout */
 body {
   display: flex !important;
@@ -12643,43 +12075,6 @@ body {
   align-items: center !important;
   background: var(--bg) !important;
   overflow: hidden !important;
-}
-
-.app-shell {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-}
-
-.app-shell > .app-header,
-.app-header {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  box-sizing: border-box !important;
-}
-
-.app-shell > .bottom-nav,
-.bottom-nav {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  box-sizing: border-box !important;
-}
-
-.screens-container {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  box-sizing: border-box !important;
-  overflow: hidden !important;
-}
-
-.screen {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  box-sizing: border-box !important;
 }
 
 /* ── PROFILE SCREEN: Perfect Center & Elastic Card Fit ── */
@@ -13080,108 +12475,8 @@ body {
 }
 
 /* ==========================================================================
-   UNIVERSAL SCREEN VISIBILITY INTEGRITY
-   Guarantees that inactive screens are 100% suppressed and never leak or overlap.
-   ========================================================================== */
-.screen:not(.active) {
-  display: none !important;
-}
-.screen.active {
-  display: flex !important;
-}
-
-
-/* ==========================================================================
    RESPONSIVE TOP BAR: FLUID FIT ACROSS ALL PHONE WIDTHS & DP SETTINGS
    ========================================================================== */
-.app-shell > .app-header,
-.app-header {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  padding: env(safe-area-inset-top, 0px) clamp(10px, 3.5vw, 16px) 0 clamp(10px, 3.5vw, 16px) !important;
-  height: calc(56px + env(safe-area-inset-top, 0px)) !important;
-  box-sizing: border-box !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  position: relative !important;
-  overflow: hidden !important;
-  flex-shrink: 0 !important;
-}
-
-.header-left {
-  display: flex !important;
-  align-items: center !important;
-  gap: clamp(4px, 1.8vw, 8px) !important;
-  min-width: 0 !important;
-  flex: 1 1 auto !important;
-  overflow: hidden !important;
-}
-
-.header-title-wrap {
-  display: flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
-}
-
-.main-header-logo {
-  font-family: var(--font-display) !important;
-  font-size: clamp(1.15rem, 4.4vw, 1.48rem) !important;
-  font-weight: 900 !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: clamp(4px, 1.5vw, 6px) !important;
-  letter-spacing: -0.6px !important;
-  white-space: nowrap !important;
-  user-select: none !important;
-  cursor: pointer !important;
-  min-width: 0 !important;
-}
-
-.brand-hook {
-  background: linear-gradient(135deg, #D13A63 0%, #E0567F 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-  font-weight: 900 !important;
-  letter-spacing: -0.5px !important;
-}
-
-.header-flame-icon {
-  font-size: clamp(1.1rem, 3.8vw, 1.35rem) !important;
-  display: inline-block !important;
-}
-
-.header-right {
-  display: flex !important;
-  align-items: center !important;
-  gap: clamp(2px, 1.5vw, 6px) !important;
-  flex-shrink: 0 !important;
-  justify-content: flex-end !important;
-  min-width: 0 !important;
-}
-
-.header-btn {
-  width: clamp(34px, 8.5vw, 42px) !important;
-  height: clamp(34px, 8.5vw, 42px) !important;
-  padding: 0 !important;
-  flex-shrink: 0 !important;
-  box-sizing: border-box !important;
-}
-
-.header-btn svg {
-  width: clamp(18px, 4.8vw, 22px) !important;
-  height: clamp(18px, 4.8vw, 22px) !important;
-}
-
-.global-back-btn {
-  width: clamp(34px, 8.5vw, 40px) !important;
-  height: clamp(34px, 8.5vw, 40px) !important;
-  flex-shrink: 0 !important;
-}
 
 .global-back-btn svg {
   width: clamp(18px, 4.8vw, 22px) !important;
@@ -13191,22 +12486,6 @@ body {
 /* ================================================================
    DISCOVERY PREFERENCES BOTTOM SHEET & FILTER CONTROLS
    ================================================================ */
-#discoveryFilterBtn {
-  position: relative;
-}
-
-.filter-active-dot {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: #25D366;
-  box-shadow: 0 0 8px rgba(37, 211, 102, 0.9);
-  pointer-events: none;
-  animation: pulseDot 1.8s infinite ease-in-out;
-}
 
 @keyframes pulseDot {
   0%, 100% { transform: scale(1); opacity: 1; }
@@ -13512,6 +12791,7 @@ body {
 }
 
 @media (min-width: 600px) {
+
   .profile-detail-overlay {
     align-items: center;
     padding: 20px !important;
@@ -13522,6 +12802,7 @@ body {
     max-height: 780px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
+
 }
 
 .detail-sheet-top-bar {
@@ -13712,9 +12993,11 @@ body {
   gap: 10px;
 }
 @media (max-width: 360px) {
+
   .detail-basics-grid {
     grid-template-columns: 1fr;
   }
+
 }
 .detail-basic-chip {
   background: rgba(255, 255, 255, 0.04);
@@ -13969,10 +13252,6 @@ body {
   background: linear-gradient(0deg, rgba(255, 255, 255, 0.98) 75%, transparent) !important;
 }
 
-/* ============================================================
-   SAFETY TOOLKIT, PRIVACY CONTROLS & GENTLE UNMATCH (STEP 5)
-   ============================================================ */
-
 /* Chat Shield Header Button (Strictly hidden from header - accessible via 3-dots dropdown menu) */
 .chat-shield-btn,
 #chatSafetyShieldBtn {
@@ -13996,22 +13275,7 @@ body {
 }
 
 /* Stealth Mode Header Badge */
-.stealth-pill-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  background: rgba(112, 0, 255, 0.14);
-  border: 1px solid rgba(168, 85, 247, 0.45);
-  color: #C084FC;
-  font-size: 0.72rem;
-  font-weight: 800;
-  padding: 4px 10px;
-  border-radius: var(--r-pill);
-  letter-spacing: 0.2px;
-  cursor: pointer;
-  user-select: none;
-  animation: stealthPulse 2.8s ease-in-out infinite;
-}
+
 @keyframes stealthPulse {
   0%, 100% {
     box-shadow: 0 0 0 rgba(168, 85, 247, 0);
@@ -14409,11 +13673,7 @@ body {
   border-color: #EDE3D3 !important;
   color: #B8842B !important;
 }
-[data-theme="light"] .stealth-pill-badge {
-  background: rgba(112, 0, 255, 0.08) !important;
-  border-color: rgba(168, 85, 247, 0.35) !important;
-  color: #7E22CE !important;
-}
+
 [data-theme="light"] .safety-modal-sheet,
 [data-theme="light"] .unmatch-card {
   background: #FFFFFF !important;
@@ -14466,6 +13726,3 @@ body {
   border-color: #D9CCB4 !important;
   color: #554D60 !important;
 }
-
-
-

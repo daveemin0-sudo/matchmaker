@@ -1305,8 +1305,9 @@ function showScreen(screenId, { fromHistory = false } = {}) {
   }
 
   const navEl = document.getElementById('bottomNav');
+  const wideLayout = window.matchMedia && window.matchMedia('(min-width: 900px)').matches;
   if (navEl) {
-    if (isAuth || isChat) {
+    if (isAuth || (isChat && !wideLayout)) {
       navEl.classList.add('is-hidden');
       navEl.style.setProperty('display', 'none', 'important');
     } else {
@@ -1404,18 +1405,18 @@ function updateHeader(screenId) {
     case 'discovery':
       setHeaderBtnVisible(backBtn, false);
       headerTitle.className = 'main-header-logo';
-      headerTitle.innerHTML = '<span class="header-flame-icon">🔥</span><span class="brand-hook">hookme</span>';
+      headerTitle.innerHTML = '<span class="brand-lockup"><svg class="i i-logo" aria-hidden="true"><use href="#i-logo"/></svg><span class="brand-word"><b>hookme</b></span></span><span class="header-title-alt">Discover</span>';
       headerTitle.style.background = '';
       headerTitle.style.webkitBackgroundClip = '';
       headerTitle.style.webkitTextFillColor = '';
       break;
     case 'matches':
       setHeaderBtnVisible(backBtn, false);
-      setHeaderTitle('Matches & Likes ✨');
+      setHeaderTitle('Matches');
       break;
     case 'chatsList':
       setHeaderBtnVisible(backBtn, false);
-      setHeaderTitle('Messages 💬');
+      setHeaderTitle('Messages');
       break;
     case 'profile':
       setHeaderBtnVisible(backBtn, false);
@@ -1505,9 +1506,17 @@ function updateHeaderForAuth() {
 window.updateHeader = updateHeader;
 
 function updateBottomNav(screenId) {
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  const activeTab = document.querySelector(`[data-tab="${screenId}"]`);
-  if (activeTab) activeTab.classList.add('active');
+  // An open conversation belongs to the Messages tab.
+  const tabId = screenId === 'chat' ? 'chatsList' : screenId;
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    t.classList.remove('active');
+    t.removeAttribute('aria-current');
+  });
+  const activeTab = document.querySelector(`.nav-tab[data-tab="${tabId}"]`);
+  if (activeTab) {
+    activeTab.classList.add('active');
+    activeTab.setAttribute('aria-current', 'page');
+  }
 }
 
 function closeAnyOpenModal() {
@@ -3521,48 +3530,19 @@ function getTotalUnreadCount() {
 }
 
 function updateMatchesNotificationBadge() {
-  const badge = document.getElementById('matchesNavBadge');
+  // Unread messages are shown on the Messages tab only (the Matches tab used to
+  // mirror the same number, which was confusing).
   const chatsBadge = document.getElementById('chatsNavBadge');
-  const headerBadge = document.getElementById('headerMatchesCountBadge');
-  const headerDot = document.getElementById('headerNotifDot');
   const count = getTotalUnreadCount();
-
-  if (badge) {
-    if (count > 0) {
-      badge.textContent = count > 99 ? '99+' : count;
-      badge.style.display = 'inline-flex';
-      badge.classList.remove('badge-pop');
-      void badge.offsetWidth;
-      badge.classList.add('badge-pop');
-    } else {
-      badge.style.display = 'none';
-      badge.textContent = '0';
-    }
-  }
-
-  // Mirror unread count on the dedicated Messages nav tab
   if (chatsBadge) {
     if (count > 0) {
       chatsBadge.textContent = count > 99 ? '99+' : count;
-      chatsBadge.style.display = 'inline-flex';
+      chatsBadge.style.display = 'inline-block';
+      chatsBadge.setAttribute('aria-label', `${count} unread`);
     } else {
       chatsBadge.style.display = 'none';
       chatsBadge.textContent = '0';
     }
-  }
-
-  if (headerBadge) {
-    if (count > 0) {
-      headerBadge.textContent = count > 99 ? '99+' : count;
-      headerBadge.style.display = 'inline-flex';
-    } else {
-      headerBadge.style.display = 'none';
-      headerBadge.textContent = '0';
-    }
-  }
-
-  if (headerDot) {
-    headerDot.style.display = count > 0 ? 'block' : 'none';
   }
 }
 
@@ -12238,32 +12218,29 @@ function revealBlurredMatches() {
 // UTILITIES
 // ==========================================================
 
+let _toastTimer = null;
 function showToast(msg, type = 'gold') {
   let toast = document.getElementById('toastNotification');
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'toastNotification';
     toast.className = 'toast-notification';
-    document.querySelector('.app-shell')?.appendChild(toast);
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    (document.querySelector('.app-shell') || document.body).appendChild(toast);
   }
 
+  // Style comes from classes (css/shell.css); "gold" is the legacy default name for a neutral/positive toast.
+  const kind = ['error', 'info', 'success', 'warning'].includes(type) ? type : 'neutral';
+  toast.className = `toast-notification toast-${kind}`;
+  toast.style.cssText = '';
   toast.textContent = msg;
-  if (type === 'error') {
-    toast.style.background = 'linear-gradient(135deg, #D13A63 0%, #8C1F45 100%)';
-    toast.style.color = '#FFFFFF';
-    toast.style.border = '1px solid rgba(255,255,255,0.3)';
-  } else if (type === 'info') {
-    toast.style.background = 'linear-gradient(135deg, #2C183B 0%, #150B20 100%)';
-    toast.style.color = '#FFFFFF';
-    toast.style.border = '1px solid rgba(209, 58, 99, 0.45)';
-  } else {
-    toast.style.background = 'linear-gradient(135deg, #F7D374 0%, #B8842B 100%)';
-    toast.style.color = '#1A0E04';
-    toast.style.border = '1px solid rgba(255,255,255,0.4)';
-  }
 
+  if (_toastTimer) clearTimeout(_toastTimer);
+  // Force a reflow so the entrance transition replays when toasts follow each other.
+  void toast.offsetWidth;
   toast.classList.add('visible');
-  setTimeout(() => toast.classList.remove('visible'), 2800);
+  _toastTimer = setTimeout(() => toast.classList.remove('visible'), kind === 'error' ? 4500 : 2800);
 }
 
 function delay(ms) {
@@ -17282,19 +17259,24 @@ function updateNetworkStatus(isOnline, isManualRetry = false) {
     _networkBannerTimer = null;
   }
 
+  const setIcon = (name) => {
+    const use = icon && icon.querySelector('use');
+    if (use) use.setAttribute('href', `#i-${name}`);
+  };
+
   if (!isOnline) {
     banner.className = 'network-status-banner offline';
-    if (icon) icon.textContent = '📡';
-    if (text) text.textContent = 'Waiting for network... Messages will sync once connected.';
+    setIcon('wifi-off');
+    if (text) text.textContent = "You're offline. Messages will send when you reconnect.";
     if (retryBtn) {
-      retryBtn.style.display = 'inline-block';
+      retryBtn.style.display = '';
       retryBtn.textContent = 'Retry';
     }
     banner.style.display = 'flex';
   } else {
     banner.className = 'network-status-banner online';
-    if (icon) icon.textContent = '⚡';
-    if (text) text.textContent = 'Connected • Real-time syncing active';
+    setIcon('check');
+    if (text) text.textContent = 'Back online';
     if (retryBtn) retryBtn.style.display = 'none';
     banner.style.display = 'flex';
 
@@ -17307,13 +17289,7 @@ function updateNetworkStatus(isOnline, isManualRetry = false) {
     }
 
     _networkBannerTimer = setTimeout(() => {
-      banner.style.opacity = '0';
-      banner.style.transform = 'translate(-50%, -12px)';
-      setTimeout(() => {
-        banner.style.display = 'none';
-        banner.style.opacity = '';
-        banner.style.transform = '';
-      }, 320);
+      banner.style.display = 'none';
     }, 2500);
   }
 }
@@ -17335,7 +17311,7 @@ async function retryNetworkConnection() {
       banner.classList.add('shake');
     }
     if (typeof showToast === 'function') {
-      showToast('⚠️ Still offline. Please check your connection.', 'error');
+      showToast('Still offline. Check your connection and try again.', 'error');
     }
   }
 }

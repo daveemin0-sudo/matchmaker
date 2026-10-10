@@ -1,13 +1,3 @@
-/* ================================================================
-   hookmebysam — PREMIUM COMPONENT STYLES
-   Token source of truth: style.css
-   This file provides only component overrides and enhancements.
-   ================================================================ */
-
-/* Fonts already loaded by style.css — no duplicate import needed */
-
-
-
 /* --- GLOBAL AMBIENT CANVAS --- */
 body {
   -webkit-font-smoothing: antialiased;
@@ -23,124 +13,6 @@ body::before {
     radial-gradient(ellipse 500px 500px at 100% 90%, rgba(227, 179, 77, 0.05) 0%, transparent 65%);
   pointer-events: none;
   z-index: 0;
-}
-
-/* --- APP SHELL CONTAINER --- */
-.app-shell {
-  position: relative;
-  z-index: 1;
-  overflow: hidden;
-  border-radius: 0 !important;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-/* --- 4. FLOATING GLASS HEADER --- */
-.app-header {
-  background: rgba(8, 6, 14, 0.82) !important;
-  backdrop-filter: blur(28px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  height: calc(60px + env(safe-area-inset-top, 0px)) !important;
-  padding-top: env(safe-area-inset-top, 0px) !important;
-  padding-left: 18px !important;
-  padding-right: 18px !important;
-  padding-bottom: 0 !important;
-  box-sizing: border-box !important;
-  display: flex;
-  align-items: center !important;
-  justify-content: space-between !important;
-  position: relative !important;
-  z-index: 40 !important;
-}
-
-.app-header[style*="display: none"],
-.app-header[style*="display:none"],
-.app-shell:has(.auth-screen.active) .app-header {
-  display: none !important;
-}
-
-.header-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.app-header h1.main-header-logo, #headerTitle.main-header-logo {
-  font-family: var(--font-display) !important;
-  font-size: 1.45rem !important;
-  font-weight: 900 !important;
-  letter-spacing: -0.5px !important;
-  background: var(--flame-grad) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-  filter: drop-shadow(0 0 14px rgba(209, 58, 99, 0.35)) !important;
-}
-
-.app-header h1.screen-header-title, #headerTitle.screen-header-title {
-  font-family: var(--font-display) !important;
-  font-size: 1.35rem !important;
-  font-weight: 900 !important;
-  letter-spacing: -0.4px !important;
-  background: transparent !important;
-  -webkit-text-fill-color: var(--txt-primary) !important;
-  color: var(--txt-primary) !important;
-  filter: none !important;
-}
-
-.header-vip-badge {
-  background: var(--gold-grad) !important;
-  color: #1A0E04 !important;
-  font-size: 0.68rem !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.6px !important;
-  padding: 3px 9px !important;
-  border-radius: var(--r-pill) !important;
-  box-shadow: 0 2px 10px rgba(227, 179, 77, 0.45) !important;
-}
-
-.header-btn {
-  background: rgba(255, 255, 255, 0.06) !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  width: 42px !important;
-  height: 42px !important;
-  border-radius: 50% !important;
-  color: var(--txt-primary) !important;
-  display: flex;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  transition: all var(--t-fast) var(--spring) !important;
-  position: relative;
-}
-
-.header-btn.is-hidden,
-.header-btn[style*="display: none"],
-.header-btn[style*="display:none"],
-#chatReportBtn.is-hidden,
-#upgradeHeaderBtn.is-hidden,
-#matchesQuickBtn.is-hidden,
-#headerSearchBtn.is-hidden {
-  display: none !important;
-}
-
-.header-btn:hover {
-  background: rgba(255, 255, 255, 0.14) !important;
-  transform: scale(1.08) !important;
-  border-color: rgba(255, 255, 255, 0.25) !important;
-}
-
-.notif-dot {
-  position: absolute;
-  top: 9px; right: 9px;
-  width: 9px; height: 9px;
-  background: var(--flame-1) !important;
-  border-radius: 50% !important;
-  box-shadow: 0 0 8px rgba(209,58,99,0.6) !important;
-  border: 2px solid var(--bg) !important;
 }
 
 /* --- 5. AUTH / LOGIN SCREEN OVERHAUL --- */
@@ -191,12 +63,7 @@ body::before {
   letter-spacing: -0.8px !important;
 }
 /* brand wordmark colour split */
-.brand-hook {
-  background: linear-gradient(135deg, #D13A63 0%, #E0567F 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-}
+
 .brand-by {
   color: var(--txt-secondary) !important;
   font-style: italic;
@@ -737,78 +604,12 @@ body::before {
 }
 
 /* --- 9. LUXURY GLASS BOTTOM NAVIGATION --- */
-.bottom-nav {
-  background: rgba(8, 6, 14, 0.92) !important;
-  backdrop-filter: blur(32px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(32px) !important;
-  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
-  height: calc(64px + env(safe-area-inset-bottom, 0px)) !important;
-  padding-top: 0 !important;
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-  padding-left: 8px !important;
-  padding-right: 8px !important;
-  box-sizing: border-box !important;
-  display: flex;
-  align-items: center !important;
-  justify-content: space-around !important;
-  position: relative !important;
-  z-index: 40 !important;
-}
 
-.bottom-nav[style*="display: none"],
-.bottom-nav[style*="display:none"],
-.app-shell:has(.auth-screen.active) .bottom-nav,
-body.keyboard-visible .bottom-nav,
-body.keyboard-open .bottom-nav,
-.app-shell.keyboard-visible .bottom-nav,
-.app-shell.keyboard-open .bottom-nav,
 body.keyboard-visible #globalFloatingSearchBtn,
 body.keyboard-open #globalFloatingSearchBtn {
   display: none !important;
   visibility: hidden !important;
   pointer-events: none !important;
-}
-
-.nav-tab {
-  background: none !important;
-  border: none !important;
-  color: rgba(255, 255, 255, 0.45) !important;
-  font-size: 0.72rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.3px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  gap: 4px !important;
-  cursor: pointer !important;
-  transition: all var(--t-fast) var(--ease-out) !important;
-  position: relative;
-}
-
-.nav-tab svg {
-  width: 24px !important; height: 24px !important;
-  transition: transform var(--t-fast) var(--spring);
-}
-
-.nav-tab:hover {
-  color: rgba(255, 255, 255, 0.85) !important;
-}
-
-.nav-tab.active {
-  color: #FFFFFF !important;
-}
-
-.nav-tab.active svg {
-  color: #FF2E70 !important;
-  transform: scale(1.15) !important;
-  filter: drop-shadow(0 0 12px rgba(255, 46, 112, 0.7)) !important;
-}
-
-.nav-active-dot {
-  width: 5px !important; height: 5px !important;
-  border-radius: 50% !important;
-  background: #FF2E70 !important;
-  box-shadow: 0 0 8px #FF2E70 !important;
 }
 
 /* --- 10. CONVERSATION LIST SKELETON LOADING STATE --- */
@@ -1199,53 +1000,6 @@ body[data-theme="light"]::before {
     radial-gradient(ellipse 600px 600px at 0% 10%, rgba(255, 46, 112, 0.06) 0%, transparent 65%),
     radial-gradient(ellipse 500px 500px at 100% 90%, rgba(244, 197, 80, 0.05) 0%, transparent 65%),
     radial-gradient(ellipse 400px 400px at 50% 50%, rgba(0, 162, 255, 0.03) 0%, transparent 70%) !important;
-}
-
-/* App Shell (Light) */
-[data-theme="light"] .app-shell,
-.app-shell[data-theme="light"] {
-  background: #FFFFFF !important;
-  border-color: #E8E0F0 !important;
-  box-shadow: 0 30px 100px rgba(70, 40, 90, 0.12), 0 0 0 1px rgba(0, 0, 0, 0.05) !important;
-}
-
-/* Header (Light) */
-[data-theme="light"] .app-header {
-  background: rgba(255, 255, 255, 0.92) !important;
-  backdrop-filter: blur(28px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(28px) !important;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
-}
-
-[data-theme="light"] .header-btn {
-  background: rgba(0, 0, 0, 0.04) !important;
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .header-btn:hover {
-  background: rgba(0, 0, 0, 0.08) !important;
-  border-color: rgba(0, 0, 0, 0.16) !important;
-}
-
-/* Bottom Navigation (Light) */
-[data-theme="light"] .bottom-nav {
-  background: rgba(255, 255, 255, 0.94) !important;
-  backdrop-filter: blur(32px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(32px) !important;
-  border-top: 1px solid rgba(0, 0, 0, 0.07) !important;
-}
-
-[data-theme="light"] .nav-tab {
-  color: #7A708A !important;
-}
-
-[data-theme="light"] .nav-tab:hover {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .nav-tab.active {
-  color: #FF2E70 !important;
 }
 
 /* Discovery Screen Action Bar (Light) */
@@ -1664,10 +1418,6 @@ body[data-theme="light"]::before {
   color: #8C829E !important;
 }
 
-/* ================================================================
-   LUXURY PROFILE & AI AVATAR STUDIO SUITE
-   ================================================================ */
-
 /* High-End Photo Upload Dropzone */
 .photo-upload-area {
   background: rgba(255, 255, 255, 0.04) !important;
@@ -1794,7 +1544,9 @@ body[data-theme="light"]::before {
   letter-spacing: -0.3px !important;
 }
 
-.ai-picker-label, .ai-presets-label, .ai-prompt-label {
+.ai-picker-label,
+.ai-presets-label,
+.ai-prompt-label {
   font-size: 0.75rem !important;
   font-weight: 800 !important;
   letter-spacing: 0.6px !important;
@@ -2149,10 +1901,6 @@ body[data-theme="light"]::before {
   transform: translateX(-4px) !important;
 }
 
-/* ================================================================
-   LUXURY CHAT SUITE & MESSAGING EXPERIENCE
-   ================================================================ */
-
 /* Chat Screen Shell: Static Header & Independent Message Scrolling */
 #chatScreen {
   background: var(--bg) !important;
@@ -2172,17 +1920,6 @@ body[data-theme="light"]::before {
 }
 
 /* Partner Info Header Bar: STRICTLY STATIC AT TOP (WhatsApp-style) */
-body.in-chat #appHeader,
-.app-shell.in-chat #appHeader,
-#appHeader.is-hidden {
-  display: none !important;
-}
-
-body.in-chat #bottomNav,
-.app-shell.in-chat #bottomNav,
-#bottomNav.is-hidden {
-  display: none !important;
-}
 
 .chat-partner-bar {
   background: rgba(18, 11, 26, 0.95) !important;
@@ -2803,11 +2540,6 @@ body.in-chat #bottomNav,
   border-color: #DDD5E7 !important;
 }
 
-/* ================================================================
-   ULTRA-PREMIUM v8 — CLEAN ACTION ROW, 4-TAB NAV & GLOBAL POLISH
-   Removes Search tab artifacts, upgrades every screen to luxury feel
-   ================================================================ */
-
 /* --- ACTION ROW: Premium Glassmorphism Pill Container --- */
 .action-row {
   padding: 4px 10px !important;
@@ -2864,31 +2596,6 @@ body.in-chat #bottomNav,
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 14px 44px rgba(70, 40, 90, 0.12);
-}
-
-/* --- BOTTOM NAV: 4-Tab wider spacing --- */
-.bottom-nav {
-  padding-left: 8px !important;
-  padding-right: 8px !important;
-  padding-top: 0 !important;
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-}
-
-.nav-tab {
-  flex: 1 !important;
-  padding: 6px 4px !important;
-  min-width: 0 !important;
-  gap: 3px !important;
-}
-
-.nav-tab svg {
-  width: 22px !important;
-  height: 22px !important;
-}
-
-/* Ensure empty nav-tab space (from removed Search) doesn't leave a gap */
-.bottom-nav > :empty {
-  display: none !important;
 }
 
 /* --- AUTH SCREEN: Deeper luxury glass panel --- */
@@ -3297,7 +3004,8 @@ body.in-chat #bottomNav,
 }
 
 /* --- SECONDARY / OUTLINE BUTTONS --- */
-.secondary-btn, .outline-btn {
+.secondary-btn,
+.outline-btn {
   background: rgba(255,255,255,0.06) !important;
   border: 1.5px solid rgba(255,255,255,0.15) !important;
   border-radius: 26px !important;
@@ -3306,7 +3014,8 @@ body.in-chat #bottomNav,
   font-size: 0.95rem !important;
   transition: all 0.18s ease !important;
 }
-.secondary-btn:hover, .outline-btn:hover {
+.secondary-btn:hover,
+.outline-btn:hover {
   background: rgba(255,255,255,0.12) !important;
   border-color: rgba(255,255,255,0.3) !important;
   transform: translateY(-1px) !important;
@@ -3340,19 +3049,6 @@ body.in-chat #bottomNav,
   box-shadow: 0 0 12px rgba(16,185,129,0.4) !important;
 }
 
-/* --- BACK BUTTON: Premium glass look --- */
-.global-back-btn {
-  background: rgba(255,255,255,0.07) !important;
-  border: 1px solid rgba(255,255,255,0.12) !important;
-  border-radius: 50% !important;
-  width: 40px !important; height: 40px !important;
-  transition: all 0.18s ease !important;
-}
-.global-back-btn:hover {
-  background: rgba(255,255,255,0.14) !important;
-  transform: scale(1.08) !important;
-}
-
 /* --- CALL OVERLAY POLISH --- */
 .call-ctrl-btn {
   background: rgba(255,255,255,0.1) !important;
@@ -3382,30 +3078,17 @@ body.in-chat #bottomNav,
   border-color: rgba(255,46,112,0.4) !important;
 }
 
-/* Hide any orphaned empty buttons in nav (from removed search tab) */
-.bottom-nav button:empty {
-  display: none !important;
-}
-
-/* Smooth all screens transitions */
-.screen {
-  transition: opacity 0.22s ease !important;
-}
-
 /* Ensure body ambient background shows on desktop */
 @media (min-width: 500px) {
+
   body {
     background:
       radial-gradient(ellipse 700px 500px at 20% 20%, rgba(255,46,112,0.1) 0%, transparent 70%),
       radial-gradient(ellipse 600px 600px at 80% 80%, rgba(244,197,80,0.07) 0%, transparent 70%),
       #060409 !important;
   }
-}
 
-/* ================================================================
-   PREMIUM ARROW & CHEVRON SYSTEM
-   All arrows use rounded strokes, smooth hover animations & glow
-   ================================================================ */
+}
 
 /* --- Global Back Button Arrow: slide-left on hover --- */
 .global-back-btn svg {
@@ -3502,15 +3185,6 @@ body.in-chat #bottomNav,
 }
 [data-theme="light"] .photo-upload-area:hover svg:last-child {
   color: rgba(0, 0, 0, 0.6) !important;
-}
-
-/* ================================================================
-   PREMIUM DIAMOND SYSTEM — Replaces crown icons
-   ================================================================ */
-
-/* Hide the VIP GOLD badge from the header — use diamond icon instead */
-.header-vip-badge {
-  display: none !important;
 }
 
 /* Paywall gem pulse animation */
@@ -3898,10 +3572,6 @@ body.in-chat #bottomNav,
   box-shadow: 0 6px 26px rgba(255, 46, 112, 0.8) !important;
 }
 
-/* ==========================================================================
-   MASTER LIGHT THEME CONTRAST & READABILITY SYSTEM (ALL PAGES & FEATURES)
-   ========================================================================== */
-
 /* 1. Universal Light Mode Root & Canvas */
 html[data-theme="light"],
 body[data-theme="light"],
@@ -3925,78 +3595,6 @@ body[data-theme="light"],
 body[data-theme="light"] {
   background: radial-gradient(circle at 50% 0%, #FFF5FA 0%, #FAF7F2 60%, #F3EEF8 100%) !important;
   color: #140C1D !important;
-}
-
-[data-theme="light"] .app-shell,
-.app-shell[data-theme="light"] {
-  background: #FAF7F2 !important;
-  border-color: #E5DFEC !important;
-  box-shadow: 0 30px 100px rgba(70, 40, 90, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.04) !important;
-  color: #140C1D !important;
-}
-
-/* 2. Global Headers & Navigation */
-[data-theme="light"] .app-header {
-  background: rgba(255, 255, 255, 0.94) !important;
-  backdrop-filter: blur(28px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(28px) !important;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06) !important;
-  box-shadow: 0 2px 12px rgba(70, 40, 90, 0.03) !important;
-}
-
-[data-theme="light"] #headerTitle {
-  color: #140C1D !important;
-  -webkit-text-fill-color: #140C1D !important;
-  background: transparent !important;
-  filter: none !important;
-}
-
-[data-theme="light"] #headerTitle.main-header-logo {
-  background: var(--flame-grad) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-  filter: drop-shadow(0 0 14px rgba(209, 58, 99, 0.35)) !important;
-}
-
-[data-theme="light"] .header-btn,
-[data-theme="light"] .global-back-btn {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  color: #140C1D !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04) !important;
-}
-
-[data-theme="light"] .header-btn:hover,
-[data-theme="light"] .global-back-btn:hover {
-  background: #F4EFFB !important;
-  border-color: #D3C9DF !important;
-  color: #140C1D !important;
-}
-
-/* 3. Bottom Navigation */
-[data-theme="light"] .bottom-nav {
-  background: rgba(255, 255, 255, 0.96) !important;
-  backdrop-filter: blur(32px) saturate(200%) !important;
-  -webkit-backdrop-filter: blur(32px) !important;
-  border-top: 1px solid rgba(0, 0, 0, 0.07) !important;
-  box-shadow: 0 -4px 20px rgba(70, 40, 90, 0.05) !important;
-}
-
-[data-theme="light"] .nav-tab {
-  color: #7A708A !important;
-}
-
-[data-theme="light"] .nav-tab:hover {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .nav-tab.active {
-  color: #FF2E70 !important;
-}
-
-[data-theme="light"] .nav-tab.active svg {
-  color: #FF2E70 !important;
 }
 
 /* 4. Complete Profile Screen Polish (.hk-*) */
@@ -4801,13 +4399,6 @@ body[data-theme="light"] {
   color: #D13A63 !important;
 }
 
-
-/* ==========================================================================
-   RESPONSIVE DP WIDTH & ACCESSIBILITY FONT-SCALING REINFORCEMENTS
-   Ensures cards never spill objects, profile is always centered, and all
-   elements fit fluidly across all Android "Smallest width" (DP) settings.
-   ========================================================================== */
-
 /* Universal centering of App Shell & Core Layout */
 body {
   display: flex !important;
@@ -4815,43 +4406,6 @@ body {
   align-items: center !important;
   background: var(--bg) !important;
   overflow: hidden !important;
-}
-
-.app-shell {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-}
-
-.app-shell > .app-header,
-.app-header {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  box-sizing: border-box !important;
-}
-
-.app-shell > .bottom-nav,
-.bottom-nav {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  box-sizing: border-box !important;
-}
-
-.screens-container {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  box-sizing: border-box !important;
-  overflow: hidden !important;
-}
-
-.screen {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  box-sizing: border-box !important;
 }
 
 /* ── PROFILE SCREEN: Perfect Center & Elastic Card Fit ── */
@@ -5252,118 +4806,13 @@ body {
 }
 
 /* ==========================================================================
-   UNIVERSAL SCREEN VISIBILITY INTEGRITY
-   Guarantees that inactive screens are 100% suppressed and never leak or overlap.
-   ========================================================================== */
-.screen:not(.active) {
-  display: none !important;
-}
-.screen.active {
-  display: flex !important;
-}
-
-
-/* ==========================================================================
    RESPONSIVE TOP BAR: FLUID FIT ACROSS ALL PHONE WIDTHS & DP SETTINGS
    ========================================================================== */
-.app-shell > .app-header,
-.app-header {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  padding: env(safe-area-inset-top, 0px) clamp(10px, 3.5vw, 16px) 0 clamp(10px, 3.5vw, 16px) !important;
-  height: calc(56px + env(safe-area-inset-top, 0px)) !important;
-  box-sizing: border-box !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  position: relative !important;
-  overflow: hidden !important;
-  flex-shrink: 0 !important;
-}
-
-.header-left {
-  display: flex !important;
-  align-items: center !important;
-  gap: clamp(4px, 1.8vw, 8px) !important;
-  min-width: 0 !important;
-  flex: 1 1 auto !important;
-  overflow: hidden !important;
-}
-
-.header-title-wrap {
-  display: flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  min-width: 0 !important;
-  overflow: hidden !important;
-}
-
-.main-header-logo {
-  font-family: var(--font-display) !important;
-  font-size: clamp(1.15rem, 4.4vw, 1.48rem) !important;
-  font-weight: 900 !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: clamp(4px, 1.5vw, 6px) !important;
-  letter-spacing: -0.6px !important;
-  white-space: nowrap !important;
-  user-select: none !important;
-  cursor: pointer !important;
-  min-width: 0 !important;
-}
-
-.brand-hook {
-  background: linear-gradient(135deg, #D13A63 0%, #E0567F 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-  font-weight: 900 !important;
-  letter-spacing: -0.5px !important;
-}
-
-.header-flame-icon {
-  font-size: clamp(1.1rem, 3.8vw, 1.35rem) !important;
-  display: inline-block !important;
-}
-
-.header-right {
-  display: flex !important;
-  align-items: center !important;
-  gap: clamp(2px, 1.5vw, 6px) !important;
-  flex-shrink: 0 !important;
-  justify-content: flex-end !important;
-  min-width: 0 !important;
-}
-
-.header-btn {
-  width: clamp(34px, 8.5vw, 42px) !important;
-  height: clamp(34px, 8.5vw, 42px) !important;
-  padding: 0 !important;
-  flex-shrink: 0 !important;
-  box-sizing: border-box !important;
-}
-
-.header-btn svg {
-  width: clamp(18px, 4.8vw, 22px) !important;
-  height: clamp(18px, 4.8vw, 22px) !important;
-}
-
-.global-back-btn {
-  width: clamp(34px, 8.5vw, 40px) !important;
-  height: clamp(34px, 8.5vw, 40px) !important;
-  flex-shrink: 0 !important;
-}
 
 .global-back-btn svg {
   width: clamp(18px, 4.8vw, 22px) !important;
   height: clamp(18px, 4.8vw, 22px) !important;
 }
-
-/* ==========================================================================
-   COMPREHENSIVE DUAL-THEME POLISH SYSTEM (DARK & LIGHT PERFECTION)
-   Guarantees 100% readability, WCAG contrast, luxurious aesthetics & harmony
-   ========================================================================== */
 
 /* --- 1. ACCENT & FILLED BUTTONS (High contrast text in both themes) --- */
 .accent-btn,
@@ -5532,36 +4981,6 @@ button.accent-btn,
 [data-theme="light"] .brand-by {
   color: #554862 !important;
   font-weight: 700 !important;
-}
-
-/* --- 5. BOTTOM NAVIGATION BAR & HEADER (Light & Dark Polish) --- */
-[data-theme="light"] .bottom-nav {
-  background: rgba(255, 255, 255, 0.98) !important;
-  border-top: 1px solid #EDE4F2 !important;
-  box-shadow: 0 -4px 20px rgba(25, 12, 35, 0.05) !important;
-}
-[data-theme="light"] .nav-tab {
-  color: #524760 !important;
-}
-[data-theme="light"] .nav-tab:hover {
-  color: #1E122A !important;
-}
-[data-theme="light"] .nav-tab.active {
-  color: #B71855 !important;
-  font-weight: 700 !important;
-}
-[data-theme="light"] .nav-tab.active svg {
-  stroke: #B71855 !important;
-  fill: rgba(183, 24, 85, 0.12) !important;
-}
-
-[data-theme="dark"] .nav-tab,
-.nav-tab {
-  color: #A098AD !important;
-}
-[data-theme="dark"] .nav-tab.active,
-.nav-tab.active {
-  color: #FF5E8E !important;
 }
 
 /* --- 6. AUTH SCREENS & DIALOGS POLISH --- */
@@ -5824,11 +5243,6 @@ button#hkVerifyBtn.hk-vpc-btn {
   color: #FFFFFF !important;
   box-shadow: 0 4px 16px rgba(1, 87, 155, 0.35) !important;
 }
-
-
-/* ==========================================================
-   INTELLIGENT MATCHMAKING & PERSONAL CONNECTION STYLES
-   ========================================================== */
 
 /* Discovery Profile Card Compatibility Pill */
 .card-compat-pill {
@@ -6906,28 +6320,6 @@ button#hkVerifyBtn.hk-vpc-btn {
 /* ==========================================================
    LIVE NETWORK CONNECTIVITY BANNER
    ========================================================== */
-.network-status-banner {
-  position: fixed;
-  top: 54px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 32px);
-  max-width: 440px;
-  z-index: 99900;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
-  animation: bannerSlideDown 0.28s cubic-bezier(0.16, 1, 0.3, 1);
-  transition: all 0.3s ease;
-}
 
 @keyframes bannerSlideDown {
   from {
@@ -6940,64 +6332,8 @@ button#hkVerifyBtn.hk-vpc-btn {
   }
 }
 
-.network-status-banner.offline {
-  background: rgba(220, 38, 38, 0.92);
-  border: 1px solid rgba(239, 68, 68, 0.5);
-  color: #FFFFFF;
-}
-
-.network-status-banner.online {
-  background: rgba(16, 185, 129, 0.92);
-  border: 1px solid rgba(52, 211, 153, 0.5);
-  color: #FFFFFF;
-}
-
-.net-status-icon {
-  font-size: 1rem;
-  flex-shrink: 0;
-}
-
-.net-status-text {
-  flex: 1;
-  line-height: 1.3;
-}
-
-.net-status-retry-btn {
-  background: rgba(255, 255, 255, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 999px;
-  padding: 3px 10px;
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: #FFFFFF;
-  cursor: pointer;
-  transition: all 0.18s ease;
-}
-
-.net-status-retry-btn:hover {
-  background: rgba(255, 255, 255, 0.35);
-}
-
-.network-status-banner.shake {
-  animation: netShake 0.4s ease;
-}
-
 @keyframes netShake {
   0%, 100% { transform: translate(-50%, 0); }
   20%, 60% { transform: translate(calc(-50% - 6px), 0); }
   40%, 80% { transform: translate(calc(-50% + 6px), 0); }
 }
-
-/* Light Mode Overrides */
-[data-theme="light"] .network-status-banner.offline {
-  background: rgba(220, 38, 38, 0.95);
-  color: #FFFFFF;
-}
-[data-theme="light"] .network-status-banner.online {
-  background: rgba(5, 150, 105, 0.95);
-  color: #FFFFFF;
-}
-
-
-
-

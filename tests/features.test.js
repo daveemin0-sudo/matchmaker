@@ -3,7 +3,9 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 
 const html = fs.readFileSync('index.html', 'utf8');
-const css = fs.readFileSync('premium.css', 'utf8');
+// All shipped stylesheets: the redesign moves rules out of the legacy sheets into css/*.css.
+const css = ['premium.css', 'style.css', ...fs.readdirSync('css').filter((f) => f.endsWith('.css')).map((f) => `css/${f}`)]
+  .map((f) => fs.readFileSync(f, 'utf8')).join('\n');
 const js = fs.readFileSync('script.js', 'utf8');
 
 test('in-chat AI assistant and tap-to-retry message failure states exist', () => {
