@@ -521,17 +521,35 @@ app.get('/discovery', requireAuth, async (req, res) => {
   }
 });
 
+// Accepts both the reasons the in-app report sheet actually sends
+// ('inappropriate', 'spam', 'fake', 'harassment', 'other' — see script.js's
+// reportUser()/submitReport()) and the extra categories the admin tooling
+// supports, so the default pre-checked radio option never 400s.
+const REPORT_REASONS = new Set(['inappropriate','spam','fake','harassment','scam','sexual','underage','violence','other']);
+
 app.post('/reports', requireAuth, async (req, res) => {
   const reporterId=req.user.uid, reportedUserId=String(req.body.reportedUserId||'').trim();
   const reason=String(req.body.reason||'other').trim().toLowerCase(), details=String(req.body.details||'').trim().slice(0,2000);
-  if(!reportedUserId || reportedUserId===reporterId || !new Set(['fake','harassment','scam','sexual','underage','violence','other']).has(reason)) return res.status(400).json({success:false,error:'Invalid report.'});
+  if(!reportedUserId || reportedUserId===reporterId || !REPORT_REASONS.has(reason)) return res.status(400).json({success:false,error:'Invalid report.'});
   if(!(await persistentRateLimit('reports:'+reporterId,10,60*60*1000))) return res.status(429).json({success:false,error:'Too many reports. Please try again later.'});
   try {
     const target=await db.collection('users').doc(reportedUserId).get();
     if(!target.exists) return res.status(404).json({success:false,error:'User not found.'});
+    const targetData = target.data() || {};
+    // reportedBy (not reporterId) is what GET /admin/reports reads back — keep
+    // both in sync so the admin dashboard can actually show who filed it.
     const reportRef=db.collection('reports').doc(), blockRef=db.collection('blocks').doc(reporterId+'_'+reportedUserId), now=admin.firestore.FieldValue.serverTimestamp();
     await db.runTransaction(async tx => {
-      tx.set(reportRef,{reporterId,reportedUserId,reason,...(details?{details}:{}),status:'open',createdAt:now});
+      tx.set(reportRef,{
+        reportedBy: reporterId,
+        reporterId,
+        reportedUserId,
+        reportedUserName: String(targetData.displayName || targetData.name || 'User').slice(0,120),
+        reason,
+        ...(details?{details}:{}),
+        status:'open',
+        createdAt:now
+      });
       tx.set(blockRef,{blockedBy:reporterId,blockedUserId:reportedUserId,createdAt:now},{merge:true});
     });
     res.json({success:true,reportId:reportRef.id,blocked:true});
@@ -1265,39 +1283,6 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
   }
 });
 
-/* User reports */
-app.post('/reports', requireAuth, async (req, res) => {
-  const reportedUserId = String(req.body?.reportedUserId || '');
-  const reason = String(req.body?.reason || '');
-  if (!reportedUserId || reportedUserId === req.user.uid || !['inappropriate','spam','fake','harassment','other'].includes(reason)) {
-    return res.status(400).json({ success: false, error: 'Invalid report.' });
-  }
-  if (!rateLimit(`report:${req.user.uid}`, 10, 10 * 60 * 1000) ||
-      !(await persistentRateLimit(`report:${req.user.uid}`, 10, 10 * 60 * 1000))) {
-    return res.status(429).json({ success: false, error: 'Too many reports. Please try again later.' });
-  }
-
-  try {
-    const targetRef = db.collection('users').doc(reportedUserId);
-    const targetSnap = await targetRef.get();
-    if (!targetSnap.exists) return res.status(404).json({ success: false, error: 'Reported user was not found.' });
-
-    const target = targetSnap.data() || {};
-    const reportRef = await db.collection('reports').add({
-      reportedBy: req.user.uid,
-      reportedUserId,
-      reportedUserName: String(target.displayName || target.name || 'User').slice(0, 120),
-      reason,
-      status: 'open',
-      createdAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-    return res.json({ success: true, reportId: reportRef.id });
-  } catch (err) {
-    console.error('Report creation error:', err.message);
-    return res.status(500).json({ success: false, error: 'Could not submit the report.' });
-  }
-});
-
 /* Admin moderation */
 app.get('/admin/reports', requireAuth, requireAdmin, async (req, res) => {
   if (!rateLimit(`admin-reports:${req.user.uid}`, 30, 60 * 1000)) {
@@ -1394,37 +1379,6 @@ app.post('/admin/users/unsuspend', requireAuth, requireAdmin, async (req, res) =
   } catch (err) {
     console.error('Admin unsuspension error:', err.message);
     return res.status(500).json({ error: 'Could not restore user.' });
-  }
-});
-
-app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req, res) => {
-  try {
-    const snap = await db.collection('users').get();
-    let count = 0;
-    const batch = db.batch();
-    snap.forEach(doc => {
-      const u = doc.data();
-      const pRef = db.collection('public_profiles').doc(doc.id);
-      batch.set(pRef, {
-        id: doc.id,
-        name: u.displayName || u.name || 'User',
-        displayName: u.displayName || u.name || 'User',
-        age: u.age || 24,
-        bio: u.bio || '',
-        gender: u.gender || '',
-        interests: u.interests || [],
-        city: u.city || '',
-        image: u.image || u.avatar || '',
-        avatar: u.avatar || u.image || '',
-        updatedAt: admin.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-      count++;
-    });
-    await batch.commit();
-    return res.json({ success: true, migrated: count });
-  } catch (err) {
-    console.error('Migrate public profiles error:', err.message);
-    return res.status(500).json({ error: 'Migration failed: ' + err.message });
   }
 });
 
