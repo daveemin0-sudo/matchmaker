@@ -1,3 +1,8 @@
+> **Correction (2026-10-10):** the `Server.js` file links and line numbers cited in this document referred to a root-level
+> file that was never deployed (it has since been removed). The production backend is `webhook-server/index.js`
+> (what `BACKEND_URL` / matchmaker-viwb.onrender.com runs). Treat any "VERIFIED" row below that cites `Server.js` as
+> unverified until re-checked against `webhook-server/index.js`.
+
 # hookmebysam — Master Production Audit & Readiness Report
 
 > **Target:** Production Readiness Audit & Verification  

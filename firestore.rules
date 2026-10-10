@@ -15,6 +15,15 @@ service cloud.firestore {
       return participant(matchData);
     }
 
+    // Block docs are written only by the backend, with deterministic ids
+    // `${blocker}_${blocked}`, so rules can check both directions. A match id
+    // is the two uids sorted and joined by '_'.
+    function notBlocked(matchId) {
+      return matchId.split('_').size() == 2
+        && !exists(/databases/$(database)/documents/blocks/$(matchId.split('_')[0] + '_' + matchId.split('_')[1]))
+        && !exists(/databases/$(database)/documents/blocks/$(matchId.split('_')[1] + '_' + matchId.split('_')[0]));
+    }
+
     // ── users ───────────────────────────────────────────────────────────────
     // All signed-in users must be able to read user profiles to discover cards,
     // search users, and view match profiles.
@@ -57,12 +66,27 @@ service cloud.firestore {
       allow read: if signedIn() && (
         participant(resource.data) || (request.auth.uid in matchId.split('_'))
       );
+      // The doc id must be exactly the two uids in `users`, so the id-based
+      // checks used by messages/storage can never disagree with the users
+      // array, and neither side can be blocked.
       allow create: if signedIn()
         && ('users' in request.resource.data)
         && request.auth.uid in request.resource.data.users
-        && request.resource.data.users.size() == 2;
+        && request.resource.data.users.size() == 2
+        && matchId.split('_').size() == 2
+        && request.resource.data.users.hasAll(matchId.split('_'))
+        && notBlocked(matchId);
+      // Participants may update chat metadata but never change WHO the
+      // participants are. Compared as a set, not by array order: the backend
+      // writes users unsorted while the client writes them sorted.
       allow update: if signedIn() && (
         participant(resource.data) || (request.auth.uid in matchId.split('_'))
+      ) && (
+        !('users' in request.resource.data.diff(resource.data).affectedKeys())
+        || (
+          request.resource.data.users.size() == resource.data.users.size()
+          && request.resource.data.users.hasAll(resource.data.users)
+        )
       );
       allow delete: if false;
 
@@ -77,6 +101,7 @@ service cloud.firestore {
             (request.auth.uid in matchId.split('_'))
             || (exists(/databases/$(database)/documents/matches/$(matchId)) && participant(get(/databases/$(database)/documents/matches/$(matchId)).data))
           )
+          && notBlocked(matchId)
           && (!('text' in request.resource.data) || request.resource.data.text.size() <= 5000);
         allow update: if signedIn() && (
           (request.auth.uid in matchId.split('_'))
@@ -94,7 +119,11 @@ service cloud.firestore {
       }
 
       match /calls/{callId} {
-        allow read, write: if signedIn() && (
+        allow read: if signedIn() && (
+          (request.auth.uid in matchId.split('_'))
+          || (exists(/databases/$(database)/documents/matches/$(matchId)) && participant(get(/databases/$(database)/documents/matches/$(matchId)).data))
+        );
+        allow write: if notBlocked(matchId) && signedIn() && (
           (request.auth.uid in matchId.split('_'))
           || (exists(/databases/$(database)/documents/matches/$(matchId)) && participant(get(/databases/$(database)/documents/matches/$(matchId)).data))
         );

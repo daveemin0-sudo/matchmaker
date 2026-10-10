@@ -113,7 +113,6 @@ Match making/
 ├── premium.css                 # Supplementary styles for VIP Gold cards, luxury badges
 ├── manifest.json               # Web App Manifest for mobile home screen installation
 ├── logo.png                    # Brand emblem
-├── Server.js                   # Standalone Termii OTP and Paystack webhook server
 ├── package.json                # Project npm manifest and scripts
 ├── webhook-server/             # Microservice server directory
 │   ├── index.js                # Express webhook server entry point
@@ -414,7 +413,7 @@ service cloud.firestore {
 
 ## 6. Backend Webhook Server & Third-Party APIs
 
-The webhook service (`Server.js` / `webhook-server/index.js`) bridges server-side operations that require secret keys.
+The webhook service (`webhook-server/index.js`) bridges server-side operations that require secret keys.
 
 ### Endpoints
 

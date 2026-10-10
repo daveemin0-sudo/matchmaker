@@ -10,7 +10,6 @@
       "firestore.rules",
       "**/.*",
       "**/node_modules/**",
-      "Server.js",
       "webhook-server/**"
     ],
     "headers": [
