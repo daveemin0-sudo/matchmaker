@@ -105,3 +105,20 @@ test('chat media never falls back to public story storage or local-only delivery
   assert.match(app, /Only send the stable Cloud Storage URL to the recipient/);
   assert.ok(app.includes('chat_media/${matchId}'));
 });
+
+// Static checks only — these catch the protections being deleted again (the
+// rules file has regressed before). They do NOT prove the rules evaluate
+// correctly; that needs the Firestore emulator (`firebase emulators:exec`).
+test('firestore rules: blocks are enforced on match creation, messages and call signalling', () => {
+  const rules = read('firestore.rules');
+  assert.match(rules, /function notBlocked\(matchId\)/);
+  assert.match(rules, /match \/matches\/\{matchId\}[\s\S]*?allow create:[\s\S]*?notBlocked\(matchId\)/);
+  assert.match(rules, /match \/messages\/\{messageId\}[\s\S]*?allow create:[\s\S]*?notBlocked\(matchId\)/);
+  assert.match(rules, /match \/calls\/\{callId\}[\s\S]*?allow write: if notBlocked\(matchId\)/);
+});
+
+test('firestore rules: a match document id must agree with its users and participants cannot be rewritten', () => {
+  const rules = read('firestore.rules');
+  assert.match(rules, /request\.resource\.data\.users\.hasAll\(matchId\.split\('_'\)\)/);
+  assert.match(rules, /request\.resource\.data\.users\.hasAll\(resource\.data\.users\)/);
+});
