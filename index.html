@@ -44,7 +44,17 @@
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
+      // Reload only when a NEW worker replaces one that was already controlling
+      // this page (i.e. an app update). On a first visit the worker installs,
+      // skipWaiting()s and claims the page, which also fires controllerchange —
+      // reloading then threw brand-new users out of the session they had just
+      // started (guest logins came back to the login screen).
+      var hadController = !!navigator.serviceWorker.controller;
+      var reloading = false;
       navigator.serviceWorker.addEventListener('controllerchange', function () {
+        if (!hadController) { hadController = true; return; }
+        if (reloading) return;
+        reloading = true;
         console.log('[SW] New version activated, reloading...');
         window.location.reload();
       });

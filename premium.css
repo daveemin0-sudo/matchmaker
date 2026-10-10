@@ -151,6 +151,11 @@ body::before {
 .auth-hero {
   padding: 36px 20px 20px !important;
   text-align: center;
+  /* .auth-screen is a flex column and .auth-hero has overflow:hidden, which
+     lets flexbox shrink it below its content when the form is taller than the
+     viewport — the heading's 2nd line and the tagline were clipped behind the
+     card on phones. Keep the hero at its natural height; the screen scrolls. */
+  flex-shrink: 0 !important;
 }
 
 .auth-brand-badge {
