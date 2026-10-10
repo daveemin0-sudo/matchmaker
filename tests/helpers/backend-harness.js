@@ -62,7 +62,7 @@ function createHarness({ port, env = {} }) {
 
   const db = {
     collection: (col) => ({
-      doc: (id) => docRef(col, id),
+      doc: (id) => docRef(col, id === undefined ? 'auto_' + Math.random().toString(36).slice(2, 12) : id),
       where: (f, o, v) => query(col, [[f, o, v]]),
     }),
     runTransaction: async (fn) => fn({
