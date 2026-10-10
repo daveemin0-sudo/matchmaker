@@ -302,8 +302,18 @@ app.post('/webhook/paystack', async (req, res) => {
     const paidEmail = String(payment.customer?.email || '').trim().toLowerCase();
     const userRecord = await admin.auth().getUser(String(userId));
     const accountEmail = String(userRecord.email || '').trim().toLowerCase();
-    if (!paidEmail || !accountEmail || paidEmail !== accountEmail) {
-      console.warn('Paystack webhook ignored because payment customer does not match Firebase account:', reference);
+    // Same ownership rule as POST /payment/verify. Phone-only accounts have no
+    // email (checkout uses a synthetic <digits>@hookmebysam.com address), so
+    // requiring an email match meant the webhook — the safety net for when the
+    // browser closes before /payment/verify runs — never granted them VIP.
+    // The metadata comes from the transaction Paystack just confirmed with our
+    // secret key, and grantVip still pins amount + currency to the plan price.
+    const verifiedMetadataUserId = (payment.metadata?.custom_fields || [])
+      .find(f => f.variable_name === 'user_id')?.value;
+    const ownerByEmail = Boolean(paidEmail && accountEmail && paidEmail === accountEmail);
+    const ownerByMetadata = Boolean(verifiedMetadataUserId && String(verifiedMetadataUserId) === String(userId));
+    if (!ownerByEmail && !ownerByMetadata) {
+      console.warn('Paystack webhook ignored because payment does not belong to this Firebase account:', reference);
       return res.status(200).json({ received: true });
     }
     await grantVip({ reference, uid: String(userId), tier: Number(tier), payment });
