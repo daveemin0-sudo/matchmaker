@@ -986,10 +986,50 @@ async function reactRealtimeMessage(matchId, messageId, emoji, fallbackLocalId) 
 // CLOUD FILE UPLOADS (Profile Photo, Voice Note, Chat Media)
 // ----------------------------------------------------------
 
+// When the project's Cloud Storage bucket does not exist (e.g. Spark plan, Storage
+// never set up) every upload attempt is doomed. Trying it first used to delay each
+// photo / voice note by ~10s before the inline fallback delivered it. Remember the
+// failure (30 min, per device) so later sends skip straight to the inline path.
+const STORAGE_UNAVAILABLE_KEY = 'hm_storage_unavailable_until';
+const STORAGE_UNAVAILABLE_TTL_MS = 30 * 60 * 1000;
+// Largest file we will inline as a data URL (base64 is ~4/3 the size and a Firestore
+// document is capped at 1 MiB).
+const INLINE_MEDIA_MAX_BYTES = 600 * 1024;
+
+function markCloudStorageUnavailable() {
+  window._firebaseStorageDisabled = true;
+  try { localStorage.setItem(STORAGE_UNAVAILABLE_KEY, String(Date.now() + STORAGE_UNAVAILABLE_TTL_MS)); } catch (_) {}
+}
+try {
+  if (Number(localStorage.getItem(STORAGE_UNAVAILABLE_KEY) || 0) > Date.now()) window._firebaseStorageDisabled = true;
+} catch (_) {}
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+}
+
 async function uploadFileToBackend(file, path, returnMetadata = false, customContentType = '') {
   window._lastMediaUploadError = null;
-  if (!fbStorage || !fbAuth?.currentUser || window._firebaseStorageDisabled) {
-    window._lastMediaUploadError = !fbStorage ? 'Firebase Storage is not initialized.' : 'Firebase Storage is not provisioned on this plan.';
+  if (!fbStorage || !fbAuth?.currentUser) {
+    window._lastMediaUploadError = !fbStorage ? 'Firebase Storage is not initialized.' : 'Sign in before uploading.';
+    return null;
+  }
+  if (window._firebaseStorageDisabled) {
+    // Known-unprovisioned bucket: no network round trip. Small non-video files are
+    // inlined (same result the backend fallback produced, minus the ~10s wait).
+    const contentType = customContentType || file.type || '';
+    const looksVideo = contentType.startsWith('video/') || /\.(mp4|mov|webm|m4v|3gp|mkv)$/i.test(file.name || '');
+    const isAudioType = contentType.startsWith('audio/');
+    if ((!looksVideo || isAudioType) && file.size <= INLINE_MEDIA_MAX_BYTES) {
+      const inline = await readFileAsDataUrl(file);
+      if (inline) return returnMetadata ? { url: inline, storagePath: '' } : inline;
+    }
+    window._lastMediaUploadError = 'Firebase Storage is not provisioned on this plan.';
     return null;
   }
   try {
@@ -1028,13 +1068,16 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     let snapshot;
     try {
       const putPromise = storageRef.put(file, metadata);
-      const putTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Storage put timeout')), 25000));
+      // Small files (photos, voice notes) should upload in a couple of seconds; a long
+      // wait here just delays delivery. Videos legitimately need longer.
+      const putTimeoutMs = isVid ? 25000 : 8000;
+      const putTimeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Storage put timeout')), putTimeoutMs));
       snapshot = await Promise.race([putPromise, putTimeout]);
       const downloadUrl = await snapshot.ref.getDownloadURL();
       return returnMetadata ? { url: downloadUrl, storagePath: snapshot.ref.fullPath } : downloadUrl;
     } catch (putErr) {
       if (putErr?.code === 'storage/bucket-not-found' || putErr?.code === 'storage/project-not-found') {
-        window._firebaseStorageDisabled = true;
+        markCloudStorageUnavailable();
       }
       window._lastMediaUploadError = `Storage upload failed: ${putErr?.code || 'unknown'} — ${putErr?.message || 'unknown error'}`;
       console.warn('Direct Firebase Storage put failed/timed out, attempting backend upload fallback:', putErr?.message);
@@ -1042,12 +1085,7 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
       // Attempt backend proxy upload to bypass browser CORS / client storage restrictions
       try {
         const token = await fbAuth.currentUser.getIdToken();
-        const base64 = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
-          reader.onerror = () => resolve(null);
-          reader.readAsDataURL(file);
-        });
+        const base64 = await readFileAsDataUrl(file);
         if (base64) {
           const res = await fetch(BACKEND_URL + '/media/upload', {
             method: 'POST',
@@ -1065,6 +1103,9 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
           if (res.ok) {
             const data = await res.json();
             if (data?.success && data?.url) {
+              // The backend only answers with an inline data: URL when it could not
+              // save to a bucket, so Cloud Storage is unusable: stop retrying it.
+              if (String(data.url).startsWith('data:')) markCloudStorageUnavailable();
               return returnMetadata ? { url: data.url, storagePath: `${storagePath}/${uid}/${safeName}` } : data.url;
             }
           }
@@ -1076,7 +1117,7 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     }
   } catch (err) {
     if (err?.code === 'storage/bucket-not-found' || err?.code === 'storage/project-not-found') {
-      window._firebaseStorageDisabled = true;
+      markCloudStorageUnavailable();
     }
     window._lastMediaUploadError = window._lastMediaUploadError || `Storage error: ${err?.code || 'unknown'} — ${err?.message || 'unknown error'}`;
     return null;
