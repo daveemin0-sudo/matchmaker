@@ -387,10 +387,23 @@ app.post('/auth/link-google', requireAuth, async (req, res) => {
 
     // Retire the redundant Google-only auth user (frees the Google identity), then link it
     await admin.auth().deleteUser(newUid);
+    // Pre-hijacking guard: nothing proves the person who registered the
+    // existing email/password account actually owns that inbox. If it was
+    // never verified, an attacker could have pre-registered the victim's email
+    // with a password they know, then wait for the victim to sign in with
+    // Google and be merged into it. For unverified targets, drop the password
+    // credential and kill existing sessions as part of the merge; the Google
+    // sign-in (which Google verified) becomes the only way in.
+    const targetWasVerified = target.emailVerified === true;
     await admin.auth().updateUser(target.uid, {
       emailVerified: true,
       providerToLink: { providerId: 'google.com', uid: googleInfo.uid }
     });
+    if (!targetWasVerified) {
+      // Separate call: link first so the account is never left with no way in.
+      await admin.auth().updateUser(target.uid, { providersToUnlink: ['password'] });
+      await admin.auth().revokeRefreshTokens(target.uid).catch(() => {});
+    }
 
     // Hide the duplicate profile and flag the real one; existing profile fields are NOT overwritten
     await db.collection('public_profiles').doc(newUid).set({ active: false, mergedInto: target.uid }, { merge: true }).catch(() => {});
@@ -438,6 +451,8 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
 /*
  * Authenticated media upload proxy (bypasses browser CORS restrictions for storage)
  */
+const MEDIA_UPLOAD_ROOTS = new Set(['stories', 'voicenotes', 'chat_media', 'chat_images', 'chat_videos']);
+
 app.post('/media/upload', requireAuth, async (req, res) => {
   try {
     const { dataBase64, contentType, path, fileName } = req.body || {};
@@ -446,14 +461,33 @@ app.post('/media/upload', requireAuth, async (req, res) => {
     }
     const uid = req.user.uid;
     const safePath = String(path || 'chat_media').replace(/[^a-zA-Z0-9_\-\/]/g, '');
-    const cleanContentType = String(contentType || 'audio/webm').split(';')[0];
+    const cleanContentType = String(contentType || 'audio/webm').split(';')[0].trim().toLowerCase();
 
-    // Verify user is authorized for chat_media path
-    if (safePath.startsWith('chat_media/')) {
-      const matchId = safePath.split('/')[1] || '';
+    // This proxy is the fallback for direct Storage uploads, so it must not be
+    // weaker than storage.rules / uploadFileToBackend(): known roots only,
+    // media content types only, and chat media only inside a live, unblocked
+    // match the caller belongs to.
+    const pathParts = safePath.split('/').filter(Boolean);
+    if (!MEDIA_UPLOAD_ROOTS.has(pathParts[0])) {
+      return res.status(400).json({ success: false, error: 'Unsupported upload path.' });
+    }
+    if (!/^(image|video|audio)\/[a-z0-9.+-]+$/.test(cleanContentType)) {
+      return res.status(400).json({ success: false, error: 'Only image, video and audio uploads are allowed.' });
+    }
+    if (pathParts[0] === 'chat_media') {
+      const matchId = pathParts[1] || '';
       const participants = matchId.split('_');
-      if (!participants.includes(uid)) {
+      if (participants.length !== 2 || !participants.includes(uid)) {
         return res.status(403).json({ success: false, error: 'Unauthorized path.' });
+      }
+      const partnerId = participants.find(p => p !== uid) || uid;
+      try {
+        await assertActiveMatchAccess(uid, partnerId, matchId);
+      } catch (accessErr) {
+        if (accessErr.code === 'MATCH_ACCESS_DENIED') {
+          return res.status(403).json({ success: false, error: 'Unauthorized path.' });
+        }
+        throw accessErr;
       }
     }
 
@@ -1128,7 +1162,13 @@ app.post('/fcm/call-ended', requireAuth, async (req, res) => {
 });
 
 app.post('/stories/cleanup', async (req, res) => {
-  if (req.headers['x-cleanup-secret'] !== CLEANUP_SECRET) return res.status(401).json({ error: 'Unauthorized' });
+  // Fail closed: with CLEANUP_SECRET unset, an empty header must not match.
+  const providedSecret = Buffer.from(String(req.headers['x-cleanup-secret'] || ''));
+  const expectedSecret = Buffer.from(CLEANUP_SECRET);
+  if (!CLEANUP_SECRET || providedSecret.length !== expectedSecret.length ||
+      !crypto.timingSafeEqual(providedSecret, expectedSecret)) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
   try {
     const now = admin.firestore.Timestamp.now();
     const snap = await db.collection('stories').where('expiresAt', '<=', now).limit(100).get();
