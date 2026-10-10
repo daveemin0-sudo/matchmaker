@@ -24,7 +24,7 @@ test('new chat media is scoped to a match participant', () => {
 // what BACKEND_URL in firebase-config.js points to (matchmaker-viwb.onrender.com),
 // what webhook-server/package.json's "main"/"start" run, and what
 // .github/workflows/production-ops.yml health-checks. The root-level
-// Server.js is not referenced by any script, deploy config, or workflow in
+// The old root-level Server.js was never referenced by any script, deploy config, or workflow in
 // this repo, so asserting against it tells you nothing about what users
 // actually hit in production — assert against webhook-server/index.js.
 test('swipe endpoint is authenticated and rate limited', () => {
