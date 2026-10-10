@@ -451,6 +451,22 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
 /*
  * Authenticated media upload proxy (bypasses browser CORS restrictions for storage)
  */
+// admin.storage().bucket() THROWS (it does not return undefined) when no default
+// bucket was configured, so it cannot be used inside an `a || b || c` chain: the
+// throw skipped the hard-coded fallback and every upload fell back to inline data.
+function resolveStorageBucketName() {
+  if (FIREBASE_STORAGE_BUCKET) return FIREBASE_STORAGE_BUCKET;
+  try {
+    const defaultName = admin.storage().bucket().name;
+    if (defaultName) return defaultName;
+  } catch (_) { /* no default bucket configured */ }
+  return `${process.env.FIREBASE_PROJECT_ID || 'hookmebysam'}.firebasestorage.app`;
+}
+
+function getStorageBucket() {
+  return admin.storage().bucket(resolveStorageBucketName());
+}
+
 const MEDIA_UPLOAD_ROOTS = new Set(['stories', 'voicenotes', 'chat_media', 'chat_images', 'chat_videos']);
 
 app.post('/media/upload', requireAuth, async (req, res) => {
@@ -501,8 +517,7 @@ app.post('/media/upload', requireAuth, async (req, res) => {
 
     let downloadUrl = null;
     try {
-      const bucketName = FIREBASE_STORAGE_BUCKET || admin.storage().bucket().name || `${process.env.FIREBASE_PROJECT_ID || 'hookmebysam'}.firebasestorage.app`;
-      const bucket = admin.storage().bucket(bucketName);
+      const bucket = getStorageBucket();
       const safeName = String(fileName || `file_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, '_');
       const destination = `${safePath}/${uid}/${Date.now()}_${safeName}`;
       const fileRef = bucket.file(destination);
@@ -1173,7 +1188,7 @@ app.post('/stories/cleanup', async (req, res) => {
     const now = admin.firestore.Timestamp.now();
     const snap = await db.collection('stories').where('expiresAt', '<=', now).limit(100).get();
     if (snap.empty) return res.json({ success: true, deleted: 0 });
-    const bucket = admin.storage().bucket();
+    const bucket = getStorageBucket();
     await Promise.all(snap.docs.map(async doc => {
       const storagePath = String(doc.data()?.storagePath || '');
       if (storagePath) {
@@ -1236,9 +1251,17 @@ async function deleteDocumentTree(ref) {
 }
 
 async function deleteStoragePrefixes(prefixes) {
-  const bucket = admin.storage().bucket();
+  const bucket = getStorageBucket();
   for (const prefix of prefixes) {
-    const [files] = await bucket.getFiles({ prefix });
+    let files;
+    try {
+      [files] = await bucket.getFiles({ prefix });
+    } catch (err) {
+      // 404 = the bucket itself does not exist (Storage never provisioned), so there
+      // is no media to delete. Anything else is a real failure and must surface.
+      if (err && err.code === 404) continue;
+      throw err;
+    }
     await Promise.all(files.map(file => file.delete({ ignoreNotFound: true })));
   }
 }

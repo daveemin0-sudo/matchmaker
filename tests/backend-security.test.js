@@ -101,3 +101,43 @@ test('google linking into a VERIFIED email/password account keeps the password s
   assert.ok(updates.some((u) => u.providerToLink?.providerId === 'google.com'));
   assert.ok(!updates.some((u) => (u.providersToUnlink || []).length), 'verified owners keep their password');
 });
+
+// ---------- Cloud Storage bucket handling (production had NO bucket configured) ----------
+// Render logs showed "Bucket name not specified or invalid" on every upload: the
+// no-argument admin.storage().bucket() throws, which skipped the hard-coded fallback.
+test('media upload uses the project bucket even when no default bucket is configured', async () => {
+  const auth = asUser('alice');
+  store.set('matches/alice_bob', { users: ['alice', 'bob'] });
+  const res = await h.request('POST', '/media/upload', { dataBase64: b64, contentType: 'image/jpeg', path: 'chat_media/alice_bob' }, auth);
+  assert.equal(res.status, 200);
+  assert.equal(state.storageSaves.length, 1, 'file must be saved to Cloud Storage, not silently inlined');
+  assert.equal(state.storageSaves[0].bucket, 'demo-test.firebasestorage.app', 'falls back to <FIREBASE_PROJECT_ID>.firebasestorage.app');
+  assert.match(res.json.url, /^https:\/\/firebasestorage\.googleapis\.com\//);
+});
+
+test('media upload falls back to an inline data URL (not a 500) when the bucket does not exist', async () => {
+  const auth = asUser('alice');
+  state.bucketMissing = true;
+  const res = await h.request('POST', '/media/upload', { dataBase64: b64, contentType: 'audio/webm', path: 'voicenotes' }, auth);
+  assert.equal(res.status, 200);
+  assert.equal(res.json.success, true);
+  assert.match(res.json.url, /^data:audio\/webm;base64,/);
+});
+
+test('account deletion still completes when Cloud Storage was never provisioned', async () => {
+  const auth = asUser('carol');
+  store.set('users/carol', { displayName: 'Carol' });
+  store.set('matches/carol_dave', { users: ['carol', 'dave'] });
+  state.bucketMissing = true;
+  const res = await h.request('POST', '/account/delete', {}, auth);
+  assert.equal(res.status, 200, 'a missing bucket means there is no media to delete, not a failed deletion');
+  assert.equal(store.has('users/carol'), false);
+  assert.ok(state.authCalls.some((c) => c.fn === 'deleteUser' && c.args[0] === 'carol'));
+});
+
+test('no code path calls the throwing no-argument bucket() outside the resolver', () => {
+  const src = require('node:fs').readFileSync('webhook-server/index.js', 'utf8');
+  const code = src.split('\n').filter((l) => !l.trim().startsWith('//')).join('\n');
+  const calls = [...code.matchAll(/storage\(\)\.bucket\(\)/g)];
+  assert.equal(calls.length, 1, 'only resolveStorageBucketName() may probe the default bucket (inside try/catch)');
+});

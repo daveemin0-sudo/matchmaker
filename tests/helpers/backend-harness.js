@@ -17,6 +17,8 @@ function createHarness({ port, env = {} }) {
     idTokens: {},    // bearer token -> decoded token ({ uid, email, ... })
     authCalls: [],   // [{ fn, args }]
     storageSaves: [],
+    defaultBucketConfigured: false,
+    bucketMissing: false,
   };
 
   function docRef(col, id) {
@@ -34,6 +36,8 @@ function createHarness({ port, env = {} }) {
         store.set(key, data);
       },
       delete: async () => { store.delete(key); },
+      collection: (name) => query(`${key}/${name}`, []),
+      listCollections: async () => [],
     };
   }
 
@@ -48,7 +52,7 @@ function createHarness({ port, env = {} }) {
           if (op === 'array-contains') return Array.isArray(data[field]) && data[field].includes(value);
           return true;
         });
-        if (ok) docs.push({ id: key.slice(col.length + 1), data: () => data });
+        if (ok) { const id = key.slice(col.length + 1); docs.push({ id, data: () => data, ref: docRef(col, id) }); }
       }
       return docs;
     };
@@ -65,6 +69,7 @@ function createHarness({ port, env = {} }) {
       doc: (id) => docRef(col, id === undefined ? 'auto_' + Math.random().toString(36).slice(2, 12) : id),
       where: (f, o, v) => query(col, [[f, o, v]]),
     }),
+    batch: () => { const ops = []; return { delete: (ref) => ops.push(ref), commit: async () => { for (const ref of ops) await ref.delete(); } }; },
     runTransaction: async (fn) => fn({
       get: async (ref) => ref.get(),
       set: (ref, data, opts) => {
@@ -97,12 +102,26 @@ function createHarness({ port, env = {} }) {
       firestore: firestoreFn,
       auth: () => auth,
       messaging: () => ({}),
+      // Mirrors real firebase-admin: bucket() with no name THROWS when no default
+      // bucket is configured, and a bucket that was never provisioned answers 404.
       storage: () => ({
-        bucket: (name) => ({
-          name: name || 'demo-bucket',
-          file: (dest) => ({ save: async (buf, opts) => { state.storageSaves.push({ dest, size: buf.length, contentType: opts.metadata.contentType }); }, delete: async () => {} }),
-          getFiles: async () => [[]],
-        }),
+        bucket: (name) => {
+          if (!name && !state.defaultBucketConfigured) {
+            throw new Error('Bucket name not specified or invalid. Specify a valid bucket name via the storageBucket option when initializing the app, or specify the bucket name explicitly when calling the getBucket() method.');
+          }
+          const missing = () => { const e = new Error('The specified bucket does not exist.'); e.code = 404; throw e; };
+          return {
+            name: name || 'demo-bucket',
+            file: (dest) => ({
+              save: async (buf, opts) => {
+                if (state.bucketMissing) missing();
+                state.storageSaves.push({ bucket: name || 'demo-bucket', dest, size: buf.length, contentType: opts.metadata.contentType });
+              },
+              delete: async () => { if (state.bucketMissing) missing(); },
+            }),
+            getFiles: async () => { if (state.bucketMissing) missing(); return [[]]; },
+          };
+        },
       }),
     };
   })();
@@ -138,7 +157,7 @@ function createHarness({ port, env = {} }) {
     });
   }
 
-  const reset = () => { store.clear(); state.paystackVerifyResponse = null; state.authUsers = {}; state.idTokens = {}; state.authCalls = []; state.storageSaves = []; };
+  const reset = () => { store.clear(); state.paystackVerifyResponse = null; state.authUsers = {}; state.idTokens = {}; state.authCalls = []; state.storageSaves = []; state.defaultBucketConfigured = false; state.bucketMissing = false; };
   const stop = () => setTimeout(() => process.exit(0), 50).unref();
 
   return { store, state, start, request, reset, stop };
