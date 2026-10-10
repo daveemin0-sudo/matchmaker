@@ -22,3 +22,11 @@ test('login hero is not allowed to shrink below its content (it has overflow:hid
   assert.ok(rule, '.auth-hero base rule in premium.css not found');
   assert.match(rule[0], /flex-shrink:\s*0\s*!important/);
 });
+
+test('voice-intro pill is anchored to the top of the photo, not the bottom where the bio is drawn', () => {
+  const css = read('premium.css');
+  const rule = css.match(/\.card-voice-intro-btn \{[\s\S]*?\n\}/);
+  assert.ok(rule, '.card-voice-intro-btn rule not found');
+  assert.match(rule[0], /top:/);
+  assert.doesNotMatch(rule[0], /bottom:/, 'bottom-anchored pill covers the end of .card-info .card-bio');
+});

@@ -5891,11 +5891,14 @@ button#hkVerifyBtn.hk-vpc-btn {
   color: #D13A63 !important;
 }
 
-/* Card Voice Intro Button (Floating on Photo) */
+/* Card Voice Intro Button (Floating on Photo)
+   Sits under the distance badge (top-right). It used to be anchored to the
+   bottom-right of the photo area, which is exactly where .card-info draws the
+   bio, so the pill covered the end of the bio text. */
 .card-voice-intro-btn {
   position: absolute;
-  bottom: 14px;
-  right: 14px;
+  top: calc(clamp(10px, 2vh, 16px) + 34px);
+  right: clamp(10px, 2.5vw, 16px);
   z-index: 5;
   display: inline-flex;
   align-items: center;
