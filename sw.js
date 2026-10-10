@@ -8,7 +8,7 @@
    - Static assets (images/fonts/icons): CACHE-FIRST. These are rarely
      edited, so serving from cache first saves bandwidth and is safe.
    ------------------------------------------------------------------ */
-const SW_VERSION = "v69.0";
+const SW_VERSION = "v70.0";
 const CACHE_NAME = `hmbs-${SW_VERSION}`;
 
 const APP_SHELL = [
@@ -16,6 +16,10 @@ const APP_SHELL = [
   "/index.html",
   "/style.css",
   "/premium.css",
+  "/css/tokens.css",
+  "/css/base.css",
+  "/css/components.css",
+  "/fonts/plus-jakarta-sans-latin-wght-normal.woff2",
   "/script.js",
   "/manifest.json"
 ];
@@ -59,7 +63,7 @@ self.addEventListener("fetch", (e) => {
           }
           return response;
         })
-        .catch(() => caches.match(req))
+        .catch(() => caches.match(req, { ignoreSearch: true }))
     );
   }
 });
