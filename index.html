@@ -1157,177 +1157,165 @@
       <!-- =====================================================
            MODAL: EDIT PROFILE (Moderate Card with Photo + Pencil Badge)
            ===================================================== -->
-      <div class="modal-overlay" id="editProfileModal" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;z-index:9999;background:rgba(8,5,14,0.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)">
-        <div class="edit-modal-sheet" style="border-radius:24px;width:92%;max-width:390px;max-height:82vh;overflow-y:auto;padding:22px;position:relative">
-          
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <h2 style="font-size:1.3rem;font-weight:700;margin:0">Edit Profile</h2>
-            <button onclick="closeEditProfileModal()" class="edit-modal-close-btn" aria-label="Close">✕</button>
+      <div class="sheet-overlay" id="editProfileModal" style="display:none" onclick="if(event.target===this)closeEditProfileModal()">
+        <div class="sheet sheet-tall">
+          <div class="sheet-grabber" aria-hidden="true"></div>
+          <div class="sheet-head">
+            <h2 class="sheet-title">Edit profile</h2>
+            <button type="button" class="btn btn-icon btn-ghost" onclick="closeEditProfileModal()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
           </div>
 
-          <!-- Multi-photo Grid: Add, replace, or remove up to 6 pictures -->
-          <div class="edit-modal-photos-wrap" style="margin-bottom:18px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-              <label style="font-size:0.75rem;font-weight:700;color:var(--txt-secondary);text-transform:uppercase;letter-spacing:0.8px;margin:0">
-                Photos <span style="color:var(--flame-1)">*</span>
-              </label>
-              <span style="font-size:0.72rem;color:var(--txt-muted)">Add up to 6 photos (Slot 1 is Main)</span>
-            </div>
-            <div class="signup-multi-photo-grid" id="editProfilePhotoGrid">
-              <!-- Slot 0: primary photo -->
-              <div class="signup-photo-slot primary" id="editSlot0" onclick="triggerEditPhotoSlot(0)">
-                <div class="sps-inner" id="editSlotInner0">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+          <div class="sheet-body edit-body">
+            <section class="edit-sec" aria-labelledby="editPhotosLabel">
+              <div class="edit-sec-head">
+                <h3 class="edit-sec-title" id="editPhotosLabel">Photos</h3>
+                <span class="field-hint">Up to 6. The first is your main photo.</span>
+              </div>
+              <div class="photo-grid" id="editProfilePhotoGrid" role="group" aria-labelledby="editPhotosLabel">
+                <div class="photo-slot primary" id="editSlot0">
+                  <button type="button" class="photo-slot-btn" id="editSlotInner0" onclick="triggerEditPhotoSlot(0)" aria-label="Add main photo"><svg class="i i-lg" aria-hidden="true"><use href="#i-image-plus"/></svg></button>
+                  <div class="photo-slot-tag">Main</div>
                 </div>
-                <div class="sps-primary-label">Main</div>
+                <div class="photo-slot" id="editSlot1"><button type="button" class="photo-slot-btn" id="editSlotInner1" onclick="triggerEditPhotoSlot(1)" aria-label="Add photo 2"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button></div>
+                <div class="photo-slot" id="editSlot2"><button type="button" class="photo-slot-btn" id="editSlotInner2" onclick="triggerEditPhotoSlot(2)" aria-label="Add photo 3"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button></div>
+                <div class="photo-slot" id="editSlot3"><button type="button" class="photo-slot-btn" id="editSlotInner3" onclick="triggerEditPhotoSlot(3)" aria-label="Add photo 4"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button></div>
+                <div class="photo-slot" id="editSlot4"><button type="button" class="photo-slot-btn" id="editSlotInner4" onclick="triggerEditPhotoSlot(4)" aria-label="Add photo 5"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button></div>
+                <div class="photo-slot" id="editSlot5"><button type="button" class="photo-slot-btn" id="editSlotInner5" onclick="triggerEditPhotoSlot(5)" aria-label="Add photo 6"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button></div>
               </div>
-              <!-- Slots 1-5: additional photos -->
-              <div class="signup-photo-slot" id="editSlot1" onclick="triggerEditPhotoSlot(1)">
-                <div class="sps-inner" id="editSlotInner1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
-              </div>
-              <div class="signup-photo-slot" id="editSlot2" onclick="triggerEditPhotoSlot(2)">
-                <div class="sps-inner" id="editSlotInner2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
-              </div>
-              <div class="signup-photo-slot" id="editSlot3" onclick="triggerEditPhotoSlot(3)">
-                <div class="sps-inner" id="editSlotInner3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
-              </div>
-              <div class="signup-photo-slot" id="editSlot4" onclick="triggerEditPhotoSlot(4)">
-                <div class="sps-inner" id="editSlotInner4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
-              </div>
-              <div class="signup-photo-slot" id="editSlot5" onclick="triggerEditPhotoSlot(5)">
-                <div class="sps-inner" id="editSlotInner5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
-              </div>
-            </div>
-            <input type="file" id="editProfilePhotoFile" accept="image/*" style="display:none" onchange="handleEditProfilePhotoUpload(event)">
-          </div>
+              <input type="file" id="editProfilePhotoFile" accept="image/*" hidden onchange="handleEditProfilePhotoUpload(event)">
+            </section>
 
-          <div class="profile-form">
-            <!-- Profile Completeness Meter -->
             <div class="profile-completeness-card" id="profileCompletenessCard">
               <div class="completeness-header">
-                <span class="completeness-title">Profile Completeness</span>
-                <span class="completeness-pct" id="profileCompletenessPct">85%</span>
+                <span class="completeness-title">Profile completeness</span>
+                <span class="completeness-pct" id="profileCompletenessPct">0%</span>
               </div>
-              <div class="completeness-bar-wrap">
-                <div class="completeness-bar-fill" id="profileCompletenessFill" style="width:85%"></div>
-              </div>
-              <div class="completeness-tip" id="profileCompletenessTip">Tip: Add relationship goals and personality prompts so people know who you are.</div>
+              <div class="meter"><div class="meter-fill" id="profileCompletenessFill" style="width:0%"></div></div>
+              <p class="acct-hint completeness-tip" id="profileCompletenessTip"></p>
             </div>
 
-            <div class="form-field">
-              <label>Display Name</label>
-              <input class="form-input" id="editName" type="text" placeholder="Your name">
-            </div>
-            <div class="form-grid-2" style="display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);gap:12px;width:100%">
-              <div class="form-field">
-                <label>Age</label>
-                <input class="form-input" id="editAge" type="number" min="18" max="80" placeholder="24">
+            <section class="edit-sec" aria-labelledby="editBasicsLabel">
+              <h3 class="edit-sec-title" id="editBasicsLabel">Basics</h3>
+              <div class="field">
+                <label class="field-label" for="editName">Display name</label>
+                <input class="input" id="editName" type="text" placeholder="Your name" maxlength="40" autocomplete="given-name">
               </div>
-              <div class="form-field">
-                <label>Location</label>
-                <input class="form-input" id="editLocation" type="text" placeholder="Lagos, Nigeria">
-              </div>
-            </div>
-            <div class="form-field">
-              <label>Bio</label>
-              <textarea class="form-textarea" id="editBio" placeholder="Tell people about yourself..." rows="3"></textarea>
-            </div>
-            <div class="form-field">
-              <label>Interests (comma separated)</label>
-              <input class="form-input" id="editInterests" type="text" placeholder="Tech 💻, Fitness 💪, Music 🎵">
-            </div>
-
-            <!-- Relationship Intention -->
-            <div class="form-field">
-              <label>Relationship Intention 🎯</label>
-              <select class="form-input form-select" id="editIntent">
-                <option value="relationship">💍 Serious Relationship / Marriage</option>
-                <option value="longterm">💫 Long-term Dating</option>
-                <option value="dating">🥂 Casual Dating &amp; Good Vibes</option>
-                <option value="friends">☕ Friendship First</option>
-                <option value="figuring_out">✨ Still Figuring It Out</option>
-              </select>
-            </div>
-
-            <!-- Lifestyle Attributes -->
-            <div class="form-grid-2" style="display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);gap:12px;width:100%">
-              <div class="form-field">
-                <label>Work &amp; Career 💼</label>
-                <input class="form-input" id="editOccupation" type="text" placeholder="e.g. Product Designer">
-              </div>
-              <div class="form-field">
-                <label>Education 🎓</label>
-                <input class="form-input" id="editEducation" type="text" placeholder="e.g. University Graduate">
-              </div>
-            </div>
-
-            <div class="form-grid-2" style="display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);gap:12px;width:100%">
-              <div class="form-field">
-                <label>Workout &amp; Fitness 🏋️</label>
-                <select class="form-input form-select" id="editWorkout">
-                  <option value="Active (Gym &amp; Sports)">Active (Gym &amp; Sports) 🏋️</option>
-                  <option value="Pilates, Yoga &amp; Walks">Pilates, Yoga &amp; Walks 🧘</option>
-                  <option value="Occasionally active">Occasionally active 🚶</option>
-                  <option value="Rarely / Prefer relaxing">Rarely / Prefer relaxing 🛋️</option>
-                </select>
-              </div>
-              <div class="form-field">
-                <label>Drinking 🍷</label>
-                <select class="form-input form-select" id="editDrinking">
-                  <option value="Socially on weekends">Socially on weekends 🥂</option>
-                  <option value="Never / Teetotaler">Never / Teetotaler 🚫</option>
-                  <option value="Most evenings">Most evenings 🍷</option>
-                  <option value="Rarely">Rarely ☕</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-field">
-              <label>Smoking 🚭</label>
-              <select class="form-input form-select" id="editSmoking">
-                <option value="Non-smoker">Non-smoker 🚭</option>
-                <option value="Social smoker">Social smoker 💨</option>
-                <option value="Regular smoker">Regular smoker 🚬</option>
-              </select>
-            </div>
-
-            <!-- Personality Prompt -->
-            <div class="form-field">
-              <label>Personality Prompt 💡</label>
-              <select class="form-input form-select" id="editPromptQ1" style="margin-bottom:8px">
-                <option value="My ideal Sunday looks like...">My ideal Sunday looks like...</option>
-                <option value="My simple pleasures...">My simple pleasures...</option>
-                <option value="A boundary of mine is...">A boundary of mine is...</option>
-                <option value="The key to my heart is...">The key to my heart is...</option>
-                <option value="Biggest green flag I look for...">Biggest green flag I look for...</option>
-                <option value="Something I'll never compromise on...">Something I'll never compromise on...</option>
-              </select>
-              <textarea class="form-textarea" id="editPromptA1" rows="2" placeholder="Your authentic answer..."></textarea>
-            </div>
-
-            <!-- Voice Introduction in Profile -->
-            <div class="form-field">
-              <label>Voice Introduction 🎙️</label>
-              <div class="edit-voice-box">
-                <div class="edit-voice-text" id="editVoiceStatus">Add a short 10–15s voice intro to let matches hear your voice and personality!</div>
-                <div class="edit-voice-btn-row">
-                  <button type="button" class="outline-btn" id="editVoiceRecordBtn" onclick="toggleEditVoiceRecord()" style="padding:8px 14px;font-size:0.85rem">
-                    🎙️ Record Intro
-                  </button>
-                  <button type="button" class="outline-btn" id="editVoicePlayBtn" onclick="playMyVoiceIntro()" style="display:none;padding:8px 14px;font-size:0.85rem">
-                    ▶️ Listen
-                  </button>
-                  <button type="button" class="text-btn" id="editVoiceDeleteBtn" onclick="deleteMyVoiceIntro()" style="display:none;color:#ff4466;font-size:0.82rem">
-                    Remove
-                  </button>
+              <div class="dlg-grid-2">
+                <div class="field">
+                  <label class="field-label" for="editAge">Age</label>
+                  <input class="input" id="editAge" type="number" min="18" max="80" inputmode="numeric" placeholder="18+">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="editLocation">City</label>
+                  <input class="input" id="editLocation" type="text" placeholder="e.g. Lagos" maxlength="60" autocomplete="address-level2">
                 </div>
               </div>
-            </div>
+              <div class="field">
+                <label class="field-label" for="editBio">Bio</label>
+                <textarea class="textarea" id="editBio" placeholder="A few lines about you" rows="3" maxlength="500"></textarea>
+              </div>
+              <div class="field">
+                <label class="field-label" for="editInterests">Interests</label>
+                <input class="input" id="editInterests" type="text" placeholder="Music, Travel, Fitness">
+                <p class="field-hint">Separate with commas.</p>
+              </div>
+              <p class="field-error" id="editProfileError" role="alert"></p>
+            </section>
 
-            <div class="save-feedback" id="profileSaveFeedback">✓ Profile saved successfully!</div>
-            <button class="accent-btn" onclick="saveProfile()" style="margin-top:10px;width:100%">Save Changes</button>
+            <section class="edit-sec" aria-labelledby="editLifeLabel">
+              <h3 class="edit-sec-title" id="editLifeLabel">What you are looking for</h3>
+              <div class="field">
+                <label class="field-label" for="editIntent">Relationship intention</label>
+                <select class="select" id="editIntent">
+                  <option value="">Prefer not to say</option>
+                  <option value="relationship">Serious relationship or marriage</option>
+                  <option value="longterm">Long-term dating</option>
+                  <option value="dating">Casual dating</option>
+                  <option value="friends">Friendship first</option>
+                  <option value="figuring_out">Still figuring it out</option>
+                </select>
+              </div>
+            </section>
+
+            <section class="edit-sec" aria-labelledby="editLife2Label">
+              <h3 class="edit-sec-title" id="editLife2Label">Lifestyle</h3>
+              <div class="dlg-grid-2">
+                <div class="field">
+                  <label class="field-label" for="editOccupation">Work</label>
+                  <input class="input" id="editOccupation" type="text" placeholder="Designer" maxlength="60">
+                </div>
+                <div class="field">
+                  <label class="field-label" for="editEducation">Education</label>
+                  <input class="input" id="editEducation" type="text" placeholder="University" maxlength="60">
+                </div>
+              </div>
+              <div class="dlg-grid-2">
+                <div class="field">
+                  <label class="field-label" for="editWorkout">Exercise</label>
+                  <select class="select" id="editWorkout">
+                    <option value="">Prefer not to say</option>
+                    <option value="Active (Gym &amp; Sports)">Active (gym and sports)</option>
+                    <option value="Pilates, Yoga &amp; Walks">Yoga, pilates and walks</option>
+                    <option value="Occasionally active">Occasionally active</option>
+                    <option value="Rarely / Prefer relaxing">Rarely</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label class="field-label" for="editDrinking">Drinking</label>
+                  <select class="select" id="editDrinking">
+                    <option value="">Prefer not to say</option>
+                    <option value="Socially on weekends">Socially on weekends</option>
+                    <option value="Never / Teetotaler">Never</option>
+                    <option value="Most evenings">Most evenings</option>
+                    <option value="Rarely">Rarely</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field">
+                <label class="field-label" for="editSmoking">Smoking</label>
+                <select class="select" id="editSmoking">
+                  <option value="">Prefer not to say</option>
+                  <option value="Non-smoker">Non-smoker</option>
+                  <option value="Social smoker">Social smoker</option>
+                  <option value="Regular smoker">Regular smoker</option>
+                </select>
+              </div>
+            </section>
+
+            <section class="edit-sec" aria-labelledby="editPromptLabel">
+              <h3 class="edit-sec-title" id="editPromptLabel">Conversation starter</h3>
+              <div class="field">
+                <label class="field-label" for="editPromptQ1">Prompt</label>
+                <select class="select" id="editPromptQ1">
+                  <option value="My ideal Sunday looks like...">My ideal Sunday looks like...</option>
+                  <option value="My simple pleasures...">My simple pleasures...</option>
+                  <option value="A boundary of mine is...">A boundary of mine is...</option>
+                  <option value="The key to my heart is...">The key to my heart is...</option>
+                  <option value="Biggest green flag I look for...">Biggest green flag I look for...</option>
+                  <option value="Something I'll never compromise on...">Something I'll never compromise on...</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field-label" for="editPromptA1">Your answer</label>
+                <textarea class="textarea" id="editPromptA1" rows="2" maxlength="200" placeholder="Optional"></textarea>
+              </div>
+            </section>
+
+            <section class="edit-sec" aria-labelledby="editVoiceLabel">
+              <h3 class="edit-sec-title" id="editVoiceLabel">Voice introduction</h3>
+              <p class="dlg-text" id="editVoiceStatus" aria-live="polite">Add a short voice intro so matches can hear you.</p>
+              <div class="edit-voice-btn-row">
+                <button type="button" class="btn btn-secondary btn-sm" id="editVoiceRecordBtn" onclick="toggleEditVoiceRecord()"><svg class="i" aria-hidden="true"><use href="#i-mic"/></svg><span>Record intro</span></button>
+                <button type="button" class="btn btn-secondary btn-sm" id="editVoicePlayBtn" onclick="playMyVoiceIntro()" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-play"/></svg>Listen</button>
+                <button type="button" class="btn btn-danger btn-sm" id="editVoiceDeleteBtn" onclick="deleteMyVoiceIntro()" style="display:none">Remove</button>
+              </div>
+            </section>
           </div>
 
+          <div class="sheet-foot">
+            <button type="button" class="btn btn-secondary" onclick="closeEditProfileModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveProfile()">Save changes</button>
+          </div>
         </div>
       </div>
 
@@ -1413,11 +1401,6 @@
           <section class="acct-group" aria-labelledby="setGrpApp">
             <h2 class="section-label" id="setGrpApp">App</h2>
             <div class="acct-card list">
-              <button type="button" class="row" onclick="openLanguageModal()">
-                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-languages"/></svg></span>
-                <span class="row-body"><span class="row-title">Language</span><span class="row-sub" id="settingsLanguageSub">English (UK)</span></span>
-                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
-              </button>
               <label class="row" for="toggleDarkModeCheck">
                 <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-moon"/></svg></span>
                 <span class="row-body"><span class="row-title">Dark mode</span><span class="row-sub" id="themeLabel">Dark mode</span></span>
@@ -2005,136 +1988,124 @@
   </div><!-- end .app-shell -->
 
   <!-- =========================================================
-       MODAL: FORGOT PASSWORD (Email or Phone SMS)
+       Small form dialogs: forgot password, forward, phone verification, username
        ========================================================= -->
-  <div class="modal-overlay" id="forgotPasswordModal" style="display:none;align-items:center;justify-content:center;z-index:10000;background:rgba(8,5,14,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:fixed;inset:0">
-    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:420px;padding:26px;box-shadow:0 20px 60px rgba(0,0,0,0.85);position:relative">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h2 style="font-size:1.35rem;font-weight:700;color:#FFF;margin:0">Reset Password</h2>
-        <button onclick="closeForgotPasswordModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+  <div class="sheet-overlay" id="forgotPasswordModal" style="display:none" onclick="if(event.target===this)closeForgotPasswordModal()">
+    <div class="sheet">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 class="sheet-title">Reset password</h2>
+        <button type="button" class="btn btn-icon btn-ghost" onclick="closeForgotPasswordModal()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
       </div>
-
-      <!-- Mode Selector -->
-      <div class="auth-tabs" style="margin-bottom:14px">
-        <button type="button" class="auth-tab active" id="fpTabEmail" onclick="switchForgotMethod('email')">Via Email</button>
-        <button type="button" class="auth-tab" id="fpTabPhone" onclick="switchForgotMethod('phone')">Via Phone SMS</button>
-      </div>
-
-      <!-- Reset Via Email -->
-      <div id="fpEmailSection">
-        <p style="color:rgba(255,255,255,0.6);font-size:0.86rem;margin:0 0 16px;line-height:1.5">Enter your registered email. We will send a secure password reset link to your inbox (check spam/junk folder too).</p>
-        <div class="auth-input-wrap" style="margin-bottom:16px">
-          <span class="auth-input-icon">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-          </span>
-          <input class="auth-input" id="forgotPasswordEmail" type="email" placeholder="your@email.com" autocomplete="email" inputmode="email">
+      <div class="sheet-body dlg-stack">
+        <div class="seg" role="group" aria-label="Reset method">
+          <button type="button" class="active" id="fpTabEmail" onclick="switchForgotMethod('email')">By email</button>
+          <button type="button" id="fpTabPhone" onclick="switchForgotMethod('phone')">By SMS</button>
         </div>
-        <div id="forgotPasswordError" style="color:#FF2E70;font-size:0.83rem;margin-bottom:12px;min-height:18px"></div>
-        <button class="accent-btn" id="forgotPasswordBtn" onclick="submitForgotPassword()" style="width:100%">Send Reset Email</button>
-      </div>
 
-      <!-- Reset Via Phone SMS -->
-      <div id="fpPhoneSection" style="display:none">
-        <p style="color:rgba(255,255,255,0.6);font-size:0.86rem;margin:0 0 16px;line-height:1.5">Enter your registered Nigerian phone number to receive a verification OTP code via SMS.</p>
-        <div class="phone-input-wrap" style="margin-bottom:14px">
-          <div class="phone-country-code">🇳🇬 +234</div>
-          <div class="auth-input-wrap" style="flex:1">
-            <input class="auth-input" id="forgotPasswordPhone" type="tel" placeholder="801 234 5678" inputmode="tel">
+        <div id="fpEmailSection" class="dlg-stack">
+          <p class="dlg-text">Enter your account email. We will send a reset link. Check your spam folder if it does not arrive.</p>
+          <div class="field">
+            <label class="field-label" for="forgotPasswordEmail">Email</label>
+            <div class="input-wrap">
+              <svg class="i" aria-hidden="true"><use href="#i-mail"/></svg>
+              <input class="input" id="forgotPasswordEmail" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
+            </div>
           </div>
+          <p class="field-error" id="forgotPasswordError" role="alert"></p>
+          <button type="button" class="btn btn-primary btn-block" id="forgotPasswordBtn" onclick="submitForgotPassword()">Send reset link</button>
         </div>
-        <div id="fpPhoneOtpGroup" style="display:none;margin-bottom:14px">
-          <div class="auth-input-wrap">
-            <input class="auth-input" id="forgotPasswordOtp" type="text" placeholder="Enter 6-digit SMS code" maxlength="6" inputmode="numeric" style="letter-spacing:4px;font-weight:700">
+
+        <div id="fpPhoneSection" class="dlg-stack" style="display:none">
+          <p class="dlg-text">Enter the Nigerian phone number on your account. We will text you a 6-digit code.</p>
+          <div class="field">
+            <label class="field-label" for="forgotPasswordPhone">Phone number</label>
+            <div class="input-wrap">
+              <span class="input-prefix" aria-hidden="true">+234</span>
+              <input class="input has-prefix" id="forgotPasswordPhone" type="tel" placeholder="801 234 5678" inputmode="tel" autocomplete="tel-national">
+            </div>
           </div>
+          <div class="field" id="fpPhoneOtpGroup" style="display:none">
+            <label class="field-label" for="forgotPasswordOtp">SMS code</label>
+            <input class="input input-otp" id="forgotPasswordOtp" type="text" placeholder="000000" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+          </div>
+          <p class="field-error" id="forgotPasswordPhoneError" role="alert"></p>
+          <button type="button" class="btn btn-primary btn-block" id="forgotPasswordPhoneBtn" onclick="submitForgotPasswordPhone()">Send SMS code</button>
         </div>
-        <div id="forgotPasswordPhoneError" style="color:#FF2E70;font-size:0.83rem;margin-bottom:12px;min-height:18px"></div>
-        <button class="accent-btn" id="forgotPasswordPhoneBtn" onclick="submitForgotPasswordPhone()" style="width:100%">Send SMS Code</button>
       </div>
     </div>
   </div>
 
-  <!-- =========================================================
-       MODAL: FORWARD MESSAGE
-       ========================================================= -->
-  <div class="modal-overlay" id="forwardModal" style="display:none;align-items:center;justify-content:center;z-index:10000;background:rgba(8,5,14,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:fixed;inset:0">
-    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:400px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.85);max-height:80vh;display:flex;flex-direction:column">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h2 style="font-size:1.3rem;font-weight:700;color:#FFF;margin:0">Forward Message</h2>
-        <button onclick="closeForwardModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+  <div class="sheet-overlay" id="forwardModal" style="display:none" onclick="if(event.target===this)closeForwardModal()">
+    <div class="sheet">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 class="sheet-title" id="forwardModalTitle">Forward message</h2>
+        <button type="button" class="btn btn-icon btn-ghost" onclick="closeForwardModal()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
       </div>
-      <p style="color:rgba(255,255,255,0.6);font-size:0.85rem;margin:0 0 16px">Select a match to forward this message to:</p>
-      <div id="forwardMatchesList" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:8px;max-height:360px">
-        <!-- Rendered dynamically -->
+      <div class="sheet-body sheet-body-flush">
+        <p class="dlg-text dlg-pad">Choose who should get this message.</p>
+        <div class="list" id="forwardMatchesList"></div>
       </div>
     </div>
   </div>
 
-  <!-- =========================================================
-       MODAL: PHONE VERIFICATION
-       ========================================================= -->
-  <div class="modal-overlay" id="phoneVerifyModal" style="display:none;align-items:center;justify-content:center;z-index:10000;background:rgba(8,5,14,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:fixed;inset:0">
-    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:420px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.85);position:relative">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <h2 style="font-size:1.35rem;font-weight:700;color:#FFF;margin:0" id="phoneVerifyTitle">Verify Phone Number</h2>
-        <button onclick="closePhoneVerificationModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+  <div class="sheet-overlay" id="phoneVerifyModal" style="display:none" onclick="if(event.target===this)closePhoneVerificationModal()">
+    <div class="sheet">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 class="sheet-title" id="phoneVerifyTitle">Verify phone number</h2>
+        <button type="button" class="btn btn-icon btn-ghost" onclick="closePhoneVerificationModal()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
       </div>
-
-      <!-- Step 1: Enter phone -->
-      <div id="phoneStep1">
-        <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin:0 0 20px">Enter your Nigerian phone number to receive a verification SMS.</p>
-        <div class="auth-input-wrap" style="margin-bottom:16px">
-          <span class="auth-input-icon" style="font-size:0.9rem;font-weight:700;color:rgba(255,255,255,0.5)">+234</span>
-          <input class="auth-input" id="phoneNumberInput" type="tel" placeholder="812 345 6789" inputmode="numeric" maxlength="11" style="padding-left:56px">
+      <div class="sheet-body">
+        <div id="phoneStep1" class="dlg-stack">
+          <p class="dlg-text">Enter your Nigerian phone number. We will text you a verification code.</p>
+          <div class="field">
+            <label class="field-label" for="phoneNumberInput">Phone number</label>
+            <div class="input-wrap">
+              <span class="input-prefix" aria-hidden="true">+234</span>
+              <input class="input has-prefix" id="phoneNumberInput" type="tel" placeholder="812 345 6789" inputmode="numeric" maxlength="11" autocomplete="tel-national">
+            </div>
+          </div>
+          <p class="field-error" id="phoneStep1Error" role="alert"></p>
+          <button type="button" class="btn btn-primary btn-block" id="phoneSendOtpBtn" onclick="sendPhoneOtp()">Send code</button>
         </div>
-        <div id="phoneStep1Error" style="color:#FF2E70;font-size:0.83rem;margin-bottom:12px;min-height:18px"></div>
-        <button class="accent-btn" id="phoneSendOtpBtn" onclick="sendPhoneOtp()" style="width:100%">Send Verification Code</button>
-      </div>
 
-      <!-- Step 2: Enter OTP -->
-      <div id="phoneStep2" style="display:none">
-        <p style="color:rgba(255,255,255,0.6);font-size:0.9rem;margin:0 0 6px">Enter the 6-digit code sent to your phone.</p>
-        <p id="phoneOtpSentTo" style="color:#21B06B;font-size:0.85rem;font-weight:700;margin:0 0 16px"></p>
-        <div id="phoneOtpHelper" style="display:none;background:rgba(244,197,80,0.12);border:1px solid rgba(244,197,80,0.3);border-radius:12px;padding:10px 14px;margin-bottom:16px;font-size:0.85rem;color:#F4C550;text-align:center"></div>
-        <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
-          <input class="auth-input" id="otpInput" type="tel" placeholder="000000" inputmode="numeric" maxlength="6" style="text-align:center;letter-spacing:8px;font-size:1.4rem;font-weight:700;padding:14px 12px">
+        <div id="phoneStep2" class="dlg-stack" style="display:none">
+          <p class="dlg-text">Enter the 6-digit code we sent.</p>
+          <p class="dlg-ok" id="phoneOtpSentTo"></p>
+          <div class="notice notice-warn" id="phoneOtpHelper" style="display:none"></div>
+          <div class="field">
+            <label class="field-label" for="otpInput">Verification code</label>
+            <input class="input input-otp" id="otpInput" type="tel" placeholder="000000" inputmode="numeric" maxlength="6" autocomplete="one-time-code">
+          </div>
+          <p class="field-error" id="phoneStep2Error" role="alert"></p>
+          <button type="button" class="btn btn-primary btn-block" id="phoneVerifyOtpBtn" onclick="verifyPhoneOtp()">Verify</button>
+          <button type="button" class="btn btn-ghost btn-block" onclick="showPhoneStep1()"><svg class="i" aria-hidden="true"><use href="#i-arrow-left"/></svg>Change number</button>
         </div>
-        <div id="phoneStep2Error" style="color:#FF2E70;font-size:0.83rem;margin-bottom:12px;min-height:18px"></div>
-        <button class="accent-btn" id="phoneVerifyOtpBtn" onclick="verifyPhoneOtp()" style="width:100%">Verify Code</button>
-        <button onclick="showPhoneStep1()" style="width:100%;background:none;border:none;color:rgba(255,255,255,0.4);font-size:0.83rem;margin-top:10px;cursor:pointer">← Change number</button>
       </div>
     </div>
   </div>
 
-  <!-- =========================================================
-       MODAL: LANGUAGE SELECTOR
-       ========================================================= -->
-  <div class="modal-overlay" id="languageModal" style="display:none;align-items:center;justify-content:center;z-index:10000;background:rgba(8,5,14,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:fixed;inset:0">
-    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:420px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.85);position:relative">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-        <h2 style="font-size:1.35rem;font-weight:700;color:#FFF;margin:0">Choose Language</h2>
-        <button onclick="closeLanguageModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+  <div class="sheet-overlay" id="editUsernameModal" style="display:none" onclick="if(event.target===this)closeEditUsernameModal()">
+    <div class="sheet">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 class="sheet-title">Choose a username</h2>
+        <button type="button" class="btn btn-icon btn-ghost" onclick="closeEditUsernameModal()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
       </div>
-      <p style="color:rgba(255,255,255,0.55);font-size:0.85rem;margin:0 0 18px">Select your preferred display language.</p>
-      <div id="languageOptionsList" style="display:flex;flex-direction:column;gap:10px"></div>
-    </div>
-  </div>
-
-  <!-- =========================================================
-       MODAL: EDIT USERNAME
-       ========================================================= -->
-  <div class="modal-overlay" id="editUsernameModal" style="display:none;align-items:center;justify-content:center;z-index:10000;background:rgba(8,5,14,0.88);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);position:fixed;inset:0">
-    <div style="background:#130E1F;border:1px solid rgba(255,255,255,0.1);border-radius:24px;width:92%;max-width:400px;padding:28px;box-shadow:0 20px 60px rgba(0,0,0,0.85);position:relative">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-        <h2 style="font-size:1.35rem;font-weight:700;color:#FFF;margin:0">Choose Username</h2>
-        <button onclick="closeEditUsernameModal()" style="background:rgba(255,255,255,0.08);border:none;color:#FFF;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;display:flex;align-items:center;justify-content:center">✕</button>
+      <div class="sheet-body dlg-stack">
+        <div class="field">
+          <label class="field-label" for="customUsernameInput">Username</label>
+          <div class="input-wrap">
+            <span class="input-prefix" aria-hidden="true">@</span>
+            <input class="input has-prefix-sm" id="customUsernameInput" type="text" placeholder="your_username" maxlength="20" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" aria-describedby="usernameModalError">
+          </div>
+          <p class="field-hint">Letters, numbers and underscores. It must be unique.</p>
+        </div>
+        <p class="field-error" id="usernameModalError" role="alert"></p>
+        <button type="button" class="btn btn-primary btn-block" onclick="saveCustomUsername()">Save username</button>
       </div>
-      <p style="color:rgba(255,255,255,0.6);font-size:0.85rem;margin:0 0 18px">Choose a unique username for your HookMeBySam profile.</p>
-      <div class="auth-input-wrap" style="margin-bottom:14px;position:relative">
-        <span class="auth-input-icon" style="font-size:1.1rem;font-weight:700;color:rgba(255,255,255,0.4)">@</span>
-        <input class="auth-input" id="customUsernameInput" type="text" placeholder="your_username" maxlength="20" style="padding-left:42px" autocomplete="off" autocorrect="off" autocapitalize="none">
-      </div>
-      <div id="usernameModalError" style="color:#FF2E70;font-size:0.82rem;margin-bottom:14px;min-height:16px"></div>
-      <button class="accent-btn" onclick="saveCustomUsername()" style="width:100%">Save Username</button>
     </div>
   </div>
 

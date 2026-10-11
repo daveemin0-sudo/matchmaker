@@ -24,31 +24,6 @@ body::before {
 
 /* brand wordmark colour split */
 
-.auth-input-wrap {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.auth-input {
-  width: 100% !important;
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: var(--r-input) !important;
-  padding: 15px 48px 15px 48px !important;
-  color: var(--txt-primary) !important;
-  font-size: 0.95rem !important;
-  font-weight: 500 !important;
-  outline: none !important;
-  transition: all var(--t-fast) var(--ease) !important;
-}
-
-.auth-input:focus {
-  border-color: var(--flame-1) !important;
-  background: rgba(209, 58, 99, 0.06) !important;
-  box-shadow: 0 0 0 3px rgba(209, 58, 99, 0.14) !important;
-}
-
 .accent-btn {
   width: 100% !important;
   height: 52px !important;
@@ -159,22 +134,6 @@ body[data-theme="light"]::before {
     radial-gradient(ellipse 400px 400px at 50% 50%, rgba(0, 162, 255, 0.03) 0%, transparent 70%) !important;
 }
 
-/* Auth / Login Screens (Light) */
-
-[data-theme="light"] .auth-input {
-  background: #FAF7FD !important;
-  border: 1.5px solid #DDD5E7 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .auth-input::placeholder {
-  color: #9E97AA !important;
-}
-
-[data-theme="light"] .auth-input-icon {
-  color: #7A708A !important;
-}
-
 /* Matches & Conversations (Light) */
 [data-theme="light"] .story-name {
   color: #140C1D !important;
@@ -193,36 +152,17 @@ body[data-theme="light"]::before {
   box-shadow: 0 8px 30px rgba(70, 40, 90, 0.06) !important;
 }
 
-[data-theme="light"] .form-field label {
-  color: #5A5068 !important;
-}
-
-[data-theme="light"] .form-input,
-[data-theme="light"] .form-textarea {
-  background: #FAF7FD !important;
-  border: 1.5px solid #DDD5E7 !important;
-  color: #140C1D !important;
-}
-
-.form-textarea,
 #editBio,
 #signupBio {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
 
-.form-textarea::-webkit-scrollbar,
 #editBio::-webkit-scrollbar,
 #signupBio::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
-}
-
-[data-theme="light"] .form-input:focus,
-[data-theme="light"] .form-textarea:focus {
-  border-color: #FF2E70 !important;
-  background: #FFFFFF !important;
 }
 
 [data-theme="light"] .photo-upload-area {
@@ -315,23 +255,6 @@ body[data-theme="light"]::before {
   background: var(--flame-grad) !important;
   border-color: transparent !important;
   color: #FFFFFF !important;
-}
-
-/* Save Feedback Bar */
-.save-feedback {
-  background: rgba(33, 176, 107, 0.15) !important;
-  border: 1px solid rgba(33, 176, 107, 0.35) !important;
-  color: #34D399 !important;
-  border-radius: 14px !important;
-  padding: 10px 14px !important;
-  font-size: 0.85rem !important;
-  font-weight: 700 !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  margin-bottom: 12px !important;
-  opacity: 0;
-  transition: opacity 0.25s ease !important;
 }
 
 /* AI AVATAR STUDIO CARD */
@@ -618,15 +541,6 @@ body[data-theme="light"]::before {
   transform: translateX(-4px) !important;
 }
 
-/* Input focus glow with gold shimmer */
-.auth-input:focus {
-  border-color: rgba(255,46,112,0.7) !important;
-  box-shadow:
-    0 0 0 4px rgba(255,46,112,0.18),
-    0 0 24px rgba(255,46,112,0.25),
-    inset 0 1px 0 rgba(255,255,255,0.05) !important;
-}
-
 /* Subtle shimmer animation on accent btn */
 .accent-btn {
   position: relative !important;
@@ -650,23 +564,6 @@ body[data-theme="light"]::before {
 @keyframes floatEmptyEmoji {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-12px); }
-}
-
-/* --- PROFILE SCREEN: Elevated premium feel --- */
-
-.profile-form .form-input,
-.profile-form .form-textarea {
-  background: rgba(255,255,255,0.05) !important;
-  border: 1.5px solid rgba(255,255,255,0.1) !important;
-  border-radius: var(--r-input) !important;
-  color: var(--txt-primary) !important;
-  transition: all 0.2s ease !important;
-}
-.profile-form .form-input:focus,
-.profile-form .form-textarea:focus {
-  border-color: var(--flame-1) !important;
-  background: rgba(209,58,99,0.06) !important;
-  box-shadow: 0 0 0 3px rgba(209,58,99,0.14) !important;
 }
 
 /* --- MATCH POPUP: Dramatic celebration --- */
@@ -1290,63 +1187,6 @@ body[data-theme="light"] {
   color: #5C526A !important;
 }
 
-/* 8. Modals, Sheets & Overlays */
-[data-theme="light"] .edit-modal-sheet {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15) !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .edit-modal-sheet h2 {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .edit-modal-close-btn {
-  background: #F4EFFB !important;
-  border: 1px solid #DDD3E8 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .signup-photo-slot {
-  background: #F8F5FC !important;
-  border: 2px dashed #D5CCE0 !important;
-}
-
-[data-theme="light"] .signup-photo-slot:hover {
-  border-color: #FF2E70 !important;
-  background: rgba(255, 46, 112, 0.05) !important;
-}
-
-[data-theme="light"] .sps-inner {
-  color: #8C829E !important;
-}
-
-[data-theme="light"] .edit-modal-sheet .form-field label,
-[data-theme="light"] .form-field label {
-  color: #4A4056 !important;
-  font-weight: 700 !important;
-}
-
-[data-theme="light"] .form-input,
-[data-theme="light"] .form-textarea {
-  background: #FAF7FD !important;
-  border: 1.5px solid #DDD5E7 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .form-input:focus,
-[data-theme="light"] .form-textarea:focus {
-  background: #FFFFFF !important;
-  border-color: #FF2E70 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .form-input::placeholder,
-[data-theme="light"] .form-textarea::placeholder {
-  color: #9E97AA !important;
-}
-
 /* Preview Sheet */
 [data-theme="light"] .hk-preview-sheet {
   background: #FFFFFF !important;
@@ -1687,17 +1527,6 @@ button.accent-btn,
   color: rgba(255, 255, 255, 0.72) !important;
 }
 
-/* --- 6. AUTH SCREENS & DIALOGS POLISH --- */
-[data-theme="light"] .auth-tab {
-  background: #F3EEF7 !important;
-  color: #3F334D !important;
-}
-[data-theme="light"] .auth-tab.active {
-  background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 4px 14px rgba(180, 25, 75, 0.28) !important;
-}
-
 /* --- 8. PROFILE SCREEN & BADGES --- */
 
 [data-theme="light"] .hk-strength-link {
@@ -1759,11 +1588,6 @@ button.accent-btn,
   font-weight: 500 !important;
 }
 
-.auth-tab.active {
-  background: linear-gradient(135deg, #D13A63 0%, #9C1844 100%) !important;
-  color: #FFFFFF !important;
-}
-
 [data-theme="light"] .preview-card-btn,
 [data-theme="light"] #profilePreviewBtn {
   background: #FFF0F4 !important;
@@ -1798,93 +1622,6 @@ button.accent-btn,
 @keyframes voiceWaveAnim {
   0% { height: 3px; }
   100% { height: 12px; }
-}
-
-/* Profile Completeness Gauge in Edit Profile */
-.profile-completeness-card {
-  background: linear-gradient(135deg, rgba(209, 58, 99, 0.12) 0%, rgba(227, 179, 77, 0.12) 100%);
-  border: 1px solid rgba(209, 58, 99, 0.25);
-  border-radius: 14px;
-  padding: 14px;
-  margin-bottom: 14px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-[data-theme="light"] .profile-completeness-card {
-  background: linear-gradient(135deg, rgba(209, 58, 99, 0.08) 0%, rgba(227, 179, 77, 0.08) 100%) !important;
-  border-color: rgba(209, 58, 99, 0.2) !important;
-}
-.completeness-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.completeness-title {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: #FFFFFF;
-}
-[data-theme="light"] .completeness-title {
-  color: #1A1A1A !important;
-}
-.completeness-pct {
-  font-size: 0.95rem;
-  font-weight: 800;
-  color: #E3B34D;
-}
-.completeness-bar-wrap {
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  overflow: hidden;
-}
-[data-theme="light"] .completeness-bar-wrap {
-  background: rgba(0, 0, 0, 0.08) !important;
-}
-.completeness-bar-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #D13A63 0%, #E3B34D 100%);
-  border-radius: 999px;
-  transition: width 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.completeness-tip {
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.65);
-  line-height: 1.35;
-}
-[data-theme="light"] .completeness-tip {
-  color: #555555 !important;
-}
-
-/* Edit Voice Intro Box */
-.edit-voice-box {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 12px;
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-[data-theme="light"] .edit-voice-box {
-  background: #F9F9FB !important;
-  border-color: rgba(0, 0, 0, 0.08) !important;
-}
-.edit-voice-text {
-  font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.35;
-}
-[data-theme="light"] .edit-voice-text {
-  color: #444444 !important;
-}
-.edit-voice-btn-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
 /* ==========================================================

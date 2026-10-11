@@ -1613,14 +1613,6 @@ function closeAnyOpenModal() {
     return true;
   }
 
-  // 8. Language modal
-  const langModal = document.getElementById('languageModal');
-  if (langModal && langModal.style.display !== 'none' && langModal.style.display !== '') {
-    if (typeof closeLanguageModal === 'function') { closeLanguageModal(); return true; }
-    langModal.style.display = 'none';
-    return true;
-  }
-
   // 9. Blocked users modal
   const blockedModal = document.getElementById('blockedUsersModalOverlay');
   if (blockedModal && blockedModal.style.display !== 'none' && blockedModal.style.display !== '') {
@@ -1895,12 +1887,12 @@ function switchForgotMethod(method) {
     if (emailTab) emailTab.classList.remove('active');
     if (phoneTab) phoneTab.classList.add('active');
     if (emailSec) emailSec.style.display = 'none';
-    if (phoneSec) phoneSec.style.display = 'block';
+    if (phoneSec) phoneSec.style.display = 'flex';
   } else {
     if (phoneTab) phoneTab.classList.remove('active');
     if (emailTab) emailTab.classList.add('active');
     if (phoneSec) phoneSec.style.display = 'none';
-    if (emailSec) emailSec.style.display = 'block';
+    if (emailSec) emailSec.style.display = 'flex';
   }
 }
 
@@ -3315,6 +3307,46 @@ document.addEventListener('keydown', (e) => {
   else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 });
+
+// Static dialogs are opened by setting style.display; this gives all of them the same behaviour
+// (fade in, focus moves in and is trapped, Escape closes, focus returns to the opener) without touching each opener.
+(function watchStaticDialogs() {
+  const SEL = '.sheet-overlay[id], .modal-overlay[id], .safety-modal-overlay[id]';
+  const shown = (el) => el.style.display !== '' && el.style.display !== 'none';
+  const sync = (el) => {
+    if (shown(el)) {
+      requestAnimationFrame(() => el.classList.add('open'));
+      dialogOpened(el, {
+        close: () => {
+          const btn = el.querySelector('[data-close], [aria-label="Close"]');
+          if (btn) btn.click(); else el.click();
+        }
+      });
+    } else {
+      el.classList.remove('open');
+      dialogClosed(el);
+    }
+  };
+  const label = (el) => {
+    const panel = el.querySelector('.sheet');
+    if (!panel) return;
+    if (!panel.hasAttribute('role')) panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    const title = panel.querySelector('.sheet-title');
+    if (title && !panel.hasAttribute('aria-labelledby') && !panel.hasAttribute('aria-label')) {
+      if (!title.id) title.id = (el.id || 'dlg') + 'Title';
+      panel.setAttribute('aria-labelledby', title.id);
+    }
+  };
+  const obs = new MutationObserver((list) => {
+    list.forEach((m) => { if (m.target.matches && m.target.matches(SEL)) sync(m.target); });
+  });
+  const start = () => document.querySelectorAll(SEL).forEach((el) => {
+    label(el);
+    obs.observe(el, { attributes: true, attributeFilter: ['style'] });
+  });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
 
 // In-app replacement for window.confirm()/alert(). Resolves true when confirmed.
 function confirmDialog({ title, message = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false }) {
@@ -9761,12 +9793,12 @@ function renderProfileScreen() {
   const promptQ1 = document.getElementById('editPromptQ1');
   const promptA1 = document.getElementById('editPromptA1');
 
-  if (intentInput) intentInput.value = currentUser.intent || 'relationship';
+  if (intentInput) intentInput.value = currentUser.intent || '';
   if (occInput) occInput.value = currentUser.occupation || currentUser.lifestyle?.occupation || '';
   if (eduInput) eduInput.value = currentUser.education || currentUser.lifestyle?.education || '';
-  if (workoutInput) workoutInput.value = currentUser.workout || currentUser.lifestyle?.workout || 'Active (Gym & Sports)';
-  if (drinkInput) drinkInput.value = currentUser.drinking || currentUser.lifestyle?.drinking || 'Socially on weekends';
-  if (smokeInput) smokeInput.value = currentUser.smoking || currentUser.lifestyle?.smoking || 'Non-smoker';
+  if (workoutInput) workoutInput.value = currentUser.workout || currentUser.lifestyle?.workout || '';
+  if (drinkInput) drinkInput.value = currentUser.drinking || currentUser.lifestyle?.drinking || '';
+  if (smokeInput) smokeInput.value = currentUser.smoking || currentUser.lifestyle?.smoking || '';
 
   const userPrompts = Array.isArray(currentUser.prompts) && currentUser.prompts.length > 0
     ? currentUser.prompts[0]
@@ -10002,6 +10034,8 @@ function openEditProfileModal() {
     if (locInput) locInput.value = currentUser.location || '';
     if (interestsInput) interestsInput.value = (currentUser.interests || []).join(', ');
 
+    const editErr = document.getElementById('editProfileError');
+    if (editErr) editErr.textContent = '';
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     document.body.classList.add('edit-profile-modal-open');
@@ -10070,10 +10104,22 @@ async function handleEditProfilePhotoUpload(event) {
       syncPublicProfileToFirestore().catch(err => console.warn('Could not sync public profile:', err));
     }
 
-    showToast(_activeEditPhotoSlot === 0 ? '✓ Main photo updated! ✨' : '✓ Photo added! ✨', 'success');
+    showToast(_activeEditPhotoSlot === 0 ? 'Main photo updated.' : 'Photo added.', 'success');
   } catch (err) {
     console.error('Edit photo upload error:', err);
     showToast('Could not process this image. Try another photo.', 'error');
+  }
+}
+
+function _syncEditPhotosToCloud() {
+  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+      image: currentUser.image || '',
+      avatar: currentUser.avatar || '',
+      photos: currentUser.photos || [],
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).catch(() => {});
+    syncPublicProfileToFirestore().catch(() => {});
   }
 }
 
@@ -10081,29 +10127,27 @@ function _renderEditPhotoSlot(slotIndex, dataUrl) {
   const slotEl = document.getElementById('editSlot' + slotIndex);
   const innerEl = document.getElementById('editSlotInner' + slotIndex);
   if (!slotEl || !innerEl) return;
+  const emptyIcon = slotIndex === 0
+    ? '<svg class="i i-lg" aria-hidden="true"><use href="#i-image-plus"/></svg>'
+    : '<svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>';
+  const label = slotIndex === 0 ? 'main photo' : `photo ${slotIndex + 1}`;
 
   if (dataUrl) {
     slotEl.classList.add('filled');
-    innerEl.style.backgroundImage = `url('${dataUrl}')`;
-    innerEl.style.backgroundSize = 'cover';
-    innerEl.style.backgroundPosition = 'center';
+    innerEl.style.backgroundImage = `url('${safeCssUrl(dataUrl)}')`;
     innerEl.innerHTML = '';
+    innerEl.setAttribute('aria-label', `Replace ${label}`);
 
-    if (!slotEl.querySelector('.sps-remove')) {
+    if (!slotEl.querySelector('.photo-slot-remove')) {
       const removeBtn = document.createElement('button');
-      removeBtn.className = 'sps-remove';
-      removeBtn.innerHTML = '✕';
-      removeBtn.title = 'Remove photo';
+      removeBtn.type = 'button';
+      removeBtn.className = 'photo-slot-remove';
+      removeBtn.innerHTML = '<svg class="i i-sm" aria-hidden="true"><use href="#i-x"/></svg>';
+      removeBtn.setAttribute('aria-label', `Remove ${label}`);
       removeBtn.onclick = (e) => {
         e.stopPropagation();
         _editProfilePhotos[slotIndex] = null;
-        slotEl.classList.remove('filled');
-        innerEl.style.backgroundImage = 'none';
-        const plusSvg = slotIndex === 0
-          ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
-          : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
-        innerEl.innerHTML = plusSvg;
-        removeBtn.remove();
+        _renderEditPhotoSlot(slotIndex, null);
         currentUser.photos = _editProfilePhotos.filter(Boolean);
         if (slotIndex === 0) {
           currentUser.image = currentUser.photos[0] || null;
@@ -10111,27 +10155,16 @@ function _renderEditPhotoSlot(slotIndex, dataUrl) {
         }
         saveToStorage();
         renderProfileScreen();
-
-        if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-          fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
-            image: currentUser.image || '',
-            avatar: currentUser.avatar || '',
-            photos: currentUser.photos || [],
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true }).catch(() => {});
-          syncPublicProfileToFirestore().catch(() => {});
-        }
+        _syncEditPhotosToCloud();
       };
       slotEl.appendChild(removeBtn);
     }
   } else {
     slotEl.classList.remove('filled');
     innerEl.style.backgroundImage = 'none';
-    const plusSvg = slotIndex === 0
-      ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
-      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
-    innerEl.innerHTML = plusSvg;
-    slotEl.querySelector('.sps-remove')?.remove();
+    innerEl.innerHTML = emptyIcon;
+    innerEl.setAttribute('aria-label', `Add ${label}`);
+    slotEl.querySelector('.photo-slot-remove')?.remove();
   }
 }
 
@@ -10332,41 +10365,38 @@ function _renderSignupPhotoSlot(slotIndex, dataUrl) {
 }
 
 function saveProfile() {
-  const name = document.getElementById('editName')?.value.trim();
-  const age = parseInt(document.getElementById('editAge')?.value);
-  const bio = document.getElementById('editBio')?.value.trim();
-  const location = document.getElementById('editLocation')?.value.trim();
+  const val = (id) => (document.getElementById(id)?.value || '').trim();
+  const name = val('editName');
+  const age = parseInt(val('editAge'), 10);
+  const bio = val('editBio');
+  const errEl = document.getElementById('editProfileError');
+  const setErr = (msg, fieldId) => {
+    if (errEl) errEl.textContent = msg;
+    ['editName', 'editAge', 'editBio'].forEach(id => document.getElementById(id)?.removeAttribute('aria-invalid'));
+    const f = document.getElementById(fieldId);
+    if (f) { f.setAttribute('aria-invalid', 'true'); f.focus(); }
+  };
 
-  if (!name || isNaN(age) || !bio) {
-    showToast('Please fill in all required fields.', 'error');
-    return;
-  }
+  if (!name) return setErr('Enter your name.', 'editName');
+  if (!Number.isFinite(age) || age < 18 || age > 80) return setErr('Enter an age between 18 and 80.', 'editAge');
+  if (!bio) return setErr('Write a short bio.', 'editBio');
+  setErr('', '');
 
   currentUser.name = name;
   currentUser.age = age;
   currentUser.bio = bio;
-  if (location) currentUser.location = location;
+  currentUser.location = val('editLocation');
+  currentUser.interests = val('editInterests').split(',').map(t => t.trim()).filter(Boolean).slice(0, 12);
 
-  const interestsVal = document.getElementById('editInterests')?.value.trim();
-  if (interestsVal) {
-    currentUser.interests = interestsVal.split(',').map(s => s.trim()).filter(Boolean);
-  }
-
-  const intentVal = document.getElementById('editIntent')?.value || 'relationship';
-  const occVal = document.getElementById('editOccupation')?.value.trim() || '';
-  const eduVal = document.getElementById('editEducation')?.value.trim() || '';
-  const workoutVal = document.getElementById('editWorkout')?.value || 'Active (Gym & Sports)';
-  const drinkVal = document.getElementById('editDrinking')?.value || 'Socially on weekends';
-  const smokeVal = document.getElementById('editSmoking')?.value || 'Non-smoker';
-  const q1Val = document.getElementById('editPromptQ1')?.value || 'My ideal Sunday looks like...';
-  const a1Val = document.getElementById('editPromptA1')?.value.trim() || '';
-
-  currentUser.intent = intentVal;
-  currentUser.occupation = occVal;
-  currentUser.education = eduVal;
-  currentUser.workout = workoutVal;
-  currentUser.drinking = drinkVal;
-  currentUser.smoking = smokeVal;
+  // Optional answers stay empty when the person leaves them blank; nothing is filled in for them.
+  currentUser.intent = val('editIntent');
+  currentUser.occupation = val('editOccupation');
+  currentUser.education = val('editEducation');
+  currentUser.workout = val('editWorkout');
+  currentUser.drinking = val('editDrinking');
+  currentUser.smoking = val('editSmoking');
+  const q1Val = val('editPromptQ1') || 'My ideal Sunday looks like...';
+  const a1Val = val('editPromptA1');
   currentUser.prompts = a1Val ? [{ question: q1Val, answer: a1Val }] : [];
 
   saveToStorage();
@@ -10401,13 +10431,8 @@ function saveProfile() {
     settingsAvatar.textContent = '';
   }
 
-  const feedback = document.getElementById('profileSaveFeedback');
-  if (feedback) {
-    feedback.style.opacity = '1';
-    setTimeout(() => { feedback.style.opacity = '0'; }, 3000);
-  }
-  showToast('✓ Profile saved successfully!', 'success');
-  setTimeout(() => { closeEditProfileModal(); }, 600);
+  showToast('Profile saved.', 'success');
+  closeEditProfileModal();
 }
 
 // ==========================================================
@@ -13598,38 +13623,34 @@ function populateForwardModalList(actionLabel = 'Forward') {
   const list = document.getElementById('forwardMatchesList');
   if (!list) return;
 
+  // Only people you are actually matched with
   const currentId = appState.currentChatId;
-  const candidates = [...matchedUsers, ...PROFILES_DATA]
-    .filter(u => u.id !== currentId)
+  const candidates = matchedUsers
+    .filter(u => u && u.id !== currentId)
     .filter((u, index, self) => index === self.findIndex(t => t.id === u.id));
 
   if (candidates.length === 0) {
-    list.innerHTML = `<div style="text-align:center;padding:24px;color:rgba(255,255,255,0.5)">No other contacts available.</div>`;
-  } else {
-    list.innerHTML = candidates.map(c => `
-      <div onclick="forwardMessageToUser('${c.id}')" style="
-        display:flex;align-items:center;gap:12px;padding:10px 14px;
-        background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
-        border-radius:14px;cursor:pointer;transition:background 0.15s"
-        onmouseenter="this.style.background='rgba(255,255,255,0.1)'"
-        onmouseleave="this.style.background='rgba(255,255,255,0.05)'"
-      >
-        <div style="width:42px;height:42px;border-radius:50%;background-image:url('${c.image || c.avatar}');background-size:cover;background-position:center;border:2px solid #FF2D78;flex-shrink:0"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:0.92rem;color:#FFF">${escHtml(c.name)}${c.age ? `, ${c.age}` : ''}</div>
-          <div style="font-size:0.78rem;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(c.bio || '')}</div>
-        </div>
-        <button style="background:var(--flame-grad,#ff2d78);border:none;color:#FFF;border-radius:14px;padding:6px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">${actionLabel} ➡️</button>
-      </div>
-    `).join('');
+    list.innerHTML = `<div class="empty"><div class="empty-title">No one to send to yet</div><p class="empty-text">Your matches will appear here.</p></div>`;
+    return;
   }
+  list.innerHTML = candidates.map(c => {
+    const img = c.image || c.avatar || '';
+    return `
+      <button type="button" class="row" onclick="forwardMessageToUser(${escHtml(JSON.stringify(String(c.id)))})">
+        <span class="avatar">${img ? `<img src="${escHtml(img)}" alt="" loading="lazy">` : ''}</span>
+        <span class="row-body">
+          <span class="row-title">${escHtml(c.name)}${c.age ? `, ${escHtml(c.age)}` : ''}</span>
+        </span>
+        <span class="btn btn-secondary btn-sm" aria-hidden="true">${escHtml(actionLabel)}</span>
+      </button>`;
+  }).join('');
 }
 
 function forwardMessagePrompt(msgId) {
   _pendingForwardMsgId = msgId;
   const modal = document.getElementById('forwardModal');
-  const title = modal?.querySelector('h3') || modal?.querySelector('.modal-title');
-  if (title) title.textContent = 'Forward to Contact';
+  const title = document.getElementById('forwardModalTitle');
+  if (title) title.textContent = 'Forward to a match';
   populateForwardModalList('Forward');
   if (modal) modal.style.display = 'flex';
 }
@@ -13637,8 +13658,8 @@ function forwardMessagePrompt(msgId) {
 function shareMessageToUserPrompt(msgId) {
   _pendingForwardMsgId = msgId;
   const modal = document.getElementById('forwardModal');
-  const title = modal?.querySelector('h3') || modal?.querySelector('.modal-title');
-  if (title) title.textContent = 'Share to User';
+  const title = document.getElementById('forwardModalTitle');
+  if (title) title.textContent = 'Send to a match';
   populateForwardModalList('Share');
   if (modal) modal.style.display = 'flex';
 }
@@ -13658,7 +13679,7 @@ async function forwardMessageToUser(targetUserId) {
     return;
   }
 
-  const targetUser = matchedUsers.find(u => u.id === targetUserId) || PROFILES_DATA.find(u => u.id === targetUserId);
+  const targetUser = matchedUsers.find(u => u.id === targetUserId);
   const targetName = targetUser ? targetUser.name : 'contact';
 
   if (!conversations[targetUserId]) {
@@ -14054,7 +14075,7 @@ function closePhoneVerificationModal() {
 function showPhoneStep1() {
   const s1 = document.getElementById('phoneStep1');
   const s2 = document.getElementById('phoneStep2');
-  if (s1) s1.style.display = 'block';
+  if (s1) s1.style.display = 'flex';
   if (s2) s2.style.display = 'none';
   const err = document.getElementById('phoneStep1Error');
   if (err) err.textContent = '';
@@ -14091,7 +14112,7 @@ async function sendPhoneOtp() {
     const s1 = document.getElementById('phoneStep1');
     const s2 = document.getElementById('phoneStep2');
     if (s1) s1.style.display = 'none';
-    if (s2) s2.style.display = 'block';
+    if (s2) s2.style.display = 'flex';
     const sentTo = document.getElementById('phoneOtpSentTo');
     if (sentTo) sentTo.textContent = 'Code sent to +234 ' + _pendingPhoneNumber;
 
@@ -14153,60 +14174,6 @@ async function verifyPhoneOtp() {
   } else {
     if (errEl) errEl.textContent = 'Incorrect code. Please try again.';
   }
-}
-
-// ==========================================================
-// LANGUAGE SELECTOR MODAL
-// ==========================================================
-
-const LANGUAGES = [
-  { code: 'en-UK', label: 'English (UK)', flag: '🇬🇧' },
-  { code: 'en-US', label: 'English (US)', flag: '🇺🇸' },
-  { code: 'en-NG', label: 'English (Nigeria)', flag: '🇳🇬' }
-];
-
-let currentLanguage = localStorage.getItem('hmbs_language') || 'en-UK';
-
-function openLanguageModal() {
-  const modal = document.getElementById('languageModal');
-  const list = document.getElementById('languageOptionsList');
-  if (!modal || !list) return;
-
-  list.innerHTML = LANGUAGES.map(lang => {
-    const isSelected = currentLanguage === lang.code;
-    return `
-      <div onclick="selectLanguage('${lang.code}', '${escHtml(lang.label)}')" style="
-        display:flex;align-items:center;gap:14px;padding:14px 16px;
-        background:${isSelected ? 'rgba(209,58,99,0.15)' : 'rgba(255,255,255,0.04)'};
-        border:1px solid ${isSelected ? 'rgba(209,58,99,0.5)' : 'rgba(255,255,255,0.08)'};
-        border-radius:14px;cursor:pointer;transition:all 0.2s"
-        onmouseenter="this.style.background='rgba(209,58,99,0.1)'" 
-        onmouseleave="this.style.background='${isSelected ? 'rgba(209,58,99,0.15)' : 'rgba(255,255,255,0.04)'}'"
-      >
-        <span style="font-size:1.5rem">${lang.flag}</span>
-        <span style="flex:1;font-size:0.95rem;font-weight:${isSelected ? '700' : '500'};color:#FFF">${lang.label}</span>
-        ${isSelected ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="#D13A63"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' : ''}
-      </div>`;
-  }).join('');
-
-  modal.style.display = 'flex';
-}
-
-function closeLanguageModal() {
-  const modal = document.getElementById('languageModal');
-  if (modal) modal.style.display = 'none';
-}
-
-function selectLanguage(code, label) {
-  currentLanguage = code;
-  localStorage.setItem('hmbs_language', code);
-  const sub = document.getElementById('settingsLanguageSub');
-  if (sub) sub.textContent = label;
-  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) {
-    fbDb.collection('users').doc(fbAuth.currentUser.uid).update({ language: code }).catch(() => {});
-  }
-  showToast(`\uD83C\uDF10 Language set to ${label}`, 'info');
-  closeLanguageModal();
 }
 
 // ==========================================================
@@ -16525,7 +16492,7 @@ async function toggleEditVoiceRecord() {
           };
           saveToStorage();
           renderProfileScreen();
-          showToast('Voice intro saved! 🎙️', 'gold');
+          showToast('Voice intro saved.', 'success');
         };
         reader.readAsDataURL(blob);
       };
@@ -16533,12 +16500,12 @@ async function toggleEditVoiceRecord() {
       _editVoiceRecorder.start();
       _editVoiceTimer = setInterval(() => {
         _editVoiceSeconds++;
-        if (status) status.textContent = '🎙️ Recording... 0:' + String(_editVoiceSeconds).padStart(2, '0') + ' (Tap button to stop)';
+        if (status) status.textContent = 'Recording… 0:' + String(_editVoiceSeconds).padStart(2, '0') + '. Tap Stop when you are done.';
         if (_editVoiceSeconds >= 20) toggleEditVoiceRecord();
       }, 1000);
 
-      if (btn) btn.innerHTML = '⏹️ Stop Recording';
-      if (status) status.textContent = '🎙️ Recording... 0:00 (Tap button to stop)';
+      if (btn) btn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-square"/></svg><span>Stop</span>';
+      if (status) status.textContent = 'Recording… 0:00. Tap Stop when you are done.';
       if (typeof haptic === 'function') haptic('medium');
     } catch (err) {
       console.warn('Voice record error:', err);
@@ -16546,7 +16513,7 @@ async function toggleEditVoiceRecord() {
     }
   } else {
     _editVoiceRecorder.stop();
-    if (btn) btn.innerHTML = '🎙️ Record Intro';
+    if (btn) btn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-mic"/></svg><span>Record intro</span>';
   }
 }
 window.toggleEditVoiceRecord = toggleEditVoiceRecord;

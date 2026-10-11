@@ -149,6 +149,7 @@ button.chip:hover { border-color: var(--text-3); color: var(--text); }
 
 /* ---------- Avatar ---------- */
 .avatar { position: relative; width: 48px; height: 48px; flex: none; border-radius: 50%; background: var(--surface-raised) center / cover no-repeat; overflow: hidden; }
+.avatar > img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .avatar-sm { width: 36px; height: 36px; }
 .avatar-lg { width: 64px; height: 64px; }
 .avatar-xl { width: 96px; height: 96px; }
@@ -362,3 +363,19 @@ button.row:hover, a.row:hover { background: var(--surface-raised); }
 .viewer .menu-item.is-danger, .viewer .menu-item.is-danger .i { color: #ff8a8a; }
 .viewer .input { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: rgba(255, 255, 255, 0.3); }
 .viewer .input::placeholder { color: rgba(255, 255, 255, 0.75); }
+
+/* ---------- Dialog content helpers ---------- */
+.dlg-stack { display: flex; flex-direction: column; gap: var(--s-4); }
+.dlg-text { margin: 0; font-size: var(--fs-base); line-height: var(--lh-body); color: var(--text-2); }
+.dlg-pad { padding: var(--s-4) var(--s-4) var(--s-2); }
+.dlg-ok { margin: 0; font-size: var(--fs-sm); font-weight: 700; color: var(--success); }
+.sheet-body-flush { padding: 0; }
+.input-prefix { position: absolute; left: var(--s-3); z-index: 1; color: var(--text-2); font-weight: 700; pointer-events: none; }
+.input-wrap > .input.has-prefix { padding-left: 60px; }
+.input-wrap > .input.has-prefix-sm { padding-left: 36px; }
+.input-otp { text-align: center; letter-spacing: 0.5em; padding-left: 0.5em; font-size: var(--fs-xl); font-weight: 800; font-variant-numeric: tabular-nums; }
+.field-error:empty { display: none; }
+
+.dlg-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-3); }
+.sheet-tall { max-height: min(94dvh, 960px); }
+.select { appearance: none; -webkit-appearance: none; padding-right: 36px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239a8f99' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
