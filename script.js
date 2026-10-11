@@ -14667,21 +14667,17 @@ window.loadProfilesForDiscovery = async function() {
 };
 
 // ==========================================================
-// ONBOARDING WIZARD — 5-step conversational new-user flow
+// ONBOARDING WIZARD: 5 steps for a new account. Nothing is pre-selected and
+// only what the person chose is saved.
 // ==========================================================
+const OB_STEPS = 5;
 const _obState = {
   currentStep: 1,
   name: '',
   age: '',
-  gender: 'Male',
+  gender: '',
   interestedIn: '',
-  intent: 'relationship',
-  personality: {
-    nightVibe: 'night_out',
-    escape: 'beach',
-    comms: 'texts',
-    greenFlag: 'Consistent communication'
-  },
+  intent: '',
   interests: [],
   bio: ''
 };
@@ -14689,20 +14685,19 @@ const _obState = {
 function showOnboardingWizard(prefillName) {
   const wiz = document.getElementById('onboardingWizard');
   if (!wiz) return;
-  // Pre-fill name if provided from Google
   if (prefillName) {
     const nameInput = document.getElementById('obNameInput');
     if (nameInput) nameInput.value = prefillName;
     _obState.name = prefillName;
   }
-  // Reset to step 1
   _obState.currentStep = 1;
-  wiz.style.display = 'block';
+  wiz.style.display = 'flex';
   _obShowStep(1);
+  dialogOpened(wiz, { focus: '#obNameInput' });
 
-  // Bio char counter
   const bioInput = document.getElementById('obBioInput');
-  if (bioInput) {
+  if (bioInput && !bioInput._counterBound) {
+    bioInput._counterBound = true;
     bioInput.addEventListener('input', () => {
       const count = document.getElementById('obBioCount');
       if (count) count.textContent = bioInput.value.length;
@@ -14711,79 +14706,57 @@ function showOnboardingWizard(prefillName) {
 }
 window.showOnboardingWizard = showOnboardingWizard;
 
+function _obCloseWizard() {
+  const wiz = document.getElementById('onboardingWizard');
+  if (wiz) { wiz.style.display = 'none'; dialogClosed(wiz); }
+}
+
 function _obShowStep(stepNum) {
-  // Hide all steps
   document.querySelectorAll('.ob-step').forEach(s => s.classList.remove('active'));
-  // Show target
   const target = document.getElementById('obStep' + stepNum);
   if (target) target.classList.add('active');
 
-  // Update dots
-  const dots = document.querySelectorAll('.ob-dot');
-  dots.forEach((d, i) => d.classList.toggle('active', i === stepNum - 1));
+  const label = document.getElementById('obStepLabel');
+  if (label) label.textContent = `Step ${stepNum} of ${OB_STEPS}`;
+  const fill = document.getElementById('obProgressFill');
+  if (fill) fill.style.width = (stepNum / OB_STEPS * 100) + '%';
+  document.getElementById('obProgress')?.setAttribute('aria-valuenow', String(stepNum));
 
-  // Show/hide skip button
   const skipBtn = document.getElementById('obSkipBtn');
-  if (skipBtn) skipBtn.style.display = stepNum < 5 ? 'block' : 'none';
-
-  // Show/hide back button (visible on steps 2, 3, 4, 5)
+  if (skipBtn) skipBtn.style.visibility = stepNum < OB_STEPS ? 'visible' : 'hidden';
   const backBtn = document.getElementById('obBackBtn');
-  if (backBtn) backBtn.style.display = stepNum > 1 ? 'inline-flex' : 'none';
+  if (backBtn) backBtn.style.visibility = stepNum > 1 ? 'visible' : 'hidden';
+  const nextBtn = document.getElementById('obNextBtn');
+  if (nextBtn) nextBtn.textContent = stepNum === OB_STEPS ? 'Finish' : 'Continue';
 
+  document.querySelector('#onboardingWizard .wiz-scroll')?.scrollTo(0, 0);
   _obState.currentStep = stepNum;
-  haptic('light');
+  const heading = target?.querySelector('h1');
+  if (heading) { heading.setAttribute('tabindex', '-1'); if (stepNum > 1) heading.focus({ preventScroll: true }); }
 }
 
 function obBackCurrent() {
-  if (_obState.currentStep > 1) {
-    _obShowStep(_obState.currentStep - 1);
-  }
+  if (_obState.currentStep > 1) _obShowStep(_obState.currentStep - 1);
 }
 window.obBackCurrent = obBackCurrent;
 
-function selectObGender(el) {
-  document.querySelectorAll('#obStep2 .ob-name-section:first-of-type .ob-gender-opt').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  _obState.gender = el.dataset.val;
-  haptic('light');
+// Radio-style groups: one choice at most, and clicking the chosen one again clears it.
+function _obPickOne(el, key, value) {
+  const group = el.parentElement;
+  const wasOn = el.getAttribute('aria-checked') === 'true';
+  group.querySelectorAll('[role="radio"]').forEach(o => { o.classList.remove('selected'); o.setAttribute('aria-checked', 'false'); });
+  if (!wasOn) { el.classList.add('selected'); el.setAttribute('aria-checked', 'true'); }
+  _obState[key] = wasOn ? '' : value;
 }
+
+function selectObGender(el) { _obPickOne(el, 'gender', el.dataset.val); }
 window.selectObGender = selectObGender;
 
-function selectObInterestIn(el) {
-  const grid = el.closest('.ob-gender-grid');
-  if (grid) grid.querySelectorAll('.ob-gender-opt').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  _obState.interestedIn = el.dataset.val;
-  haptic('light');
-}
+function selectObInterestIn(el) { _obPickOne(el, 'interestedIn', el.dataset.val); }
 window.selectObInterestIn = selectObInterestIn;
 
-function selectObIntent(el) {
-  document.querySelectorAll('#obIntentGrid .ob-intent-card').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  _obState.intent = el.dataset.intent || 'relationship';
-  haptic('light');
-}
+function selectObIntent(el) { _obPickOne(el, 'intent', el.dataset.intent); }
 window.selectObIntent = selectObIntent;
-
-function selectObVibe(btn, key) {
-  const pair = btn.closest('.ob-vibe-pair');
-  if (pair) pair.querySelectorAll('.ob-vibe-chip').forEach(c => c.classList.remove('selected'));
-  btn.classList.add('selected');
-  if (!_obState.personality) _obState.personality = {};
-  _obState.personality[key] = btn.dataset.val;
-  haptic('light');
-}
-window.selectObVibe = selectObVibe;
-
-function selectObGreenFlag(el) {
-  document.querySelectorAll('#obFlagsGrid .ob-flag-chip').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  if (!_obState.personality) _obState.personality = {};
-  _obState.personality.greenFlag = el.textContent.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\s]+/gu, '').trim();
-  haptic('light');
-}
-window.selectObGreenFlag = selectObGreenFlag;
 
 function selectSignupIntent(intent, el) {
   document.querySelectorAll('#signupIntentGrid .signup-intent-pill').forEach(p => { p.classList.remove('selected'); p.setAttribute('aria-checked', 'false'); });
@@ -14795,25 +14768,33 @@ function selectSignupIntent(intent, el) {
 window.selectSignupIntent = selectSignupIntent;
 
 function toggleObInterest(el) {
+  const label = el.textContent.trim();
   const isSelected = el.classList.contains('selected');
   if (!isSelected && _obState.interests.length >= 5) {
-    haptic('error');
-    el.style.animation = 'none';
-    el.offsetWidth; // force reflow
-    el.style.animation = 'obEmojiPop 0.3s ease';
+    const countEl = document.getElementById('obInterestCount');
+    if (countEl) countEl.textContent = 'You can pick up to 5. Remove one to add another.';
     return;
   }
-  haptic('light');
   el.classList.toggle('selected');
-  if (el.classList.contains('selected')) {
-    _obState.interests.push(el.textContent.trim());
-  } else {
-    _obState.interests = _obState.interests.filter(i => i !== el.textContent.trim());
-  }
+  el.setAttribute('aria-pressed', String(el.classList.contains('selected')));
+  if (el.classList.contains('selected')) _obState.interests.push(label);
+  else _obState.interests = _obState.interests.filter(i => i !== label);
   const countEl = document.getElementById('obInterestCount');
-  if (countEl) countEl.textContent = `${_obState.interests.length} / 5 selected`;
+  if (countEl) countEl.textContent = `${_obState.interests.length} of 5 selected`;
 }
 window.toggleObInterest = toggleObInterest;
+
+function _obFieldError(inputId, errorId, message) {
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(errorId);
+  if (err) err.textContent = message || '';
+  if (input) { if (message) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid'); }
+}
+
+function obContinue() {
+  obNext(_obState.currentStep);
+}
+window.obContinue = obContinue;
 
 function obNext(fromStep) {
   if (fromStep === 1) {
@@ -14821,27 +14802,25 @@ function obNext(fromStep) {
     const ageInput  = document.getElementById('obAgeInput');
     const name = (nameInput?.value || '').trim();
     const age  = parseInt(ageInput?.value || '0', 10);
+    _obFieldError('obNameInput', 'obNameError', '');
+    _obFieldError('obAgeInput', 'obAgeError', '');
     if (!name) {
-      haptic('error');
-      if (nameInput) { nameInput.style.borderColor = '#D13A63'; nameInput.focus(); }
-      showToast('Please enter your name 😊', 'error');
+      _obFieldError('obNameInput', 'obNameError', 'Enter your first name.');
+      nameInput?.focus();
       return;
     }
     if (!age || age < 18 || age > 99) {
-      haptic('error');
-      if (ageInput) { ageInput.style.borderColor = '#D13A63'; ageInput.focus(); }
-      showToast('Please enter a valid age (18+)', 'error');
+      _obFieldError('obAgeInput', 'obAgeError', 'Enter an age from 18 to 99. hookmebysam is for adults.');
+      ageInput?.focus();
       return;
     }
     _obState.name = name;
     _obState.age  = age;
     _obShowStep(2);
-  } else if (fromStep === 2) {
-    _obShowStep(3);
-  } else if (fromStep === 3) {
-    _obShowStep(4);
-  } else if (fromStep === 4) {
-    _obShowStep(5);
+  } else if (fromStep < OB_STEPS) {
+    _obShowStep(fromStep + 1);
+  } else {
+    obFinish();
   }
 }
 window.obNext = obNext;
@@ -14850,10 +14829,10 @@ async function obFinish() {
   const bioInput = document.getElementById('obBioInput');
   _obState.bio = (bioInput?.value || '').trim();
 
-  const btn = document.getElementById('obFinishBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  const btn = document.getElementById('obNextBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
 
-  // Apply to currentUser
+  // Apply only what the person entered
   if (_obState.name)  currentUser.name = _obState.name;
   if (_obState.age)   currentUser.age  = _obState.age;
   if (_obState.gender) currentUser.gender = _obState.gender;
@@ -14861,23 +14840,6 @@ async function obFinish() {
   if (_obState.interests.length) currentUser.interests = _obState.interests;
   if (_obState.interestedIn) currentUser.interestedIn = _obState.interestedIn;
   if (_obState.intent) currentUser.intent = _obState.intent;
-
-  currentUser.lifestyle = {
-    ...(currentUser.lifestyle || {}),
-    nightVibe: _obState.personality?.nightVibe || 'night_out',
-    escape: _obState.personality?.escape || 'beach',
-    comms: _obState.personality?.comms || 'texts'
-  };
-
-  const greenFlag = _obState.personality?.greenFlag || 'Consistent communication';
-  const weekendText = _obState.personality?.nightVibe === 'night_out'
-    ? 'Out exploring vibrant music & spots 🎶'
-    : 'Cozy dinner & great conversation at home 🛋️';
-
-  currentUser.prompts = [
-    { question: 'My biggest green flag', answer: greenFlag },
-    { question: 'Ideal weekend', answer: weekendText }
-  ];
 
   if (typeof calculateProfileCompleteness === 'function') {
     calculateProfileCompleteness();
@@ -14887,35 +14849,24 @@ async function obFinish() {
   appState.isLoggedIn = true;
   saveToStorage();
 
-  // Save to Firestore
   if (typeof saveUserProfileToFirestore === 'function') {
     try { await saveUserProfileToFirestore(currentUser); } catch (_) {}
   }
 
-  haptic('success');
-
-  // Close wizard + go to discovery
-  const wiz = document.getElementById('onboardingWizard');
-  if (wiz) {
-    wiz.style.transition = 'opacity 0.4s';
-    wiz.style.opacity = '0';
-    setTimeout(() => { wiz.style.display = 'none'; wiz.style.opacity = ''; }, 420);
-  }
+  _obCloseWizard();
+  if (btn) { btn.disabled = false; btn.textContent = 'Finish'; }
 
   showScreen('discovery');
   initMainApp();
   setTimeout(() => {
-    showToast(`🔥 Welcome, ${currentUser.name}! Let's find your match!`, 'gold');
-    // Show PWA banner after onboarding
+    showToast(`Welcome, ${currentUser.name}.`, 'success');
     setTimeout(tryShowPwaBanner, 3500);
   }, 600);
 }
 window.obFinish = obFinish;
 
 function skipOnboarding() {
-  haptic('light');
-  const wiz = document.getElementById('onboardingWizard');
-  if (wiz) { wiz.style.display = 'none'; }
+  _obCloseWizard();
   appState.isLoggedIn = true;
   saveToStorage();
   showScreen('discovery');

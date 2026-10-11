@@ -2004,205 +2004,116 @@
     </div>
   </div>
 
-  <!-- =========================================================
-       ONBOARDING WIZARD — Full-screen for new users
-       ========================================================= -->
-  <div id="onboardingWizard" style="display:none;position:fixed;inset:0;z-index:99980;background:#07040C;overflow-y:auto">
-    <!-- Step indicator with Back button, Progress Dots, and Skip -->
-    <div class="ob-header">
-      <button class="ob-back-btn" id="obBackBtn" onclick="obBackCurrent()" style="display:none" aria-label="Go back" title="Back">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M19 12H5M5 12l6 6M5 12l6-6"/>
-        </svg>
-      </button>
-      <div class="ob-step-dots" id="obStepDots">
-        <span class="ob-dot active"></span>
-        <span class="ob-dot"></span>
-        <span class="ob-dot"></span>
-        <span class="ob-dot"></span>
-        <span class="ob-dot"></span>
+  <!-- =====================================================
+       ONBOARDING WIZARD (new accounts)
+       ===================================================== -->
+  <div id="onboardingWizard" class="wiz" role="dialog" aria-modal="true" aria-labelledby="obTitle" style="display:none">
+    <div class="wiz-bar">
+      <button type="button" class="btn btn-icon btn-ghost" id="obBackBtn" onclick="obBackCurrent()" style="visibility:hidden" aria-label="Go back"><svg class="i" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
+      <div class="wiz-progress">
+        <span class="wiz-step-label" id="obStepLabel" aria-live="polite">Step 1 of 5</span>
+        <div class="meter" role="progressbar" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" id="obProgress"><div class="meter-fill" id="obProgressFill" style="width:20%"></div></div>
       </div>
-      <button class="ob-skip-btn" onclick="skipOnboarding()" id="obSkipBtn">Skip</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="skipOnboarding()" id="obSkipBtn">Skip</button>
     </div>
 
-    <!-- Step 1: Welcome + choose interests -->
-    <div class="ob-step active" id="obStep1">
-      <div class="ob-hero-emoji">✨</div>
-      <h1 class="ob-title">Welcome to <span style="background:linear-gradient(135deg,#D13A63,#E3B34D);-webkit-background-clip:text;-webkit-text-fill-color:transparent">hookmebysam</span></h1>
-      <p class="ob-sub">Let's set up your profile so you can start meeting amazing people nearby.</p>
-      <div class="ob-name-section">
-        <label class="ob-label">What should we call you?</label>
-        <input class="ob-input" id="obNameInput" type="text" placeholder="Your first name" autocomplete="given-name" maxlength="30">
-      </div>
-      <div class="ob-name-section" style="margin-top:14px">
-        <label class="ob-label">How old are you?</label>
-        <input class="ob-input" id="obAgeInput" type="number" placeholder="Age (18+)" min="18" max="99" inputmode="numeric">
-      </div>
-      <button class="ob-next-btn" onclick="obNext(1)">Continue <span>→</span></button>
+    <div class="wiz-scroll">
+      <!-- Step 1: name and age -->
+      <section class="ob-step active" id="obStep1" aria-labelledby="obTitle">
+        <h1 class="wiz-title" id="obTitle">Welcome to hookmebysam</h1>
+        <p class="wiz-sub">Set up your profile in a minute. Everything except your name and age is optional.</p>
+        <div class="field">
+          <label class="field-label" for="obNameInput">First name</label>
+          <input class="input" id="obNameInput" type="text" autocomplete="given-name" maxlength="30">
+          <p class="field-error" id="obNameError" role="alert"></p>
+        </div>
+        <div class="field">
+          <label class="field-label" for="obAgeInput">Age</label>
+          <input class="input" id="obAgeInput" type="number" min="18" max="99" inputmode="numeric" aria-describedby="obAgeHelp">
+          <p class="field-hint" id="obAgeHelp">You must be 18 or older.</p>
+          <p class="field-error" id="obAgeError" role="alert"></p>
+        </div>
+      </section>
+
+      <!-- Step 2: gender and who you want to meet -->
+      <section class="ob-step" id="obStep2" aria-labelledby="obTitle2">
+        <h1 class="wiz-title" id="obTitle2">About you</h1>
+        <p class="wiz-sub">This is used to show you relevant people. You can change it later.</p>
+        <div class="field" role="radiogroup" aria-labelledby="obGenderLabel">
+          <span class="field-label" id="obGenderLabel">I am</span>
+          <div class="choice-grid" id="obGenderGrid">
+            <button type="button" class="choice" role="radio" aria-checked="false" data-val="Male" onclick="selectObGender(this)">Man</button>
+            <button type="button" class="choice" role="radio" aria-checked="false" data-val="Female" onclick="selectObGender(this)">Woman</button>
+            <button type="button" class="choice" role="radio" aria-checked="false" data-val="Non-binary" onclick="selectObGender(this)">Non-binary</button>
+            <button type="button" class="choice" role="radio" aria-checked="false" data-val="Other" onclick="selectObGender(this)">Other</button>
+          </div>
+        </div>
+        <div class="field" role="radiogroup" aria-labelledby="obInterestedLabel">
+          <span class="field-label" id="obInterestedLabel">I want to meet</span>
+          <div class="choice-grid" id="obInterestedGrid">
+            <button type="button" class="choice" role="radio" aria-checked="false" data-val="Men" onclick="selectObInterestIn(this)">Men</button>
+            <button type="button" class="choice" role="radio" aria-checked="false" data-val="Women" onclick="selectObInterestIn(this)">Women</button>
+            <button type="button" class="choice" role="radio" aria-checked="false" data-val="Everyone" onclick="selectObInterestIn(this)">Everyone</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Step 3: what you are looking for -->
+      <section class="ob-step" id="obStep3" aria-labelledby="obTitle3">
+        <h1 class="wiz-title" id="obTitle3">What are you looking for?</h1>
+        <p class="wiz-sub">People with the same goal are easier to connect with.</p>
+        <div class="choice-list" id="obIntentGrid" role="radiogroup" aria-label="What are you looking for">
+          <button type="button" class="choice" role="radio" aria-checked="false" data-intent="relationship" onclick="selectObIntent(this)"><svg class="i" aria-hidden="true"><use href="#i-heart"/></svg>A serious relationship</button>
+          <button type="button" class="choice" role="radio" aria-checked="false" data-intent="long-term dating" onclick="selectObIntent(this)"><svg class="i" aria-hidden="true"><use href="#i-wine"/></svg>Long-term, open to short</button>
+          <button type="button" class="choice" role="radio" aria-checked="false" data-intent="casual dating" onclick="selectObIntent(this)"><svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg>Casual dating</button>
+          <button type="button" class="choice" role="radio" aria-checked="false" data-intent="friendship" onclick="selectObIntent(this)"><svg class="i" aria-hidden="true"><use href="#i-coffee"/></svg>New friends</button>
+          <button type="button" class="choice" role="radio" aria-checked="false" data-intent="figuring it out" onclick="selectObIntent(this)"><svg class="i" aria-hidden="true"><use href="#i-compass"/></svg>Still figuring it out</button>
+        </div>
+      </section>
+
+      <!-- Step 4: interests -->
+      <section class="ob-step" id="obStep4" aria-labelledby="obTitle4">
+        <h1 class="wiz-title" id="obTitle4">What are you into?</h1>
+        <p class="wiz-sub">Pick up to 5. They show on your profile and help start conversations.</p>
+        <div class="chip-row" id="obInterestsGrid">
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Music</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Travel</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Fitness</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Art</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Food</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Gaming</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Books</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Fashion</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Nature</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Business</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Movies</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Coffee</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Dancing</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Tech</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Yoga</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Beach</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Wine</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Afrobeats</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Sports</button>
+          <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleObInterest(this)">Photography</button>
+        </div>
+        <p class="wiz-count" id="obInterestCount" role="status">0 of 5 selected</p>
+      </section>
+
+      <!-- Step 5: bio -->
+      <section class="ob-step" id="obStep5" aria-labelledby="obTitle5">
+        <h1 class="wiz-title" id="obTitle5">Write a short bio</h1>
+        <p class="wiz-sub">A sentence or two about you. You can add photos from your profile after this.</p>
+        <div class="field">
+          <label class="field-label" for="obBioInput">Bio</label>
+          <textarea class="textarea" id="obBioInput" rows="4" maxlength="200"></textarea>
+          <p class="field-hint"><span id="obBioCount">0</span>/200</p>
+        </div>
+      </section>
     </div>
 
-    <!-- Step 2: Gender + looking for -->
-    <div class="ob-step" id="obStep2">
-      <div class="ob-hero-emoji">👤</div>
-      <h1 class="ob-title">Tell us about yourself</h1>
-      <p class="ob-sub">This helps us show you the most compatible profiles.</p>
-      <div class="ob-name-section">
-        <label class="ob-label">I am a...</label>
-        <div class="ob-gender-grid">
-          <div class="ob-gender-opt selected" data-val="Male" onclick="selectObGender(this)">👨 Man</div>
-          <div class="ob-gender-opt" data-val="Female" onclick="selectObGender(this)">👩 Woman</div>
-          <div class="ob-gender-opt" data-val="Non-binary" onclick="selectObGender(this)">🌈 Non-binary</div>
-          <div class="ob-gender-opt" data-val="Other" onclick="selectObGender(this)">✨ Other</div>
-        </div>
-      </div>
-      <div class="ob-name-section" style="margin-top:16px">
-        <label class="ob-label">I'm interested in...</label>
-        <div class="ob-gender-grid">
-          <div class="ob-gender-opt" data-val="Men" onclick="selectObInterestIn(this)">👨 Men</div>
-          <div class="ob-gender-opt" data-val="Women" onclick="selectObInterestIn(this)">👩 Women</div>
-          <div class="ob-gender-opt" data-val="Everyone" onclick="selectObInterestIn(this)">🌍 Everyone</div>
-        </div>
-      </div>
-      <button class="ob-next-btn" onclick="obNext(2)">Continue <span>→</span></button>
-    </div>
-
-    <!-- Step 3: Relationship Intent & Personality Vibe -->
-    <div class="ob-step" id="obStep3">
-      <div class="ob-hero-emoji">💘</div>
-      <h1 class="ob-title">What's your dating vibe?</h1>
-      <p class="ob-sub">Matching with shared intentions and energy is the secret to great chemistry.</p>
-
-      <div class="ob-name-section">
-        <label class="ob-label">Relationship Intention</label>
-        <div class="ob-intent-grid" id="obIntentGrid">
-          <div class="ob-intent-card selected" data-intent="relationship" onclick="selectObIntent(this)">
-            <span class="ob-intent-emoji">💘</span>
-            <div class="ob-intent-info">
-              <div class="ob-intent-title">Serious Relationship</div>
-              <div class="ob-intent-desc">Looking for genuine, lasting partnership</div>
-            </div>
-          </div>
-          <div class="ob-intent-card" data-intent="long-term dating" onclick="selectObIntent(this)">
-            <span class="ob-intent-emoji">🥂</span>
-            <div class="ob-intent-info">
-              <div class="ob-intent-title">Long-term, open to short</div>
-              <div class="ob-intent-desc">Open to seeing where mutual chemistry goes</div>
-            </div>
-          </div>
-          <div class="ob-intent-card" data-intent="casual dating" onclick="selectObIntent(this)">
-            <span class="ob-intent-emoji">✨</span>
-            <div class="ob-intent-info">
-              <div class="ob-intent-title">Casual dating & fun</div>
-              <div class="ob-intent-desc">Spontaneous dates and positive energy</div>
-            </div>
-          </div>
-          <div class="ob-intent-card" data-intent="friendship" onclick="selectObIntent(this)">
-            <span class="ob-intent-emoji">☕</span>
-            <div class="ob-intent-info">
-              <div class="ob-intent-title">New friends & connections</div>
-              <div class="ob-intent-desc">Expanding my circle with awesome people</div>
-            </div>
-          </div>
-          <div class="ob-intent-card" data-intent="figuring it out" onclick="selectObIntent(this)">
-            <span class="ob-intent-emoji">🧭</span>
-            <div class="ob-intent-info">
-              <div class="ob-intent-title">Still figuring it out</div>
-              <div class="ob-intent-desc">Exploring connections with zero pressure</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="ob-name-section" style="margin-top:16px">
-        <label class="ob-label">Quick-Fire Spark ⚡</label>
-        <div class="ob-vibe-list">
-          <div class="ob-vibe-row">
-            <span class="ob-vibe-row-title">Weekend Vibe:</span>
-            <div class="ob-vibe-pair" data-key="nightVibe">
-              <button type="button" class="ob-vibe-chip selected" data-val="night_out" onclick="selectObVibe(this, 'nightVibe')">🌙 Night Out</button>
-              <button type="button" class="ob-vibe-chip" data-val="staying_in" onclick="selectObVibe(this, 'nightVibe')">🛋️ Staying In</button>
-            </div>
-          </div>
-          <div class="ob-vibe-row">
-            <span class="ob-vibe-row-title">Getaway:</span>
-            <div class="ob-vibe-pair" data-key="escape">
-              <button type="button" class="ob-vibe-chip selected" data-val="beach" onclick="selectObVibe(this, 'escape')">🏖️ Beach</button>
-              <button type="button" class="ob-vibe-chip" data-val="mountains" onclick="selectObVibe(this, 'escape')">🏔️ Mountains</button>
-            </div>
-          </div>
-          <div class="ob-vibe-row">
-            <span class="ob-vibe-row-title">Stay in touch:</span>
-            <div class="ob-vibe-pair" data-key="comms">
-              <button type="button" class="ob-vibe-chip selected" data-val="texts" onclick="selectObVibe(this, 'comms')">💬 Texting</button>
-              <button type="button" class="ob-vibe-chip" data-val="calls" onclick="selectObVibe(this, 'comms')">📞 Spontaneous Calls</button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="ob-name-section" style="margin-top:16px">
-        <label class="ob-label">My Biggest Green Flag 💚</label>
-        <div class="ob-flags-grid" id="obFlagsGrid">
-          <span class="ob-flag-chip selected" onclick="selectObGreenFlag(this)">💬 Consistent communication</span>
-          <span class="ob-flag-chip" onclick="selectObGreenFlag(this)">💖 Kindness to servers</span>
-          <span class="ob-flag-chip" onclick="selectObGreenFlag(this)">🧠 Emotional maturity</span>
-          <span class="ob-flag-chip" onclick="selectObGreenFlag(this)">🔥 Passion for goals</span>
-          <span class="ob-flag-chip" onclick="selectObGreenFlag(this)">😂 Laughing easily</span>
-        </div>
-      </div>
-
-      <button class="ob-next-btn" onclick="obNext(3)">Continue <span>→</span></button>
-    </div>
-
-    <!-- Step 4: Pick interests -->
-    <div class="ob-step" id="obStep4">
-      <div class="ob-hero-emoji">🎯</div>
-      <h1 class="ob-title">What are you into?</h1>
-      <p class="ob-sub">Pick up to 5 passions — this is what sparks conversations.</p>
-      <div class="ob-interests-grid" id="obInterestsGrid">
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🎵 Music</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">✈️ Travel</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">💪 Fitness</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🎨 Art</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🍕 Food</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🎮 Gaming</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">📚 Books</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">👗 Fashion</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🌿 Nature</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">📈 Business</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🎬 Movies</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">☕ Coffee</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">💃 Dancing</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">💻 Tech</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🧘 Yoga</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🏖️ Beach</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🍷 Wine</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🎤 Afrobeats</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">🏋️ Sports</span>
-        <span class="ob-interest-tag" onclick="toggleObInterest(this)">📸 Photography</span>
-      </div>
-      <div class="ob-interest-count" id="obInterestCount">0 / 5 selected</div>
-      <button class="ob-next-btn" onclick="obNext(4)">Continue <span>→</span></button>
-    </div>
-
-    <!-- Step 5: Bio + photo hint -->
-    <div class="ob-step" id="obStep5">
-      <div class="ob-hero-emoji">🔥</div>
-      <h1 class="ob-title">One last thing</h1>
-      <p class="ob-sub">A good bio gives people something to start a conversation with. Tell them what makes you you.</p>
-      <div class="ob-name-section">
-        <label class="ob-label">Your bio</label>
-        <textarea class="ob-input" id="obBioInput" placeholder="What makes you unique? What are you looking for?" style="height:100px;resize:none;padding:14px" maxlength="200"></textarea>
-        <div class="ob-char-count"><span id="obBioCount">0</span>/200</div>
-      </div>
-      <div class="ob-photo-hint">
-        <div class="ob-photo-hint-icon">📸</div>
-        <div>
-          <div style="font-weight:700;font-size:0.9rem;color:var(--txt-primary)">Add photos later in Profile</div>
-          <div style="font-size:0.8rem;color:var(--txt-muted)">Clear photos of your face help people trust your profile</div>
-        </div>
-      </div>
-      <button class="ob-next-btn" onclick="obFinish()" id="obFinishBtn">Start Matching 🔥</button>
+    <div class="wiz-foot">
+      <button type="button" class="btn btn-primary btn-lg btn-block" id="obNextBtn" onclick="obContinue()">Continue</button>
     </div>
   </div>
 

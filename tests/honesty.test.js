@@ -140,3 +140,12 @@ test('report/block dialog never interpolates names into inline JavaScript', () =
   const fn = js.slice(js.indexOf('function reportUser()'), js.indexOf('async function persistBlockToFirestore'));
   assert.doesNotMatch(fn, /onclick=/, 'names with quotes would break or inject into inline handlers');
 });
+
+test('onboarding saves only what the person chose', () => {
+  const start = js.indexOf('const OB_STEPS');
+  const end = js.indexOf('// Override handleGoogleLoginSuccess');
+  const wiz = js.slice(start, end);
+  assert.ok(start > 0 && end > start);
+  assert.doesNotMatch(wiz, /nightVibe|greenFlag|currentUser\.prompts|currentUser\.lifestyle|'Male'|'night_out'/, 'no invented lifestyle, prompts or gender defaults');
+  assert.doesNotMatch(html.slice(html.indexOf('id="onboardingWizard"'), html.indexOf('id="matchConfettiCanvas"')), /selected"|aria-checked="true"/, 'no option is pre-selected');
+});
