@@ -184,28 +184,9 @@ body[data-theme="light"]::before {
   border-color: #FFFFFF !important;
 }
 
-/* Chat Screen (Light) */
-
 /* Profile & Settings (Light) */
-[data-theme="light"] .profile-hero-section {
-  background: linear-gradient(180deg, #F8F3FC 0%, #FFFFFF 100%) !important;
-}
-
-[data-theme="light"] .profile-display-name {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .profile-stat-num {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .profile-stat-label {
-  color: #685E79 !important;
-}
 
 [data-theme="light"] .profile-form,
-[data-theme="light"] .settings-card,
-[data-theme="light"] .settings-profile-card,
 [data-theme="light"] .ai-lab-card {
   background: #FFFFFF !important;
   border: 1px solid rgba(0, 0, 0, 0.07) !important;
@@ -255,35 +236,6 @@ body[data-theme="light"]::before {
 
 [data-theme="light"] .photo-upload-hint {
   color: #7A708A !important;
-}
-
-[data-theme="light"] .settings-section-label {
-  color: #4A3E5C !important;
-}
-
-[data-theme="light"] .settings-profile-name {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .settings-row {
-  border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
-}
-
-[data-theme="light"] .settings-row:hover {
-  background: #FAF7FD !important;
-}
-
-[data-theme="light"] .settings-row-label {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .settings-row-sub {
-  color: #685E79 !important;
-}
-
-[data-theme="light"] .settings-chevron {
-  background: #F4EFFB !important;
-  color: #685E79 !important;
 }
 
 [data-theme="light"] .ai-lab-title {
@@ -593,34 +545,6 @@ body[data-theme="light"]::before {
   font-weight: 600 !important;
 }
 
-/* Upgrade VIP Card in Profile */
-.profile-upgrade-banner {
-  background: radial-gradient(circle at 50% 0%, #2A1A0A 0%, #100B17 80%) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--r-lg) !important;
-  padding: 24px 20px !important;
-  margin-top: 24px !important;
-  text-align: center !important;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7) !important;
-  cursor: pointer !important;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease !important;
-}
-.profile-upgrade-banner:hover {
-  transform: translateY(-2px) !important;
-  border-color: var(--border-active) !important;
-}
-
-.upgrade-vip-features {
-  display: flex !important;
-  justify-content: center !important;
-  flex-wrap: wrap !important;
-  gap: 12px !important;
-  margin: 10px 0 !important;
-  font-size: 0.78rem !important;
-  font-weight: 700 !important;
-  color: #FFE066 !important;
-}
-
 /* Light Mode Overrides for AI Studio & Profile */
 [data-theme="light"] .ai-lab-card {
   background: #FFFFFF !important;
@@ -657,24 +581,6 @@ body[data-theme="light"]::before {
   border-color: #DDD5E7 !important;
   color: #140C1D !important;
 }
-[data-theme="light"] .profile-upgrade-banner {
-  background: #FFFFFF !important;
-  border: 1.5px solid #F4C550 !important;
-  box-shadow: 0 16px 48px rgba(244, 197, 80, 0.18), 0 4px 18px rgba(0, 0, 0, 0.04) !important;
-}
-
-[data-theme="light"] .upgrade-vip-title {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .upgrade-vip-sub {
-  color: #5A5068 !important;
-}
-
-[data-theme="light"] .upgrade-vip-features span {
-  color: #8C6400 !important;
-  font-weight: 800 !important;
-}
 
 /* Upgrade to Gold Paywall Modal (Light Mode) */
 
@@ -696,23 +602,12 @@ body[data-theme="light"]::before {
    LUXURY VECTOR ARROWS & CHEVRON PHYSICS
    ================================================================ */
 
-.settings-chevron,
-.settings-vip-arrow,
 .global-back-btn svg,
 .btn-arrow-icon {
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease !important;
-}
-
-.settings-row:hover .settings-chevron {
-  transform: translateX(4px) !important;
-  color: #FF2E70 !important;
-}
-
-.settings-vip-banner:hover .settings-vip-arrow {
-  transform: translateX(5px) scale(1.12) !important;
 }
 
 .accent-btn:hover .btn-arrow-icon {
@@ -722,7 +617,6 @@ body[data-theme="light"]::before {
 .global-back-btn:hover svg {
   transform: translateX(-4px) !important;
 }
-
 
 /* Input focus glow with gold shimmer */
 .auth-input:focus {
@@ -759,16 +653,6 @@ body[data-theme="light"]::before {
 }
 
 /* --- PROFILE SCREEN: Elevated premium feel --- */
-.profile-hero-section {
-  position: relative !important;
-}
-
-.profile-big-avatar {
-  border: 3px solid rgba(255,255,255,0.15) !important;
-  box-shadow:
-    0 8px 40px rgba(0,0,0,0.7),
-    0 0 0 6px rgba(255,46,112,0.12) !important;
-}
 
 .profile-form .form-input,
 .profile-form .form-textarea {
@@ -784,44 +668,6 @@ body[data-theme="light"]::before {
   background: rgba(209,58,99,0.06) !important;
   box-shadow: 0 0 0 3px rgba(209,58,99,0.14) !important;
 }
-
-/* --- SETTINGS SCREEN: Card rows --- */
-.settings-card {
-  background: rgba(255,255,255,0.04) !important;
-  border: 1px solid rgba(255,255,255,0.08) !important;
-  border-radius: 24px !important;
-  overflow: hidden !important;
-}
-
-.settings-row {
-  transition: background 0.18s ease !important;
-}
-.settings-row:hover {
-  background: rgba(255,255,255,0.05) !important;
-}
-
-.settings-row-label {
-  font-weight: 700 !important;
-  font-size: 0.95rem !important;
-}
-
-.settings-vip-banner {
-  background: linear-gradient(135deg, rgba(32,18,36,0.95) 0%, rgba(16,10,22,1) 100%) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--r-lg) !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
-}
-
-.settings-vip-title {
-  font-weight: 900 !important;
-  font-size: 1rem !important;
-  background: var(--gold-grad) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-}
-
-/* --- CHAT SCREEN: Ultra-clean messaging --- */
 
 /* --- MATCH POPUP: Dramatic celebration --- */
 .match-popup {
@@ -916,10 +762,6 @@ body[data-theme="light"]::before {
   background: linear-gradient(135deg, #FF2E70 0%, #D13A63 100%) !important;
   box-shadow: 0 0 12px rgba(255,46,112,0.4) !important;
 }
-.toggle-switch.green-switch input:checked + .toggle-slider {
-  background: linear-gradient(135deg, #34D399 0%, #10B981 100%) !important;
-  box-shadow: 0 0 12px rgba(16,185,129,0.4) !important;
-}
 
 /* --- CALL OVERLAY POLISH --- */
 .call-ctrl-btn {
@@ -983,40 +825,6 @@ body[data-theme="light"]::before {
   transform: translateX(3px) !important;
 }
 
-/* --- Settings Chevrons: fade + slide on row hover --- */
-.settings-chevron {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  color: rgba(255, 255, 255, 0.3) !important;
-  transition: color 0.2s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-  flex-shrink: 0 !important;
-}
-.settings-row:hover .settings-chevron {
-  color: #FF2E70 !important;
-  transform: translateX(4px) !important;
-}
-[data-theme="light"] .settings-chevron {
-  color: rgba(0, 0, 0, 0.25) !important;
-}
-[data-theme="light"] .settings-row:hover .settings-chevron {
-  color: #FF2E70 !important;
-}
-
-/* --- Settings VIP arrow: gold glow --- */
-.settings-vip-arrow {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  color: #F4C550 !important;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease !important;
-  flex-shrink: 0 !important;
-}
-.settings-vip-banner:hover .settings-vip-arrow {
-  transform: translateX(5px) !important;
-  filter: drop-shadow(0 0 6px rgba(244, 197, 80, 0.8)) !important;
-}
-
 /* --- Photo upload row arrow --- */
 .photo-upload-area svg:last-child {
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease !important;
@@ -1035,20 +843,8 @@ body[data-theme="light"]::before {
   transform: translateX(-4px) !important;
 }
 
-/* --- View Plans button in Profile banner --- */
-.profile-upgrade-banner .accent-btn svg,
-.profile-upgrade-banner button svg {
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-}
-.profile-upgrade-banner .accent-btn:hover svg,
-.profile-upgrade-banner button:hover svg {
-  transform: translateX(4px) !important;
-}
-
 /* Light theme overrides for chevrons */
-[data-theme="light"] .settings-vip-arrow {
-  color: #B8842B !important;
-}
+
 [data-theme="light"] .photo-upload-area svg:last-child {
   color: rgba(0, 0, 0, 0.3) !important;
 }
@@ -1073,27 +869,6 @@ body[data-theme="light"]::before {
   0% { filter: drop-shadow(0 0 12px rgba(255, 46, 112, 0.4)); transform: scale(1) rotate(0deg); }
   50% { filter: drop-shadow(0 0 28px rgba(255, 46, 112, 0.7)); transform: scale(1.06) rotate(5deg); }
   100% { filter: drop-shadow(0 0 12px rgba(255, 46, 112, 0.4)); transform: scale(1) rotate(0deg); }
-}
-
-/* Crown wrap containers: re-used as diamond containers */
-
-.upgrade-crown-wrap {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  margin-bottom: 8px !important;
-}
-
-.settings-vip-icon {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
-  width: 48px !important;
-  height: 48px !important;
-  background: rgba(244, 197, 80, 0.1) !important;
-  border-radius: 50% !important;
-  border: 1px solid rgba(244, 197, 80, 0.25) !important;
 }
 
 /* Hide any remaining crown SVG elements globally */
@@ -1456,242 +1231,13 @@ body[data-theme="light"] {
   color: #140C1D !important;
 }
 
-/* 4. Complete Profile Screen Polish (.hk-*) */
-[data-theme="light"] .hk-profile-workspace {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-top-action-btn {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  color: #140C1D !important;
-  box-shadow: 0 2px 8px rgba(70, 40, 90, 0.05) !important;
-}
-
-[data-theme="light"] .hk-top-action-btn:hover {
-  background: #F4EFFB !important;
-  border-color: #D3C9DF !important;
-  color: #140C1D !important;
-  transform: scale(1.06);
-}
-
-[data-theme="light"] .hk-top-action-btn svg {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-topbar-title {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-hero-card {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  backdrop-filter: blur(14px) !important;
-  -webkit-backdrop-filter: blur(14px) !important;
-  box-shadow: 0 12px 36px rgba(70, 40, 90, 0.07), 0 2px 8px rgba(0, 0, 0, 0.03) !important;
-}
-
-[data-theme="light"] .hk-avatar-circle {
-  border: 3px solid #FFFFFF !important;
-  box-shadow: 0 8px 24px rgba(70, 40, 90, 0.16) !important;
-  background-color: #F0EBF5 !important;
-}
-
-[data-theme="light"] .hk-avatar-initial {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-avatar-pencil-btn {
-  background: linear-gradient(135deg, #F4C550, #E5A93C) !important;
-  border: 2.5px solid #FFFFFF !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
-}
-
-[data-theme="light"] .hk-avatar-pencil-btn svg {
-  color: #171120 !important;
-}
-
-[data-theme="light"] .hk-profile-name {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-profile-location {
-  color: #6C627A !important;
-}
-
-[data-theme="light"] .hk-hero-edit-btn {
-  background: #F4EFFB !important;
-  border: 1.5px solid #DDD3E8 !important;
-  color: #140C1D !important;
-  box-shadow: 0 2px 8px rgba(70, 40, 90, 0.04) !important;
-}
-
-[data-theme="light"] .hk-hero-edit-btn:hover {
-  background: #ECE4F7 !important;
-  border-color: #C8BED6 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-hero-edit-btn svg {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-hero-preview-btn {
-  background: linear-gradient(135deg, rgba(255, 46, 112, 0.12), rgba(244, 197, 80, 0.15)) !important;
-  border: 1.5px solid rgba(255, 46, 112, 0.35) !important;
-  color: #D13A63 !important;
-  box-shadow: 0 2px 8px rgba(255, 46, 112, 0.06) !important;
-}
-
-[data-theme="light"] .hk-hero-preview-btn:hover {
-  background: linear-gradient(135deg, rgba(255, 46, 112, 0.2), rgba(244, 197, 80, 0.24)) !important;
-  border-color: #FF2E70 !important;
-  color: #D13A63 !important;
-}
-
-[data-theme="light"] .hk-hero-preview-btn svg {
-  color: #D13A63 !important;
-}
-
 /* Profile Strength Meter */
-[data-theme="light"] .hk-strength-box {
-  background: linear-gradient(135deg, #FFF5F8 0%, #F8F3FF 100%) !important;
-  border: 1px solid rgba(255, 46, 112, 0.22) !important;
-  box-shadow: 0 4px 18px rgba(255, 46, 112, 0.05) !important;
-}
-
-[data-theme="light"] .hk-strength-box:hover {
-  background: linear-gradient(135deg, #FFF0F5 0%, #F4ECFF 100%) !important;
-  border-color: rgba(255, 46, 112, 0.45) !important;
-}
-
-[data-theme="light"] .hk-strength-label {
-  color: #140C1D !important;
-}
 
 [data-theme="light"] .hk-strength-link {
   color: #D13A63 !important;
 }
 
-[data-theme="light"] .hk-strength-track {
-  background: #E8E1F0 !important;
-}
-
-[data-theme="light"] .hk-strength-tip {
-  color: #554C64 !important;
-  font-weight: 600 !important;
-}
-
-/* HookMe Gold Promo Card */
-[data-theme="light"] .hk-gold-promo-card {
-  background: linear-gradient(135deg, #FFFDF6 0%, #FFF5DB 100%) !important;
-  border: 1.5px solid #E5C065 !important;
-  box-shadow: 0 8px 24px rgba(212, 160, 23, 0.12) !important;
-}
-
-[data-theme="light"] .hk-gold-promo-card:hover {
-  border-color: #D4A017 !important;
-  box-shadow: 0 12px 30px rgba(212, 160, 23, 0.18) !important;
-}
-
-[data-theme="light"] .hk-gpc-tag {
-  color: #8C5B00 !important;
-  font-weight: 900 !important;
-}
-
-[data-theme="light"] .hk-gpc-title {
-  color: #2D1D00 !important;
-  font-weight: 800 !important;
-}
-
-[data-theme="light"] .hk-gpc-desc {
-  color: #634B16 !important;
-  font-weight: 500 !important;
-}
-
-[data-theme="light"] .hk-gpc-action-btn {
-  background: linear-gradient(135deg, #F4C550, #E5A93C) !important;
-  color: #171001 !important;
-  box-shadow: 0 4px 14px rgba(212, 160, 23, 0.28) !important;
-}
-
-/* Power-Ups Vault */
-[data-theme="light"] .hk-vault-heading {
-  color: #5C526A !important;
-}
-
-[data-theme="light"] .hk-v-card {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 4px 16px rgba(70, 40, 90, 0.04) !important;
-}
-
-[data-theme="light"] .hk-v-card:hover {
-  background: #FAF7FD !important;
-  border-color: #D5CCE0 !important;
-  box-shadow: 0 6px 20px rgba(70, 40, 90, 0.08) !important;
-}
-
-[data-theme="light"] .hk-v-metric {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-v-title {
-  color: #6C627A !important;
-}
-
-[data-theme="light"] .hk-v-btn-pill {
-  background: #F4EFFB !important;
-  border: 1px solid #DDD3E8 !important;
-  color: #140C1D !important;
-}
-
-/* Real Activity Stats Strip */
-[data-theme="light"] .hk-stats-strip {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 4px 16px rgba(70, 40, 90, 0.04) !important;
-}
-
-[data-theme="light"] .hk-stat-val {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-stat-sub {
-  color: #6C627A !important;
-}
-
-[data-theme="light"] .hk-stat-divider {
-  background: #EAE3F2 !important;
-}
-
-/* About & Passions */
-[data-theme="light"] .hk-bio-card {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 4px 16px rgba(70, 40, 90, 0.04) !important;
-}
-
-[data-theme="light"] .hk-bio-title {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-bio-edit-link {
-  color: #D13A63 !important;
-}
-
-[data-theme="light"] .hk-bio-text {
-  color: #3B3347 !important;
-}
-
-[data-theme="light"] .hk-passion-pill {
-  background: #F4EFFB !important;
-  border: 1px solid #DDD3E8 !important;
-  color: #2B213A !important;
-}
-
 /* 6. Chat Screen Polish */
-
 
 [data-theme="light"] #chatEditBar {
   background: #F4EFFB !important;
@@ -1699,81 +1245,9 @@ body[data-theme="light"] {
 }
 
 /* 7. Settings Screen Polish */
-[data-theme="light"] .settings-section-label {
-  color: #5C526A !important;
-}
-
-[data-theme="light"] .settings-card,
-[data-theme="light"] .settings-profile-card {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 4px 16px rgba(70, 40, 90, 0.04) !important;
-}
-
-[data-theme="light"] .settings-profile-name {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .settings-profile-edit-btn {
-  background: #F4EFFB !important;
-  border: 1px solid #DDD3E8 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .settings-row {
-  border-bottom: 1px solid #F0EAF5 !important;
-}
-
-[data-theme="light"] .settings-row:hover {
-  background: #FAF7FD !important;
-}
-
-[data-theme="light"] .settings-row-label {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .settings-row-sub {
-  color: #6C627A !important;
-}
-
-[data-theme="light"] .settings-row-value {
-  color: #3B3347 !important;
-}
-
-[data-theme="light"] .settings-chevron {
-  background: #F4EFFB !important;
-  color: #6C627A !important;
-}
-
-[data-theme="light"] .settings-vip-banner {
-  background: linear-gradient(135deg, #FFFBF0 0%, #FFF5DB 100%) !important;
-  border: 1.5px solid #E5C065 !important;
-  box-shadow: 0 4px 18px rgba(212, 160, 23, 0.1) !important;
-}
-
-[data-theme="light"] .settings-vip-title {
-  background: none !important;
-  -webkit-background-clip: initial !important;
-  -webkit-text-fill-color: #5C4100 !important;
-  color: #5C4100 !important;
-  font-weight: 900 !important;
-}
-
-[data-theme="light"] .settings-vip-sub {
-  color: #6E5316 !important;
-}
-
-[data-theme="light"] .settings-vip-arrow {
-  color: #8C6514 !important;
-}
 
 [data-theme="light"] .range-slider {
   background: #DDD5E7 !important;
-}
-
-[data-theme="light"] .settings-slider-value {
-  color: #FF2E70 !important;
-  font-weight: 800 !important;
 }
 
 [data-theme="light"] .ai-lab-card {
@@ -1814,27 +1288,6 @@ body[data-theme="light"] {
   background: #F4EFFB !important;
   border: 1px solid #DDD5E7 !important;
   color: #5C526A !important;
-}
-
-[data-theme="light"] .settings-signout-btn {
-  background: #F4EFFB !important;
-  border: 1px solid #DDD5E7 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .settings-delete-btn {
-  background: #FFF1F3 !important;
-  border: 1px solid #FFCCD5 !important;
-  color: #D13A63 !important;
-}
-
-[data-theme="light"] .settings-modern-footer,
-[data-theme="light"] .settings-modern-footer * {
-  color: #7A708A !important;
-}
-
-[data-theme="light"] .settings-modern-footer a {
-  color: #D13A63 !important;
 }
 
 /* 8. Modals, Sheets & Overlays */
@@ -2085,214 +1538,6 @@ body {
   align-items: center !important;
 }
 
-#profileScreen .profile-workspace,
-.hk-profile-workspace {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  padding: 16px clamp(12px, 3.5vw, 20px) 96px !important;
-  box-sizing: border-box !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: stretch !important;
-  gap: 16px !important;
-}
-
-.hk-profile-workspace > * {
-  width: 100% !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-  flex-shrink: 0 !important;
-}
-
-/* Profile Vault Cards (Super Likes, Boost, Rewinds): Never spill text/pills */
-.hk-vault-wrapper {
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.hk-vault-cards {
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: clamp(6px, 2vw, 10px) !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.hk-v-card {
-  min-width: 0 !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  overflow: hidden !important;
-  padding: 12px 6px 10px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  text-align: center !important;
-}
-
-.hk-v-icon {
-  font-size: clamp(1.1rem, 3.5vw, 1.35rem) !important;
-  margin-bottom: 2px !important;
-}
-
-.hk-v-metric {
-  font-size: clamp(0.72rem, 2.2vw, 0.88rem) !important;
-  font-weight: 800 !important;
-  color: var(--txt-primary, #FFFFFF) !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  max-width: 100% !important;
-}
-
-.hk-v-title {
-  font-size: clamp(0.6rem, 1.8vw, 0.7rem) !important;
-  color: #8C869A !important;
-  margin-top: 2px !important;
-  font-weight: 600 !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  max-width: 100% !important;
-}
-
-.hk-v-btn-pill {
-  margin-top: 6px !important;
-  padding: 4px 8px !important;
-  border-radius: 999px !important;
-  font-size: clamp(0.58rem, 1.8vw, 0.68rem) !important;
-  font-weight: 700 !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-/* Profile Stats Strip (Matches, Likes, Super Likes) */
-.hk-stats-strip {
-  display: flex !important;
-  align-items: center !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  padding: 12px 8px !important;
-  border-radius: 20px !important;
-}
-
-.hk-stat-cell {
-  flex: 1 1 0% !important;
-  min-width: 0 !important;
-  text-align: center !important;
-  overflow: hidden !important;
-  padding: 0 4px !important;
-}
-
-.hk-stat-val {
-  font-size: clamp(1.1rem, 3.5vw, 1.45rem) !important;
-  font-weight: 800 !important;
-  line-height: 1.1 !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  white-space: nowrap !important;
-}
-
-.hk-stat-sub {
-  font-size: clamp(0.62rem, 1.9vw, 0.74rem) !important;
-  font-weight: 600 !important;
-  color: #8C869A !important;
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-  max-width: 100% !important;
-}
-
-/* Profile Action Buttons Grid (Edit Profile, Preview Card) */
-.hk-hero-actions-grid {
-  display: grid !important;
-  grid-template-columns: 1fr 1fr !important;
-  gap: clamp(8px, 2vw, 12px) !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-}
-
-.hk-hero-btn {
-  padding: 10px 12px !important;
-  min-width: 0 !important;
-  font-size: clamp(0.72rem, 2.2vw, 0.84rem) !important;
-  overflow: hidden !important;
-}
-
-.hk-hero-btn span {
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
-}
-
-/* Membership Gold Promo Card */
-.hk-gold-promo-card {
-  width: 100% !important;
-  box-sizing: border-box !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  gap: 12px !important;
-  padding: 14px 16px !important;
-}
-
-.hk-gpc-left {
-  flex: 1 !important;
-  min-width: 0 !important;
-}
-
-.hk-gpc-title {
-  font-size: clamp(0.82rem, 2.4vw, 0.94rem) !important;
-  line-height: 1.3 !important;
-}
-
-.hk-gpc-desc {
-  font-size: clamp(0.68rem, 2vw, 0.76rem) !important;
-  line-height: 1.35 !important;
-}
-
-.hk-gpc-action-btn {
-  flex-shrink: 0 !important;
-  font-size: clamp(0.72rem, 2vw, 0.8rem) !important;
-  padding: 8px 14px !important;
-}
-
-/* Verification Prompt Card */
-.hk-verify-prompt-card {
-  width: 100% !important;
-  box-sizing: border-box !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-  padding: 12px 14px !important;
-}
-
-.hk-vpc-info {
-  flex: 1 !important;
-  min-width: 0 !important;
-}
-
-.hk-vpc-desc {
-  font-size: clamp(0.7rem, 2vw, 0.76rem) !important;
-  line-height: 1.35 !important;
-}
-
-.hk-vpc-btn {
-  flex-shrink: 0 !important;
-}
-
-/* Other Workspaces Centering */
-.settings-workspace {
-  width: 100% !important;
-  max-width: 520px !important;
-  margin: 0 auto !important;
-  box-sizing: border-box !important;
-}
-
 /* ==========================================================================
    RESPONSIVE TOP BAR: FLUID FIT ACROSS ALL PHONE WIDTHS & DP SETTINGS
    ========================================================================== */
@@ -2453,80 +1698,8 @@ button.accent-btn,
   box-shadow: 0 4px 14px rgba(180, 25, 75, 0.28) !important;
 }
 
-/* --- 7. SETTINGS SCREEN ENHANCEMENTS --- */
-[data-theme="light"] .settings-slider-value {
-  color: #9C1045 !important;
-  font-weight: 800 !important;
-}
-[data-theme="light"] .settings-online-status {
-  color: #0E7039 !important;
-  font-weight: 700 !important;
-}
-[data-theme="light"] .settings-badge-chip {
-  color: #8C4000 !important;
-  background: #FFF3E0 !important;
-  border: 1px solid #FFD180 !important;
-  font-weight: 700 !important;
-}
-[data-theme="light"] .settings-badge-chip.verified {
-  color: #0E7039 !important;
-  background: #E8F5E9 !important;
-  border-color: #A5D6A7 !important;
-}
-[data-theme="light"] .settings-signout-btn {
-  background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 6px 18px rgba(183, 24, 85, 0.25) !important;
-}
-[data-theme="light"] .settings-delete-btn {
-  background: #FFF2F6 !important;
-  border: 1.5px solid #C2185B !important;
-  color: #9C1045 !important;
-  font-weight: 800 !important;
-}
-[data-theme="light"] .settings-footer-copy {
-  color: #4D4258 !important;
-}
-[data-theme="light"] .settings-footer-copy strong {
-  color: #1E1328 !important;
-}
-
-[data-theme="dark"] .settings-footer-copy,
-.settings-footer-copy {
-  color: #A098AD !important;
-}
-[data-theme="dark"] .settings-footer-copy strong,
-.settings-footer-copy strong {
-  color: #EDE7F6 !important;
-}
-[data-theme="dark"] .settings-delete-btn,
-.settings-delete-btn {
-  background: rgba(243, 38, 112, 0.12) !important;
-  border-color: #FF5E8E !important;
-  color: #FF85AB !important;
-}
-[data-theme="dark"] .settings-signout-btn,
-.settings-signout-btn {
-  background: linear-gradient(135deg, #D13A63 0%, #9C1844 100%) !important;
-  color: #FFFFFF !important;
-}
-
 /* --- 8. PROFILE SCREEN & BADGES --- */
-[data-theme="light"] .hk-vpc-badge {
-  background: #E1F0FF !important;
-  color: #01579B !important;
-  border: 1px solid #81D4FA !important;
-  font-weight: 800 !important;
-}
-[data-theme="light"] .hk-vpc-btn {
-  background: linear-gradient(135deg, #0288D1, #01579B) !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 4px 14px rgba(2, 136, 209, 0.3) !important;
-}
-[data-theme="light"] .hk-section-title {
-  color: #4D4258 !important;
-  font-weight: 700 !important;
-}
+
 [data-theme="light"] .hk-strength-link {
   color: #9C1045 !important;
   font-weight: 800 !important;
@@ -2580,17 +1753,6 @@ button.accent-btn,
   color: #524760 !important;
 }
 
-[data-theme="light"] .settings-row-sub {
-  color: #524760 !important;
-  font-weight: 500 !important;
-}
-
-[data-theme="dark"] .settings-slider-value,
-.settings-slider-value {
-  color: #FF6584 !important;
-  font-weight: 700 !important;
-}
-
 [data-theme="dark"] .slider-marks,
 .slider-marks {
   color: #A098AD !important;
@@ -2602,28 +1764,12 @@ button.accent-btn,
   color: #FFFFFF !important;
 }
 
-.hk-vpc-btn,
-button#hkVerifyBtn.hk-vpc-btn {
-  background: linear-gradient(135deg, #0288D1 0%, #01579B 100%) !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 4px 14px rgba(2, 136, 209, 0.3) !important;
-}
-
-[data-theme="dark"] .hk-vpc-badge,
-.hk-vpc-badge {
-  color: #82C4FF !important;
-  background: rgba(43, 144, 235, 0.18) !important;
-  border-color: rgba(43, 144, 235, 0.35) !important;
-}
-
-[data-theme="light"] .hk-hero-preview-btn,
 [data-theme="light"] .preview-card-btn,
 [data-theme="light"] #profilePreviewBtn {
   background: #FFF0F4 !important;
   border: 1.5px solid #D13A63 !important;
   color: #7A1638 !important;
 }
-[data-theme="light"] .hk-hero-preview-btn span,
 [data-theme="light"] .preview-card-btn span,
 [data-theme="light"] #profilePreviewBtn span {
   color: #7A1638 !important;

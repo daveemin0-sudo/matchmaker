@@ -1,0 +1,154 @@
+/* ==========================================================================
+   Profile and Settings screens.
+   Both are one scrolling column of titled groups; rows come from components.css.
+   ========================================================================== */
+
+.acct {
+  flex: 1; min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 0 0 var(--s-8);
+}
+.acct > * + * { margin-top: var(--s-2); }
+
+/* ---------- Profile: identity ---------- */
+.acct-hero {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: var(--s-4);
+  padding: var(--s-6) var(--s-4) var(--s-5);
+  border-bottom: 1px solid var(--border);
+}
+.acct-avatar-wrap { position: relative; }
+.acct-avatar {
+  width: 112px; height: 112px; padding: 0;
+  border: 2px solid var(--border-strong);
+  display: grid; place-items: center;
+  color: var(--text-3);
+  cursor: pointer;
+}
+.acct-avatar.vip { border-color: var(--gold); }
+.acct-avatar-initial { display: grid; place-items: center; }
+.acct-avatar-initial .i { width: 44px; height: 44px; }
+.acct-avatar-cam {
+  position: absolute; right: -4px; bottom: -4px;
+  width: 40px; min-height: 40px; height: 40px; border-radius: 50%;
+  border: 3px solid var(--bg);
+}
+.acct-id { display: flex; flex-direction: column; gap: var(--s-1); align-items: center; min-width: 0; max-width: 100%; }
+.acct-name-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: var(--s-2); }
+.acct-name {
+  margin: 0; max-width: 100%;
+  font-size: var(--fs-xl); font-weight: 800; letter-spacing: -0.02em; line-height: var(--lh-snug);
+  overflow-wrap: anywhere;
+}
+.acct-loc { display: inline-flex; align-items: center; gap: var(--s-1); font-size: var(--fs-base); color: var(--text-2); }
+.acct-loc .i { width: 16px; height: 16px; color: var(--text-3); }
+.acct-hero-actions { display: flex; gap: var(--s-2); width: 100%; max-width: 360px; }
+.acct-hero-actions .btn { flex: 1; }
+
+.acct-photos { display: flex; gap: var(--s-2); width: 100%; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+.acct-photos::-webkit-scrollbar { display: none; }
+.acct-photos .profile-strip-thumb {
+  flex: none; width: 56px; height: 72px; border-radius: var(--r-sm);
+  background: var(--surface-raised) center / cover no-repeat;
+  border: 1px solid var(--border-strong); cursor: pointer;
+}
+.acct-photos .profile-strip-thumb.main { outline: 2px solid var(--primary-text); outline-offset: 1px; }
+
+/* ---------- Profile: blocks ---------- */
+.acct-block { padding: 0 var(--s-4) var(--s-3); border-bottom: 1px solid var(--border); }
+.acct-block .section-bar { padding-left: 0; padding-right: 0; }
+.acct-bio { margin: 0 0 var(--s-3); font-size: var(--fs-base); line-height: var(--lh-body); color: var(--text); overflow-wrap: anywhere; white-space: pre-wrap; }
+.acct-bio.is-empty { color: var(--text-3); }
+.acct-tags { display: flex; flex-wrap: wrap; gap: var(--s-2); padding-bottom: var(--s-3); }
+.acct-tags:empty { display: none; }
+.acct-tags .hk-passion-pill {
+  display: inline-flex; align-items: center; min-height: 32px; padding: 0 var(--s-3);
+  border: 1px solid var(--border); border-radius: var(--r-pill);
+  background: var(--surface-raised); color: var(--text-2);
+  font-size: var(--fs-sm); font-weight: 600;
+}
+.acct-value { font-size: var(--fs-md); font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+
+.acct-strength { display: flex; flex-direction: column; align-items: flex-start; gap: var(--s-3); padding-bottom: var(--s-3); }
+.meter { width: 100%; height: 8px; border-radius: var(--r-pill); background: var(--surface-raised); overflow: hidden; }
+.meter-fill { height: 100%; border-radius: inherit; background: var(--primary); transition: width var(--dur-3, 400ms) var(--ease-out); }
+.acct-hint { margin: 0; font-size: var(--fs-sm); color: var(--text-2); line-height: var(--lh-snug); }
+
+/* ---------- Grouped lists (shared by Profile and Settings) ---------- */
+.acct-group { padding: 0; }
+.acct-group > .section-label { margin: 0; padding-top: var(--s-4); }
+.acct-card {
+  margin: 0 var(--s-4);
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface); overflow: hidden;
+}
+.acct-card .row { padding-left: var(--s-3); padding-right: var(--s-3); }
+.acct-card label.row { cursor: pointer; }
+.acct-card label.row:hover { background: var(--surface-raised); }
+.acct-card .row-trail .i, .acct-card > .row > .row-trail, .row > svg.row-trail { width: 20px; height: 20px; }
+.acct-wrap { overflow-wrap: anywhere; }
+.acct-gold-icon { background: var(--gold-soft); color: var(--gold-text); }
+#hkVerifyBadge.verified { background: var(--success-soft); color: var(--success); border-color: transparent; }
+
+/* ---------- Settings: header cards ---------- */
+.acct-me, .acct-gold {
+  display: flex; align-items: center; gap: var(--s-3);
+  width: calc(100% - var(--s-8)); margin: var(--s-4) var(--s-4) 0;
+  padding: var(--s-3) var(--s-4); min-height: 64px;
+  border: 1px solid var(--border); border-radius: var(--r-md);
+  background: var(--surface); color: var(--text); text-align: left;
+}
+.acct-me:hover, .acct-gold:hover { background: var(--surface-raised); }
+.acct-me .avatar { width: 52px; height: 52px; }
+.acct-me-name { font-size: var(--fs-md); font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-gold { margin-top: var(--s-3); border-color: var(--gold); background: var(--gold-soft); }
+.acct-gold > .i:first-child { width: 24px; height: 24px; color: var(--gold-text); flex: none; }
+.acct-gold-title { font-size: var(--fs-base); font-weight: 800; color: var(--text); }
+.acct-gold .row-sub { color: var(--text-2); }
+.acct-gold.is-active { border-color: var(--border-strong); background: var(--surface); }
+
+/* ---------- Range sliders ---------- */
+.acct-slider-row { align-items: stretch; padding-top: var(--s-3); padding-bottom: var(--s-3); }
+.acct-slider { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--s-2); }
+.acct-slider-head .row-title { color: var(--text); font-weight: 600; }
+.acct-slider-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); }
+.acct-slider-pair { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: var(--s-1) var(--s-3); }
+.acct-mini { font-size: var(--fs-sm); color: var(--text-3); }
+
+.range {
+  --val: 50%;
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 28px; margin: 0; background: transparent; cursor: pointer;
+}
+.range::-webkit-slider-runnable-track {
+  height: 6px; border-radius: var(--r-pill);
+  background: linear-gradient(to right, var(--primary) var(--val), var(--border-strong) var(--val));
+}
+.range::-moz-range-track { height: 6px; border-radius: var(--r-pill); background: var(--border-strong); }
+.range::-moz-range-progress { height: 6px; border-radius: var(--r-pill); background: var(--primary); }
+.range::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 24px; height: 24px; margin-top: -9px; border-radius: 50%;
+  background: #fff; border: 2px solid var(--primary); box-shadow: var(--shadow-1);
+}
+.range::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 2px solid var(--primary); }
+.range:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: var(--r-xs); }
+
+/* ---------- Settings: footer and actions ---------- */
+.acct-actions { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-6) var(--s-4) 0; }
+.acct-foot { padding: var(--s-6) var(--s-4) 0; text-align: center; font-size: var(--fs-xs); color: var(--text-3); line-height: var(--lh-body); }
+.acct-foot p { margin: var(--s-1) 0 0; }
+.acct-foot-links { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s-1) var(--s-4); margin-bottom: var(--s-2); }
+.acct-foot-links .link-btn { min-height: 36px; display: inline-flex; align-items: center; font-size: var(--fs-sm); }
+
+@media (min-width: 900px) {
+  .acct-hero { flex-direction: row; text-align: left; flex-wrap: wrap; justify-content: flex-start; }
+  .acct-id { align-items: flex-start; flex: 1; }
+  .acct-name-row { justify-content: flex-start; }
+  .acct-hero-actions { max-width: none; width: auto; }
+  .acct-photos { flex-basis: 100%; }
+}
+
+/* Switch rows are <label>s: keep their text styled like button rows */
+.acct-card label.row .row-title { color: var(--text); font-weight: 600; }
+.acct-card label.row .row-sub { color: var(--text-3); font-weight: 400; }

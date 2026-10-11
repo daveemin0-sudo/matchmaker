@@ -302,18 +302,19 @@ let appState = {
   activeSafetyPartner: null,
 };
 
+// Blank until a real account (or the demo guest) is loaded: nothing here may read as someone's real profile.
 let currentUser = {
   id: 'me',
-  name: 'Dave',
-  username: 'dave',
+  name: '',
+  username: '',
   email: '',
-  age: 24,
-  bio: 'Software engineer and builder. Love beach hangouts in Lekki and good vibes.',
+  age: null,
+  bio: '',
   image: '',
   avatar: '',
-  location: 'Lagos, Nigeria',
-  gender: 'Male',
-  interests: ['Tech 💻', 'Fitness 💪', 'Music 🎵'],
+  location: '',
+  gender: '',
+  interests: [],
 };
 
 let profileStack = [...PROFILES_DATA];
@@ -1497,7 +1498,7 @@ function setTheme(theme) {
   }
 
   if (themeLabel) {
-    themeLabel.textContent = theme === 'light' ? 'Light Mode' : 'Dark Mode';
+    themeLabel.textContent = theme === 'light' ? 'Light mode is on' : 'Dark mode is on';
   }
 }
 
@@ -9778,11 +9779,11 @@ function renderProfileScreen() {
   const voicePlayBtn = document.getElementById('editVoicePlayBtn');
   const voiceDelBtn = document.getElementById('editVoiceDeleteBtn');
   if (currentUser.voiceIntro && currentUser.voiceIntro.duration) {
-    if (voiceStatus) voiceStatus.textContent = `✓ Voice intro recorded (${currentUser.voiceIntro.duration})`;
+    if (voiceStatus) voiceStatus.textContent = `Voice intro recorded (${currentUser.voiceIntro.duration})`;
     if (voicePlayBtn) voicePlayBtn.style.display = 'inline-flex';
     if (voiceDelBtn) voiceDelBtn.style.display = 'inline-flex';
   } else {
-    if (voiceStatus) voiceStatus.textContent = 'Add a short 10–15s voice intro to let matches hear your voice!';
+    if (voiceStatus) voiceStatus.textContent = 'Add a short voice intro so matches can hear you.';
     if (voicePlayBtn) voicePlayBtn.style.display = 'none';
     if (voiceDelBtn) voiceDelBtn.style.display = 'none';
   }
@@ -9805,19 +9806,21 @@ function renderProfileScreen() {
   if (fillEl) fillEl.style.width = pct + '%';
   if (pctEl) pctEl.textContent = pct + '%';
   if (tipEl) {
-    if (pct >= 95) tipEl.textContent = '🌟 All-star profile! You get maximum visibility in recommendations.';
+    if (pct >= 95) tipEl.textContent = 'Your profile is complete.';
     else if (!currentUser.voiceIntro) tipEl.textContent = 'Tip: Add a voice introduction to reach 100%.';
-    else if (!currentUser.photos || currentUser.photos.length < 3) tipEl.textContent = 'Tip: Profiles with 3+ photos get 4x more mutual likes!';
-    else tipEl.textContent = 'Tip: Add your lifestyle preferences to unlock high-affinity match suggestions.';
+    else if (!currentUser.photos || currentUser.photos.length < 3) tipEl.textContent = 'Tip: Add a third photo so people see more of you.';
+    else tipEl.textContent = 'Tip: Add your lifestyle details so people know you better.';
   }
 
-  const displayName = currentUser.name || currentUser.displayName || 'User';
-  const displayAge = currentUser.age || 24;
-  const displayLoc = currentUser.location || 'Lagos, Nigeria';
-  const displayBio = currentUser.bio || 'Living life with good energy, positive vibes only! ✨';
-  const displayInterests = (currentUser.interests && currentUser.interests.length > 0)
-    ? currentUser.interests
-    : ['Tech 💻', 'Fitness 💪', 'Music 🎵'];
+  const iconSvg = (name) => `<svg class="i" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+  const displayName = (currentUser.name || currentUser.displayName || '').trim() || 'Your name';
+  const rawAge = Number(currentUser.age);
+  const displayAge = Number.isFinite(rawAge) && rawAge >= 18 ? rawAge : null;
+  const displayLoc = String(currentUser.location || '').replace(/^[📍\s]+/, '').trim();
+  const displayBio = String(currentUser.bio || '').trim();
+  const displayInterests = Array.isArray(currentUser.interests)
+    ? currentUser.interests.filter(t => typeof t === 'string' && t.trim())
+    : [];
 
   // Robust photo resolution: checks photos array, image, avatar, photoURL, and localStorage
   let photos = Array.isArray(currentUser.photos) && currentUser.photos.length > 0
@@ -9852,71 +9855,48 @@ function renderProfileScreen() {
 
   if (avatar) {
     if (photo) {
-      avatar.style.backgroundImage = `url('${photo}')`;
-      avatar.style.backgroundSize = 'cover';
-      avatar.style.backgroundPosition = 'center';
-      if (initialEl) initialEl.style.display = 'none';
+      avatar.style.backgroundImage = `url('${safeCssUrl(photo)}')`;
+      if (initialEl) initialEl.innerHTML = '';
     } else {
       avatar.style.backgroundImage = 'none';
-      if (initialEl) {
-        initialEl.innerHTML = `<svg width="42" height="42" viewBox="0 0 24 24" fill="rgba(255,255,255,0.7)"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`;
-        initialEl.style.display = 'flex';
-        initialEl.style.alignItems = 'center';
-        initialEl.style.justifyContent = 'center';
-      }
+      if (initialEl) initialEl.innerHTML = iconSvg('user');
     }
-    if (appState.isVip) avatar.classList.add('vip');
-    else avatar.classList.remove('vip');
+    avatar.classList.toggle('vip', Boolean(appState.isVip));
   }
 
-  if (nameEl) {
-    nameEl.textContent = String(displayName) + ', ' + String(displayAge);
-  }
-    // Photo Verification Prompt Card & Badge State
+  if (nameEl) nameEl.textContent = displayAge ? `${displayName}, ${displayAge}` : displayName;
+
+  // Photo verification
   const verifiedBadge = document.getElementById('profileVerifiedBadge');
   const vpcCard = document.getElementById('hkVerifyPromptCard');
   const vpcBadge = document.getElementById('hkVerifyBadge');
   const vpcTitle = document.getElementById('hkVerifyTitle');
   const vpcDesc = document.getElementById('hkVerifyDesc');
-  const vpcBtn = document.getElementById('hkVerifyBtn');
 
   const isVerified = currentUser.isVerified === true || localStorage.getItem('hmbs_verified') === 'true';
-  if (isVerified) {
-    currentUser.isVerified = true;
-    if (verifiedBadge) verifiedBadge.style.display = 'inline-flex';
-    if (vpcBadge) {
-      vpcBadge.textContent = 'Verified ✓';
-      vpcBadge.className = 'hk-vpc-badge verified';
-    }
-    if (vpcTitle) vpcTitle.textContent = 'Photo Verified Account';
-    if (vpcDesc) vpcDesc.textContent = 'Your selfie verification is active with official blue badge protection.';
-    if (vpcBtn) {
-      vpcBtn.textContent = 'Verified ✓';
-      vpcBtn.style.background = 'linear-gradient(135deg, #21B06B, #1B9B5C)';
-      vpcBtn.style.pointerEvents = 'none';
-    }
-  } else {
-    if (verifiedBadge) verifiedBadge.style.display = 'none';
-    if (vpcBadge) {
-      vpcBadge.textContent = 'Get Verified';
-      vpcBadge.className = 'hk-vpc-badge';
-    }
-    if (vpcTitle) vpcTitle.textContent = 'Photo Verification';
-    if (vpcDesc) vpcDesc.textContent = 'Prove you\'re really you with a quick selfie scan and unlock the official blue checkmark!';
-    if (vpcBtn) {
-      vpcBtn.textContent = 'Verify';
-      vpcBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
-      vpcBtn.style.pointerEvents = 'auto';
-    }
+  if (isVerified) currentUser.isVerified = true;
+  if (verifiedBadge) verifiedBadge.style.display = isVerified ? 'inline-flex' : 'none';
+  if (vpcCard) vpcCard.disabled = isVerified;
+  if (vpcBadge) {
+    vpcBadge.textContent = isVerified ? 'Verified' : 'Not verified';
+    vpcBadge.className = isVerified ? 'badge badge-verified' : 'badge';
   }
+  if (vpcTitle) vpcTitle.textContent = isVerified ? 'Photo verified' : 'Photo verification';
+  if (vpcDesc) vpcDesc.textContent = isVerified
+    ? 'Your selfie check is complete. The Verified badge shows on your profile.'
+    : 'Take a quick selfie to earn the Verified badge.';
 
   const vipBadge = document.getElementById('profileVipBadge');
-  if (vipBadge) {
-    vipBadge.style.display = appState.isVip ? 'inline-flex' : 'none';
-  }
+  if (vipBadge) vipBadge.style.display = appState.isVip ? 'inline-flex' : 'none';
 
-  if (locEl) locEl.textContent = '📍 ' + displayLoc.replace(/^[📍\s]+/, '');
-  if (bioEl) bioEl.textContent = displayBio;
+  if (locEl) {
+    locEl.hidden = !displayLoc;
+    locEl.innerHTML = displayLoc ? `${iconSvg('map-pin')}<span>${escHtml(displayLoc)}</span>` : '';
+  }
+  if (bioEl) {
+    bioEl.textContent = displayBio || 'Add a short bio so people know who you are.';
+    bioEl.classList.toggle('is-empty', !displayBio);
+  }
   if (interestsEl) {
     interestsEl.innerHTML = displayInterests.map(tag => `<span class="hk-passion-pill">${escHtml(tag)}</span>`).join('');
   }
@@ -9927,7 +9907,7 @@ function renderProfileScreen() {
     if (photos.length > 1) {
       strip.style.display = 'flex';
       strip.innerHTML = photos.map((url, i) => `
-        <div class="profile-strip-thumb ${i === 0 ? 'main' : ''}" style="background-image:url('${safeCssUrl(url)}')" onclick="openEditProfileModal()" title="${i === 0 ? 'Main Photo' : 'Photo ' + (i + 1)}"></div>
+        <div class="profile-strip-thumb ${i === 0 ? 'main' : ''}" style="background-image:url('${safeCssUrl(url)}')" onclick="openEditProfileModal()" title="${i === 0 ? 'Main photo' : 'Photo ' + (i + 1)}"></div>
       `).join('');
     } else {
       strip.style.display = 'none';
@@ -9935,101 +9915,60 @@ function renderProfileScreen() {
     }
   }
 
-  // Pre-fill form inputs in edit modal
-  if (nameInput) nameInput.value = displayName;
-  if (ageInput) ageInput.value = displayAge;
+  // Pre-fill the edit form with the user's real values only
+  if (nameInput) nameInput.value = (currentUser.name || currentUser.displayName || '');
+  if (ageInput) ageInput.value = displayAge || '';
   if (bioInput) bioInput.value = displayBio;
   if (locInput) locInput.value = displayLoc;
   if (interestsInput) interestsInput.value = displayInterests.join(', ');
 
-  // Dynamic Profile Strength Calculation
-  // Baseline (Name, Age, Location): 15%
+  // Profile strength: what is filled in, nothing else
   let strength = 15;
-  if (photos.length >= 1) strength += 20; // Main photo
-  if (photos.length >= 2) strength += 15; // Additional photos
-  if (photos.length >= 3) strength += 10; // 3+ photos gallery
-  if (displayBio && displayBio.length > 15) strength += 15; // Engaging bio
-  if (displayInterests && displayInterests.length >= 2) strength += 10; // Passions
-  if (isVerified) strength += 15; // Photo verification blue badge bonus!
-  strength = Math.min(100, Math.max(15, strength));
+  if (photos.length >= 1) strength += 20;
+  if (photos.length >= 2) strength += 15;
+  if (photos.length >= 3) strength += 10;
+  if (displayBio.length > 15) strength += 15;
+  if (displayInterests.length >= 2) strength += 10;
+  if (isVerified) strength += 15;
+  strength = Math.min(100, strength);
 
   const strengthVal = document.getElementById('hkStrengthPercent');
   const strengthBar = document.getElementById('hkStrengthBar');
+  const strengthMeter = document.getElementById('hkStrengthMeter');
   const strengthHint = document.getElementById('hkStrengthHint');
   const strengthLink = document.querySelector('.hk-strength-link');
 
   if (strengthVal) strengthVal.textContent = strength + '%';
   if (strengthBar) strengthBar.style.width = strength + '%';
-  if (strengthLink) {
-    if (strength === 100) {
-      strengthLink.innerHTML = 'Superstar ⭐';
-      strengthLink.style.color = '#F4C550';
-    } else {
-      strengthLink.innerHTML = 'Complete Profile &rarr;';
-      strengthLink.style.color = '';
-    }
-  }
-
+  if (strengthMeter) strengthMeter.setAttribute('aria-valuenow', String(strength));
+  if (strengthLink) strengthLink.style.display = strength >= 100 ? 'none' : '';
   if (strengthHint) {
-    if (photos.length === 0) {
-      strengthHint.textContent = '📸 Add your first profile photo to start getting matches!';
-    } else if (photos.length < 2) {
-      strengthHint.textContent = '📸 Add at least 1 more photo to boost discovery visibility by 3.5×';
-    } else if (!isVerified) {
-      strengthHint.textContent = '🛡️ Complete selfie photo verification below to earn the Blue Badge & +15% boost!';
-    } else if (!displayBio || displayBio.length < 15) {
-      strengthHint.textContent = '✍️ Add an engaging personal bio to reach 100% Superstar status!';
-    } else if (displayInterests.length < 2) {
-      strengthHint.textContent = '🎵 Add passions and interests to get matched with like-minded people!';
-    } else {
-      strengthHint.textContent = '🌟 100% Superstar Profile Active! Your profile gets maximum priority matching.';
-    }
+    if (photos.length === 0) strengthHint.textContent = 'Add a photo so people can see who you are.';
+    else if (photos.length < 2) strengthHint.textContent = 'Add at least one more photo.';
+    else if (!isVerified) strengthHint.textContent = 'Verify your photo to show the Verified badge.';
+    else if (displayBio.length <= 15) strengthHint.textContent = 'Write a bio of at least 16 characters.';
+    else if (displayInterests.length < 2) strengthHint.textContent = 'Add a couple of interests.';
+    else strengthHint.textContent = 'Your profile is complete.';
   }
 
-  // HookMe Gold Promo Banner State
+  // Gold row
   const vipHeading = document.getElementById('hkVipHeading');
   const vipSub = document.getElementById('hkVipSub');
   const vipCtaBtn = document.getElementById('hkVipCtaBtn');
-  if (appState.isVip) {
-    if (vipHeading) vipHeading.textContent = 'HookMe Gold Active 👑';
-    if (vipSub) vipSub.textContent = 'Unlimited Swipes, Rewinds, and Priority Likes';
-    if (vipCtaBtn) {
-      vipCtaBtn.textContent = 'Manage';
-      vipCtaBtn.style.background = 'rgba(255,255,255,0.15)';
-      vipCtaBtn.style.color = '#FFF';
-    }
-  } else {
-    if (vipHeading) vipHeading.textContent = 'See Who Likes You & Unlimited Swipes';
-    if (vipSub) vipSub.textContent = '5 daily Super Likes • Free monthly Boost • Rewinds';
-    if (vipCtaBtn) {
-      vipCtaBtn.textContent = 'Upgrade';
-      vipCtaBtn.style.background = 'linear-gradient(135deg, #F4C550, #E5A93C)';
-      vipCtaBtn.style.color = '#120D1A';
-    }
+  const goldRow = document.getElementById('hkGoldRow');
+  if (goldRow) goldRow.disabled = Boolean(appState.isVip);
+  if (vipHeading) vipHeading.textContent = appState.isVip ? 'HookMe Gold is active' : 'HookMe Gold';
+  if (vipSub) vipSub.textContent = 'Unlimited likes, rewinds and AI portraits';
+  if (vipCtaBtn) {
+    vipCtaBtn.textContent = appState.isVip ? 'Active' : 'See plans';
+    vipCtaBtn.classList.toggle('btn-gold', !appState.isVip);
+    vipCtaBtn.classList.toggle('btn-secondary', Boolean(appState.isVip));
   }
 
-  // Power-Ups Vault Tokens
-  const vSuper = document.getElementById('vaultSuperLikesVal');
-  const vBoost = document.getElementById('vaultBoostsVal');
-  const vRewind = document.getElementById('vaultRewindVal');
-  const vRewindBtn = document.getElementById('vaultRewindBtn');
-
-  if (vSuper) vSuper.textContent = appState.isVip ? '5 Daily' : (appState.superLikesRemaining || 0) + ' Left';
-  if (vBoost) vBoost.textContent = appState.isBoostActive ? 'Active ⚡' : (appState.isVip ? '1 Ready' : 'Get Boost');
-  if (vRewind) vRewind.textContent = appState.isVip ? 'Unlimited' : (appState.rewindsLeft || 1) + ' Left';
-  if (vRewindBtn) vRewindBtn.textContent = appState.isVip ? 'VIP Active' : 'Unlock';
-
-  // Real stats based on actual user activity
+  // Matches count: real matches only
   const realMatches = Array.isArray(matchedUsers) ? matchedUsers.filter(u => u && !DUMMY_USER_IDS.includes(u.id)).length : 0;
-  const realLikes = parseInt(localStorage.getItem('hmbs_real_likes_count') || '0', 10);
-  const realSuper = parseInt(localStorage.getItem('hmbs_real_super_count') || '0', 10);
-
   const matchesCount = document.getElementById('statMatches');
   if (matchesCount) matchesCount.textContent = realMatches;
-  const likesCount = document.getElementById('statLikes');
-  if (likesCount) likesCount.textContent = realLikes;
-  const superCount = document.getElementById('statSuper');
-  if (superCount) superCount.textContent = realSuper;
 }
 
 let _editProfilePhotos = [null, null, null, null, null, null];
@@ -10646,8 +10585,9 @@ async function callImagenAPI(promptText) {
 function renderSettingsScreen() {
   const avatar = document.getElementById('settingsAvatar');
   const nameEl = document.getElementById('settingsProfileName');
-  if (avatar) avatar.style.backgroundImage = `url('${currentUser.image}')`;
-  if (nameEl) nameEl.textContent = currentUser.name;
+  const settingsPhoto = currentUser.image || currentUser.avatar || '';
+  if (avatar) avatar.style.backgroundImage = settingsPhoto ? `url('${safeCssUrl(settingsPhoto)}')` : 'none';
+  if (nameEl) nameEl.textContent = currentUser.name || currentUser.displayName || 'Your profile';
 
   const currentTheme = localStorage.getItem('hookmebysam_theme') || 'dark';
   setTheme(currentTheme);
@@ -10682,12 +10622,13 @@ function renderSettingsScreen() {
   const safetyStealthToggle = document.getElementById('safetyStealthToggle');
   if (safetyStealthToggle) safetyStealthToggle.checked = Boolean(appState.isStealthMode);
 
-  // VIP status
+  // Gold status
   const vipStatus = document.getElementById('vipStatusRow');
-  if (vipStatus) {
-    vipStatus.innerHTML = appState.isVip
-      ? '<span style="color:var(--gold-1);font-weight:700">👑 VIP Gold Active</span>'
-      : '<span style="color:var(--flame-1);font-weight:700;cursor:pointer" onclick="openPaywall(\'settings\')">Upgrade to VIP →</span>';
+  const goldCard = document.getElementById('settingsGoldCard');
+  if (vipStatus) vipStatus.textContent = appState.isVip ? 'HookMe Gold is active' : 'Upgrade to Gold';
+  if (goldCard) {
+    goldCard.disabled = Boolean(appState.isVip);
+    goldCard.classList.toggle('is-active', Boolean(appState.isVip));
   }
 
   // User email & verification status
@@ -10697,17 +10638,16 @@ function renderSettingsScreen() {
   const emailBadge = document.getElementById('settingsEmailBadge');
   if (emailBadge) {
     const isVerified = Boolean(typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.emailVerified);
+    emailBadge.hidden = !currentUser.email;
     if (isVerified) {
-      emailBadge.innerHTML = '&#10003; Verified';
-      emailBadge.style.background = 'rgba(33,176,107,0.15)';
-      emailBadge.style.color = '#21B06B';
-      emailBadge.style.cursor = 'default';
+      emailBadge.textContent = 'Verified';
+      emailBadge.className = 'badge badge-verified';
+      emailBadge.disabled = true;
       emailBadge.onclick = null;
     } else {
-      emailBadge.innerHTML = 'Unverified &bull; Tap to verify';
-      emailBadge.style.background = 'rgba(244,197,80,0.15)';
-      emailBadge.style.color = '#F4C550';
-      emailBadge.style.cursor = 'pointer';
+      emailBadge.textContent = 'Verify email';
+      emailBadge.className = 'btn btn-secondary btn-sm';
+      emailBadge.disabled = false;
       emailBadge.onclick = handleResendEmailVerification;
     }
   }
@@ -10726,11 +10666,11 @@ function renderSettingsScreen() {
   const phoneSub = document.getElementById('settingsPhoneSub');
   if (phoneSub) {
     if (currentUser.phone && (currentUser.phoneVerified || currentUser.isPhoneVerified)) {
-      phoneSub.innerHTML = `<span style="color:#21B06B;font-weight:600">+234 ${currentUser.phone} &#10003; Verified</span>`;
+      phoneSub.textContent = `+234 ${currentUser.phone} · Verified`;
     } else if (currentUser.phone) {
-      phoneSub.textContent = `+234 ${currentUser.phone} (Tap to verify)`;
+      phoneSub.textContent = `+234 ${currentUser.phone} · Not verified`;
     } else {
-      phoneSub.textContent = 'Tap to verify your number';
+      phoneSub.textContent = 'Add and verify your number';
     }
   }
 
@@ -10738,7 +10678,7 @@ function renderSettingsScreen() {
   const blockedSub = document.getElementById('settingsBlockedCountSub');
   if (blockedSub) {
     const count = blockedUsers.length;
-    blockedSub.textContent = count === 1 ? '1 contact blocked' : `${count} contacts blocked`;
+    blockedSub.textContent = count === 0 ? 'No one blocked' : (count === 1 ? '1 person blocked' : `${count} people blocked`);
   }
 
   // Video call streaming quality subtext
@@ -10746,9 +10686,11 @@ function renderSettingsScreen() {
   const qualitySub = document.getElementById('videoQualitySubtext');
   if (qualitySub) {
     if (currentQuality === '1080p') qualitySub.textContent = '1080p (uses more data)';
-    else if (currentQuality === '720p') qualitySub.textContent = 'HD 720p (Balanced)';
-    else qualitySub.textContent = 'Standard 480p (Data Saver)';
+    else if (currentQuality === '720p') qualitySub.textContent = '720p (balanced)';
+    else qualitySub.textContent = '480p (saves data)';
   }
+
+  renderNotifRow();
 
   // Device permissions subtext
   const permSub = document.getElementById('devicePermissionsSubtext');
@@ -10756,6 +10698,41 @@ function renderSettingsScreen() {
     updateDevicePermissionsSubtext(permSub);
   }
 }
+
+function renderNotifRow() {
+  const sub = document.getElementById('settingsNotifSub');
+  if (!sub) return;
+  if (!('Notification' in window)) {
+    sub.textContent = 'Not supported in this browser';
+  } else if (Notification.permission === 'granted') {
+    sub.textContent = 'On. You will be alerted to matches and messages.';
+  } else if (Notification.permission === 'denied') {
+    sub.textContent = 'Blocked. Allow notifications in your browser settings.';
+  } else {
+    sub.textContent = 'Off. Tap to turn on.';
+  }
+}
+
+function handleNotifRowClick() {
+  if (!('Notification' in window)) {
+    showToast('This browser does not support notifications.', 'info');
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    showToast('Notifications are on. To turn them off, use your browser or phone settings.', 'info');
+  } else if (Notification.permission === 'denied') {
+    showToast('Notifications are blocked. Allow them in your browser or phone settings.', 'warning');
+  } else {
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') {
+        if (typeof initPushNotifications === 'function') initPushNotifications();
+        showToast('Notifications are on.', 'success');
+      }
+      renderNotifRow();
+    }).catch(() => renderNotifRow());
+  }
+}
+window.handleNotifRowClick = handleNotifRowClick;
 
 async function handleResendEmailVerification() {
   if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
@@ -11640,48 +11617,6 @@ function applyVipUI() {
     boostBtn.title = 'Profile Boost (VIP Unlimited)';
   }
 
-  // 8. Profile screen: Upgrade banner
-  const profileBanner = document.querySelector('.profile-upgrade-banner');
-  if (profileBanner) {
-    if (isVip) {
-      profileBanner.style.background = 'linear-gradient(135deg, rgba(244, 197, 80, 0.22) 0%, rgba(184, 132, 43, 0.12) 100%)';
-      profileBanner.style.border = '1.5px solid rgba(244, 197, 80, 0.45)';
-      profileBanner.innerHTML = `
-        <div class="upgrade-crown-wrap">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 0 16px rgba(244,197,80,0.9))">
-            <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="#F4C550"/>
-          </svg>
-        </div>
-        <div class="upgrade-vip-title" style="color:var(--gold-1)">👑 VIP Gold Member Active</div>
-        <p class="upgrade-vip-sub">You have unlimited rewinds, infinite AI dream portraits, and priority matching unlocked.</p>
-        <button class="accent-btn" style="background:var(--gold-grad);color:#2E1A08;box-shadow:var(--shadow-gold);max-width:240px;margin:0 auto;font-weight:800" onclick="event.stopPropagation();showToast('👑 VIP Gold status is active on your account!', 'gold')">✓ Perks Active</button>
-      `;
-      profileBanner.onclick = () => showToast('👑 You are currently enjoying full VIP Gold access!', 'gold');
-    }
-  }
-
-  // 9. Settings screen: VIP Banner & Row
-  const settingsBanner = document.querySelector('.settings-vip-banner');
-  if (settingsBanner) {
-    if (isVip) {
-      settingsBanner.style.borderColor = 'rgba(244, 197, 80, 0.5)';
-      settingsBanner.style.background = 'linear-gradient(135deg, rgba(244, 197, 80, 0.15) 0%, rgba(20, 10, 30, 0.6) 100%)';
-      const title = settingsBanner.querySelector('.settings-vip-title');
-      const sub = settingsBanner.querySelector('.settings-vip-sub');
-      const arrow = settingsBanner.querySelector('.settings-vip-arrow');
-      if (title) title.innerHTML = '<span style="color:var(--gold-1)">👑 VIP Gold Active</span>';
-      if (sub) sub.textContent = 'Unlimited Rewinds · Infinite AI · Secret Likes Unlocked';
-      if (arrow) arrow.innerHTML = '✓';
-      settingsBanner.onclick = () => showToast('👑 Your VIP Gold subscription is active!', 'gold');
-    }
-  }
-
-  const vipStatus = document.getElementById('vipStatusRow');
-  if (vipStatus) {
-    vipStatus.innerHTML = isVip
-      ? '<span style="color:var(--gold-1);font-weight:700">👑 VIP Gold Active (Unlimited)</span>'
-      : '<span style="color:var(--flame-1);font-weight:700;cursor:pointer" onclick="openPaywall(\'settings\')">Upgrade to VIP →</span>';
-  }
 }
 
 function updateLimitBadges() {
@@ -14104,7 +14039,7 @@ function openPhoneVerificationModal() {
   const saved = currentUser.phone || '';
   const sub = document.getElementById('settingsPhoneSub');
   if (saved && (currentUser.phoneVerified || currentUser.isPhoneVerified) && sub) {
-    sub.innerHTML = `<span style="color:#21B06B;font-weight:600">+234 ${saved} &#10003; Verified</span>`;
+    sub.textContent = `+234 ${saved} · Verified`;
   }
   modal.style.display = 'flex';
   const inp = document.getElementById('phoneNumberInput');
@@ -14634,8 +14569,8 @@ function openProfileCardPreview() {
   if (!modal) return;
 
   _hkPreviewPhotosList = Array.isArray(currentUser.photos) && currentUser.photos.length > 0
-    ? currentUser.photos.slice()
-    : (currentUser.image ? [currentUser.image] : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800']);
+    ? currentUser.photos.filter(Boolean)
+    : (currentUser.image ? [currentUser.image] : []);
 
   _hkPreviewPhotoIndex = 0;
 
@@ -14645,16 +14580,17 @@ function openProfileCardPreview() {
   const tagsEl = document.getElementById('hkPreviewTags');
 
   const displayName = currentUser.name || currentUser.displayName || 'You';
-  const displayAge = currentUser.age || 24;
-  const displayLoc = currentUser.location || 'Lagos, Nigeria';
-  const displayBio = currentUser.bio || 'Living life with good energy, positive vibes only! ✨';
-  const displayInterests = (currentUser.interests && currentUser.interests.length > 0)
-    ? currentUser.interests
-    : ['Tech 💻', 'Fitness 💪', 'Music 🎵'];
+  const rawAge = Number(currentUser.age);
+  const displayAge = Number.isFinite(rawAge) && rawAge >= 18 ? rawAge : null;
+  const displayLoc = String(currentUser.location || '').replace(/^[📍\s]+/, '').trim();
+  const displayBio = String(currentUser.bio || '').trim();
+  const displayInterests = Array.isArray(currentUser.interests)
+    ? currentUser.interests.filter(t => typeof t === 'string' && t.trim())
+    : [];
 
-  if (nameEl) nameEl.textContent = displayName + ', ' + displayAge;
-  if (locEl) locEl.textContent = '📍 ' + displayLoc.replace(/^[📍\s]+/, '');
-  if (bioEl) bioEl.textContent = displayBio;
+  if (nameEl) nameEl.textContent = displayAge ? displayName + ', ' + displayAge : displayName;
+  if (locEl) { locEl.textContent = displayLoc; locEl.style.display = displayLoc ? '' : 'none'; }
+  if (bioEl) { bioEl.textContent = displayBio; bioEl.style.display = displayBio ? '' : 'none'; }
   if (tagsEl) {
     tagsEl.innerHTML = displayInterests.map(t => `<span class="hk-preview-tag">${escHtml(t)}</span>`).join('');
   }
@@ -14678,6 +14614,7 @@ function _renderPreviewCardPhoto() {
   const imgEl = document.getElementById('hkPreviewPhotoImg');
   const barsEl = document.getElementById('hkPreviewBars');
 
+  if (imgEl && _hkPreviewPhotosList.length === 0) imgEl.removeAttribute('src');
   if (imgEl && _hkPreviewPhotosList.length > 0) {
     const currentUrl = _hkPreviewPhotosList[_hkPreviewPhotoIndex] || _hkPreviewPhotosList[0];
     imgEl.src = currentUrl;
@@ -14730,23 +14667,6 @@ function closeSafetyToolkitModal() {
 }
 window.closeSafetyToolkitModal = closeSafetyToolkitModal;
 
-function triggerProfileBoost() {
-  if (appState.isBoostActive) {
-    showToast('⚡ Profile Boost is currently ACTIVE!');
-    return;
-  }
-  if (!appState.isVip) {
-    openPaywall('boost_upgrade');
-    return;
-  }
-  if (typeof startBoost === 'function') {
-    startBoost();
-    renderProfileScreen();
-  } else {
-    showToast('⚡ Profile Boost activated for 30 minutes!');
-  }
-}
-
 // ==========================================================
 // DEVICE PERMISSIONS & VIDEO CALL QUALITY MODALS
 // ==========================================================
@@ -14754,7 +14674,7 @@ function triggerProfileBoost() {
 function updateDevicePermissionsSubtext(el) {
   if (!el) return;
   if (!navigator.permissions) {
-    el.textContent = 'Camera, Mic & Location: Manage';
+    el.textContent = 'Manage camera, microphone and location';
     return;
   }
   Promise.all([
@@ -14762,14 +14682,14 @@ function updateDevicePermissionsSubtext(el) {
     navigator.permissions.query({ name: 'microphone' }).catch(() => null)
   ]).then(([cam, mic]) => {
     if (cam?.state === 'granted' && mic?.state === 'granted') {
-      el.innerHTML = '<span style="color:#21B06B;font-weight:600">Camera &amp; Mic active ✓</span>';
+      el.textContent = 'Camera and microphone are allowed';
     } else if (cam?.state === 'denied' || mic?.state === 'denied') {
-      el.innerHTML = '<span style="color:#FF3B30;font-weight:600">Permissions restricted ⚠️</span>';
+      el.textContent = 'Blocked. Allow them in your browser settings.';
     } else {
-      el.textContent = 'Check &amp; grant permissions';
+      el.textContent = 'Tap to check and allow';
     }
   }).catch(() => {
-    el.textContent = 'Device permissions &amp; status';
+    el.textContent = 'Tap to check permissions';
   });
 }
 window.updateDevicePermissionsSubtext = updateDevicePermissionsSubtext;
@@ -15056,7 +14976,7 @@ function openVideoQualityModal() {
 
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
 
-        <!-- 1080p Ultra HD -->
+        <!-- 1080p -->
         <div onclick="selectVideoQuality('1080p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '1080p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '1080p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
           <div>
             <div style="display:flex;align-items:center;gap:8px;">

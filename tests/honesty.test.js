@@ -99,3 +99,22 @@ test('paywall only lists benefits the product delivers, at the prices the server
     assert.doesNotMatch(pw, re, `paywall promises ${re}`);
   }
 });
+
+test('profile and settings never show a profile the user did not write', () => {
+  const start = js.indexOf('function renderProfileScreen()');
+  const end = js.indexOf('let _editProfilePhotos');
+  const fn = js.slice(start, end);
+  assert.ok(start > 0 && end > start);
+  assert.doesNotMatch(fn, /Lagos, Nigeria|Living life with|Tech 💻|\|\| 24/, 'no invented age, place, bio or interests');
+  assert.doesNotMatch(js.slice(js.indexOf('let currentUser = {'), js.indexOf('let profileStack')), /Dave|Lagos|24|Lekki/, 'the blank default user must not read as a real person');
+  assert.doesNotMatch(html, /\d(\.\d)?\s*[x×]\s*more matches/i, 'no unproven multiplier claims');
+  assert.doesNotMatch(js, /\d(\.\d)?\s*[x×]\s*more (meaningful )?(matches|mutual likes)/i);
+  assert.doesNotMatch(html + js, /Ultra HD|Crystal Clear/);
+});
+
+test('settings only lists controls that do something', () => {
+  const settings = html.slice(html.indexOf('id="settingsScreen"'), html.indexOf('end .screens-container'));
+  assert.doesNotMatch(settings, /Stealth|Incognito/i, 'stealth mode is not enforced anywhere, so it is not offered');
+  assert.doesNotMatch(settings, /showToast\('Location updated'\)/);
+  assert.match(settings, /handleNotifRowClick\(\)/, 'notifications row reflects and requests the real permission');
+});

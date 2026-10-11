@@ -52,6 +52,7 @@
   <link rel="stylesheet" href="css/paywall.css?v=70.0">
   <link rel="stylesheet" href="css/inbox.css?v=70.0">
   <link rel="stylesheet" href="css/chat.css?v=70.0">
+  <link rel="stylesheet" href="css/account.css?v=70.0">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
@@ -1067,178 +1068,88 @@
            SCREEN: PROFILE (HookMe Bespoke Luxury Dating Profile)
            ===================================================== -->
       <div class="screen" id="profileScreen">
-        <div class="profile-workspace hk-profile-workspace">
+        <div class="acct" id="profileWorkspace">
 
-          <!-- Top Profile Navigation Bar -->
-          <div class="hk-profile-topbar">
-            <button class="hk-top-action-btn" onclick="switchTab('settings')" aria-label="Settings" title="Settings">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
-              </svg>
-            </button>
-            <div class="hk-topbar-center">
-              <span class="hk-brand-flame-icon">🔥</span>
-              <span class="hk-topbar-title">Profile</span>
-            </div>
-            <button class="hk-top-action-btn" onclick="openSafetyToolkitModal()" aria-label="Safety & Verification" title="Safety & Verification">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm-2 16l-4-4 1.41-1.41L10 14.17l6.59-6.59L18 9l-8 8z"/>
-              </svg>
-            </button>
-          </div>
-
-          <!-- Hero Identity Card -->
-          <div class="hk-hero-card">
-            <div class="hk-avatar-glow-wrap">
-              <div class="hk-avatar-glow-ring"></div>
-              <div class="hk-avatar-circle" id="profileAvatar" onclick="openEditProfileModal()" title="View & edit profile">
-                <span class="hk-avatar-initial" id="profileAvatarInitial">D</span>
-              </div>
-              <button class="hk-avatar-pencil-btn" onclick="event.stopPropagation(); document.getElementById('profilePhotoFile').click()" title="Change photo" aria-label="Change photo">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                </svg>
+          <section class="acct-hero" aria-label="Your profile">
+            <div class="acct-avatar-wrap">
+              <button type="button" class="avatar avatar-xl acct-avatar" id="profileAvatar" onclick="openEditProfileModal()" aria-label="Edit profile and photos">
+                <span class="acct-avatar-initial" id="profileAvatarInitial" aria-hidden="true"></span>
               </button>
-              <input type="file" id="profilePhotoFile" accept="image/*" style="display:none" onchange="handleProfilePhotoUpload(event)">
+              <button type="button" class="btn btn-icon btn-primary acct-avatar-cam" onclick="document.getElementById('profilePhotoFile').click()" aria-label="Change profile photo">
+                <svg class="i" aria-hidden="true"><use href="#i-camera"/></svg>
+              </button>
+              <input type="file" id="profilePhotoFile" accept="image/*" hidden onchange="handleProfilePhotoUpload(event)">
             </div>
+            <div class="acct-id">
+              <div class="acct-name-row">
+                <h2 class="acct-name" id="profileDisplayName">Your name</h2>
+                <span class="badge badge-verified" id="profileVerifiedBadge" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-badge-check"/></svg>Verified</span>
+                <span class="badge badge-vip header-vip-badge" id="profileVipBadge" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-crown"/></svg>Gold</span>
+              </div>
+              <div class="acct-loc" id="profileLocationDisplay" hidden></div>
+            </div>
+            <div class="acct-hero-actions">
+              <button type="button" class="btn btn-primary" onclick="openEditProfileModal()"><svg class="i" aria-hidden="true"><use href="#i-pencil"/></svg>Edit profile</button>
+              <button type="button" class="btn btn-secondary" onclick="openProfileCardPreview()"><svg class="i" aria-hidden="true"><use href="#i-eye"/></svg>Preview</button>
+            </div>
+            <div class="acct-photos" id="profilePhotosStrip" style="display:none"></div>
+          </section>
 
-            <div class="hk-identity-text">
-              <div class="hk-name-row">
-                <h2 class="hk-profile-name" id="profileDisplayName">Dave, 24</h2>
-                <span class="hk-verified-badge" id="profileVerifiedBadge" title="Verified Profile" style="display:none">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+          <section class="acct-block" aria-labelledby="profAboutTitle">
+            <div class="section-bar">
+              <h2 class="sec-title" id="profAboutTitle">About me</h2>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="openEditProfileModal()">Edit</button>
+            </div>
+            <p class="acct-bio" id="profileBioDisplay"></p>
+            <div class="acct-tags" id="profileInterestsDisplay"></div>
+          </section>
+
+          <section class="acct-block" aria-labelledby="profStrengthTitle">
+            <div class="section-bar">
+              <h2 class="sec-title" id="profStrengthTitle">Profile strength</h2>
+              <span class="acct-value" id="hkStrengthPercent">0%</span>
+            </div>
+            <div class="acct-strength" id="hkStrengthCard">
+              <div class="meter" role="progressbar" aria-labelledby="profStrengthTitle" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="hkStrengthMeter">
+                <div class="meter-fill" id="hkStrengthBar" style="width:0%"></div>
+              </div>
+              <p class="acct-hint" id="hkStrengthHint"></p>
+              <button type="button" class="btn btn-secondary btn-sm hk-strength-link" onclick="openEditProfileModal()">Complete profile</button>
+            </div>
+          </section>
+
+          <section class="acct-group" aria-labelledby="profTrustTitle">
+            <h2 class="section-label" id="profTrustTitle">Trust and membership</h2>
+            <div class="acct-card list">
+              <button type="button" class="row" id="hkVerifyPromptCard" onclick="openSelfieVerifyModal()">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-scan-face"/></svg></span>
+                <span class="row-body">
+                  <span class="row-title" id="hkVerifyTitle">Photo verification</span>
+                  <span class="row-sub" id="hkVerifyDesc">Take a quick selfie to earn the Verified badge.</span>
                 </span>
-                <span class="header-vip-badge" id="profileVipBadge" style="display:none">VIP</span>
-              </div>
-              <div class="hk-profile-location" id="profileLocationDisplay">📍 Lagos, Nigeria</div>
-            </div>
-
-            <!-- Profile Media Strip (Quick thumbnail viewer) -->
-            <div class="profile-photos-strip" id="profilePhotosStrip" style="display:none"></div>
-
-            <!-- Two Core Quick Actions: Edit Profile & Preview As Match -->
-            <div class="hk-hero-actions-grid">
-              <button class="hk-hero-btn hk-hero-edit-btn" onclick="openEditProfileModal()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
-                </svg>
-                <span>Edit Profile</span>
+                <span class="badge" id="hkVerifyBadge">Not verified</span>
               </button>
-              <button class="hk-hero-btn hk-hero-preview-btn" onclick="openProfileCardPreview()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-                </svg>
-                <span>Preview Card</span>
+              <button type="button" class="row" id="hkGoldRow" onclick="openPaywall('profile_screen')">
+                <span class="row-icon acct-gold-icon"><svg class="i" aria-hidden="true"><use href="#i-crown"/></svg></span>
+                <span class="row-body">
+                  <span class="row-title" id="hkVipHeading">HookMe Gold</span>
+                  <span class="row-sub" id="hkVipSub">Unlimited likes, rewinds and AI portraits</span>
+                </span>
+                <span class="btn btn-gold btn-sm" id="hkVipCtaBtn" aria-hidden="true">See plans</span>
+              </button>
+              <button type="button" class="row" onclick="switchTab('matches')">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-heart"/></svg></span>
+                <span class="row-body"><span class="row-title">Matches</span></span>
+                <span class="count-badge count-badge-quiet" id="statMatches">0</span>
+                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+              </button>
+              <button type="button" class="row" onclick="openSafetyToolkitModal()">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-shield-check"/></svg></span>
+                <span class="row-body"><span class="row-title">Safety centre</span></span>
+                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
               </button>
             </div>
-          </div>
-
-          <!-- Real Activity Stats (Positioned right below Hero for immediate visibility) -->
-          <div class="hk-stats-strip">
-            <div class="hk-stat-cell" onclick="switchTab('matches')" title="View Matches">
-              <div class="hk-stat-val" id="statMatches">0</div>
-              <div class="hk-stat-sub">Matches</div>
-            </div>
-            <div class="hk-stat-divider"></div>
-            <div class="hk-stat-cell" onclick="openPaywall('see_who_likes')" title="See Who Likes You">
-              <div class="hk-stat-val" id="statLikes">0</div>
-              <div class="hk-stat-sub">Likes</div>
-            </div>
-            <div class="hk-stat-divider"></div>
-            <div class="hk-stat-cell" onclick="openPaywall('super_likes')" title="Super Likes Refill">
-              <div class="hk-stat-val" id="statSuper">0</div>
-              <div class="hk-stat-sub">Super Likes</div>
-            </div>
-          </div>
-
-          <!-- About & Passions Card -->
-          <div class="hk-bio-card">
-            <div class="hk-bio-header">
-              <span class="hk-bio-title">About Me</span>
-              <button class="hk-bio-edit-link" onclick="openEditProfileModal()">Edit</button>
-            </div>
-            <p class="hk-bio-text" id="profileBioDisplay">Living life with good energy, positive vibes only! ✨</p>
-            <div class="hk-passions-grid" id="profileInterestsDisplay">
-              <span class="hk-passion-pill">Tech 💻</span>
-              <span class="hk-passion-pill">Fitness 💪</span>
-              <span class="hk-passion-pill">Music 🎵</span>
-            </div>
-          </div>
-
-          <!-- Section Label: Profile Health & Trust -->
-          <div class="hk-section-title">Profile Health &amp; Trust</div>
-
-          <!-- Dynamic Profile Strength / Completion Meter -->
-          <div class="hk-strength-box" id="hkStrengthCard" onclick="openEditProfileModal()">
-            <div class="hk-strength-row">
-              <div class="hk-strength-title-wrap">
-                <span class="hk-strength-label">Profile Strength</span>
-                <span class="hk-strength-val" id="hkStrengthPercent">70%</span>
-              </div>
-              <span class="hk-strength-link">Complete Profile &rarr;</span>
-            </div>
-            <div class="hk-strength-track">
-              <div class="hk-strength-fill" id="hkStrengthBar" style="width:70%"></div>
-            </div>
-            <div class="hk-strength-tip" id="hkStrengthHint">
-              📸 Add remaining photos to boost discovery visibility by 3.5×
-            </div>
-          </div>
-
-          <!-- Photo Verification / Selfie Check Prompt -->
-          <div class="hk-verify-prompt-card" id="hkVerifyPromptCard" onclick="openSelfieVerifyModal()">
-            <div class="hk-vpc-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                <path d="m9 12 2 2 4-4"/>
-              </svg>
-            </div>
-            <div class="hk-vpc-info">
-              <div class="hk-vpc-title-row">
-                <span class="hk-vpc-title" id="hkVerifyTitle">Photo Verification</span>
-                <span class="hk-vpc-badge" id="hkVerifyBadge">Get Verified</span>
-              </div>
-              <div class="hk-vpc-desc" id="hkVerifyDesc">Prove you're really you with a quick selfie scan and unlock the official blue checkmark!</div>
-            </div>
-            <button class="hk-vpc-btn" id="hkVerifyBtn" type="button">Verify</button>
-          </div>
-
-          <!-- Section Label: Membership & Tokens -->
-          <div class="hk-section-title">Membership &amp; Power-Ups</div>
-
-          <!-- HookMe Gold Membership Card -->
-          <div class="hk-gold-promo-card" onclick="openPaywall('profile_screen')">
-            <div class="hk-gpc-left">
-              <div class="hk-gpc-tag">HOOKME GOLD</div>
-              <div class="hk-gpc-title" id="hkVipHeading">See Who Likes You &amp; Unlimited Swipes</div>
-              <div class="hk-gpc-desc" id="hkVipSub">5 daily Super Likes • Free monthly Boost • Rewinds</div>
-            </div>
-            <button class="hk-gpc-action-btn" id="hkVipCtaBtn">Upgrade</button>
-          </div>
-
-          <!-- Power-Ups & Tokens Vault (3 Interactive Refill Cards) -->
-          <div class="hk-vault-wrapper">
-            <div class="hk-vault-cards">
-              <div class="hk-v-card" onclick="openPaywall('super_likes')">
-                <div class="hk-v-icon star">⭐</div>
-                <div class="hk-v-metric" id="vaultSuperLikesVal">5 Daily</div>
-                <div class="hk-v-title">Super Likes</div>
-                <div class="hk-v-btn-pill">Refill</div>
-              </div>
-              <div class="hk-v-card" onclick="triggerProfileBoost()">
-                <div class="hk-v-icon bolt">⚡</div>
-                <div class="hk-v-metric" id="vaultBoostsVal">1 Free</div>
-                <div class="hk-v-title">Profile Boost</div>
-                <div class="hk-v-btn-pill" id="vaultBoostBtn">Boost</div>
-              </div>
-              <div class="hk-v-card" onclick="openPaywall('rewind')">
-                <div class="hk-v-icon rewind">↺</div>
-                <div class="hk-v-metric" id="vaultRewindVal">Unlimited</div>
-                <div class="hk-v-title">Rewinds</div>
-                <div class="hk-v-btn-pill" id="vaultRewindBtn">VIP Active</div>
-              </div>
-            </div>
-          </div>
+          </section>
 
         </div>
       </div>
@@ -1424,302 +1335,147 @@
            SCREEN: SETTINGS (Canva Prototype UI Upgrade)
            ===================================================== -->
       <div class="screen" id="settingsScreen">
-        <div class="settings-workspace settings-modern">
+        <div class="acct" id="settingsWorkspace">
 
-          <!-- Profile Header Card (Canva Prototype Style) -->
-          <div class="settings-profile-card">
-            <div class="settings-profile-avatar" id="settingsAvatar"></div>
-            <div class="settings-profile-info">
-              <div class="settings-profile-name" id="settingsProfileName">User</div>
-              <div class="settings-online-status"><span class="online-dot"></span> Online</div>
-            </div>
-            <button class="settings-profile-edit-btn" onclick="switchTab('profile')" aria-label="Edit profile" title="Edit Profile">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-            </button>
-          </div>
+          <button type="button" class="acct-me" onclick="switchTab('profile')">
+            <span class="avatar avatar-lg" id="settingsAvatar" aria-hidden="true"></span>
+            <span class="row-body">
+              <span class="acct-me-name" id="settingsProfileName">Your profile</span>
+              <span class="row-sub">View and edit your profile</span>
+            </span>
+            <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+          </button>
 
-          <!-- VIP Upgrade Banner -->
-          <div class="settings-vip-banner" onclick="openPaywall('settings')">
-            <div class="settings-vip-icon">
-              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 0 10px rgba(244,197,80,0.7))">
-                <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="url(#goldGradSettings)"/>
-                <defs>
-                  <linearGradient id="goldGradSettings" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#F4C550"/>
-                    <stop offset="100%" stop-color="#B8842B"/>
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-            <div class="settings-vip-text">
-              <div class="settings-vip-title" id="vipStatusRow">Upgrade to VIP Gold</div>
-              <div class="settings-vip-sub">See who likes you · Unlimited rewinds · AI portraits</div>
-            </div>
-            <div class="settings-vip-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
-          </div>
+          <button type="button" class="acct-gold" onclick="openPaywall('settings')" id="settingsGoldCard">
+            <svg class="i" aria-hidden="true"><use href="#i-crown"/></svg>
+            <span class="row-body">
+              <span class="acct-gold-title" id="vipStatusRow">Upgrade to Gold</span>
+              <span class="row-sub" id="vipStatusSub">Unlimited likes, rewinds and AI portraits</span>
+            </span>
+            <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+          </button>
 
-          <!-- SECTION: ACCOUNT & SECURITY -->
-          <div class="settings-section">
-            <div class="settings-section-label">
-              <span class="section-label-dot" style="background:linear-gradient(135deg,#D13A63,#E0567F)"></span>
-              Account &amp; Security
-            </div>
-            <div class="settings-card">
-
-              <div class="settings-row" onclick="openEditUsernameModal()">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(209,58,99,0.1); --icon-color: #D13A63">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Username</div>
-                  <div class="settings-row-sub" id="settingsUsernameValue">@username</div>
-                </div>
-                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-              </div>
-
-              <div class="settings-row" style="cursor:default">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(75,176,255,0.1); --icon-color: #4BB0FF">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Email Address</div>
-                  <div class="settings-row-sub" id="settingsEmailValue">dave@example.com</div>
-                </div>
-                <div class="settings-badge-chip" id="settingsEmailBadge" onclick="handleResendEmailVerification()">Unverified</div>
-              </div>
-
-              <div class="settings-row" onclick="openPhoneVerificationModal()">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(33,176,107,0.1); --icon-color: #21B06B">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1-9.39 0-17-7.61-17-17 0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Phone Number</div>
-                  <div class="settings-row-sub" id="settingsPhoneSub">Tap to verify your number</div>
-                </div>
-                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-              </div>
-
-              <div class="settings-row" onclick="showToast('Location updated')">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(244,197,80,0.12); --icon-color: #F4C550">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Address / Location</div>
-                  <div class="settings-row-sub">Lagos, Nigeria</div>
-                </div>
-                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- SECTION: DISCOVERY PREFERENCES -->
-          <div class="settings-section">
-            <div class="settings-section-label">
-              <span class="section-label-dot" style="background:linear-gradient(135deg,#21B06B,#25D366)"></span>
-              Discovery Preferences
-            </div>
-            <div class="settings-card">
-
-              <div class="settings-row settings-slider-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(33,176,107,0.1); --icon-color: #21B06B">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                </div>
-                <div class="settings-slider-group">
-                  <div class="settings-slider-header">
-                    <span class="settings-row-label">Maximum Distance</span>
-                    <span class="settings-slider-value" id="distanceLabel">50 km</span>
-                  </div>
-                  <input class="range-slider" id="distanceSlider" type="range" min="5" max="200" value="50" oninput="updateDistanceSetting()">
-                </div>
-              </div>
-
-              <div class="settings-row settings-slider-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(255,101,91,0.1); --icon-color: #FF655B">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
-                </div>
-                <div class="settings-slider-group">
-                  <div class="settings-slider-header">
-                    <span class="settings-row-label">Age Range</span>
-                    <span class="settings-slider-value" id="ageRangeLabel">20 – 35</span>
-                  </div>
-                  <div style="display:flex;gap:10px;align-items:center">
-                    <input class="range-slider" style="flex:1" id="minAgeSlider" type="range" min="18" max="60" value="20" oninput="updateAgeSetting()">
-                    <input class="range-slider" style="flex:1" id="maxAgeSlider" type="range" min="19" max="80" value="35" oninput="updateAgeSetting()">
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(56,151,240,0.12); --icon-color: #3897F0">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                </div>
-                <div class="settings-row-info" style="flex:1;display:flex;flex-direction:column;gap:2px;">
-                  <span class="settings-row-label">Verified Profiles Only</span>
-                  <span class="settings-row-sub" style="font-size:0.75rem;">Only discover members with photo verification</span>
-                </div>
-                <label class="switch" for="settingsVerifiedOnlyToggle">
-                  <input type="checkbox" id="settingsVerifiedOnlyToggle" onchange="updateVerifiedSetting(this.checked)">
-                  <span class="slider round"></span>
-                </label>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- SECTION: APP SETTINGS & PREFERENCES -->
-          <div class="settings-section">
-            <div class="settings-section-label">
-              <span class="section-label-dot" style="background:linear-gradient(135deg,#4BB0FF,#2690FF)"></span>
-              Settings &amp; Preferences
-            </div>
-            <div class="settings-card">
-
-              <div class="settings-row" onclick="openLanguageModal()">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(75,176,255,0.12); --icon-color: #4BB0FF">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Language</div>
-                  <div class="settings-row-sub" id="settingsLanguageSub">English (UK)</div>
-                </div>
-                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-              </div>
-
-              <!-- Blocked Contacts Row -->
-              <div class="settings-row" onclick="openBlockedUsersModal()">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(255,46,112,0.12); --icon-color: #FF2E70">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1c1.06 1.35 1.69 3.05 1.69 4.9 0 4.42-3.58 8-8 8z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Blocked Contacts</div>
-                  <div class="settings-row-sub" id="settingsBlockedCountSub">0 contacts blocked</div>
-                </div>
-                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-              </div>
-
-              <div class="settings-row settings-toggle-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(209,58,99,0.1); --icon-color: #D13A63">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.89 2 2 2zm6-6v-5c0-3.07-1.64-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.63 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Notifications &amp; Messages</div>
-                  <div class="settings-row-sub">Get push alerts on matches</div>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="toggleNotifMessages" checked onchange="updateToggleSetting('notifMessages', this)">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-
-              <div class="settings-row settings-toggle-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(33,176,107,0.12); --icon-color: #21B06B">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Dark Mode</div>
-                  <div class="settings-row-sub" id="themeLabel">Dark theme active</div>
-                </div>
-                <label class="toggle-switch green-switch">
-                  <input type="checkbox" id="toggleDarkModeCheck" checked onchange="setTheme(this.checked ? 'dark' : 'light')">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-
-              <div class="settings-row" id="devicePermissionsRow" onclick="openDevicePermissionsModal()">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(139,127,255,0.12); --icon-color: #8B7FFF">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Camera, Location &amp; Microphone</div>
-                  <div class="settings-row-sub" id="devicePermissionsSubtext">Device permissions &amp; status</div>
-                </div>
-                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-              </div>
-
-              <div class="settings-row" id="videoQualitySettingsRow" onclick="openVideoQualityModal()">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(244,197,80,0.12); --icon-color: #F4C550">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Highest Quality</div>
-                  <div class="settings-row-sub" id="videoQualitySubtext">1080p (uses more data)</div>
-                </div>
-                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-              </div>
-
-            </div>
-          </div>
-
-          <!-- SECTION: SAFETY & PRIVACY CONTROLS -->
-          <div class="settings-section">
-            <div class="settings-section-label">
-              <span class="section-label-dot" style="background:linear-gradient(135deg,#7000FF,#FF2E70)"></span>
-              Safety &amp; Privacy Controls
-            </div>
-            <div class="settings-card">
-              <div class="settings-row settings-toggle-row">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(112,0,255,0.12); --icon-color: #A855F7">
-                  <span style="font-size:18px">🕵️</span>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Stealth / Incognito Mode</div>
-                  <div class="settings-row-sub">Only people you like can view your card</div>
-                </div>
-                <label class="toggle-switch">
-                  <input type="checkbox" id="settingsStealthToggle" onchange="toggleStealthMode(this.checked)">
-                  <span class="toggle-slider"></span>
-                </label>
-              </div>
-
-              <div class="settings-row" onclick="openSafetyToolkit()">
-                <div class="settings-row-icon-wrap" style="--icon-bg: rgba(255,46,112,0.12); --icon-color: #FF2E70">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
-                </div>
-                <div class="settings-row-body">
-                  <div class="settings-row-label">Safety Center &amp; Guidelines</div>
-                  <div class="settings-row-sub">Dating rules, emergency tips &amp; tools</div>
-                </div>
-                <div class="settings-chevron"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg></div>
-              </div>
-            </div>
-          </div>
-
-          <!-- DANGER & SIGN OUT -->
-          <div class="settings-section" style="padding-top:8px">
-            <div class="settings-signout-line">
-              <button class="settings-signout-btn" onclick="handleLogout()" style="flex:1">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5-5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
-                Sign Out
+          <section class="acct-group" aria-labelledby="setGrpAccount">
+            <h2 class="section-label" id="setGrpAccount">Account</h2>
+            <div class="acct-card list">
+              <button type="button" class="row" onclick="openEditUsernameModal()">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-at-sign"/></svg></span>
+                <span class="row-body"><span class="row-title">Username</span><span class="row-sub" id="settingsUsernameValue">@username</span></span>
+                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
               </button>
-              <a href="#" onclick="showLegalModal('privacy');return false;" class="settings-privacy-link">Privacy Policy</a>
+              <div class="row">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-mail"/></svg></span>
+                <span class="row-body"><span class="row-title">Email</span><span class="row-sub acct-wrap" id="settingsEmailValue">No email registered</span></span>
+                <button type="button" class="btn btn-secondary btn-sm" id="settingsEmailBadge" onclick="handleResendEmailVerification()">Verify</button>
+              </div>
+              <button type="button" class="row" onclick="openPhoneVerificationModal()">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-phone"/></svg></span>
+                <span class="row-body"><span class="row-title">Phone number</span><span class="row-sub" id="settingsPhoneSub">Add and verify your number</span></span>
+                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+              </button>
             </div>
+          </section>
 
-            <button class="settings-delete-btn" style="margin-top:12px;width:100%" onclick="handleDeleteAccount()">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-              Delete Account
+          <section class="acct-group" aria-labelledby="setGrpDiscovery">
+            <h2 class="section-label" id="setGrpDiscovery">Discovery</h2>
+            <div class="acct-card list">
+              <div class="row acct-slider-row">
+                <div class="acct-slider">
+                  <div class="acct-slider-head">
+                    <label class="row-title" for="distanceSlider">Maximum distance</label>
+                    <output class="acct-value" id="distanceLabel" for="distanceSlider">50 km</output>
+                  </div>
+                  <input class="range" id="distanceSlider" type="range" min="5" max="200" value="50" oninput="updateDistanceSetting()">
+                </div>
+              </div>
+              <div class="row acct-slider-row">
+                <div class="acct-slider">
+                  <div class="acct-slider-head">
+                    <span class="row-title" id="ageRangeTitle">Age range</span>
+                    <output class="acct-value" id="ageRangeLabel">20–35</output>
+                  </div>
+                  <div class="acct-slider-pair" role="group" aria-labelledby="ageRangeTitle">
+                    <label class="acct-mini" for="minAgeSlider">Youngest</label>
+                    <input class="range" id="minAgeSlider" type="range" min="18" max="60" value="20" oninput="updateAgeSetting()">
+                    <label class="acct-mini" for="maxAgeSlider">Oldest</label>
+                    <input class="range" id="maxAgeSlider" type="range" min="19" max="80" value="35" oninput="updateAgeSetting()">
+                  </div>
+                </div>
+              </div>
+              <label class="row" for="settingsVerifiedOnlyToggle">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-badge-check"/></svg></span>
+                <span class="row-body"><span class="row-title">Verified profiles only</span><span class="row-sub">Only show people who passed photo verification</span></span>
+                <span class="switch"><input type="checkbox" id="settingsVerifiedOnlyToggle" onchange="updateVerifiedSetting(this.checked)"><span class="track"></span></span>
+              </label>
+            </div>
+          </section>
+
+          <section class="acct-group" aria-labelledby="setGrpApp">
+            <h2 class="section-label" id="setGrpApp">App</h2>
+            <div class="acct-card list">
+              <button type="button" class="row" onclick="openLanguageModal()">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-languages"/></svg></span>
+                <span class="row-body"><span class="row-title">Language</span><span class="row-sub" id="settingsLanguageSub">English (UK)</span></span>
+                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+              </button>
+              <label class="row" for="toggleDarkModeCheck">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-moon"/></svg></span>
+                <span class="row-body"><span class="row-title">Dark mode</span><span class="row-sub" id="themeLabel">Dark mode</span></span>
+                <span class="switch"><input type="checkbox" id="toggleDarkModeCheck" checked onchange="setTheme(this.checked ? 'dark' : 'light')"><span class="track"></span></span>
+              </label>
+              <button type="button" class="row" id="settingsNotifRow" onclick="handleNotifRowClick()">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-bell"/></svg></span>
+                <span class="row-body"><span class="row-title">Notifications</span><span class="row-sub" id="settingsNotifSub">Checking…</span></span>
+                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+              </button>
+              <button type="button" class="row" id="devicePermissionsRow" onclick="openDevicePermissionsModal()">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-camera"/></svg></span>
+                <span class="row-body"><span class="row-title">Camera and microphone</span><span class="row-sub" id="devicePermissionsSubtext">Check permissions</span></span>
+                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+              </button>
+              <button type="button" class="row" id="videoQualitySettingsRow" onclick="openVideoQualityModal()">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-video"/></svg></span>
+                <span class="row-body"><span class="row-title">Video call quality</span><span class="row-sub" id="videoQualitySubtext">1080p (uses more data)</span></span>
+                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+              </button>
+            </div>
+          </section>
+
+          <section class="acct-group" aria-labelledby="setGrpSafety">
+            <h2 class="section-label" id="setGrpSafety">Safety and privacy</h2>
+            <div class="acct-card list">
+              <button type="button" class="row" onclick="openSafetyToolkit()">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-shield-check"/></svg></span>
+                <span class="row-body"><span class="row-title">Safety centre</span><span class="row-sub">Dating safety tips, report and block</span></span>
+                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+              </button>
+              <button type="button" class="row" onclick="openBlockedUsersModal()">
+                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-ban"/></svg></span>
+                <span class="row-body"><span class="row-title">Blocked people</span><span class="row-sub" id="settingsBlockedCountSub">0 blocked</span></span>
+                <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+              </button>
+            </div>
+          </section>
+
+          <section class="acct-group acct-actions" aria-label="Sign out and delete">
+            <button type="button" class="btn btn-secondary btn-block" onclick="handleLogout()">
+              <svg class="i" aria-hidden="true"><use href="#i-log-out"/></svg>Sign out
             </button>
-          </div>
+            <button type="button" class="btn btn-danger btn-block" onclick="handleDeleteAccount()">
+              <svg class="i" aria-hidden="true"><use href="#i-trash-2"/></svg>Delete account
+            </button>
+          </section>
 
-          <!-- Legal footer — DMCA, Terms, CAN-SPAM compliance -->
-          <div class="settings-modern-footer">
-            <div class="settings-footer-links">
-              <a href="#" onclick="showLegalModal('terms');return false;">Terms of Service</a>
-              <span>·</span>
-              <a href="#" onclick="showLegalModal('privacy');return false;">Privacy Policy</a>
-              <span>·</span>
-              <a href="#" onclick="showLegalModal('dmca');return false;">DMCA</a>
-              <span>·</span>
-              <a href="mailto:contact@hookmebysam.com?subject=Unsubscribe">Unsubscribe</a>
-            </div>
-            <div class="settings-footer-copy">
-              <strong>hookmebysam</strong> · Lagos, Nigeria<br>
-              contact@hookmebysam.com<br><br>
-              <strong>DMCA Designated Agent:</strong> contact@hookmebysam.com<br>
-              <strong>Analytics notice:</strong> This app uses analytics to improve features and user experience.<br><br>
-              App version 1.0.0 · Ready · © 2024 hookmebysam
-            </div>
-          </div>
+          <footer class="acct-foot">
+            <nav class="acct-foot-links" aria-label="Legal">
+              <button type="button" class="link-btn" onclick="showLegalModal('terms')">Terms</button>
+              <button type="button" class="link-btn" onclick="showLegalModal('privacy')">Privacy</button>
+              <button type="button" class="link-btn" onclick="showLegalModal('dmca')">DMCA</button>
+              <a class="link-btn" href="mailto:contact@hookmebysam.com">Contact</a>
+            </nav>
+            <p>hookmebysam · contact@hookmebysam.com</p>
+            <p>The app uses analytics to improve features. DMCA agent: contact@hookmebysam.com</p>
+          </footer>
 
         </div>
       </div>
@@ -2446,8 +2202,8 @@
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
               </span>
               </div>
-            <div class="hk-preview-location" id="hkPreviewLoc">📍 Lagos, Nigeria</div>
-            <div class="hk-preview-bio" id="hkPreviewBio">Living life with good energy, positive vibes only! ✨</div>
+            <div class="hk-preview-location" id="hkPreviewLoc"></div>
+            <div class="hk-preview-bio" id="hkPreviewBio"></div>
             <div class="hk-preview-tags" id="hkPreviewTags"></div>
           </div>
         </div>
