@@ -117,92 +117,6 @@ body::before {
   background-position: center !important;
 }
 
-/* Conversation List (Clean, Solid, No blurry bleed-through) */
-.convo-swipe-wrapper {
-  position: relative !important;
-  overflow: hidden !important;
-  width: 100% !important;
-  border-radius: 18px !important;
-  margin-bottom: 10px !important;
-  background: #100B19 !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25) !important;
-}
-
-.convo-swipe-actions {
-  position: absolute !important;
-  top: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  display: flex !important;
-  align-items: stretch !important;
-  z-index: 1 !important;
-  border-radius: 0 18px 18px 0 !important;
-  overflow: hidden !important;
-}
-
-.convo-action-btn {
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  justify-content: center !important;
-  width: 72px !important;
-  border: none !important;
-  cursor: pointer !important;
-  font-size: 11px !important;
-  font-weight: 700 !important;
-  gap: 4px !important;
-  padding: 0 !important;
-  transition: opacity 0.15s ease !important;
-  user-select: none !important;
-}
-
-.convo-archive-btn {
-  background: linear-gradient(135deg, #2D2244, #1B142A) !important;
-  color: #F4C550 !important;
-}
-
-.convo-delete-btn {
-  background: linear-gradient(135deg, #FF2E70, #C41C48) !important;
-  color: #FFFFFF !important;
-}
-
-.convo-swipe-wrapper .convo-item,
-.convo-item {
-  background: #171122 !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  border: none !important;
-  border-radius: 18px !important;
-  padding: 14px 16px !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 14px !important;
-  margin: 0 !important;
-  width: 100% !important;
-  box-sizing: border-box !important;
-  cursor: pointer !important;
-  position: relative !important;
-  z-index: 2 !important;
-  transition: transform 0.25s cubic-bezier(0.25, 1, 0.5, 1), background 0.15s ease !important;
-  will-change: transform !important;
-}
-
-.convo-swipe-wrapper .convo-item:hover,
-.convo-item:hover {
-  background: #1E162B !important;
-}
-
-.convo-avatar {
-  width: 54px !important; height: 54px !important;
-  border-radius: 50% !important;
-  border: 2px solid #FF2E70 !important;
-  background-size: cover !important;
-  background-position: center !important;
-  position: relative;
-  flex-shrink: 0;
-}
-
 /* --- 9. LUXURY GLASS BOTTOM NAVIGATION --- */
 
 body.keyboard-visible #globalFloatingSearchBtn,
@@ -216,78 +130,6 @@ body.keyboard-open #globalFloatingSearchBtn {
 @keyframes hmbs-shimmer {
   0%   { background-position: -400px 0; }
   100% { background-position: 400px 0; }
-}
-
-.convo-skeleton-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 13px 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  pointer-events: none;
-  user-select: none;
-}
-
-.convo-skeleton-avatar,
-.convo-skeleton-line,
-.convo-skeleton-time {
-  border-radius: 8px;
-  background: linear-gradient(
-    90deg,
-    rgba(255,255,255,0.05) 25%,
-    rgba(255,255,255,0.13) 50%,
-    rgba(255,255,255,0.05) 75%
-  );
-  background-size: 800px 100%;
-  animation: hmbs-shimmer 1.4s infinite linear;
-}
-
-.convo-skeleton-avatar {
-  width: 50px;
-  height: 50px;
-  flex-shrink: 0;
-  border-radius: 50%;
-}
-
-.convo-skeleton-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.convo-skeleton-name {
-  height: 14px;
-  width: 55%;
-  border-radius: 7px;
-}
-
-.convo-skeleton-preview {
-  height: 12px;
-  width: 80%;
-  border-radius: 7px;
-  opacity: 0.6;
-}
-
-.convo-skeleton-time {
-  width: 30px;
-  height: 10px;
-  flex-shrink: 0;
-  border-radius: 5px;
-  align-self: flex-start;
-  margin-top: 4px;
-}
-
-[data-theme="light"] .convo-skeleton-avatar,
-[data-theme="light"] .convo-skeleton-line,
-[data-theme="light"] .convo-skeleton-time {
-  background: linear-gradient(
-    90deg,
-    rgba(0,0,0,0.06) 25%,
-    rgba(0,0,0,0.13) 50%,
-    rgba(0,0,0,0.06) 75%
-  );
-  background-size: 800px 100%;
 }
 
 /* --- 10B. MATCHES & LIKES CONNECTIONS HUB --- */
@@ -340,29 +182,6 @@ body[data-theme="light"]::before {
 
 [data-theme="light"] .story-avatar {
   border-color: #FFFFFF !important;
-}
-
-[data-theme="light"] .convo-item {
-  background: #FFFFFF !important;
-  border: 1px solid rgba(0, 0, 0, 0.06) !important;
-  box-shadow: 0 2px 10px rgba(70, 40, 90, 0.03) !important;
-}
-
-[data-theme="light"] .convo-item:hover {
-  background: #FAF7FD !important;
-  border-color: rgba(255, 46, 112, 0.3) !important;
-}
-
-[data-theme="light"] .convo-name {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .convo-last-msg {
-  color: #685E79 !important;
-}
-
-[data-theme="light"] .convo-time {
-  color: #9E97AA !important;
 }
 
 /* Chat Screen (Light) */
@@ -1677,62 +1496,6 @@ body[data-theme="light"]::before {
   50% { transform: translateY(-12px); }
 }
 
-/* --- MATCHES SCREEN: Premium sections --- */
-
-.match-bubble-ring {
-  background: var(--flame-grad) !important;
-  box-shadow: var(--shadow-flame) !important;
-  width: 70px !important; height: 70px !important;
-}
-
-.convo-item {
-  border-radius: 20px !important;
-  padding: 12px 16px !important;
-  transition: all 0.2s ease !important;
-}
-.convo-item:hover {
-  background: rgba(255,255,255,0.05) !important;
-  transform: translateX(3px) !important;
-}
-
-.convo-avatar {
-  border: 2px solid rgba(255,255,255,0.12) !important;
-  border-radius: 50% !important;
-}
-
-.convo-online-dot {
-  box-shadow: 0 0 8px rgba(33,176,107,0.8), 0 0 0 2px rgba(33,176,107,0.3) !important;
-}
-
-.convo-name {
-  font-weight: 800 !important;
-  font-size: 0.98rem !important;
-  letter-spacing: -0.1px !important;
-  color: var(--txt-primary) !important;
-}
-
-[data-theme="light"] .convo-name {
-  color: #15121A !important;
-}
-
-.convo-preview {
-  font-size: 0.84rem !important;
-  color: var(--txt-secondary, rgba(255,255,255,0.7)) !important;
-}
-
-[data-theme="light"] .convo-preview {
-  color: #4A4458 !important;
-}
-
-[data-theme="light"] .convo-preview-unread {
-  color: #120D1A !important;
-  font-weight: 700 !important;
-}
-
-[data-theme="light"] .convo-time {
-  color: #7B7289 !important;
-}
-
 /* --- PROFILE SCREEN: Elevated premium feel --- */
 .profile-hero-section {
   position: relative !important;
@@ -2691,44 +2454,10 @@ body[data-theme="light"] {
 
 /* 5. Matches Screen & Inbox Polish */
 
-[data-theme="light"] .chats-search-input,
 [data-theme="light"] .chat-search-bar {
   background: #F4EFFB !important;
   border: 1.5px solid #DDD3E8 !important;
   color: #140C1D !important;
-}
-
-[data-theme="light"] .chats-search-input::placeholder {
-  color: #9E97AA !important;
-}
-
-[data-theme="light"] .convo-item {
-  background: #FFFFFF !important;
-  border: 1px solid rgba(0, 0, 0, 0.06) !important;
-  box-shadow: 0 2px 10px rgba(70, 40, 90, 0.03) !important;
-}
-
-[data-theme="light"] .convo-item:hover {
-  background: #FAF7FD !important;
-  border-color: rgba(255, 46, 112, 0.3) !important;
-}
-
-[data-theme="light"] .convo-name {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .convo-preview,
-[data-theme="light"] .convo-last-msg {
-  color: #554D62 !important;
-}
-
-[data-theme="light"] .convo-preview-unread {
-  color: #140C1D !important;
-  font-weight: 800 !important;
-}
-
-[data-theme="light"] .convo-time {
-  color: #8C829E !important;
 }
 
 /* 6. Chat Screen Polish */
@@ -3431,8 +3160,7 @@ body {
 
 /* Other Workspaces Centering */
 .settings-workspace,
-.chat-workspace,
-.convo-messages-wrap {
+.chat-workspace {
   width: 100% !important;
   max-width: 520px !important;
   margin: 0 auto !important;

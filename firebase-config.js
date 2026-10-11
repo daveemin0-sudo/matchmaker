@@ -579,11 +579,11 @@ async function searchUsersInFirestore(queryText) {
           results.push({
             id: doc.id,
             name: data.displayName || data.name || 'User',
-            age: data.age || 24,
-            bio: data.bio || 'Registered user on hookmebysam.',
-            gender: data.gender || 'Female',
+            age: data.age || null,
+            bio: data.bio || '',
+            gender: data.gender || '',
             image: userPhoto,
-            tags: data.interests || ['Music 🎵', 'Vibes ✨'],
+            tags: data.interests || [],
             isRealUser: true
           });
         }
@@ -619,7 +619,7 @@ async function resolvePartnerProfile(partnerId) {
       const data = userDoc.data();
       const profile = {
         name: data.displayName || data.name || 'Match',
-        age: data.age || 24,
+        age: data.age || null,
         bio: data.bio || '',
         image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
         interests: data.interests || []
@@ -663,11 +663,11 @@ function listenToUserMatches(callback) {
           return {
             id: partnerId,
             name: data.displayName || data.name || 'Match',
-            age: data.age || 24,
+            age: data.age || null,
             bio: data.bio || '',
             image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
             tags: data.interests || [],
-            distance: '2 km',
+            distance: '',
             lastMessage: matchData.lastMessage || '',
             lastSender: matchData.lastSender || '',
             lastUpdated: matchData.lastUpdated?.toMillis ? matchData.lastUpdated.toMillis() : (matchData.createdAt?.toMillis ? matchData.createdAt.toMillis() : Date.now()),
@@ -746,11 +746,11 @@ async function fetchUserMatchesDirectly() {
       return {
         id: partnerId,
         name: data.displayName || data.name || 'Match',
-        age: data.age || 24,
+        age: data.age || null,
         bio: data.bio || '',
         image: data.image || data.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
         tags: data.interests || [],
-        distance: '2 km',
+        distance: '',
         lastMessage: matchData.lastMessage || '',
         lastSender: matchData.lastSender || '',
         lastUpdated: matchData.lastUpdated?.toMillis ? matchData.lastUpdated.toMillis() : (matchData.createdAt?.toMillis ? matchData.createdAt.toMillis() : Date.now()),

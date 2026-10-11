@@ -310,3 +310,11 @@ button.row:hover, a.row:hover { background: var(--surface-raised); }
 }
 .limit-badge.is-empty { background: var(--danger-fill); color: #fff; }
 .boost-timer { position: absolute; bottom: -18px; left: 50%; transform: translateX(-50%); font-size: var(--fs-xs); font-weight: 700; color: var(--gold-text); white-space: nowrap; }
+
+/* ---------- Confirm dialog (replaces window.confirm / alert) ---------- */
+.btn-danger-fill { --btn-bg: var(--danger-fill); --btn-fg: #fff; --btn-border: transparent; }
+.btn-danger-fill:hover:not(:disabled) { filter: brightness(1.08); }
+.confirm-overlay { z-index: var(--z-modal); align-items: center; padding: var(--s-4); }
+.confirm-sheet { max-width: 400px; border-bottom: 1px solid var(--border); border-radius: var(--r-md); padding-bottom: 0; transform: none; }
+.confirm-sheet .sheet-body { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-5) var(--s-5) var(--s-4); }
+.confirm-msg { margin: 0; color: var(--text-2); font-size: var(--fs-base); line-height: var(--lh-body); }

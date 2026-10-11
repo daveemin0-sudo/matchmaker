@@ -774,7 +774,7 @@ function initPullToRefresh() {
   function getScrollTop() {
     const activeScreen = document.querySelector('.screen.active');
     if (!activeScreen) return window.scrollY || document.documentElement.scrollTop || 0;
-    const scrollContainer = activeScreen.querySelector('.matches-workspace, .chats-inbox-wrap');
+    const scrollContainer = activeScreen.querySelector('.matches-workspace, .inbox');
     if (scrollContainer && scrollContainer.scrollTop !== undefined) {
       return scrollContainer.scrollTop;
     }
@@ -3315,6 +3315,43 @@ document.addEventListener('keydown', (e) => {
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 });
 
+// In-app replacement for window.confirm()/alert(). Resolves true when confirmed.
+function confirmDialog({ title, message = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false }) {
+  return new Promise((resolve) => {
+    document.getElementById('confirmDialog')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'confirmDialog';
+    ov.className = 'sheet-overlay confirm-overlay open';
+    ov.style.display = 'flex';
+    ov.innerHTML = `
+      <div class="sheet confirm-sheet" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMsg">
+        <div class="sheet-body">
+          <h2 class="sheet-title" id="confirmTitle"></h2>
+          <p class="confirm-msg" id="confirmMsg"></p>
+        </div>
+        <div class="sheet-foot">
+          ${cancelLabel ? '<button type="button" class="btn btn-secondary" data-r="0"></button>' : ''}
+          <button type="button" class="btn ${danger ? 'btn-danger-fill' : 'btn-primary'}" data-r="1"></button>
+        </div>
+      </div>`;
+    ov.querySelector('#confirmTitle').textContent = title;
+    const msgEl = ov.querySelector('#confirmMsg');
+    msgEl.textContent = message;
+    msgEl.style.whiteSpace = 'pre-line';
+    if (!message) msgEl.remove();
+    if (cancelLabel) ov.querySelector('[data-r="0"]').textContent = cancelLabel;
+    ov.querySelector('[data-r="1"]').textContent = confirmLabel;
+    const done = (v) => { dialogClosed(ov); ov.remove(); resolve(v); };
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) return done(false);
+      const b = e.target.closest('[data-r]');
+      if (b) done(b.dataset.r === '1');
+    });
+    document.body.appendChild(ov);
+    dialogOpened(ov, { close: () => done(false), focus: cancelLabel ? '[data-r="0"]' : '[data-r="1"]' });
+  });
+}
+
 // Keyboard: arrow keys pass / like on the discovery screen (never while typing or with a dialog open).
 document.addEventListener('keydown', (e) => {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
@@ -3828,28 +3865,28 @@ function renderMatchesConnectionsGrid() {
   }).join('');
 }
 
-function renderNewMatchesBubbles() {
-  // Render for both Matches screen and Chats Inbox
-  const rows = [
-    document.getElementById('newMatchesRow'),
-    document.getElementById('chatsNewMatchesRow')
-  ];
+function newMatchesTilesHtml() {
+  // People you matched with but have not messaged yet come first; everyone is reachable.
+  return matchedUsers.map(u => {
+    const idArg = escHtml(JSON.stringify(String(u.id)));
+    const unread = typeof getUnreadMessagesCount === 'function' ? getUnreadMessagesCount(u.id) > 0 : false;
+    return `
+      <button type="button" class="tile" role="listitem" onclick="openChat(${idArg})" aria-label="Message ${escHtml(u.name)}">
+        <span class="tile-avatar ${unread ? 'is-unseen' : 'is-seen'}">
+          ${u.image ? `<img src="${escHtml(u.image)}" alt="" loading="lazy">` : '<svg class="i" aria-hidden="true"><use href="#i-user"/></svg>'}
+        </span>
+        <span class="tile-name">${escHtml(u.name)}</span>
+      </button>`;
+  }).join('');
+}
 
-  rows.forEach(row => {
-    if (!row) return;
-    if (matchedUsers.length === 0) {
-      row.innerHTML = `<p style="color:var(--txt-muted);font-size:0.82rem;padding:4px 0;">No matches yet — keep swiping! 🔥</p>`;
-      return;
-    }
-    row.innerHTML = matchedUsers.map(u => `
-      <div class="match-bubble" onclick="openChat('${u.id}')">
-        <div class="match-bubble-ring">
-          <div class="match-bubble-photo" style="background-image:url('${u.image}')"></div>
-        </div>
-        <span class="match-bubble-name">${escHtml(u.name)}</span>
-      </div>
-    `).join('');
-  });
+function renderNewMatchesBubbles() {
+  const row = document.getElementById('chatsNewMatchesRow');
+  const section = document.getElementById('chatsNewMatchesSection');
+  if (!row) return;
+  const has = matchedUsers.length > 0;
+  if (section) section.hidden = !has;
+  row.innerHTML = has ? newMatchesTilesHtml() : '';
 }
 
 // ==========================================================
@@ -4016,8 +4053,10 @@ function syncMatchesPresenceListeners() {
             const existingDot = convoWrapper.querySelector('.convo-online-dot');
             const status = getUserOnlineStatus(id);
             if (status.isOnline && !existingDot) {
-              const dot = document.createElement('div');
+              const dot = document.createElement('span');
               dot.className = 'convo-online-dot';
+              dot.setAttribute('role', 'img');
+              dot.setAttribute('aria-label', 'Online');
               convoWrapper.appendChild(dot);
             } else if (!status.isOnline && existingDot) {
               existingDot.remove();
@@ -4091,20 +4130,21 @@ window.getUserOnlineStatus = getUserOnlineStatus;
 function _buildConvoItemHtml(u, filterQuery) {
   const hist = conversations[u.id]?.messages || [];
   const last = hist[hist.length - 1];
-  let lastMsgRaw = 'Say hi! 👋';
+  let lastMsgRaw = 'No messages yet. Say hello.';
+  let previewIcon = '';
   if (last) {
     if (last.isCall) {
       const isVideo = last.callType === 'video';
       const isMissed = last.callStatus === 'missed' || last.callStatus === 'declined';
-      lastMsgRaw = isVideo
-        ? (isMissed ? '📹 Missed video call' : `📹 Video call ${last.duration ? `(${last.duration})` : ''}`)
-        : (isMissed ? '📞 Missed voice call' : `📞 Voice call ${last.duration ? `(${last.duration})` : ''}`);
+      previewIcon = isVideo ? 'video' : 'phone';
+      lastMsgRaw = `${isMissed ? 'Missed ' : ''}${isVideo ? 'video' : 'voice'} call${!isMissed && last.duration ? ` (${last.duration})` : ''}`;
+      lastMsgRaw = lastMsgRaw.charAt(0).toUpperCase() + lastMsgRaw.slice(1);
     } else if (last.isVoice) {
-      lastMsgRaw = '🎤 Voice note';
+      previewIcon = 'mic'; lastMsgRaw = 'Voice note';
     } else if (last.videoUrl || last.isVideo) {
-      lastMsgRaw = '📹 Video';
+      previewIcon = 'video'; lastMsgRaw = 'Video';
     } else if (last.imageUrl) {
-      lastMsgRaw = '📷 Photo';
+      previewIcon = 'image'; lastMsgRaw = 'Photo';
     } else {
       lastMsgRaw = last.text || '';
     }
@@ -4118,8 +4158,7 @@ function _buildConvoItemHtml(u, filterQuery) {
 
   const unreadCount = getUnreadMessagesCount(u.id);
   const isUnread = unreadCount > 0;
-  const userStatus = getUserOnlineStatus(u);
-  const isOnline = userStatus.isOnline;
+  const isOnline = getUserOnlineStatus(u).isOnline;
 
   let timeDisplay = '';
   let lastTimeMs = 0;
@@ -4131,48 +4170,56 @@ function _buildConvoItemHtml(u, filterQuery) {
   }
   if (lastTimeMs > 0) {
     const diffSec = Math.floor((Date.now() - lastTimeMs) / 1000);
-    if (diffSec < 60) timeDisplay = 'Just now';
+    if (diffSec < 60) timeDisplay = 'Now';
     else if (diffSec < 3600) timeDisplay = `${Math.floor(diffSec / 60)}m`;
     else if (diffSec < 86400) timeDisplay = `${Math.floor(diffSec / 3600)}h`;
     else timeDisplay = `${Math.floor(diffSec / 86400)}d`;
   } else if (hist.length > 0) {
-    timeDisplay = 'Just now';
+    timeDisplay = 'Now';
   }
 
   const isArchived = Boolean(archivedChatIds.has(u.id));
   const isMuted = Boolean(typeof mutedChatIds !== 'undefined' && mutedChatIds && mutedChatIds.has(u.id));
+  const idArg = escHtml(JSON.stringify(String(u.id)));
+  const nameArg = escHtml(JSON.stringify(String(u.name || '')));
+  const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
   return `
-    <div class="convo-swipe-wrapper" id="convoSwipe_${u.id}" data-partner-id="${u.id}">
+    <div class="convo-swipe-wrapper" id="convoSwipe_${escHtml(u.id)}" data-partner-id="${escHtml(u.id)}">
       <div class="convo-swipe-actions">
-        <button class="convo-action-btn convo-archive-btn" onclick="event.stopPropagation();toggleArchiveConversation('${u.id}')" title="${isArchived ? 'Unarchive' : 'Archive'}">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        <button type="button" class="convo-action-btn" onclick="event.stopPropagation();toggleArchiveConversation(${idArg})">
+          <svg class="i" aria-hidden="true"><use href="#i-${isArchived ? 'archive-restore' : 'archive'}"/></svg>
           <span>${isArchived ? 'Unarchive' : 'Archive'}</span>
         </button>
-        <button class="convo-action-btn convo-delete-btn" onclick="event.stopPropagation();confirmDeleteConversation('${u.id}', '${escHtml(u.name)}')" title="Delete">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        <button type="button" class="convo-action-btn is-danger" onclick="event.stopPropagation();confirmDeleteConversation(${idArg}, ${nameArg})">
+          <svg class="i" aria-hidden="true"><use href="#i-trash-2"/></svg>
           <span>Delete</span>
         </button>
       </div>
       <div class="convo-item ${isUnread ? 'convo-unread' : ''}"
-        data-partner-id="${u.id}"
-        onclick="handleConvoClick(event, '${u.id}')"
-        ontouchstart="handleConvoTouchStart(event, '${u.id}')"
-        ontouchmove="handleConvoTouchMove(event, '${u.id}')"
-        ontouchend="handleConvoTouchEnd(event, '${u.id}')"
-        onmousedown="handleConvoMouseDown(event, '${u.id}', '${escHtml(u.name)}')"
-        oncontextmenu="event.preventDefault();openConvoActionSheet('${u.id}', '${escHtml(u.name)}');">
-        <div class="convo-avatar-wrap">
-          <div class="convo-avatar" style="background-image:url('${u.image}')"></div>
-          ${isOnline ? '<div class="convo-online-dot"></div>' : ''}
-        </div>
-        <div class="convo-body">
-          <div class="convo-name ${isUnread ? 'convo-name-unread' : ''}">${escHtml(u.name)}</div>
-          <div class="convo-preview ${isUnread ? 'convo-preview-unread' : ''}">${escHtml(lastText).substring(0, 46)}${lastText.length > 46 ? '…' : ''}</div>
-        </div>
-        <div class="convo-meta">
-          <span class="convo-time ${isUnread ? 'convo-time-unread' : ''}">${isMuted ? '<span class="convo-muted-icon" style="opacity:0.6;font-size:11px;margin-right:3px;">🔇</span>' : ''}${timeDisplay}</span>
-          ${isUnread ? `<span class="convo-unread-pill">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''}
-        </div>
+        data-partner-id="${escHtml(u.id)}"
+        onclick="handleConvoClick(event, ${idArg})"
+        ontouchstart="handleConvoTouchStart(event, ${idArg})"
+        ontouchmove="handleConvoTouchMove(event, ${idArg})"
+        ontouchend="handleConvoTouchEnd(event, ${idArg})"
+        onmousedown="handleConvoMouseDown(event, ${idArg}, ${nameArg})"
+        oncontextmenu="event.preventDefault();openConvoActionSheet(${idArg}, ${nameArg});">
+        <button type="button" class="convo-open">
+          <span class="convo-avatar-wrap">
+            ${u.image ? `<img class="convo-avatar" src="${escHtml(u.image)}" alt="" loading="lazy">` : '<span class="convo-avatar convo-avatar-empty"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg></span>'}
+            ${isOnline ? '<span class="convo-online-dot" role="img" aria-label="Online"></span>' : ''}
+          </span>
+          <span class="convo-body">
+            <span class="convo-name ${isUnread ? 'convo-name-unread' : ''}">${escHtml(u.name)}</span>
+            <span class="convo-preview ${isUnread ? 'convo-preview-unread' : ''}">${previewIcon ? `<svg class="i" aria-hidden="true"><use href="#i-${previewIcon}"/></svg>` : ''}<span class="convo-preview-text">${escHtml(String(lastText).slice(0, 120))}</span></span>
+          </span>
+          <span class="convo-meta">
+            <span class="convo-time ${isUnread ? 'convo-time-unread' : ''}">${isMuted ? '<svg class="i" role="img" aria-label="Muted"><use href="#i-bell-off"/></svg>' : ''}${timeDisplay}</span>
+            ${isUnread ? `<span class="count-badge" aria-label="${unreadLabel} unread">${unreadLabel}</span>` : ''}
+          </span>
+        </button>
+        <button type="button" class="convo-more" aria-label="Options for ${escHtml(u.name)}" aria-haspopup="dialog" onclick="event.stopPropagation();openConvoActionSheet(${idArg}, ${nameArg})">
+          <svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"/></svg>
+        </button>
       </div>
     </div>`;
 }
@@ -4203,6 +4250,7 @@ function handleConvoClick(e, partnerId) {
     e.stopPropagation();
     return;
   }
+  closeArchivedChatsModal();
   openChat(partnerId);
 }
 
@@ -4301,80 +4349,57 @@ function openConvoActionSheet(partnerId, partnerName) {
   const partner = matchedUsers.find(u => u.id === partnerId) || {};
   const isArchived = archivedChatIds.has(partnerId);
   const isMuted = Boolean(typeof mutedChatIds !== 'undefined' && mutedChatIds && mutedChatIds.has(partnerId));
-  const avatar = partner.image || '';
+  const name = partnerName || partner.name || 'Chat';
 
   const overlay = document.createElement('div');
   overlay.id = 'convoActionSheetOverlay';
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.18s ease;';
-  overlay.onclick = (e) => {
-    if (e.target === overlay) closeConvoActionSheet();
-  };
-
+  overlay.className = 'sheet-overlay open';
+  overlay.style.display = 'flex';
   overlay.innerHTML = `
-    <div class="convo-action-sheet" onclick="event.stopPropagation()">
-      <div class="convo-sheet-header">
-        <div class="convo-sheet-avatar" style="${avatar ? `background-image:url('${avatar}')` : ''}"></div>
-        <div class="convo-sheet-info">
-          <div class="convo-sheet-name">${escHtml(partnerName || 'Chat')}</div>
-          <div class="convo-sheet-sub">Chat options</div>
-        </div>
-        <button class="convo-sheet-close" onclick="closeConvoActionSheet()">✕</button>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="convoSheetTitle">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 class="sheet-title" id="convoSheetTitle"></h2>
+        <button type="button" class="btn btn-icon btn-ghost" data-act="close" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
       </div>
-
-      <div class="convo-sheet-list">
-        <button class="convo-sheet-item" onclick="closeConvoActionSheet();toggleArchiveConversation('${partnerId}')">
-          <div class="convo-sheet-icon" style="color:#8696a0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-          </div>
-          <div class="convo-sheet-label">${isArchived ? 'Unarchive chat' : 'Archive chat'}</div>
-        </button>
-
-        <button class="convo-sheet-item" onclick="closeConvoActionSheet();openChat('${partnerId}')">
-          <div class="convo-sheet-icon" style="color:#25D366">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          </div>
-          <div class="convo-sheet-label">Open chat</div>
-        </button>
-
-        <button class="convo-sheet-item" onclick="closeConvoActionSheet();toggleMuteConversation('${partnerId}')">
-          <div class="convo-sheet-icon" style="color:#8696a0">
-            ${isMuted ?
-              `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>` :
-              `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
-            }
-          </div>
-          <div class="convo-sheet-label">${isMuted ? 'Unmute notifications' : 'Mute notifications'}</div>
-        </button>
-
-        <button class="convo-sheet-item" onclick="closeConvoActionSheet();confirmDeleteConversation('${partnerId}', '${escHtml(partnerName)}')">
-          <div class="convo-sheet-icon" style="color:#8696a0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-          </div>
-          <div class="convo-sheet-label" style="color:#cfd8dc">Delete conversation</div>
-        </button>
+      <div class="sheet-actions">
+        <button type="button" class="sheet-action" data-act="open"><svg class="i" aria-hidden="true"><use href="#i-message-circle"/></svg>Open chat</button>
+        <button type="button" class="sheet-action" data-act="mute"><svg class="i" aria-hidden="true"><use href="#i-${isMuted ? 'bell' : 'bell-off'}"/></svg>${isMuted ? 'Unmute notifications' : 'Mute notifications'}</button>
+        <button type="button" class="sheet-action" data-act="archive"><svg class="i" aria-hidden="true"><use href="#i-${isArchived ? 'archive-restore' : 'archive'}"/></svg>${isArchived ? 'Unarchive chat' : 'Archive chat'}</button>
+        <button type="button" class="sheet-action is-danger" data-act="delete"><svg class="i" aria-hidden="true"><use href="#i-trash-2"/></svg>Delete chat</button>
       </div>
-    </div>
-  `;
-
+    </div>`;
+  overlay.querySelector('#convoSheetTitle').textContent = name;
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) return closeConvoActionSheet();
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (!act) return;
+    closeConvoActionSheet();
+    if (act === 'open') openChat(partnerId);
+    else if (act === 'mute') toggleMuteConversation(partnerId);
+    else if (act === 'archive') toggleArchiveConversation(partnerId);
+    else if (act === 'delete') confirmDeleteConversation(partnerId, name);
+  });
   document.body.appendChild(overlay);
+  dialogOpened(overlay, { close: closeConvoActionSheet });
 }
 
 function closeConvoActionSheet() {
   const overlay = document.getElementById('convoActionSheetOverlay');
-  if (overlay) {
-    overlay.style.opacity = '0';
-    overlay.style.transition = 'opacity 0.16s ease';
-    setTimeout(() => overlay.remove(), 160);
-  }
+  if (!overlay) return;
+  dialogClosed(overlay);
+  overlay.remove();
 }
 
-function confirmDeleteConversation(partnerId, partnerName) {
+async function confirmDeleteConversation(partnerId, partnerName) {
   if (!partnerId) return;
   const name = partnerName || 'this chat';
-  if (confirm(`Delete conversation with ${name}?\n\nThis will remove the chat and delete all messages.`)) {
-    deleteConversation(partnerId);
-  }
+  const ok = await confirmDialog({
+    title: `Delete chat with ${name}?`,
+    message: 'This removes the match and all messages for both of you. It cannot be undone.',
+    confirmLabel: 'Delete chat', danger: true
+  });
+  if (ok) deleteConversation(partnerId);
 }
 
 async function deleteConversation(partnerId) {
@@ -4414,17 +4439,17 @@ async function deleteConversation(partnerId) {
   renderConversationList();
   renderChatsInbox();
   updateMatchesNotificationBadge();
-  showToast('Chat deleted 🗑️', 'info');
+  showToast('Chat deleted', 'info');
 }
 
 function toggleArchiveConversation(partnerId) {
   if (!partnerId) return;
   if (archivedChatIds.has(partnerId)) {
     archivedChatIds.delete(partnerId);
-    showToast('Chat unarchived 📥', 'info');
+    showToast('Chat moved back to Messages', 'info');
   } else {
     archivedChatIds.add(partnerId);
-    showToast('Chat archived 📦', 'info');
+    showToast('Chat archived', 'info');
   }
   try {
     localStorage.setItem('hmbs_archived_chats', JSON.stringify(Array.from(archivedChatIds)));
@@ -4432,6 +4457,7 @@ function toggleArchiveConversation(partnerId) {
   resetAllSwipedConvos();
   renderConversationList();
   renderChatsInbox();
+  if (document.getElementById('archivedChatsModal')) openArchivedChatsModal();
 }
 
 // Persisted muted chat IDs
@@ -4453,32 +4479,35 @@ function toggleMuteConversation(partnerId) {
   renderChatsInbox();
 }
 
+function closeArchivedChatsModal() {
+  const m = document.getElementById('archivedChatsModal');
+  if (!m) return;
+  dialogClosed(m);
+  m.remove();
+}
+
 function openArchivedChatsModal() {
-  document.getElementById('archivedChatsModal')?.remove();
+  closeArchivedChatsModal();
   const archivedUsers = matchedUsers.filter(u => archivedChatIds.has(u.id));
 
   const modal = document.createElement('div');
   modal.id = 'archivedChatsModal';
-  modal.className = 'whatsapp-dialog-overlay';
-  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg-main);z-index:99999;display:flex;flex-direction:column;';
-
+  modal.className = 'fullpage';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'archivedTitle');
   modal.innerHTML = `
-    <div class="chat-header" style="position:sticky;top:0;z-index:10;">
-      <button class="chat-back-btn" onclick="document.getElementById('archivedChatsModal')?.remove()">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-      </button>
-      <div class="chat-header-info">
-        <div class="chat-header-name">Archived chats (${archivedUsers.length})</div>
-      </div>
-    </div>
-    <div class="convo-list" style="flex:1;overflow-y:auto;padding-bottom:30px;">
+    <header class="fullpage-bar">
+      <button type="button" class="header-btn" onclick="closeArchivedChatsModal()" aria-label="Back to messages"><svg class="i" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
+      <h2 class="screen-header-title" id="archivedTitle">Archived chats (${archivedUsers.length})</h2>
+    </header>
+    <div class="fullpage-body convo-list">
       ${archivedUsers.length === 0
-        ? `<div style="text-align:center;padding:60px 16px;color:var(--txt-muted);">No archived chats.</div>`
-        : archivedUsers.map(u => _buildConvoItemHtml(u, '')).join('')
-      }
-    </div>
-  `;
+        ? '<div class="empty"><svg class="i" aria-hidden="true"><use href="#i-archive"/></svg><div class="empty-title">No archived chats</div></div>'
+        : archivedUsers.map(u => _buildConvoItemHtml(u, '')).join('')}
+    </div>`;
   document.body.appendChild(modal);
+  dialogOpened(modal, { close: closeArchivedChatsModal });
 }
 
 function renderConversationList() {
@@ -4486,11 +4515,7 @@ function renderConversationList() {
   if (!col) return;
 
   if (matchedUsers.length === 0) {
-    col.innerHTML = `
-      <div style="text-align:center;padding:40px 16px;color:var(--txt-muted);">
-        <div style="font-size:2.5rem;margin-bottom:12px">💬</div>
-        <p style="font-size:0.9rem;line-height:1.5">Match with someone to start a conversation!</p>
-      </div>`;
+    col.innerHTML = '<div class="empty"><div class="empty-title">No conversations yet</div></div>';
     return;
   }
 
@@ -4513,13 +4538,12 @@ function renderChatsInbox(filterQuery) {
     const col = document.getElementById('chatsConvoList');
     if (col && col.children.length === 0) {
       const skeletonItem = () => `
-        <div class="convo-skeleton-item">
-          <div class="convo-skeleton-avatar"></div>
+        <div class="convo-skeleton-item" aria-hidden="true">
+          <div class="convo-skeleton-avatar skeleton"></div>
           <div class="convo-skeleton-body">
-            <div class="convo-skeleton-line convo-skeleton-name"></div>
-            <div class="convo-skeleton-line convo-skeleton-preview"></div>
+            <div class="convo-skeleton-line convo-skeleton-name skeleton"></div>
+            <div class="convo-skeleton-line convo-skeleton-preview skeleton"></div>
           </div>
-          <div class="convo-skeleton-time"></div>
         </div>`;
       col.innerHTML = skeletonItem() + skeletonItem() + skeletonItem() + skeletonItem();
     }
@@ -4527,21 +4551,13 @@ function renderChatsInbox(filterQuery) {
   }
   // ---
 
-  // New matches row in inbox
+  // New matches row (hidden while searching, and when there are no matches)
   const matchesRow = document.getElementById('chatsNewMatchesRow');
+  const matchesSection = document.getElementById('chatsNewMatchesSection');
   if (matchesRow) {
-    if (matchedUsers.length === 0) {
-      matchesRow.innerHTML = `<p style="color:var(--txt-muted);font-size:0.82rem;padding:4px 0;">No matches yet — keep swiping! 🔥</p>`;
-    } else {
-      matchesRow.innerHTML = matchedUsers.map(u => `
-        <div class="match-bubble" onclick="openChat('${u.id}')">
-          <div class="match-bubble-ring">
-            <div class="match-bubble-photo" style="background-image:url('${u.image}')"></div>
-          </div>
-          <span class="match-bubble-name">${escHtml(u.name)}</span>
-        </div>
-      `).join('');
-    }
+    const show = matchedUsers.length > 0 && !filterQuery;
+    if (matchesSection) matchesSection.hidden = !show;
+    matchesRow.innerHTML = show ? newMatchesTilesHtml() : '';
   }
 
   // Conversations list in inbox
@@ -4550,10 +4566,11 @@ function renderChatsInbox(filterQuery) {
 
   if (matchedUsers.length === 0) {
     col.innerHTML = `
-      <div style="text-align:center;padding:40px 16px;color:var(--txt-muted);">
-        <div style="font-size:2.8rem;margin-bottom:14px">💬</div>
-        <p style="font-size:0.92rem;line-height:1.6;font-weight:600">No conversations yet</p>
-        <p style="font-size:0.8rem;margin-top:6px;color:var(--txt-muted)">Match with someone in Discover to start chatting!</p>
+      <div class="empty">
+        <svg class="i" aria-hidden="true"><use href="#i-message-circle"/></svg>
+        <div class="empty-title">No conversations yet</div>
+        <p class="empty-text">When you match with someone, you can message them here.</p>
+        <button type="button" class="btn btn-primary" onclick="switchTab('discovery')">Go to Discover</button>
       </div>`;
     return;
   }
@@ -4564,22 +4581,23 @@ function renderChatsInbox(filterQuery) {
   let archivedBannerHtml = '';
   if (archivedCount > 0 && !filterQuery) {
     archivedBannerHtml = `
-      <div class="wa-archived-banner" onclick="openArchivedChatsModal()">
-        <div class="wa-archived-left">
-          <div class="wa-archived-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-          </div>
-          <span class="wa-archived-title">Archived</span>
-        </div>
-        <span class="wa-archived-count">${archivedCount}</span>
-      </div>`;
+      <button type="button" class="convo-archived-row" onclick="openArchivedChatsModal()">
+        <svg class="i" aria-hidden="true"><use href="#i-archive"/></svg>
+        <span class="convo-archived-label">Archived</span>
+        <span class="count-badge count-badge-quiet">${archivedCount}</span>
+        <svg class="i" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+      </button>`;
   }
 
   const listToRender = filterQuery ? matchedUsers : unarchivedUsers;
   const rows = listToRender.map(u => _buildConvoItemHtml(u, filterQuery || '')).filter(Boolean);
 
   if (rows.length === 0 && !archivedBannerHtml) {
-    col.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--txt-muted);font-size:0.88rem;">No conversations match your search.</div>`;
+    col.innerHTML = `
+      <div class="empty">
+        <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+        <div class="empty-title">${filterQuery ? 'No conversations match your search' : 'Nothing here'}</div>
+      </div>`;
   } else {
     col.innerHTML = archivedBannerHtml + rows.join('');
   }
@@ -5584,11 +5602,16 @@ function openFullPhotoModal(url) {
   document.body.appendChild(ov);
 }
 
-function clearCurrentChatHistory() {
+async function clearCurrentChatHistory() {
   const menu = document.getElementById('chatDropdownMenu');
   if (menu) menu.style.display = 'none';
   if (!appState.currentChatId) return;
-  if (confirm('Clear chat conversation?')) {
+  const okClear = await confirmDialog({
+    title: 'Clear this chat?',
+    message: 'All messages in this conversation are deleted for both of you. The match stays.',
+    confirmLabel: 'Clear chat', danger: true
+  });
+  if (okClear) {
     const chatId = appState.currentChatId;
     const now = Date.now();
     try {
@@ -7151,7 +7174,7 @@ async function shareLightboxImage() {
 }
 window.shareLightboxImage = shareLightboxImage;
 
-function deleteLightboxImage() {
+async function deleteLightboxImage() {
   const menu = document.getElementById('lightboxDropdownMenu');
   if (menu) menu.style.display = 'none';
   if (!_lightboxCurrentMsgId) {
@@ -7159,7 +7182,7 @@ function deleteLightboxImage() {
     return;
   }
 
-  if (!confirm('Delete this media message?')) return;
+  if (!(await confirmDialog({ title: 'Delete this media message?', message: 'It is removed from the conversation.', confirmLabel: 'Delete', danger: true }))) return;
 
   const partnerId = appState.currentChatId;
   if (partnerId && conversations[partnerId]) {
@@ -11646,7 +11669,7 @@ function openReportFromDetailSheet(profileId) {
 window.openReportFromDetailSheet = openReportFromDetailSheet;
 
 async function handleLogout(skipConfirm) {
-  if (skipConfirm !== true && !confirm('Are you sure you want to log out?')) return;
+  if (skipConfirm !== true && !(await confirmDialog({ title: 'Log out?', message: 'You will need to sign in again to use your account.', confirmLabel: 'Log out' }))) return;
 
   // Back up profile data before clearing session so returning sign-ins are instant
   if (currentUser && currentUser.email && currentUser.name && !currentUser.name.includes('@')) {
@@ -11683,7 +11706,7 @@ async function handleLogout(skipConfirm) {
 }
 
 async function handleDeleteAccount() {
-  if (!confirm('⚠️ Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.')) return;
+  if (!(await confirmDialog({ title: 'Delete your account?', message: 'Your profile, matches and messages are permanently deleted. This cannot be undone.', confirmLabel: 'Delete account', danger: true }))) return;
 
   if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
     showToast('Please sign in before deleting your account.', 'error');
@@ -12099,12 +12122,12 @@ function renderStoriesRow() {
   const myAvatar = currentUser.avatar || currentUser.image || '';
 
   const tile = ({ onclick, label, avatar, ring, extra = '', aria }) => `
-    <button type="button" class="status-tile" role="listitem" onclick="${onclick}" aria-label="${escHtml(aria || label)}">
-      <span class="status-avatar ${ring}">
+    <button type="button" class="tile" role="listitem" onclick="${onclick}" aria-label="${escHtml(aria || label)}">
+      <span class="tile-avatar ${ring}">
         ${avatar ? `<img src="${escHtml(avatar)}" alt="" loading="lazy">` : '<svg class="i" aria-hidden="true"><use href="#i-user"/></svg>'}
         ${extra}
       </span>
-      <span class="status-name">${escHtml(label)}</span>
+      <span class="tile-name">${escHtml(label)}</span>
     </button>`;
 
   let html = '';
@@ -12112,13 +12135,13 @@ function renderStoriesRow() {
   // 1. Your own status
   if (isUploading) {
     html += tile({ onclick: 'event.stopPropagation()', label: 'Sending…', avatar: myAvatar, ring: 'is-busy',
-      extra: '<span class="status-badge" aria-hidden="true"><svg class="i spin"><use href="#i-loader-circle"/></svg></span>' });
+      extra: '<span class="tile-badge" aria-hidden="true"><svg class="i spin"><use href="#i-loader-circle"/></svg></span>' });
   } else if (hasStory) {
     html += tile({ onclick: 'viewYourStory(0)', label: 'Your status', avatar: myAvatar, ring: 'is-unseen',
-      extra: '<span class="status-badge" role="presentation" onclick="event.stopPropagation();openYourStoryUpload(event);" title="Add to your status"><svg class="i"><use href="#i-plus"/></svg></span>' });
+      extra: '<span class="tile-badge" role="presentation" onclick="event.stopPropagation();openYourStoryUpload(event);" title="Add to your status"><svg class="i"><use href="#i-plus"/></svg></span>' });
   } else {
     html += tile({ onclick: 'openYourStoryUpload(event)', label: 'Add status', avatar: myAvatar, ring: 'is-empty',
-      extra: '<span class="status-badge" aria-hidden="true"><svg class="i"><use href="#i-plus"/></svg></span>' });
+      extra: '<span class="tile-badge" aria-hidden="true"><svg class="i"><use href="#i-plus"/></svg></span>' });
   }
 
   // 2. Other people's statuses (real, unexpired, from Firestore)
@@ -12130,7 +12153,7 @@ function renderStoriesRow() {
       onclick: `viewStory(${escHtml(JSON.stringify(String(s.id)))})`,
       label: s.name || 'Member', avatar, ring: seen ? 'is-seen' : 'is-unseen',
       aria: `${s.name || 'Member'}'s status${isVid ? ' (video)' : ''}${seen ? ', viewed' : ''}`,
-      extra: isVid ? '<span class="status-badge status-badge-media" aria-hidden="true"><svg class="i"><use href="#i-video"/></svg></span>' : ''
+      extra: isVid ? '<span class="tile-badge tile-badge-media" aria-hidden="true"><svg class="i"><use href="#i-video"/></svg></span>' : ''
     });
   }).join('');
 
@@ -12368,8 +12391,8 @@ function closeStoryViewer() {
   _viewingUserStory = false;
 }
 
-function deleteCurrentUserStory() {
-  if (!confirm('Are you sure you want to delete this status?')) return;
+async function deleteCurrentUserStory() {
+  if (!(await confirmDialog({ title: 'Delete this status?', confirmLabel: 'Delete', danger: true }))) return;
   const activeList = _viewingUserStory ? userStories : getAllCommunityStories();
   const storyToDelete = activeList && activeList[currentStoryIndex];
   if (!storyToDelete) return;
@@ -13092,8 +13115,11 @@ window.promptBlockActiveUser = promptBlockActiveUser;
 
 function openEmergencyHelp() {
   closeSafetyToolkit();
-  const msg = '🚨 Emergency Support:\n• Nigeria Emergency: 112\n• US / Intl Emergency: 911 / 999\n• Crisis Text Line: Text HOME to 741741\n• 24/7 Support: support@hookmebysam.com';
-  alert(msg);
+  confirmDialog({
+    title: 'If you are in danger',
+    message: 'Call your local emergency number now. In Nigeria that is 112.\n\nTo report a person or a safety problem to us, email support@hookmebysam.com.',
+    confirmLabel: 'Close', cancelLabel: null
+  });
 }
 window.openEmergencyHelp = openEmergencyHelp;
 
@@ -13219,7 +13245,7 @@ async function unblockUser(userId, name) {
       image: restoredProfile.image || '',
       bio: restoredProfile.bio || '',
       tags: restoredProfile.tags || ['Music 🎵', 'Positive vibes ✨'],
-      distance: restoredProfile.distance || '2 km'
+      distance: restoredProfile.distance || ''
     });
   }
 
@@ -13359,6 +13385,24 @@ if ('serviceWorker' in navigator) {
 
 let searchDebounceTimer = null;
 
+// One search hit: avatar, name, short bio (never an email address), Message button.
+function userSearchRowHtml(u, closeFirst) {
+  const img = u.image || u.avatar || '';
+  const a = (v) => escHtml(JSON.stringify(String(v == null ? '' : v)));
+  const sub = u.bio || u.location || '';
+  return `
+    <div class="row search-hit">
+      <span class="avatar">${img ? `<img src="${escHtml(img)}" alt="" loading="lazy">` : ''}</span>
+      <span class="row-body">
+        <span class="row-title">${escHtml(u.name)}${u.age ? `, ${escHtml(u.age)}` : ''}</span>
+        ${sub ? `<span class="row-sub">${escHtml(sub)}</span>` : ''}
+      </span>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="${closeFirst ? 'closeSearchModal();' : ''}connectAndChatWithUser(${a(u.id)}, ${a(u.name)}, ${a(img)})">
+        <svg class="i" aria-hidden="true"><use href="#i-message-circle"/></svg>Message
+      </button>
+    </div>`;
+}
+
 async function handleUserSearchInput(e) {
   const query = e.target.value.trim();
   const clearBtn = document.getElementById('clearSearchBtn');
@@ -13382,7 +13426,7 @@ async function handleUserSearchInput(e) {
   clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(async () => {
     if (resultsContainer) resultsContainer.style.display = 'block';
-    if (resultsList) resultsList.innerHTML = `<p style="color:var(--text-muted,#888);padding:12px;font-size:0.85rem;text-align:center">Searching registered users... 🔍</p>`;
+    if (resultsList) resultsList.innerHTML = `<p style="color:var(--text-muted,#888);padding:12px;font-size:0.85rem;text-align:center">Searching…</p>`;
 
     let matches = [];
 
@@ -13398,8 +13442,7 @@ async function handleUserSearchInput(e) {
       !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
     ).filter(u =>
       (u.name && u.name.toLowerCase().includes(qLower)) ||
-      (u.bio && u.bio.toLowerCase().includes(qLower)) ||
-      (u.email && u.email.toLowerCase().includes(qLower))
+      (u.bio && u.bio.toLowerCase().includes(qLower))
     );
 
     // Merge without duplicates
@@ -13416,27 +13459,17 @@ async function handleUserSearchInput(e) {
     if (matches.length === 0) {
       if (resultsList) {
         resultsList.innerHTML = `
-          <div style="text-align:center;padding:24px 12px;color:var(--text-muted,#888)">
-            <div style="font-size:2rem;margin-bottom:6px">🔍</div>
-            <p style="font-size:0.88rem">No users found matching "${escHtml(query)}"</p>
+          <div class="empty">
+            <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+            <div class="empty-title">No one found</div>
+            <p class="empty-text">Nobody matches “${escHtml(query)}”.</p>
           </div>`;
       }
       return;
     }
 
     if (resultsList) {
-      resultsList.innerHTML = matches.map(u => `
-        <div class="convo-item" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);padding:10px 14px;border-radius:16px;display:flex;align-items:center;gap:12px">
-          <div class="convo-avatar" style="background-image:url('${u.image || u.avatar}');width:48px;height:48px;border-radius:50%;border:2px solid #FF2D78;background-size:cover;background-position:center;flex-shrink:0"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:0.95rem;color:var(--txt-primary,#fff)">${escHtml(u.name)}${u.age ? `, ${u.age}` : ''}</div>
-            <div style="font-size:0.78rem;color:var(--txt-secondary,#aaa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.bio || u.email || '')}</div>
-          </div>
-          <button class="accent-btn" onclick="connectAndChatWithUser('${u.id}', '${escHtml(u.name)}', '${u.image || u.avatar || ''}')" style="padding:7px 14px;font-size:0.8rem;border-radius:20px;flex-shrink:0;background:var(--flame-grad,#ff2d78)">
-            Chat 💬
-          </button>
-        </div>
-      `).join('');
+      resultsList.innerHTML = matches.map(u => userSearchRowHtml(u, false)).join('');
     }
   }, 250);
 }
@@ -13517,8 +13550,9 @@ async function handleModalSearchInput(e) {
   if (!query) {
     if (resultsBody) {
       resultsBody.innerHTML = `
-        <div style="text-align:center;padding:32px 16px;color:rgba(255,255,255,0.5);font-size:0.88rem">
-          Type a name or email above to search registered accounts 🔍
+        <div class="empty">
+          <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+          <p class="empty-text">Type a name to find people on hookmebysam.</p>
         </div>`;
     }
     return;
@@ -13527,7 +13561,7 @@ async function handleModalSearchInput(e) {
   clearTimeout(modalSearchDebounce);
   modalSearchDebounce = setTimeout(async () => {
     if (resultsBody) {
-      resultsBody.innerHTML = `<p style="color:rgba(255,255,255,0.6);padding:16px;font-size:0.88rem;text-align:center">Searching registered users... 🔍</p>`;
+      resultsBody.innerHTML = `<p style="color:rgba(255,255,255,0.6);padding:16px;font-size:0.88rem;text-align:center">Searching…</p>`;
     }
 
     let matches = [];
@@ -13544,8 +13578,7 @@ async function handleModalSearchInput(e) {
       !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
     ).filter(u =>
       (u.name && u.name.toLowerCase().includes(qLower)) ||
-      (u.bio && u.bio.toLowerCase().includes(qLower)) ||
-      (u.email && u.email.toLowerCase().includes(qLower))
+      (u.bio && u.bio.toLowerCase().includes(qLower))
     );
 
     const seenIds = new Set(matches.map(m => m.id));
@@ -13559,27 +13592,17 @@ async function handleModalSearchInput(e) {
     if (matches.length === 0) {
       if (resultsBody) {
         resultsBody.innerHTML = `
-          <div style="text-align:center;padding:28px 12px;color:rgba(255,255,255,0.5)">
-            <div style="font-size:2rem;margin-bottom:6px">🔍</div>
-            <p style="font-size:0.88rem">No users found matching "${escHtml(query)}"</p>
+          <div class="empty">
+            <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+            <div class="empty-title">No one found</div>
+            <p class="empty-text">Nobody matches “${escHtml(query)}”.</p>
           </div>`;
       }
       return;
     }
 
     if (resultsBody) {
-      resultsBody.innerHTML = matches.map(u => `
-        <div class="convo-item" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:12px 14px;border-radius:18px;display:flex;align-items:center;gap:12px">
-          <div class="convo-avatar" style="background-image:url('${u.image || u.avatar}');width:48px;height:48px;border-radius:50%;border:2px solid #FF2D78;background-size:cover;background-position:center;flex-shrink:0"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:0.95rem;color:#fff">${escHtml(u.name)}${u.age ? `, ${u.age}` : ''}</div>
-            <div style="font-size:0.78rem;color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.bio || u.email || '')}</div>
-          </div>
-          <button class="accent-btn" onclick="closeSearchModal();connectAndChatWithUser('${u.id}', '${escHtml(u.name)}', '${u.image || u.avatar || ''}')" style="padding:8px 16px;font-size:0.82rem;border-radius:20px;flex-shrink:0;background:var(--flame-grad,#ff2d78)">
-            Chat 💬
-          </button>
-        </div>
-      `).join('');
+      resultsBody.innerHTML = matches.map(u => userSearchRowHtml(u, true)).join('');
     }
   }, 220);
 }
@@ -13857,7 +13880,7 @@ function cancelEditMessage() {
 }
 
 async function deleteMessagePrompt(matchId, msgId) {
-  if (!confirm('Delete this message?')) return;
+  if (!(await confirmDialog({ title: 'Delete this message?', message: 'It is removed for both of you.', confirmLabel: 'Delete', danger: true }))) return;
 
   const { msg, idx, hist } = getMessageInfo(msgId);
 
@@ -16097,7 +16120,7 @@ function calculateDistanceKm(lat1, lon1, lat2, lon2) {
 window.calculateDistanceKm = calculateDistanceKm;
 
 function getDynamicProfileDistance(profile) {
-  if (!profile) return '2 km away';
+  if (!profile) return '';
   if (_userGeoCoords) {
     let targetCoords = profile.coords;
     if (!targetCoords && (profile.location || profile.city)) {
@@ -16115,7 +16138,7 @@ function getDynamicProfileDistance(profile) {
       return `${km.toFixed(1)} km away`;
     }
   }
-  return profile.distance || '2.5 km away';
+  return profile.distance || '';
 }
 window.getDynamicProfileDistance = getDynamicProfileDistance;
 
@@ -16892,8 +16915,8 @@ function playMyVoiceIntro() {
 }
 window.playMyVoiceIntro = playMyVoiceIntro;
 
-function deleteMyVoiceIntro() {
-  if (confirm('Remove your voice introduction?')) {
+async function deleteMyVoiceIntro() {
+  if (await confirmDialog({ title: 'Remove your voice introduction?', confirmLabel: 'Remove', danger: true })) {
     currentUser.voiceIntro = null;
     saveToStorage();
     renderProfileScreen();

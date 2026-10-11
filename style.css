@@ -330,378 +330,6 @@ input[type="number"].auth-input {
   100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); }
 }
 
-/* New match bubbles */
-.new-matches-scroll {
-  display: flex;
-  gap: 14px;
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-bottom: 6px;
-}
-.new-matches-scroll::-webkit-scrollbar { display: none; }
-
-.match-bubble {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.match-bubble-ring {
-  width: 66px; height: 66px;
-  border-radius: 50%;
-  padding: 2.5px;
-  background: var(--flame-grad);
-  box-shadow: var(--shadow-flame);
-  transition: transform var(--t-fast) var(--spring);
-}
-.match-bubble:hover .match-bubble-ring { transform: scale(1.06); }
-.match-bubble-photo {
-  width: 100%; height: 100%;
-  border-radius: 50%;
-  background-size: cover;
-  background-position: center;
-  border: 2.5px solid var(--bg);
-  background-color: var(--bg-elevated);
-}
-.match-bubble-name {
-  font-size: 0.73rem;
-  font-weight: 700;
-  color: var(--txt-secondary);
-  max-width: 66px;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ============================================================
-   CHAT INBOX SCREEN
-   ============================================================ */
-
-.chats-inbox-wrap {
-  flex: 1;
-  overflow-y: auto;
-  scrollbar-width: none;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-.chats-inbox-wrap::-webkit-scrollbar { display: none; }
-
-.chats-search-wrap {
-  padding: 12px 16px 8px;
-  flex-shrink: 0;
-}
-.chats-search-inner {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: var(--r-input);
-  padding: 10px 16px;
-  color: var(--txt-muted);
-}
-.chats-search-input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--txt-primary);
-  font-size: 0.9rem;
-  font-family: var(--font-body);
-}
-.chats-search-input::placeholder { color: var(--txt-muted); }
-
-.chats-matches-row-section {
-  padding: 12px 16px 8px;
-  flex-shrink: 0;
-}
-.chats-convos-section {
-  flex: 1;
-  padding: 0 0 8px;
-}
-.chats-section-label {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.8px;
-  text-transform: uppercase;
-  color: var(--txt-muted);
-  padding: 0 16px 8px;
-}
-
-/* Conversation rows */
-.convo-list {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  width: 100%;
-}
-.convo-swipe-wrapper {
-  position: relative;
-  overflow: hidden;
-  width: 100%;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  background: #111b21;
-}
-.convo-swipe-actions {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  display: flex;
-  align-items: stretch;
-  z-index: 1;
-}
-.convo-action-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 72px;
-  border: none;
-  cursor: pointer;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  gap: 4px;
-  padding: 0;
-  transition: opacity 0.15s ease;
-  user-select: none;
-}
-.convo-action-btn:active {
-  opacity: 0.8;
-}
-.convo-archive-btn {
-  background: #1f2c34;
-}
-.convo-delete-btn {
-  background: #262d31;
-}
-.convo-swipe-wrapper .convo-item {
-  border-bottom: none !important;
-  background: var(--bg-card);
-  position: relative;
-  z-index: 2;
-  transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
-  will-change: transform;
-}
-.convo-item {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
-  border-radius: 0;
-  width: 100%;
-  box-sizing: border-box;
-  cursor: pointer;
-  transition: background var(--t-fast) var(--ease);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  user-select: none;
-  -webkit-user-select: none;
-}
-.convo-item:last-child {
-  border-bottom: none;
-}
-.convo-item:hover { background: var(--bg-elevated); }
-.convo-item:active { background: var(--bg-card); }
-
-/* WhatsApp-style Archived banner */
-.wa-archived-banner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.wa-archived-banner:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-.wa-archived-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-.wa-archived-icon {
-  color: #00a884;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-.wa-archived-title {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--txt-primary);
-}
-.wa-archived-count {
-  font-size: 0.82rem;
-  color: #00a884;
-  font-weight: 700;
-}
-
-/* WhatsApp conversation action sheet */
-.convo-action-sheet {
-  background: #1f2c34;
-  width: 100%;
-  max-width: 480px;
-  border-top-left-radius: 20px;
-  border-top-right-radius: 20px;
-  padding: 16px 0 24px 0;
-  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6);
-  animation: slideUp 0.22s cubic-bezier(0.25, 1, 0.5, 1);
-}
-.convo-sheet-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 18px 14px 18px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-.convo-sheet-avatar {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background-size: cover;
-  background-position: center;
-  background-color: #2a3942;
-}
-.convo-sheet-info {
-  flex: 1;
-}
-.convo-sheet-name {
-  font-weight: 700;
-  font-size: 1rem;
-  color: #fff;
-}
-.convo-sheet-sub {
-  font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.55);
-}
-.convo-sheet-close {
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.1rem;
-  cursor: pointer;
-  padding: 6px;
-}
-.convo-sheet-list {
-  display: flex;
-  flex-direction: column;
-  padding-top: 6px;
-}
-.convo-sheet-item {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 14px 20px;
-  background: none;
-  border: none;
-  width: 100%;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-.convo-sheet-item:hover,
-.convo-sheet-item:active {
-  background: rgba(255, 255, 255, 0.06);
-}
-.convo-sheet-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 24px;
-}
-.convo-sheet-label {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #e9edef;
-}
-.convo-sheet-item.danger-item .convo-sheet-label {
-  color: #FF3B30 !important;
-}
-
-.convo-avatar-wrap {
-  position: relative;
-  flex-shrink: 0;
-}
-.convo-avatar {
-  width: 56px; height: 56px;
-  border-radius: 50%;
-  background-size: cover;
-  background-position: center;
-  background-color: var(--bg-elevated);
-  border: 2px solid var(--border);
-}
-.convo-online-dot {
-  position: absolute;
-  bottom: 2px; right: 2px;
-  width: 12px; height: 12px;
-  background: var(--green-match);
-  border-radius: 50%;
-  border: 2.5px solid var(--bg);
-  box-shadow: 0 0 6px rgba(33,176,107,0.7);
-}
-
-.convo-body { flex: 1; min-width: 0; }
-.convo-name { font-weight: 800; font-size: 0.97rem; margin-bottom: 3px; }
-.convo-preview {
-  font-size: 0.83rem;
-  color: var(--txt-secondary);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-weight: 400;
-}
-
-.convo-meta {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  flex-shrink: 0;
-}
-.convo-time {
-  font-size: 0.72rem;
-  color: var(--txt-muted);
-  font-weight: 600;
-  transition: color var(--t-fast) var(--ease);
-}
-.convo-time-unread {
-  color: var(--txt-secondary, #aaa) !important;
-  font-weight: 700;
-}
-.convo-item.convo-unread {
-  background: rgba(255, 255, 255, 0.03);
-}
-.convo-name-unread {
-  font-weight: 800 !important;
-  color: var(--txt-primary) !important;
-}
-.convo-preview-unread {
-  font-weight: 700 !important;
-  color: var(--txt-primary) !important;
-}
-.convo-unread-pill {
-  background: rgba(255, 255, 255, 0.18);
-  color: #ffffff;
-  font-size: 0.65rem;
-  font-weight: 800;
-  min-width: 19px;
-  height: 19px;
-  line-height: 19px;
-  padding: 0 5px;
-  border-radius: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
 /* ============================================================
    CHAT SCREEN
    ============================================================ */
@@ -2126,7 +1754,6 @@ label,
 
 .profile-display-name,
 .profile-name,
-.convo-name,
 .match-match-name {
   color: var(--txt-primary) !important;
 }
@@ -2227,14 +1854,6 @@ label,
   background: #F3EADB;
   color: #221527;
   border-color: #EDE3D3;
-}
-
-[data-theme="light"] .convo-item:hover {
-  background: #F3EADB;
-}
-
-[data-theme="light"] .convo-name {
-  color: #221527;
 }
 
 /* Theme toggle pill buttons */
@@ -6210,11 +5829,9 @@ body[data-theme="light"] {
 [data-theme="light"] .settings-row-label,
 [data-theme="light"] .profile-display-name,
 [data-theme="light"] .profile-name,
-[data-theme="light"] .convo-name,
 [data-theme="light"] .match-match-name,
 [data-theme="light"] .simple-profile-name,
-[data-theme="light"] .simple-stat-value,
-[data-theme="light"] .chats-section-label {
+[data-theme="light"] .simple-stat-value {
   color: #15121A !important;
 }
 
@@ -6226,7 +5843,6 @@ body[data-theme="light"] {
 [data-theme="light"] .profile-stat-label,
 [data-theme="light"] .profile-stat-value,
 [data-theme="light"] .match-sub,
-[data-theme="light"] .chats-empty,
 [data-theme="light"] .settings-row-right {
   color: #5B5364 !important;
 }
@@ -6239,7 +5855,6 @@ body[data-theme="light"] {
 [data-theme="light"] .form-textarea,
 [data-theme="light"] .auth-input,
 [data-theme="light"] .chat-field,
-[data-theme="light"] .chats-search-input,
 [data-theme="light"] .ai-prompt-input {
   color: #15121A !important;
   background: #FFFFFF !important;
@@ -6258,7 +5873,6 @@ body[data-theme="light"] {
 [data-theme="light"] .settings-profile-card,
 [data-theme="light"] .profile-form,
 [data-theme="light"] .simple-stat-card,
-[data-theme="light"] .convo-item,
 [data-theme="light"] .match-item,
 [data-theme="light"] .chat-list-item {
   background: #FFFFFF !important;
@@ -6266,7 +5880,6 @@ body[data-theme="light"] {
   color: #15121A !important;
 }
 
-[data-theme="light"] .convo-item:hover,
 [data-theme="light"] .match-item:hover,
 [data-theme="light"] .chat-list-item:hover,
 [data-theme="light"] .settings-row:hover {
@@ -9902,8 +9515,7 @@ body {
 
 /* Other Workspaces Centering */
 .settings-workspace,
-.chat-workspace,
-.convo-messages-wrap {
+.chat-workspace {
   width: 100% !important;
   max-width: 520px !important;
   margin: 0 auto !important;
