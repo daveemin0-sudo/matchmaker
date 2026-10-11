@@ -46,8 +46,8 @@ test('the browser never stores a recoverable copy of the password in the Firebas
 });
 
 test('voice-intro pill is anchored to the top of the photo, not the bottom where the bio is drawn', () => {
-  const css = read('premium.css');
-  const rule = css.match(/\.card-voice-intro-btn \{[\s\S]*?\n\}/);
+  const css = read('css/discovery.css');
+  const rule = css.match(/\.card-distance-badge, \.card-voice-intro-btn \{[\s\S]*?\n\}|\.card-voice-intro-btn \{[\s\S]*?\n\}/);
   assert.ok(rule, '.card-voice-intro-btn rule not found');
   assert.match(rule[0], /top:/);
   assert.doesNotMatch(rule[0], /bottom:/, 'bottom-anchored pill covers the end of .card-info .card-bio');

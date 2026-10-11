@@ -1393,6 +1393,10 @@ function updateHeader(screenId) {
   setHeaderBtnVisible(reportBtn, screenId === 'discovery');
   setHeaderBtnVisible(upgradeBtn, screenId === 'discovery' || screenId === 'matches');
 
+  // Demo (guest) mode is always labelled, on every main screen.
+  const demoBanner = document.getElementById('demoModeBanner');
+  if (demoBanner) demoBanner.style.display = (appState.isLoggedIn && String(currentUser?.id || '').startsWith('demo_guest_')) ? 'flex' : 'none';
+
   const stealthBadge = document.getElementById('stealthModeHeaderBadge');
   if (stealthBadge) {
     stealthBadge.style.display = (screenId === 'discovery' && appState.isStealthMode) ? 'inline-flex' : 'none';
@@ -2710,155 +2714,81 @@ function completeSignup() {
 // INTELLIGENT MATCHMAKING & COMPATIBILITY ENGINE
 // ==========================================================
 
+// What two people actually have in common, from their profiles. Nothing here is
+// invented: no percentage, no "chemistry" score. `rank` is an internal ordering
+// used only to pick which profile to suggest first; it is never shown.
+const INTENT_LABELS = {
+  'relationship': 'a serious relationship',
+  'long-term dating': 'something long-term',
+  'casual dating': 'casual dating',
+  'friendship': 'new friends',
+  'figuring it out': 'seeing where things go',
+  'marriage': 'marriage'
+};
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu;
+const stripEmoji = (str) => String(str || '').replace(EMOJI_RE, '').trim();
+function joinList(items) {
+  if (items.length <= 1) return items.join('');
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
 function calculateCompatibility(me, partner) {
+  const generic = [
+    '"What made you smile today?"',
+    '"What is your favourite way to spend a weekend?"'
+  ];
   if (!partner) {
-    return {
-      score: 88,
-      headline: 'Great Chemistry ✨',
-      reasons: ['High mutual chemistry', 'Active verified member on HookMeBySam'],
-      icebreakers: ["Hey there! Glad we connected 😊 What made you smile today?", "What's the best weekend plan you've had recently? 🌴"],
-      sharedTags: []
-    };
+    return { rank: 0, headline: '', reasons: [], icebreakers: generic, sharedTags: [], sameIntent: false };
   }
 
-  const myInterests = Array.isArray(me?.interests)
-    ? me.interests
-    : (typeof me?.interests === 'string' ? me.interests.split(',').map(s => s.trim()) : ['Music 🎵', 'Travel ✈️', 'Foodie 🍕']);
-  const theirInterests = Array.isArray(partner?.tags)
-    ? partner.tags
-    : (Array.isArray(partner?.interests) ? partner.interests : []);
+  const toList = (v) => Array.isArray(v) ? v : (typeof v === 'string' ? v.split(',').map(x => x.trim()) : []);
+  const myInterests = toList(me?.interests);
+  const theirInterests = Array.isArray(partner?.tags) && partner.tags.length ? partner.tags : toList(partner?.interests);
 
-  // Clean text helper (removes emojis and symbols)
-  const norm = (s) => String(s || '').replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').toLowerCase().trim();
+  const norm = (str) => stripEmoji(str).toLowerCase();
   const myNorm = myInterests.map(norm).filter(Boolean);
-
-  const shared = [];
-  theirInterests.forEach(item => {
+  const shared = theirInterests.filter(item => {
     const ni = norm(item);
-    if (ni && myNorm.some(m => m.includes(ni) || ni.includes(m))) {
-      shared.push(item);
-    }
+    return ni && myNorm.some(m => m === ni || m.includes(ni) || ni.includes(m));
   });
 
-  let score = 76; // Matchmaking affinity baseline
+  const myIntent = String(me?.intent || '').toLowerCase();
+  const theirIntent = String(partner?.intent || '').toLowerCase();
+  const sameIntent = Boolean(myIntent && theirIntent && myIntent === theirIntent && INTENT_LABELS[theirIntent]);
+  const verified = Boolean(partner?.isVerified || partner?.verified);
+
   const reasons = [];
+  if (shared.length) reasons.push(`You both like ${joinList(shared.slice(0, 3).map(stripEmoji))}`);
+  if (sameIntent) reasons.push(`You are both looking for ${INTENT_LABELS[theirIntent]}`);
+  if (verified) reasons.push('Photo verified');
 
-  // 1. Relationship Intent Synergy (up to +12 pts)
-  const myIntent = (me?.intent || 'relationship').toLowerCase();
-  const theirIntent = (partner?.intent || 'relationship').toLowerCase();
+  const headline = shared.length
+    ? `${shared.length} ${shared.length === 1 ? 'interest' : 'interests'} in common`
+    : (sameIntent ? 'Looking for the same thing' : '');
 
-  if (myIntent === theirIntent || (myIntent.includes('relat') && theirIntent.includes('relat'))) {
-    score += 12;
-    if (theirIntent.includes('relat') || theirIntent.includes('marriage') || theirIntent === 'long-term dating') {
-      reasons.push('You both share the same vision for a serious, meaningful connection');
-    } else if (theirIntent.includes('dat') || theirIntent.includes('casual')) {
-      reasons.push('Both seeking exciting dates, chemistry, and spontaneous adventures');
-    } else if (theirIntent.includes('friend')) {
-      reasons.push('Both interested in genuine friendships and expanding close circles');
-    } else {
-      reasons.push('Aligned dating goals and compatible relationship intentions');
-    }
-  } else if ((myIntent.includes('relat') && theirIntent.includes('marriage')) || (myIntent.includes('marriage') && theirIntent.includes('relat'))) {
-    score += 10;
-    reasons.push('Complementary aspirations for a serious, lasting partnership');
-  } else {
-    score += 4;
-  }
-
-  // 2. Shared Passions & Interests (up to +12 pts)
-  if (shared.length >= 3) {
-    score += 12;
-    const cleanNames = shared.slice(0, 3).map(s => s.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim());
-    reasons.push(`Shared passions for ${cleanNames.join(', ')}`);
-  } else if (shared.length > 0) {
-    score += shared.length * 4;
-    const cleanNames = shared.map(s => s.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim());
-    reasons.push(`Both love ${cleanNames.join(' & ')}`);
-  } else if (theirInterests.length > 0) {
-    score += 4;
-    const cleanTag = theirInterests[0].replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim();
-    reasons.push(`Exciting complementary passions in ${cleanTag}`);
-  }
-
-  // 3. Lifestyle Synergy (up to +8 pts)
-  const myWorkout = norm(me?.workout || me?.lifestyle?.workout || 'active');
-  const theirWorkout = norm(partner?.workout || '');
-  if ((myWorkout.includes('fit') || myWorkout.includes('gym') || myWorkout.includes('active') || myWorkout.includes('yoga') || myWorkout.includes('walk')) &&
-      (theirWorkout.includes('fit') || theirWorkout.includes('gym') || theirWorkout.includes('active') || theirWorkout.includes('yoga') || theirWorkout.includes('weights') || theirWorkout.includes('swim') || theirWorkout.includes('pilates'))) {
-    score += 5;
-    reasons.push('Both value an active, healthy, and energetic lifestyle');
-  }
-
-  const mySmoking = norm(me?.smoking || me?.lifestyle?.smoking || 'non');
-  const theirSmoking = norm(partner?.smoking || '');
-  if (theirSmoking.includes('never') || theirSmoking.includes('non') || theirSmoking.includes('rarely') || mySmoking.includes('never') || mySmoking.includes('non')) {
-    score += 3;
-    reasons.push('Compatible lifestyle preferences & healthy everyday habits');
-  }
-
-  // 4. Verification & Authentic Profile Bonus (+3 pts)
-  if (partner?.isVerified || partner?.verified) {
-    score += 3;
-    reasons.push('Verified authentic identity & vetted photos 🛡️');
-  }
-
-  // Normalized affinity bounds: 84% - 98%
-  score = Math.min(98, Math.max(84, score));
-
-  // Determine headline
-  let headline = 'Exceptional Match 🔥';
-  if (score >= 94) headline = 'Exceptional Chemistry 🔥';
-  else if (score >= 89) headline = 'High Compatibility ✨';
-  else headline = 'Strong Potential 💫';
-
-  if (reasons.length < 2) {
-    reasons.push('Complementary communication styles & positive energy');
-  }
-
-  // Tailored Conversation Starters based on their profile prompts & tags
+  // Conversation starters grounded in the profile, with generic fallbacks.
   const pName = partner?.name || 'them';
   const icebreakers = [];
-
-  // Interest-based icebreaker
   if (shared.length > 0) {
-    const topic = shared[0].replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim();
-    if (topic.toLowerCase().includes('music') || topic.toLowerCase().includes('afrobeat') || topic.toLowerCase().includes('amapiano')) {
-      icebreakers.push(`"Saw we both love music! What artist or album are you playing on repeat right now? 🎵"`);
-    } else if (topic.toLowerCase().includes('travel')) {
-      icebreakers.push(`"You love traveling — what's the most unforgettable trip you've ever taken? ✈️"`);
-    } else if (topic.toLowerCase().includes('food') || topic.toLowerCase().includes('brunch')) {
-      icebreakers.push(`"Fellow foodie here! What's your #1 underrated spot in town right now? 🍕"`);
-    } else {
-      icebreakers.push(`"Tell me about your favorite thing about ${topic}!"`);
-    }
+    const topic = stripEmoji(shared[0]);
+    const t = topic.toLowerCase();
+    if (t.includes('music') || t.includes('afrobeat') || t.includes('amapiano')) icebreakers.push('"We both like music. What are you playing on repeat right now?"');
+    else if (t.includes('travel')) icebreakers.push('"What is the best trip you have taken?"');
+    else if (t.includes('food') || t.includes('brunch')) icebreakers.push('"What is your most underrated food spot in town?"');
+    else icebreakers.push(`"What do you like most about ${topic.toLowerCase()}?"`);
   }
-
-  // Prompt-based icebreaker
   if (Array.isArray(partner?.prompts) && partner.prompts.length > 0) {
     const q1 = partner.prompts[0]?.question || '';
-    if (q1.includes('pleasures')) {
-      icebreakers.push(`"Your answer about simple pleasures resonated with me. What's next on your bucket list?"`);
-    } else if (q1.includes('Sunday')) {
-      icebreakers.push(`"Your ideal Sunday sounds awesome. Best brunch in town or relaxing at home?"`);
-    } else if (q1.includes('boundary') || q1.includes('green flag')) {
-      icebreakers.push(`"Loved your prompt answer! What's something that instantly earns your respect?"`);
-    }
+    if (q1.includes('Sunday')) icebreakers.push('"Your ideal Sunday sounds good. Brunch out or a day at home?"');
+    else if (q1.includes('green flag') || q1.includes('boundary')) icebreakers.push('"I liked your prompt answer. What earns your respect straight away?"');
+    else if (q1.includes('pleasures')) icebreakers.push('"What is next on your list of simple pleasures?"');
   }
+  if (icebreakers.length < 3) icebreakers.push(`"Hi ${pName}, what made you smile today?"`);
+  if (icebreakers.length < 3) icebreakers.push('"What do you do to unwind after a busy week?"');
 
-  if (icebreakers.length < 3) {
-    icebreakers.push(`"Hey ${pName}! Glad we matched 😊 What made you smile today?"`);
-  }
-  if (icebreakers.length < 3) {
-    icebreakers.push(`"What's your go-to way to unwind after a productive week? 🌴"`);
-  }
+  const rank = 50 + shared.length * 8 + (sameIntent ? 15 : 0) + (verified ? 3 : 0) + (partner?.voiceIntro ? 2 : 0);
 
-  return {
-    score,
-    headline,
-    reasons: reasons.slice(0, 3),
-    icebreakers: icebreakers.slice(0, 3),
-    sharedTags: shared
-  };
+  return { rank, headline, reasons: reasons.slice(0, 3), icebreakers: icebreakers.slice(0, 3), sharedTags: shared, sameIntent };
 }
 window.calculateCompatibility = calculateCompatibility;
 
@@ -3006,26 +2936,20 @@ function renderTodayTopPick() {
   }
 
   let bestCandidate = null;
-  let bestScore = -1;
+  let bestRank = -1;
   let bestCompat = null;
 
   validCandidates.forEach(p => {
-    const compat = typeof calculateCompatibility === 'function'
-      ? calculateCompatibility(currentUser, p)
-      : { score: 90, headline: 'Great Chemistry', reasons: [] };
-
-    const voiceBonus = p.voiceIntro ? 2 : 0;
-    const verifiedBonus = (p.isVerified || p.verified) ? 1 : 0;
-    const totalScore = compat.score + voiceBonus + verifiedBonus;
-
-    if (totalScore > bestScore) {
-      bestScore = totalScore;
+    const compat = calculateCompatibility(currentUser, p);
+    if (compat.rank > bestRank) {
+      bestRank = compat.rank;
       bestCandidate = p;
       bestCompat = compat;
     }
   });
 
-  if (!bestCandidate) {
+  // Only recommend someone when there is a real reason to (shared interests or the same goal).
+  if (!bestCandidate || !bestCompat || (!bestCompat.sharedTags.length && !bestCompat.sameIntent)) {
     cardEl.style.display = 'none';
     return;
   }
@@ -3040,15 +2964,14 @@ function renderTodayTopPick() {
 
   const photo = bestCandidate.photos?.[0] || bestCandidate.image || bestCandidate.avatar || '';
   if (avatarImg && photo) avatarImg.src = photo;
-  if (nameEl) nameEl.textContent = `${bestCandidate.name || 'Match'}, ${bestCandidate.age ?? ''}`;
-  if (compatPill && bestCompat) compatPill.textContent = `${bestCompat.score}% Match`;
-  if (reasonEl && bestCompat) {
-    const reasonText = bestCompat.reasons?.[0] || 'Exceptional chemistry and vibe';
-    reasonEl.textContent = `${bestCompat.headline} • ${reasonText}`;
+  if (nameEl) nameEl.textContent = `${bestCandidate.name || 'Someone'}${bestCandidate.age ? ', ' + bestCandidate.age : ''}`;
+  if (compatPill) {
+    const n = bestCompat.sharedTags.length;
+    compatPill.textContent = n ? `${n} in common` : '';
+    compatPill.style.display = n ? 'inline-flex' : 'none';
   }
-  if (verifiedEl) {
-    verifiedEl.style.display = (bestCandidate.isVerified || bestCandidate.verified) ? 'inline' : 'none';
-  }
+  if (reasonEl) reasonEl.textContent = bestCompat.reasons[0] || '';
+  if (verifiedEl) verifiedEl.style.display = (bestCandidate.isVerified || bestCandidate.verified) ? 'inline-block' : 'none';
 
   cardEl.style.display = 'flex';
 }
@@ -3121,54 +3044,49 @@ function buildProfileCard(p, idx) {
   card._photoIndex = 0;
   card._photos = photos;
 
-  const tagsHTML = (Array.isArray(p.tags) ? p.tags : []).map(t => `<span class="tag-chip">${escHtml(t)}</span>`).join('');
+  const allTags = Array.isArray(p.tags) ? p.tags : [];
+  const shownTags = allTags.slice(0, 3);
+  const tagsHTML = shownTags.map(t => `<span class="chip chip-static">${escHtml(t)}</span>`).join('')
+    + (allTags.length > shownTags.length ? `<span class="chip chip-static">+${allTags.length - shownTags.length}</span>` : '');
 
-  const dotsHTML = photos.map((_, i) =>
-    `<div class="photo-dot${i === 0 ? ' active' : ''}"></div>`
-  ).join('') || '<div class="photo-dot active"></div>';
+  const dotsHTML = photos.length > 1
+    ? photos.map((_, i) => `<div class="photo-dot${i === 0 ? ' active' : ''}"></div>`).join('')
+    : '';
 
-  const compat = typeof calculateCompatibility === 'function'
-    ? calculateCompatibility(currentUser, p)
-    : { score: 92, headline: 'High Chemistry', reasons: ['High chemistry & shared positive energy'], icebreakers: [] };
+  const compat = calculateCompatibility(currentUser, p);
+  const commonLine = compat.reasons[0] || '';
 
   const voiceIntroBtnHtml = p.voiceIntro ? `
-    <button type="button" class="card-voice-intro-btn" id="cardVoiceBtn_${p.id}" onclick="event.stopPropagation();playProfileVoiceIntro('${p.id}', event)" aria-label="Listen to voice introduction" title="Listen to voice intro">
-      <span class="card-voice-mic-icon">🎙️</span>
-      <span class="card-voice-label">Voice Intro</span>
+    <button type="button" class="card-voice-intro-btn" id="cardVoiceBtn_${p.id}" onclick="event.stopPropagation();playProfileVoiceIntro('${p.id}', event)" aria-label="Play voice introduction">
+      <svg class="i i-sm" aria-hidden="true"><use href="#i-mic"/></svg>
+      <span class="card-voice-label">Voice intro</span>
       <span class="card-voice-waves" id="cardVoiceWaves_${p.id}"><span></span><span></span><span></span></span>
     </button>
   ` : '';
 
+  const distance = typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(p) : (p.distance || '');
+  const isVerified = Boolean(p.isVerified || p.verified);
+
   card.innerHTML = `
     <div class="card-photo-area">
-      <div class="card-photo-dots">${dotsHTML}</div>
-      <div class="card-distance-badge">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-        ${escHtml(typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(p) : (p.distance || '2 km away'))}
-      </div>
+      ${dotsHTML ? `<div class="card-photo-dots" aria-hidden="true">${dotsHTML}</div>` : ''}
+      ${distance ? `<div class="card-distance-badge"><svg class="i i-sm" aria-hidden="true"><use href="#i-map-pin"/></svg>${escHtml(distance)}</div>` : ''}
       ${voiceIntroBtnHtml}
-      <div class="stamp stamp-like">LIKE</div>
-      <div class="stamp stamp-nope">NOPE</div>
+      <div class="stamp stamp-like" aria-hidden="true">LIKE</div>
+      <div class="stamp stamp-nope" aria-hidden="true">PASS</div>
       ${photos.length > 1 ? '<div class="card-photo-tap-prev"></div><div class="card-photo-tap-next"></div>' : ''}
     </div>
     <div class="card-info">
-      <!-- Why You Click Compatibility Pill -->
-      <div class="card-compat-pill" onclick="event.stopPropagation();openProfileDetailSheet('${p.id}', event)" title="Click to view full matchmaking reasons">
-        <span class="compat-pill-badge">${compat.score}% MATCH</span>
-        <span class="compat-pill-reason">${escHtml(compat.reasons[0] || 'High Chemistry')}</span>
-        <span class="compat-pill-arrow">›</span>
-      </div>
       <div class="card-name-row">
-        <h2>${escHtml(p.name || 'User')}, ${escHtml(p.age ?? '')}</h2>
-        ${(p.isVerified || p.verified) ? `<span class="verified-icon" title="Photo Verified Authentic Profile">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-        </span>` : ''}
-        <button type="button" class="card-info-btn" aria-label="View profile details" title="View profile details" onclick="event.stopPropagation();openProfileDetailSheet('${p.id}', event)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <h2>${escHtml(p.name || 'User')}${p.age ? `, ${escHtml(p.age)}` : ''}</h2>
+        ${isVerified ? '<svg class="i verified-icon" role="img" aria-label="Photo verified"><use href="#i-badge-check"/></svg>' : ''}
+        <button type="button" class="card-info-btn" aria-label="View ${escHtml(p.name || 'profile')}'s full profile" onclick="event.stopPropagation();openProfileDetailSheet('${p.id}', event)">
+          <svg class="i" aria-hidden="true"><use href="#i-info"/></svg>
         </button>
       </div>
-      <div class="card-tags">${tagsHTML}</div>
-      <p class="card-bio">${escHtml(p.bio || '')}</p>
+      ${commonLine ? `<p class="card-common"><svg class="i i-sm" aria-hidden="true"><use href="#i-sparkles"/></svg>${escHtml(commonLine)}</p>` : ''}
+      ${p.bio ? `<p class="card-bio">${escHtml(p.bio)}</p>` : ''}
+      ${tagsHTML ? `<div class="card-tags">${tagsHTML}</div>` : ''}
     </div>
   `;
 
@@ -3358,6 +3276,17 @@ function onDragEnd() {
   document.removeEventListener('mouseup', onDragEnd);
 }
 
+// Keyboard: arrow keys pass / like on the discovery screen (never while typing or with a dialog open).
+document.addEventListener('keydown', (e) => {
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (appState.currentScreen !== 'discovery' || !appState.activeCard) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (document.querySelector('.sheet-overlay.open, .modal-overlay.active, .whatsapp-dialog-overlay[style*="flex"], #matchPopup[style*="flex"]')) return;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); triggerManualSwipe('left'); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); triggerManualSwipe('right'); }
+});
+
 function pulseClick(el) {
   if (!el) return;
   el.classList.remove('btn-clicked');
@@ -3490,13 +3419,13 @@ function undoSwipe() {
 
 function refreshStack() {
   if (isRealUserLoggedIn()) {
-    showToast('Checking for new profiles nearby... 🔍', 'info');
+    showToast('Checking for new profiles…', 'info');
     loadProfilesForDiscovery();
   } else {
     if (window._swipedProfileIds) window._swipedProfileIds.clear();
     applyDiscoveryFilters();
     appState.lastAction = null;
-    showToast('Discovery feed refreshed! ✨', 'success');
+    showToast('Feed refreshed.', 'success');
   }
 }
 
@@ -3695,12 +3624,12 @@ function triggerMatchPopup(profile) {
     input.placeholder = `Say something nice to ${pName}...`;
   }
 
-  const compat = typeof calculateCompatibility === 'function'
-    ? calculateCompatibility(currentUser, profile)
-    : { score: 94, headline: 'Exceptional Chemistry 🔥', reasons: ['Shared positive vibes and lifestyle'], icebreakers: [] };
+  const compat = calculateCompatibility(currentUser, profile);
 
   if (compatBadge) {
-    compatBadge.textContent = `🔥 ${compat.score}% Compatibility • ${compat.reasons[0]}`;
+    const line = compat.reasons[0] || '';
+    compatBadge.textContent = line;
+    compatBadge.style.display = line ? '' : 'none';
   }
 
   if (chipsContainer) {
@@ -3842,8 +3771,8 @@ function renderMatchesConnectionsGrid() {
 
   grid.innerHTML = matchedUsers.map(u => {
     const userStatus = typeof getUserOnlineStatus === 'function' ? getUserOnlineStatus(u) : { isOnline: false };
-    const compat = typeof calculateCompatibility === 'function' ? calculateCompatibility(currentUser, u) : null;
-    const compatScore = (compat && compat.score) ? compat.score : 88;
+    const compat = calculateCompatibility(currentUser, u);
+    const inCommon = compat.sharedTags.length;
 
     const tags = Array.isArray(u.tags) ? u.tags : (Array.isArray(u.interests) ? u.interests : []);
     const tagDisplay = tags.length > 0 ? tags[0] : (u.location || 'New connection');
@@ -3853,9 +3782,7 @@ function renderMatchesConnectionsGrid() {
         <div class="match-card-media" style="background-image:url('${escHtml(u.image || '')}')">
           <div class="match-card-gradient"></div>
           ${userStatus.isOnline ? '<span class="match-card-online-badge"><span class="online-pulse-dot"></span> Active</span>' : ''}
-          <div class="match-card-compat-pill">
-            <span>✨ ${compatScore}%</span>
-          </div>
+          ${inCommon ? `<div class="match-card-compat-pill"><span>${inCommon} in common</span></div>` : ''}
         </div>
         <div class="match-card-info">
           <div class="match-card-name-row">
@@ -6281,8 +6208,9 @@ function refreshChatAiSuggestions() {
 
   const partner = getPartnerProfileForChat(partnerId);
   const compat = typeof calculateCompatibility === 'function' ? calculateCompatibility(currentUser, partner) : null;
-  if (badgeEl && compat) {
-    badgeEl.textContent = `${compat.score}% Chemistry`;
+  if (badgeEl) {
+    badgeEl.textContent = compat && compat.headline ? compat.headline : '';
+    badgeEl.style.display = badgeEl.textContent ? '' : 'none';
   }
 
   const allSuggestions = getChatAiSuggestions(partnerId);
@@ -11451,10 +11379,10 @@ function updateEmptyStateFeedback() {
   );
 
   if (isCustom) {
-    if (titleEl) titleEl.textContent = 'No profiles match your filters 🔍';
+    if (titleEl) titleEl.textContent = 'No profiles match your filters';
     if (subEl) subEl.textContent = 'Try expanding your maximum distance, age range, or turning off Verified Only to discover more people.';
   } else {
-    if (titleEl) titleEl.textContent = "You've seen everyone nearby! 🌍";
+    if (titleEl) titleEl.textContent = "You've seen everyone nearby";
     if (subEl) subEl.textContent = 'Expand your search radius or check back later for new profiles.';
   }
 }
@@ -11530,254 +11458,103 @@ function openProfileDetailSheet(profileId, event) {
   }
 
   appState.activeDetailProfileId = profile.id;
-  const compat = typeof calculateCompatibility === 'function'
-    ? calculateCompatibility(currentUser, profile)
-    : { score: 92, headline: 'High Chemistry', reasons: ['High chemistry and compatible vibes'], icebreakers: [] };
+  const compat = calculateCompatibility(currentUser, profile);
 
   const modal = document.getElementById('profileDetailModal');
   const sheet = modal?.querySelector('.profile-detail-sheet');
   const content = document.getElementById('detailSheetContent');
   if (!modal || !content) return;
 
-  // Extract photos
+  // Photos: only what the person uploaded.
   const photos = [];
-  if (Array.isArray(profile.photos) && profile.photos.length > 0) {
-    profile.photos.forEach(u => { if (u) photos.push(u); });
-  }
+  if (Array.isArray(profile.photos)) profile.photos.forEach(u => { if (u) photos.push(u); });
   if (photos.length === 0 && profile.image) photos.push(profile.image);
   if (photos.length === 0 && profile.avatar) photos.push(profile.avatar);
-  if (photos.length === 0) photos.push('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80');
 
-  // Intent badge text and style
-  const intentMap = {
-    relationship: { label: '💍 Long-term partner', bg: 'rgba(255, 94, 142, 0.16)', color: '#FF5E8E' },
-    dating: { label: '🥂 Casual dating', bg: 'rgba(255, 171, 0, 0.16)', color: '#FFAB00' },
-    friends: { label: '☕ New friends', bg: 'rgba(56, 151, 240, 0.16)', color: '#3897F0' }
-  };
-  const intentInfo = intentMap[profile.intent] || { label: '✨ Open to explore', bg: 'rgba(255, 255, 255, 0.1)', color: '#ffffff' };
+  const intentKey = ({ dating: 'casual dating', friends: 'friendship' })[profile.intent] || profile.intent;
+  const intentLabel = INTENT_LABELS[intentKey] ? `Looking for ${INTENT_LABELS[intentKey]}` : '';
+  const distanceStr = typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(profile) : (profile.distance || '');
+  const location = profile.location || profile.city || '';
+  const isVerified = Boolean(profile.isVerified || profile.verified);
+  const icon = (name, cls = 'i-sm') => `<svg class="i ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 
-  // Dynamic distance string
-  const distanceStr = typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(profile) : (profile.distance || '2 km away');
+  // Details: shown only when the person filled them in. Nothing is guessed.
+  const detailRows = [
+    ['briefcase', 'Work', profile.occupation || profile.job],
+    ['graduation-cap', 'Education', profile.education || profile.school],
+    ['ruler', 'Height', profile.height],
+    ['dumbbell', 'Exercise', profile.workout],
+    ['wine', 'Drinking', profile.drinking],
+    ['cigarette', 'Smoking', profile.smoking]
+  ].filter(row => row[2] && String(row[2]).trim());
+  const detailsHTML = detailRows.map(([ic, label, val]) => `
+    <div class="detail-fact">
+      ${icon(ic, '')}
+      <span class="detail-fact-label">${label}</span>
+      <span class="detail-fact-val">${escHtml(val)}</span>
+    </div>`).join('');
 
-  // Lifestyle attributes with safe fallbacks
-  const occupation = profile.occupation || profile.job || (profile.bio && profile.bio.includes('developer') ? 'Software Developer' : 'Creative Professional');
-  const education = profile.education || profile.school || 'University Graduate';
-  const location = profile.location || profile.city || 'Lagos, Nigeria';
-  const height = profile.height || '5\'8" (173 cm)';
-  const zodiac = profile.zodiac || 'Star Sign ✨';
-  const drinking = profile.drinking || 'Socially 🍷';
-  const smoking = profile.smoking || 'Non-smoker 🚭';
-  const workout = profile.workout || 'Active lifestyle 🏋️';
-
-  // Prompts
-  const prompts = Array.isArray(profile.prompts) && profile.prompts.length > 0 ? profile.prompts : [
-    { question: 'My simple pleasures...', answer: profile.bio || 'Warm cinnamon rolls, late-night driving playlists, and good banter.' },
-    { question: 'Together, we could...', answer: 'Try out new aesthetic food spots, exchange playlists, and plan spontaneous getaways.' }
-  ];
-
-  // Tags HTML
-  const tagsHTML = (Array.isArray(profile.tags) ? profile.tags : ['Music 🎵', 'Travel ✈️', 'Foodie 🍜'])
-    .map(t => `<span class="detail-tag-chip">${escHtml(t)}</span>`).join('');
-
-  // Build Prompts + Photos interwoven stream
-  let promptsAndPhotosHTML = '';
+  // The person's own prompts, with further photos between them.
+  const prompts = Array.isArray(profile.prompts) ? profile.prompts.filter(pr => pr && pr.answer) : [];
+  let streamHTML = '';
   prompts.forEach((pr, pIdx) => {
-    promptsAndPhotosHTML += `
-      <div class="detail-prompt-card">
-        <div class="prompt-card-badge">PROMPT</div>
-        <div class="prompt-question">${escHtml(pr.question)}</div>
-        <div class="prompt-answer">${escHtml(pr.answer)}</div>
-      </div>
-    `;
-    // Interleave photos if available
-    const nextPhoto = photos[pIdx + 1];
-    if (nextPhoto) {
-      promptsAndPhotosHTML += `
-        <div class="detail-photo-card">
-          <img src="${escHtml(nextPhoto)}" alt="${escHtml(profile.name || 'User')}" class="detail-stream-img" loading="lazy">
-        </div>
-      `;
-    }
+    streamHTML += `
+      <figure class="detail-prompt-card">
+        <figcaption class="prompt-question">${escHtml(pr.question || '')}</figcaption>
+        <p class="prompt-answer">${escHtml(pr.answer)}</p>
+      </figure>`;
+    if (photos[pIdx + 1]) streamHTML += `<img src="${escHtml(photos[pIdx + 1])}" alt="Photo of ${escHtml(profile.name || 'this person')}" class="detail-stream-img" loading="lazy">`;
   });
-
-  // Remaining photos if any
-  if (photos.length > prompts.length + 1) {
-    for (let pi = prompts.length + 1; pi < photos.length; pi++) {
-      promptsAndPhotosHTML += `
-        <div class="detail-photo-card">
-          <img src="${escHtml(photos[pi])}" alt="${escHtml(profile.name || 'User')}" class="detail-stream-img" loading="lazy">
-        </div>
-      `;
-    }
+  for (let pi = prompts.length + 1; pi < photos.length; pi++) {
+    streamHTML += `<img src="${escHtml(photos[pi])}" alt="Photo of ${escHtml(profile.name || 'this person')}" class="detail-stream-img" loading="lazy">`;
   }
 
+  const tags = Array.isArray(profile.tags) ? profile.tags : (Array.isArray(profile.interests) ? profile.interests : []);
+  const sharedSet = new Set(compat.sharedTags.map(t => t));
+  const tagsHTML = tags.map(t => `<span class="chip ${sharedSet.has(t) ? 'is-selected' : 'chip-static'}">${escHtml(t)}</span>`).join('');
+
+  const section = (title, body) => body ? `<section class="detail-section"><h2 class="detail-section-title">${title}</h2>${body}</section>` : '';
+
   content.innerHTML = `
-    <!-- Hero Photo Container -->
-    <div class="detail-hero-photo-wrap">
-      <img src="${escHtml(photos[0])}" alt="${escHtml(profile.name || 'Profile')}" class="detail-hero-photo">
-      <div class="detail-hero-gradient"></div>
-      <div class="detail-hero-badges">
-        <div class="detail-distance-badge">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-          <span>${escHtml(distanceStr)}</span>
-        </div>
-        ${photos.length > 1 ? `<div class="detail-photo-count-badge">📷 ${photos.length} photos</div>` : ''}
-      </div>
+    <div class="detail-hero-photo-wrap${photos.length ? '' : ' no-photo'}">
+      ${photos.length ? `<img src="${escHtml(photos[0])}" alt="Photo of ${escHtml(profile.name || 'this person')}" class="detail-hero-photo">` : ''}
+      ${photos.length > 1 ? `<span class="detail-photo-count-badge">${icon('images')}${photos.length} photos</span>` : ''}
     </div>
 
-    <!-- Name, Verification, and Intent Header -->
     <div class="detail-header-info">
       <div class="detail-name-row">
-        <h1 class="detail-profile-name" id="detailSheetName">
-          ${escHtml(profile.name || 'User')}, ${escHtml(profile.age ?? '')}
-        </h1>
-        ${(profile.isVerified || profile.verified) ? `
-          <span class="verified-icon detail-verified-badge" title="Photo Verified Profile">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-          </span>
-        ` : ''}
+        <h1 class="detail-profile-name" id="detailSheetName">${escHtml(profile.name || 'User')}${profile.age ? `, ${escHtml(profile.age)}` : ''}</h1>
+        ${isVerified ? `<span class="badge badge-verified">${icon('badge-check')}Verified</span>` : ''}
       </div>
-
       <div class="detail-pills-row">
-        <div class="detail-intent-pill" style="background:${intentInfo.bg};color:${intentInfo.color}">
-          ${escHtml(intentInfo.label)}
-        </div>
-        <div class="detail-location-pill">
-          📍 ${escHtml(location)}
-        </div>
+        ${intentLabel ? `<span class="detail-meta">${icon('heart')}${escHtml(intentLabel)}</span>` : ''}
+        ${location ? `<span class="detail-meta">${icon('map-pin')}${escHtml(location)}</span>` : ''}
+        ${distanceStr ? `<span class="detail-meta">${icon('compass')}${escHtml(distanceStr)}</span>` : ''}
       </div>
     </div>
 
-    <!-- Matchmaking Insights Card: Why You Two Click -->
-    <div class="detail-section detail-compat-section">
-      <div class="detail-compat-card">
-        <div class="compat-card-top">
-          <div class="compat-score-circle">
-            <div class="compat-score-val">${compat.score}%</div>
-            <div class="compat-score-lbl">MATCH</div>
-          </div>
-          <div class="compat-card-text">
-            <div class="compat-headline">${escHtml(compat.headline)}</div>
-            <div class="compat-subhead">Matchmaking insights &amp; lifestyle alignment</div>
-          </div>
-        </div>
-        <div class="compat-reasons-list">
-          ${compat.reasons.map(r => `
-            <div class="compat-reason-item">
-              <span class="compat-reason-check">✓</span>
-              <span class="compat-reason-txt">${escHtml(r)}</span>
-            </div>
-          `).join('')}
-        </div>
-        ${profile.voiceIntro ? `
-          <div class="detail-voice-intro-box">
-            <div class="voice-intro-header">
-              <span class="voice-intro-icon">🎙️</span>
-              <span class="voice-intro-title">Voice Introduction (${escHtml(profile.voiceIntro.duration || '0:15')})</span>
-            </div>
-            <button type="button" class="voice-intro-play-pill" id="detailVoicePlayPill_${profile.id}" onclick="playProfileVoiceIntro('${profile.id}', event)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              <span id="detailVoiceBtnText_${profile.id}">Listen to ${escHtml(profile.name)}</span>
-              <span class="voice-mini-waves" id="detailVoiceWaves_${profile.id}"><span></span><span></span><span></span><span></span></span>
-            </button>
-          </div>
-        ` : ''}
-        <div class="compat-icebreakers-box">
-          <div class="compat-icebreakers-header">✨ Recommended Icebreakers:</div>
-          <div class="compat-icebreaker-chips">
-            ${compat.icebreakers.map(ib => `
-              <button type="button" class="compat-icebreaker-chip" onclick="startChatWithIcebreaker('${profile.id}', ${JSON.stringify(ib)})">
-                ${escHtml(ib)}
-              </button>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    </div>
+    ${section('In common', compat.reasons.length ? `<ul class="detail-common-list">${compat.reasons.map(r => `<li>${icon('check')}${escHtml(r)}</li>`).join('')}</ul>` : '')}
 
-    <!-- About Me / Bio Section -->
-    <div class="detail-section">
-      <div class="detail-section-title">About Me</div>
-      <div class="detail-bio-card">
-        <p class="detail-bio-text">${escHtml(profile.bio || 'Hey there! Looking to meet genuine, kind people to create great memories with.')}</p>
-      </div>
-    </div>
+    ${profile.voiceIntro ? section('Voice intro', `
+      <button type="button" class="btn btn-secondary voice-intro-play-pill" id="detailVoicePlayPill_${profile.id}" onclick="playProfileVoiceIntro('${profile.id}', event)">
+        ${icon('play', '')}
+        <span id="detailVoiceBtnText_${profile.id}">Listen to ${escHtml(profile.name || 'them')}</span>
+        <span class="muted-dur">${escHtml(profile.voiceIntro.duration || '')}</span>
+      </button>`) : ''}
 
-    <!-- The Basics / Lifestyle Grid -->
-    <div class="detail-section">
-      <div class="detail-section-title">The Basics & Lifestyle</div>
-      <div class="detail-basics-grid">
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">💼</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Work</span>
-            <strong class="basic-chip-val">${escHtml(occupation)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">🎓</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Education</span>
-            <strong class="basic-chip-val">${escHtml(education)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">📏</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Height</span>
-            <strong class="basic-chip-val">${escHtml(height)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">♈</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Zodiac</span>
-            <strong class="basic-chip-val">${escHtml(zodiac)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">🏋️</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Workout</span>
-            <strong class="basic-chip-val">${escHtml(workout)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">🍷</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Drinking</span>
-            <strong class="basic-chip-val">${escHtml(drinking)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">🚭</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Smoking</span>
-            <strong class="basic-chip-val">${escHtml(smoking)}</strong>
-          </div>
-        </div>
-      </div>
-    </div>
+    ${section('About', profile.bio ? `<p class="detail-bio-text">${escHtml(profile.bio)}</p>` : '')}
+    ${section('Details', detailsHTML ? `<div class="detail-facts">${detailsHTML}</div>` : '')}
+    ${section('Prompts and photos', streamHTML)}
+    ${section('Interests', tagsHTML ? `<div class="detail-tags-cloud">${tagsHTML}</div>` : '')}
 
-    <!-- Prompts and Secondary Photos Flow -->
-    <div class="detail-section">
-      <div class="detail-section-title">Prompts & Moments</div>
-      ${promptsAndPhotosHTML}
-    </div>
+    ${section('Say hello', compat.icebreakers.length ? `
+      <div class="compat-icebreaker-chips">
+        ${compat.icebreakers.map(ib => `<button type="button" class="compat-icebreaker-chip" onclick="startChatWithIcebreaker('${profile.id}', ${escHtml(JSON.stringify(ib))})">${escHtml(ib)}</button>`).join('')}
+      </div>` : '')}
 
-    <!-- Passions & Interests -->
-    <div class="detail-section">
-      <div class="detail-section-title">Passions & Interests</div>
-      <div class="detail-tags-cloud">
-        ${tagsHTML}
-      </div>
-    </div>
-
-    <!-- Safety & Report Footer -->
     <div class="detail-report-section">
-      <button type="button" class="detail-report-link-btn" onclick="openReportFromDetailSheet('${profile.id}')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <span>Report or Block ${escHtml(profile.name || 'User')}</span>
+      <button type="button" class="btn btn-ghost detail-report-link-btn" onclick="openReportFromDetailSheet('${profile.id}')">
+        ${icon('flag')}Report or block ${escHtml(profile.name || 'this person')}
       </button>
     </div>
   `;
@@ -11837,8 +11614,8 @@ function openReportFromDetailSheet(profileId) {
 }
 window.openReportFromDetailSheet = openReportFromDetailSheet;
 
-async function handleLogout() {
-  if (!confirm('Are you sure you want to log out?')) return;
+async function handleLogout(skipConfirm) {
+  if (skipConfirm !== true && !confirm('Are you sure you want to log out?')) return;
 
   // Back up profile data before clearing session so returning sign-ins are instant
   if (currentUser && currentUser.email && currentUser.name && !currentUser.name.includes('@')) {
@@ -12177,17 +11954,15 @@ function applyVipUI() {
 
 function updateLimitBadges() {
   const isVip = Boolean(appState.isVip);
-  const rewindBadge = document.getElementById('rewindBadge');
-  if (rewindBadge) {
-    rewindBadge.textContent = isVip ? '∞' : String(appState.freeRewinds);
-    rewindBadge.style.background = isVip ? 'var(--gold-gradient)' : (appState.freeRewinds <= 0 ? 'var(--accent-pink)' : 'var(--gold-gradient)');
-  }
-
-  const aiBadge = document.getElementById('aiLimitBadge');
-  if (aiBadge) {
-    aiBadge.textContent = isVip ? '∞' : String(appState.freeAiGens);
-    aiBadge.style.background = isVip ? 'var(--gold-gradient)' : (appState.freeAiGens <= 0 ? 'var(--accent-pink)' : 'var(--gold-gradient)');
-  }
+  const setBadge = (id, remaining) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = isVip ? '∞' : String(remaining);
+    el.style.background = '';
+    el.classList.toggle('is-empty', !isVip && remaining <= 0);
+  };
+  setBadge('rewindBadge', appState.freeRewinds);
+  setBadge('aiLimitBadge', appState.freeAiGens);
 }
 
 function revealBlurredMatches() {
@@ -12236,10 +12011,15 @@ function delay(ms) {
   return new Promise(res => setTimeout(res, ms));
 }
 
+// Escapes text for use in HTML text AND double/single-quoted attribute values.
+// (The previous version left quotes alone, so a name containing " could break out of alt="...".)
 function escHtml(str) {
-  const div = document.createElement('div');
-  div.appendChild(document.createTextNode(str));
-  return div.innerHTML;
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function safeCssUrl(value) {
@@ -12937,7 +12717,7 @@ function startBoost() {
   if (btn) btn.classList.add('boosting');
   if (timer) timer.style.display = 'block';
 
-  showToast('⚡ Profile Boost activated for 30 min!');
+  showToast('Boost is on for 30 minutes.', 'success');
 
   appState.boostInterval = setInterval(() => {
     appState.boostSecondsLeft--;
@@ -13568,33 +13348,37 @@ async function unblockUser(userId, name) {
 // NOTIFICATION PERMISSION PROMPT
 // ==========================================================
 
+const NOTIF_PROMPT_SNOOZE_KEY = 'hm_notif_prompt_snoozed_until';
+
 function requestNotificationPermission() {
   // Don't show if already granted/denied or if on unsupported browser
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted' || Notification.permission === 'denied') return;
-
-  // Don't show if already shown
+  // Respect "Not now" for a week
+  try {
+    if (Number(localStorage.getItem(NOTIF_PROMPT_SNOOZE_KEY) || 0) > Date.now()) return;
+  } catch (_) {}
   if (document.getElementById('notifPermBanner')) return;
 
+  const slot = document.getElementById('shellNotices');
+  if (!slot) return;
+
   const banner = document.createElement('div');
-  banner.className = 'notif-permission-banner';
+  banner.className = 'notice notif-permission-banner';
   banner.id = 'notifPermBanner';
+  banner.setAttribute('role', 'region');
+  banner.setAttribute('aria-label', 'Notifications');
   banner.innerHTML = `
-    <div class="notif-perm-icon">🔔</div>
-    <div class="notif-perm-text">
-      <strong>Stay in the loop</strong>
-      Get notified when you get a new match or message!
-    </div>
-    <div class="notif-perm-actions">
-      <button class="notif-perm-allow" onclick="allowNotifications()">Allow</button>
-      <button class="notif-perm-dismiss" onclick="dismissNotifBanner()" aria-label="Dismiss">✕</button>
+    <svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>
+    <div class="notice-body">
+      <div class="notice-title">Get notified about matches and messages</div>
+      <div class="notice-actions">
+        <button type="button" class="btn btn-primary btn-sm" onclick="allowNotifications()">Turn on</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="dismissNotifBanner(true)">Not now</button>
+      </div>
     </div>
   `;
-
-  document.querySelector('.app-shell')?.appendChild(banner);
-
-  // Auto-dismiss after 8 seconds
-  setTimeout(dismissNotifBanner, 8000);
+  slot.appendChild(banner);
 }
 
 function allowNotifications() {
@@ -13602,22 +13386,21 @@ function allowNotifications() {
   if (!('Notification' in window)) return;
   Notification.requestPermission().then(perm => {
     if (perm === 'granted') {
-      showToast('🔔 Notifications enabled!', 'gold');
+      showToast('Notifications are on.', 'success');
       if (typeof initPushNotifications === 'function') {
         initPushNotifications();
       }
-      triggerSystemNotification('hookmebysam 💕', {
-        body: 'Notifications active! You will be alerted for matches and messages.'
+      triggerSystemNotification('hookmebysam', {
+        body: 'Notifications are on. You will be alerted to new matches and messages.'
       });
     }
   });
 }
 
-function dismissNotifBanner() {
-  const banner = document.getElementById('notifPermBanner');
-  if (banner) {
-    banner.style.animation = 'slideDown 0.25s ease reverse both';
-    setTimeout(() => banner.remove(), 250);
+function dismissNotifBanner(snooze) {
+  document.getElementById('notifPermBanner')?.remove();
+  if (snooze === true) {
+    try { localStorage.setItem(NOTIF_PROMPT_SNOOZE_KEY, String(Date.now() + 7 * 24 * 3600 * 1000)); } catch (_) {}
   }
 }
 

@@ -47,6 +47,7 @@
   <link rel="stylesheet" href="css/components.css?v=70.0">
   <link rel="stylesheet" href="css/shell.css?v=70.0">
   <link rel="stylesheet" href="css/auth.css?v=70.0">
+  <link rel="stylesheet" href="css/discovery.css?v=70.0">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
@@ -232,6 +233,15 @@
       <svg class="i net-status-icon" id="netStatusIcon" aria-hidden="true"><use href="#i-wifi-off"/></svg>
       <span class="net-status-text" id="netStatusText">You're offline</span>
       <button type="button" class="btn btn-sm btn-secondary net-status-retry-btn" id="netStatusRetryBtn" onclick="retryNetworkConnection()">Retry</button>
+    </div>
+
+    <!-- Inline notices (demo mode, notification prompt). In flow, never over content. -->
+    <div class="shell-notices" id="shellNotices">
+      <div class="notice notice-compact" id="demoModeBanner" style="display:none" role="status">
+        <svg class="i" aria-hidden="true"><use href="#i-eye"/></svg>
+        <span class="notice-line"><strong>Demo mode.</strong> Sample profiles only.</span>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="handleLogout(true)">Sign in</button>
+      </div>
     </div>
 
     <!-- =========================================================
@@ -589,99 +599,67 @@
       <div class="screen" id="discoveryScreen">
         <div class="discovery-workspace">
 
-          <!-- Swipe counter badge with refill countdown -->
-          <div class="swipe-counter-badge" id="swipeCounterBadge" style="display:none">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <!-- Daily likes remaining (free plan) -->
+          <div class="swipe-counter-badge" id="swipeCounterBadge" style="display:none" role="status">
+            <svg class="i i-sm" aria-hidden="true"><use href="#i-heart"/></svg>
             <span id="swipeCounterText">-- likes left</span>
-            <span class="swipe-reset-divider" id="swipeResetDivider" style="opacity:0.6;margin:0 4px">•</span>
+            <span class="swipe-reset-divider" id="swipeResetDivider" aria-hidden="true">·</span>
             <span class="swipe-reset-timer" id="swipeResetTimer" title="Daily likes reset countdown">Refills in --:--</span>
           </div>
 
-          <!-- Today's Top Pick Curated Hero Card -->
-          <div class="today-top-pick-card" id="todayTopPickCard" style="display:none" role="region" aria-label="Today's Top Pick">
-            <div class="top-pick-left" onclick="openTopPickDetail(event)">
-              <div class="top-pick-avatar-wrap">
-                <img class="top-pick-avatar-img" id="topPickAvatarImg" src="" alt="Top Pick" onerror="this.src='https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120'">
-                <div class="top-pick-sparkle-badge">⭐</div>
-              </div>
-              <div class="top-pick-text-col">
-                <div class="top-pick-header-row">
-                  <span class="top-pick-kicker">TODAY'S TOP PICK</span>
-                  <span class="top-pick-compat-pill" id="topPickCompatPill">98% Match</span>
-                </div>
-                <div class="top-pick-name-row">
-                  <span class="top-pick-name" id="topPickName">Amara, 24</span>
-                  <span class="top-pick-verified" id="topPickVerified">🛡️</span>
-                </div>
-                <div class="top-pick-reason" id="topPickReason">High chemistry & shared passions</div>
-              </div>
-            </div>
-            <div class="top-pick-actions">
-              <button type="button" class="top-pick-view-btn" onclick="openTopPickDetail(event)" title="View profile details">
-                <span>View</span>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              </button>
-            </div>
+          <!-- Top pick: the profile with the most in common with you (shown only when there is something real to say) -->
+          <div class="today-top-pick-card" id="todayTopPickCard" style="display:none" role="region" aria-label="Top pick for you">
+            <button type="button" class="top-pick-left" onclick="openTopPickDetail(event)">
+              <img class="top-pick-avatar-img" id="topPickAvatarImg" src="icons/icon-72.png" alt="">
+              <span class="top-pick-text-col">
+                <span class="top-pick-kicker">Top pick for you</span>
+                <span class="top-pick-name-row">
+                  <span class="top-pick-name" id="topPickName">Name</span>
+                  <svg class="i i-sm top-pick-verified" id="topPickVerified" aria-label="Photo verified" role="img"><use href="#i-badge-check"/></svg>
+                </span>
+                <span class="top-pick-reason" id="topPickReason"></span>
+              </span>
+              <span class="badge badge-primary" id="topPickCompatPill" style="display:none"></span>
+              <svg class="i top-pick-chevron" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+            </button>
           </div>
 
-          <!-- Card Stack -->
-          <div class="card-stack" id="cardStack">
-            <!-- Rendered by JS -->
-          </div>
+          <!-- Card stack (cards are built by buildProfileCard in script.js) -->
+          <div class="card-stack" id="cardStack" aria-live="polite"></div>
 
           <!-- Empty state -->
-          <div class="stack-empty" id="stackEmpty" style="display:none">
-            <div class="empty-emoji" id="emptyEmoji">🌍</div>
-            <h3 id="emptyTitle">You've seen everyone nearby!</h3>
-            <p id="emptySub">Expand your search radius or adjust your discovery filters to discover more people.</p>
-            <div class="empty-actions-row" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px;">
-              <button class="accent-btn" style="min-width:140px;padding:10px 18px;" onclick="openDiscoveryFilterModal()">Adjust Filters</button>
-              <button class="outline-btn" style="min-width:130px;padding:10px 16px;" onclick="refreshStack()">Find More Profiles</button>
+          <div class="stack-empty empty" id="stackEmpty" style="display:none">
+            <svg class="i" aria-hidden="true"><use href="#i-compass"/></svg>
+            <h3 class="empty-title" id="emptyTitle">You've seen everyone nearby</h3>
+            <p class="empty-text" id="emptySub">Widen your filters or check back later for new people.</p>
+            <div class="empty-actions">
+              <button type="button" class="btn btn-primary" onclick="openDiscoveryFilterModal()">Adjust filters</button>
+              <button type="button" class="btn btn-secondary" onclick="refreshStack()">Refresh</button>
             </div>
           </div>
         </div>
 
-        <!-- Action Controls — Premium Floating Bar -->
+        <!-- Actions -->
         <div class="action-row" id="actionRow">
           <div class="action-row-inner">
-            <button class="circ-btn btn-rewind" onclick="pulseClick(this);undoSwipe()" title="Rewind" aria-label="Undo last swipe">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/>
-              </svg>
-              <div class="limit-badge" id="rewindBadge">1</div>
+            <button type="button" class="circ-btn btn-rewind" onclick="pulseClick(this);undoSwipe()" title="Undo last pass" aria-label="Undo last swipe">
+              <svg class="i" aria-hidden="true"><use href="#i-rotate-ccw"/></svg>
+              <span class="limit-badge" id="rewindBadge">1</span>
             </button>
-            <button class="circ-btn btn-pass" onclick="pulseClick(this);triggerManualSwipe('left')" title="Pass" aria-label="Pass this profile">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-              </svg>
+            <button type="button" class="circ-btn btn-pass" onclick="pulseClick(this);triggerManualSwipe('left')" title="Pass" aria-label="Pass this profile">
+              <svg class="i i-lg" aria-hidden="true"><use href="#i-x"/></svg>
             </button>
-            <button class="circ-btn btn-like" onclick="pulseClick(this);triggerManualSwipe('right')" title="Like" aria-label="Like this profile">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-              </svg>
+            <button type="button" class="circ-btn btn-like" onclick="pulseClick(this);triggerManualSwipe('right')" title="Like" aria-label="Like this profile">
+              <svg class="i i-lg i-fill" aria-hidden="true"><use href="#i-heart"/></svg>
             </button>
-            <button class="circ-btn btn-super" onclick="pulseClick(this);triggerSuperLike()" title="Super Like" aria-label="Super like">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M11.99 2L9.17 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.17-.62z"/>
-              </svg>
+            <button type="button" class="circ-btn btn-super" onclick="pulseClick(this);triggerSuperLike()" title="Super like" aria-label="Super like">
+              <svg class="i" aria-hidden="true"><use href="#i-star"/></svg>
             </button>
-            <button class="circ-btn btn-boost" id="boostBtn" onclick="pulseClick(this);startBoost()" title="Boost" aria-label="Boost profile">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M7 2v11h3v9l7-12h-4l4-8z"/>
-              </svg>
-              <div class="boost-timer" id="boostTimer" style="display:none"></div>
+            <button type="button" class="circ-btn btn-boost" id="boostBtn" onclick="pulseClick(this);startBoost()" title="Boost your profile" aria-label="Boost your profile">
+              <svg class="i" aria-hidden="true"><use href="#i-zap"/></svg>
+              <span class="boost-timer" id="boostTimer" style="display:none"></span>
             </button>
           </div>
-        </div>
-
-        <!-- Inline Ad Slot (shows between card sets) -->
-        <div class="ad-banner-slot" id="discoveryAd" style="display:none;margin:0 12px 8px">
-          <span class="ad-label">Ad</span>
-          <div style="flex:1">
-            <div style="font-weight:700;font-size:0.85rem;color:var(--text-primary)">Find Love Faster with VIP Gold</div>
-            <div style="font-size:0.75rem;color:var(--text-muted)">See who liked you • Unlimited rewinds • 3× more matches</div>
-          </div>
-          <button style="background:var(--gold-gradient);border:none;color:#000;font-weight:800;font-size:0.75rem;padding:6px 12px;border-radius:var(--radius-full);cursor:pointer;white-space:nowrap" onclick="openPaywall('ad_banner')">Upgrade</button>
         </div>
       </div>
 
@@ -2228,31 +2206,26 @@
     <!-- =====================================================
          MODAL: DEEP PROFILE DETAIL SHEET (Hinge/Tinder Expansion)
          ===================================================== -->
-    <div class="whatsapp-dialog-overlay profile-detail-overlay" id="profileDetailModal" style="display:none;" onclick="if(event.target===this)closeProfileDetailSheet()">
-      <div class="profile-detail-sheet" role="dialog" aria-labelledby="detailSheetName" aria-modal="true">
-        <!-- Top Navigation / Drag Handle -->
-        <div class="detail-sheet-top-bar">
-          <div class="sheet-drag-handle"></div>
-          <button type="button" class="detail-sheet-close-btn" onclick="closeProfileDetailSheet()" aria-label="Close profile details" title="Close">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-          </button>
-        </div>
+    <div class="sheet-overlay profile-detail-overlay" id="profileDetailModal" style="display:none;" onclick="if(event.target===this)closeProfileDetailSheet()">
+      <div class="profile-detail-sheet sheet" role="dialog" aria-labelledby="detailSheetName" aria-modal="true">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <button type="button" class="btn btn-icon btn-secondary detail-sheet-close-btn" onclick="closeProfileDetailSheet()" aria-label="Close profile">
+          <svg class="i" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
 
-        <!-- Scrollable Profile Content -->
         <div class="profile-detail-body" id="detailSheetContent">
-          <!-- Populated dynamically by openProfileDetailSheet() -->
+          <!-- Filled by openProfileDetailSheet() -->
         </div>
 
-        <!-- Sticky Floating Action Bar -->
         <div class="profile-detail-actions-bar" id="detailSheetActionsBar">
-          <button type="button" class="detail-act-btn detail-pass-btn" onclick="actionFromDetailSheet('nope')" aria-label="Pass" title="Pass">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF4458" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <button type="button" class="circ-btn btn-pass" onclick="actionFromDetailSheet('nope')" aria-label="Pass" title="Pass">
+            <svg class="i i-lg" aria-hidden="true"><use href="#i-x"/></svg>
           </button>
-          <button type="button" class="detail-act-btn detail-super-btn" onclick="actionFromDetailSheet('superlike')" aria-label="Super Like" title="Super Like">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="#20C997"><path d="M11.99 2L9.17 8.62 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.17-.62z"/></svg>
+          <button type="button" class="circ-btn btn-super" onclick="actionFromDetailSheet('superlike')" aria-label="Super like" title="Super like">
+            <svg class="i" aria-hidden="true"><use href="#i-star"/></svg>
           </button>
-          <button type="button" class="detail-act-btn detail-like-btn" onclick="actionFromDetailSheet('like')" aria-label="Like" title="Like">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="#FF5E8E"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          <button type="button" class="circ-btn btn-like" onclick="actionFromDetailSheet('like')" aria-label="Like" title="Like">
+            <svg class="i i-lg i-fill" aria-hidden="true"><use href="#i-heart"/></svg>
           </button>
         </div>
       </div>

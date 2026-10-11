@@ -21,6 +21,7 @@ const APP_SHELL = [
   "/css/components.css",
   "/css/shell.css",
   "/css/auth.css",
+  "/css/discovery.css",
   "/fonts/plus-jakarta-sans-latin-wght-normal.woff2",
   "/script.js",
   "/manifest.json"
