@@ -427,3 +427,13 @@ button.row:hover, a.row:hover { background: var(--surface-raised); }
 .perm-status { font-size: var(--fs-sm); color: var(--text-3); }
 .perm-status.is-ok { color: var(--success); font-weight: 600; }
 .perm-status.is-bad { color: var(--danger); }
+
+/* ---------- Long-form text (legal pages) ---------- */
+.prose { font-size: var(--fs-base); line-height: var(--lh-body); color: var(--text-2); }
+.prose h3 { margin: var(--s-5) 0 var(--s-1); font-size: var(--fs-base); font-weight: 800; color: var(--text); }
+.prose h3:first-of-type { margin-top: var(--s-3); }
+.prose p { margin: 0 0 var(--s-3); }
+.prose a { color: var(--primary-text); text-decoration: underline; text-underline-offset: 2px; }
+.prose strong { color: var(--text); }
+.prose-meta { font-size: var(--fs-sm); color: var(--text-3); }
+.legal-overlay { z-index: var(--z-modal); }

@@ -2148,78 +2148,21 @@ body[data-theme="light"] {
 }
 
 /* Modals that contain forms/content should remain readable in light mode. */
-[data-theme="light"] #forgotPasswordModal > div,
 [data-theme="light"] .legal-modal-content {
   background: #FFFFFF !important;
   color: #15121A !important;
   border-color: #E2DDE7 !important;
 }
 
-[data-theme="light"] #forgotPasswordModal h2,
 [data-theme="light"] .legal-modal-content h2 {
   color: #15121A !important;
 }
 
-[data-theme="light"] #forgotPasswordModal p,
 [data-theme="light"] .legal-modal-content p {
   color: #5B5364 !important;
 }
 
 /* Light-mode modal readability: override legacy inline dark-theme text safely. */
-[data-theme="light"] #forgotPasswordModal > div,
-[data-theme="light"] #forwardModal > div,
-[data-theme="light"] #phoneVerifyModal > div,
-[data-theme="light"] #phoneVerificationModal > div,
-[data-theme="light"] #languageModal > div,
-[data-theme="light"] #legalModalInner {
-  background: #FFFFFF !important;
-  color: #15121A !important;
-  border-color: #E1DCE5 !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12) !important;
-}
-
-[data-theme="light"] #editProfileModal h2,
-[data-theme="light"] #forgotPasswordModal h2,
-[data-theme="light"] #forwardModal h2,
-[data-theme="light"] #phoneVerifyModal h2,
-[data-theme="light"] #phoneVerificationModal h2,
-[data-theme="light"] #languageModal h2,
-[data-theme="light"] #legalModalTitle {
-  color: #15121A !important;
-}
-
-[data-theme="light"] #editProfileModal p,
-[data-theme="light"] #forgotPasswordModal p,
-[data-theme="light"] #forwardModal p,
-[data-theme="light"] #phoneVerifyModal p,
-[data-theme="light"] #phoneVerificationModal p,
-[data-theme="light"] #languageModal p,
-[data-theme="light"] #legalModalBody,
-[data-theme="light"] #legalModalBody * {
-  color: #4D4655 !important;
-}
-
-[data-theme="light"] #legalModalBody strong {
-  color: #15121A !important;
-}
-
-[data-theme="light"] #editProfileModal button:not(.accent-btn),
-[data-theme="light"] #forgotPasswordModal button:not(.accent-btn),
-[data-theme="light"] #forwardModal button:not(.accent-btn),
-[data-theme="light"] #phoneVerifyModal button:not(.accent-btn),
-[data-theme="light"] #phoneVerificationModal button:not(.accent-btn),
-[data-theme="light"] #languageModal button:not(.accent-btn),
-[data-theme="light"] #legalModalInner button:not(.accent-btn) {
-  color: #3F3747 !important;
-}
-
-[data-theme="light"] #forgotPasswordModal label,
-[data-theme="light"] #forwardModal label,
-[data-theme="light"] #phoneVerifyModal label,
-[data-theme="light"] #phoneVerificationModal label,
-[data-theme="light"] #languageModal label {
-  color: #3F3747 !important;
-}
 
 [data-theme="light"] #languageOptionsList button {
   background: #F8F6FA !important;

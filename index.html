@@ -109,7 +109,7 @@
   <script>
     (function() {
       try {
-        var isAgePassed = localStorage.getItem('ageGateConfirmed') === 'true';
+        var isAgePassed = localStorage.getItem('ageGateConfirmed') === 'true' || localStorage.getItem('hmbs_age_confirmed') === '1';
         var savedState = localStorage.getItem('hookmebysam_state');
         var parsed = savedState ? JSON.parse(savedState) : null;
         var isLoggedIn = !!(parsed && parsed.isLoggedIn);
@@ -131,10 +131,11 @@
       try { localStorage.setItem('ageGateConfirmed', 'true'); } catch(e){}
       document.documentElement.classList.add('age-gate-passed');
       var g = document.getElementById('ageGateOverlay');
-      if (g) { g.style.opacity = '0'; setTimeout(function(){ g.style.display = 'none'; }, 200); }
+      if (g) { g.style.display = 'none'; }
+      if (typeof dialogClosed === 'function' && g) dialogClosed(g);
     };
     window.rejectAgeGate = function() {
-      window.location.href = 'https://www.google.com';
+      window.location.replace('https://www.google.com');
     };
   </script>
 </head>
@@ -145,46 +146,22 @@
        AGE GATE — 18+ consent required for a dating app
        Shown only for first-time visitors before confirmation
        ========================================================= -->
-  <div id="ageGateOverlay" style="
-    display:none;position:fixed;inset:0;z-index:999999;
-    background:#0A0710;align-items:center;justify-content:center;
-    flex-direction:column;padding:32px;text-align:center;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  ">
-    <div style="max-width:380px;width:100%">
-      <div style="font-size:3.5rem;margin-bottom:16px">🔞</div>
-      <h1 style="font-size:1.6rem;font-weight:800;color:#FFF;margin:0 0 10px">Adults Only</h1>
-      <p style="color:rgba(255,255,255,0.65);font-size:0.92rem;line-height:1.6;margin:0 0 24px">
-        <strong style="color:#FF2D78">hookmebysam</strong> is a dating platform exclusively for adults aged
-        <strong style="color:#FFF">18 years and older.</strong><br><br>
-        By continuing, you confirm that you are at least 18 years old and agree to our
-        <span onclick="openTermsModal()" style="color:#FF2D78;cursor:pointer;text-decoration:underline">Terms of Service</span> and
-        <span onclick="openPrivacyModal()" style="color:#FF2D78;cursor:pointer;text-decoration:underline">Privacy Policy</span>.
-      </p>
-      <button id="ageGateConfirmBtn" onclick="confirmAgeGate()" style="
-        width:100%;padding:16px;border:none;border-radius:20px;
-        background:linear-gradient(135deg,#FF2D78,#D13A63);
-        color:#FFF;font-size:1rem;font-weight:800;cursor:pointer;
-        box-shadow:0 8px 24px rgba(255,45,120,0.4);
-        transition:transform 0.15s,box-shadow 0.15s;margin-bottom:12px;
-      " onmouseenter="this.style.transform='scale(1.02)'" onmouseleave="this.style.transform='scale(1)'">
-        ✅ I am 18 or older — Enter
-      </button>
-      <button onclick="rejectAgeGate()" style="
-        width:100%;padding:13px;border:1px solid rgba(255,255,255,0.15);
-        border-radius:20px;background:transparent;
-        color:rgba(255,255,255,0.5);font-size:0.88rem;cursor:pointer;
-      ">
-        I am under 18 — Exit
-      </button>
-      <p style="margin-top:20px;font-size:0.72rem;color:rgba(255,255,255,0.35);line-height:1.5">
-        hookmebysam · Lagos, Nigeria · contact@hookmebysam.com<br>
-        🔒 We never share your data. NDPR &amp; GDPR compliant.
-      </p>
+  <div id="ageGateOverlay" class="gate" role="dialog" aria-modal="true" aria-labelledby="ageGateTitle" aria-describedby="ageGateDesc" style="display:none">
+    <div class="gate-card">
+      <svg class="i gate-logo" aria-hidden="true"><use href="#i-logo"/></svg>
+      <h1 class="gate-title" id="ageGateTitle">hookmebysam is for adults</h1>
+      <p class="gate-text" id="ageGateDesc">You must be 18 or older to use this app. By continuing you confirm your age and agree to our
+        <button type="button" class="link-btn" onclick="openTermsModal()">Terms of Service</button> and
+        <button type="button" class="link-btn" onclick="openPrivacyModal()">Privacy Policy</button>.</p>
+      <div class="gate-actions">
+        <button type="button" id="ageGateConfirmBtn" class="btn btn-primary btn-lg btn-block" onclick="confirmAgeGate()">I am 18 or older</button>
+        <button type="button" class="btn btn-ghost btn-block" onclick="rejectAgeGate()">I am under 18</button>
+      </div>
+      <p class="gate-foot">Questions? <a href="mailto:contact@hookmebysam.com">contact@hookmebysam.com</a></p>
     </div>
   </div>
   <script>
-    if (!document.documentElement.classList.contains('age-gate-passed') && localStorage.getItem('ageGateConfirmed') !== 'true') {
+    if (!document.documentElement.classList.contains('age-gate-passed')) {
       var _ag = document.getElementById('ageGateOverlay');
       if (_ag) _ag.style.display = 'flex';
     }
@@ -1493,33 +1470,14 @@
     <!-- =====================================================
          LEGAL MODAL — Terms, Privacy, DMCA
          ===================================================== -->
-    <div id="legalModal" style="
-      display:none;position:fixed;inset:0;z-index:99997;
-      background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);
-      -webkit-backdrop-filter:blur(8px);
-      align-items:flex-end;justify-content:center;
-    " onclick="closeLegalModal()">
-      <div id="legalModalInner" onclick="event.stopPropagation()" style="
-        background:linear-gradient(180deg,#1A1028 0%,#0A0710 100%);
-        border:1px solid rgba(255,255,255,0.1);
-        border-radius:24px 24px 0 0;
-        max-height:85vh;overflow-y:auto;
-        width:100%;max-width:600px;
-        padding:28px 24px 48px;
-        font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-        animation:slideUpFadeIn 0.3s ease;
-      ">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-          <h2 id="legalModalTitle" style="margin:0;font-size:1.15rem;font-weight:800;color:#FFF">Terms of Service</h2>
-          <button onclick="closeLegalModal()" style="
-            background:rgba(255,255,255,0.08);border:none;border-radius:50%;
-            width:32px;height:32px;color:#FFF;font-size:1.1rem;cursor:pointer;
-            display:flex;align-items:center;justify-content:center;
-          ">✕</button>
+    <div class="sheet-overlay legal-overlay" id="legalModal" style="display:none" onclick="if(event.target===this)closeLegalModal()">
+      <div class="sheet sheet-tall legal-sheet" role="dialog" aria-modal="true" aria-labelledby="legalModalTitle">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <div class="sheet-head">
+          <h2 class="sheet-title" id="legalModalTitle">Terms of Service</h2>
+          <button type="button" class="btn btn-icon btn-ghost" onclick="closeLegalModal()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
         </div>
-        <div id="legalModalBody" style="font-size:0.84rem;color:rgba(255,255,255,0.65);line-height:1.8">
-          Loading...
-        </div>
+        <div class="sheet-body prose" id="legalModalBody">Loading…</div>
       </div>
     </div>
 

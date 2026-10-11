@@ -372,33 +372,17 @@ window.isRealUserLoggedIn = isRealUserLoggedIn;
 window.isGuestMode = isGuestMode;
 
 // ==========================================================
-// AGE GATE — 18+ verification (COPPA / dating-app law)
+// AGE GATE — 18+ self-declaration
 // ==========================================================
 
-(function initAgeGate() {
+// The gate itself is shown, confirmed and rejected by small inline functions in index.html so it appears before
+// the app loads. Here it only joins the shared dialog handling (focus trap, focus return).
+setTimeout(function initAgeGate() {
+  // deferred so the dialog helpers further down this file are defined
   const overlay = document.getElementById('ageGateOverlay');
-  if (!overlay) return;
-  // If user already confirmed age in this browser, skip the gate
-  if (localStorage.getItem('hmbs_age_confirmed') === '1') {
-    overlay.style.display = 'none';
-  }
-  // Otherwise it stays visible blocking the entire app
-})();
-
-function confirmAgeGate() {
-  localStorage.setItem('hmbs_age_confirmed', '1');
-  const overlay = document.getElementById('ageGateOverlay');
-  if (overlay) {
-    overlay.style.transition = 'opacity 0.4s';
-    overlay.style.opacity = '0';
-    setTimeout(() => { overlay.style.display = 'none'; }, 400);
-  }
-}
-
-function rejectAgeGate() {
-  // Redirect under-18 users away from the page
-  window.location.replace('https://www.google.com');
-}
+  if (!overlay || getComputedStyle(overlay).display === 'none') return;
+  dialogOpened(overlay, { focus: '#ageGateConfirmBtn' });
+}, 0);
 
 // ==========================================================
 // INIT — Fast Instant Boot (no waiting for external assets)
@@ -14252,21 +14236,34 @@ async function handleStoryPhotoSelected(event) {
 }
 
 // ==========================================================
-// LEGAL MODALS � Terms, Privacy Policy, DMCA (compliance)
+// LEGAL MODALS: Terms, Privacy Policy, DMCA
 // ==========================================================
 
 const LEGAL_CONTENT = {
   terms: {
     title: 'Terms of Service',
-    body: `<p><strong style="color:#FFF">Effective: January 2025</strong></p><p><strong style="color:#FFF">1. Eligibility</strong><br>You must be at least <strong>18 years old</strong> to use hookmebysam. Underage accounts are terminated immediately.</p><p><strong style="color:#FFF">2. Acceptable Use</strong><br>No illegal, abusive, or harassing content. No spam. Violations result in a permanent ban.</p><p><strong style="color:#FFF">3. VIP Subscriptions</strong><br>VIP Gold plans are <strong>one-time purchases and do not auto-renew</strong>. Refunds within 24 hours via <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a>.</p><p><strong style="color:#FFF">4. Limitation of Liability</strong><br>App provided as-is. We are not liable for damages from use of the app.</p><p>hookmebysam � Lagos, Nigeria � <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a></p>`
+    body: `<p class="prose-meta">Effective January 2025</p>
+<h3>1. Eligibility</h3><p>You must be at least <strong>18 years old</strong> to use hookmebysam. Underage accounts are terminated immediately.</p>
+<h3>2. Acceptable use</h3><p>No illegal, abusive, or harassing content. No spam. Violations result in a permanent ban.</p>
+<h3>3. VIP plans</h3><p>VIP Gold plans are <strong>one-time purchases and do not auto-renew</strong>. Refunds within 24 hours via <a href="mailto:contact@hookmebysam.com">contact@hookmebysam.com</a>.</p>
+<h3>4. Limitation of liability</h3><p>The app is provided as-is. We are not liable for damages from use of the app.</p>
+<p class="prose-meta">hookmebysam · Lagos, Nigeria · <a href="mailto:contact@hookmebysam.com">contact@hookmebysam.com</a></p>`
   },
   privacy: {
     title: 'Privacy Policy',
-    body: `<p><strong style="color:#FFF">NDPR &amp; GDPR aligned � Effective January 2025</strong></p><p><strong style="color:#FFF">We collect:</strong> Name, age, gender, photo, email, and messages between matched users.</p><p><strong style="color:#FFF">We do NOT:</strong> Use session-recording tools, sell your data, log keystrokes, or track location without consent.</p><p><strong style="color:#FFF">Payments:</strong> Processed by Paystack � payment data is never stored on our servers.</p><p><strong style="color:#FFF">Delete account:</strong> Settings ? Delete Account removes all data within 30 days.</p><p><strong style="color:#FFF">Unsubscribe:</strong> Email <a href="mailto:contact@hookmebysam.com?subject=Unsubscribe" style="color:#FF2D78">contact@hookmebysam.com</a> with subject "Unsubscribe".</p><p>hookmebysam � Lagos, Nigeria � contact@hookmebysam.com</p>`
+    body: `<p class="prose-meta">Aligned with NDPR and GDPR · Effective January 2025</p>
+<h3>What we collect</h3><p>Name, age, gender, photos, email, and messages between matched users.</p>
+<h3>What we do not do</h3><p>We do not use session-recording tools, sell your data, log keystrokes, or track location without your consent.</p>
+<h3>Payments</h3><p>Payments are processed by Paystack. Payment details are never stored on our servers.</p>
+<h3>Deleting your account</h3><p>Settings, then Delete account, removes your data within 30 days.</p>
+<h3>Unsubscribe</h3><p>Email <a href="mailto:contact@hookmebysam.com?subject=Unsubscribe">contact@hookmebysam.com</a> with the subject “Unsubscribe”.</p>
+<p class="prose-meta">hookmebysam · Lagos, Nigeria · contact@hookmebysam.com</p>`
   },
   dmca: {
-    title: 'DMCA Takedown Policy',
-    body: `<p>hookmebysam complies with the DMCA. Our designated agent:</p><div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;margin:10px 0"><strong style="color:#FFF">DMCA Agent: hookmebysam</strong><br>Email: <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a><br>Address: Lagos, Nigeria</div><p>To file a notice, email the agent with: (1) description of infringing work, (2) location of content, (3) your contact info, (4) good-faith statement, (5) accuracy statement under penalty of perjury, (6) your signature. We act promptly. Repeat infringers lose access.</p>`
+    title: 'DMCA takedown policy',
+    body: `<p>hookmebysam complies with the DMCA. Our designated agent:</p>
+<div class="notice"><div><strong>DMCA agent: hookmebysam</strong><br>Email: <a href="mailto:contact@hookmebysam.com">contact@hookmebysam.com</a><br>Address: Lagos, Nigeria</div></div>
+<p>To file a notice, email the agent with: (1) a description of the infringing work, (2) the location of the content, (3) your contact information, (4) a good-faith statement, (5) an accuracy statement under penalty of perjury, and (6) your signature. We act promptly. Repeat infringers lose access.</p>`
   }
 };
 
@@ -14277,15 +14274,13 @@ function showLegalModal(type) {
   const content = LEGAL_CONTENT[type] || LEGAL_CONTENT.terms;
   if (!modal) return;
   if (titleEl) titleEl.textContent = content.title;
-  if (bodyEl)  bodyEl.innerHTML    = content.body;
+  if (bodyEl)  { bodyEl.innerHTML = content.body; bodyEl.scrollTop = 0; }
   modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
 }
 
 function closeLegalModal() {
   const modal = document.getElementById('legalModal');
   if (modal) modal.style.display = 'none';
-  document.body.style.overflow = '';
 }
 
 function openTermsModal() {

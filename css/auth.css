@@ -111,3 +111,19 @@
 @media (min-width: 900px) {
   .auth-wrap { padding-top: var(--s-10); }
 }
+
+/* ---------- Age gate (full-screen, first visit) ---------- */
+.gate {
+  position: fixed; inset: 0; z-index: 90;
+  display: none; align-items: center; justify-content: center;
+  padding: var(--s-6) var(--s-4);
+  background: var(--bg); color: var(--text);
+  overflow-y: auto;
+}
+.gate-card { width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; gap: var(--s-4); text-align: center; }
+.gate-logo { width: 56px; height: 56px; color: var(--primary-text); stroke-width: 2.2; }
+.gate-title { margin: 0; font-size: var(--fs-xl); font-weight: 800; letter-spacing: -0.02em; line-height: var(--lh-snug); }
+.gate-text { margin: 0; font-size: var(--fs-base); line-height: var(--lh-body); color: var(--text-2); }
+.gate-actions { display: flex; flex-direction: column; gap: var(--s-2); width: 100%; margin-top: var(--s-2); }
+.gate-foot { margin: 0; font-size: var(--fs-sm); color: var(--text-3); }
+.gate-foot a { color: var(--text-2); }

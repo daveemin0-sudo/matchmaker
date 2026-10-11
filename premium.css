@@ -1168,57 +1168,6 @@ body[data-theme="light"] {
   color: #140C1D !important;
 }
 
-/* Auth Dialogs (Forgot Password, Forward, Phone, Username, Language, Legal) */
-[data-theme="light"] #forgotPasswordModal > div,
-[data-theme="light"] #forwardModal > div,
-[data-theme="light"] #phoneVerifyModal > div,
-[data-theme="light"] #phoneVerificationModal > div,
-[data-theme="light"] #languageModal > div,
-[data-theme="light"] #editUsernameModal > div,
-[data-theme="light"] #legalModalInner {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18) !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] #forgotPasswordModal h2,
-[data-theme="light"] #forwardModal h2,
-[data-theme="light"] #phoneVerifyModal h2,
-[data-theme="light"] #phoneVerificationModal h2,
-[data-theme="light"] #languageModal h2,
-[data-theme="light"] #editUsernameModal h2,
-[data-theme="light"] #legalModalTitle {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] #forgotPasswordModal p,
-[data-theme="light"] #forwardModal p,
-[data-theme="light"] #phoneVerifyModal p,
-[data-theme="light"] #phoneVerificationModal p,
-[data-theme="light"] #languageModal p,
-[data-theme="light"] #editUsernameModal p,
-[data-theme="light"] #legalModalBody,
-[data-theme="light"] #legalModalBody * {
-  color: #433B50 !important;
-}
-
-[data-theme="light"] #legalModalBody strong {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] #forgotPasswordModal button:not(.accent-btn),
-[data-theme="light"] #forwardModal button:not(.accent-btn),
-[data-theme="light"] #phoneVerifyModal button:not(.accent-btn),
-[data-theme="light"] #phoneVerificationModal button:not(.accent-btn),
-[data-theme="light"] #languageModal button:not(.accent-btn),
-[data-theme="light"] #editUsernameModal button:not(.accent-btn),
-[data-theme="light"] #legalModalInner button:not(.accent-btn) {
-  background: #F4EFFB !important;
-  border: 1px solid #DDD3E8 !important;
-  color: #140C1D !important;
-}
-
 /* Reaction Sheet */
 [data-theme="light"] .reaction-sheet-card {
   background: #FFFFFF !important;
@@ -1310,13 +1259,7 @@ button.accent-btn,
 }
 
 [data-theme="light"] .accent-btn,
-[data-theme="light"] button.accent-btn,
-[data-theme="light"] #editProfileModal .accent-btn,
-[data-theme="light"] #forgotPasswordModal .accent-btn,
-[data-theme="light"] #phoneVerifyModal .accent-btn,
-[data-theme="light"] #phoneVerificationModal .accent-btn,
-[data-theme="light"] #forwardModal .accent-btn,
-[data-theme="light"] #languageModal .accent-btn {
+[data-theme="light"] button.accent-btn {
   color: #FFFFFF !important;
   -webkit-text-fill-color: #FFFFFF !important;
   background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
@@ -1415,11 +1358,6 @@ button.accent-btn,
   font-weight: 800 !important;
 }
 
-[data-theme="light"] #editProfileModal .form-hint,
-[data-theme="light"] #editProfileModal span {
-  color: #524760 !important;
-}
-
 [data-theme="light"] .preview-card-btn,
 [data-theme="light"] #profilePreviewBtn {
   background: #FFF0F4 !important;
@@ -1429,11 +1367,6 @@ button.accent-btn,
 [data-theme="light"] .preview-card-btn span,
 [data-theme="light"] #profilePreviewBtn span {
   color: #7A1638 !important;
-  font-weight: 700 !important;
-}
-
-[data-theme="light"] #safetyToolkitModal span {
-  color: #990000 !important;
   font-weight: 700 !important;
 }
 
