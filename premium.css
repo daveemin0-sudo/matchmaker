@@ -22,74 +22,11 @@ body::before {
   100% { transform: scale(1.06); box-shadow: 0 0 45px rgba(209, 58, 99, 0.5); }
 }
 
-/* brand wordmark colour split */
-
-.accent-btn {
-  width: 100% !important;
-  height: 52px !important;
-  background: var(--flame-grad) !important;
-  border: none !important;
-  border-radius: 26px !important;
-  color: #FFFFFF !important;
-  font-size: 1rem !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.3px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  cursor: pointer !important;
-  box-shadow: 0 8px 30px rgba(255, 46, 112, 0.45) !important;
-  transition: all var(--t-fast) var(--spring) !important;
-}
-
-.accent-btn:hover {
-  transform: translateY(-2px) scale(1.02) !important;
-  box-shadow: 0 12px 40px rgba(255, 46, 112, 0.65) !important;
-}
-
-/* Vignette Gradients for Text Legibility */
-
-.verified-badge-luxury {
-  display: inline-flex !important;
-  filter: drop-shadow(0 0 12px rgba(0, 162, 255, 0.7)) !important;
-}
-
 /* --- 8. MATCHES SCREEN & BADOO / TANGO STORIES RAIL --- */
-
-.story-bubble {
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  transition: transform var(--t-fast) var(--spring);
-}
-.story-bubble:hover { transform: scale(1.08); }
-
-.story-ring {
-  width: 66px !important; height: 66px !important;
-  border-radius: 50% !important;
-  padding: 2.5px !important;
-  background: linear-gradient(135deg, #FF2E70 0%, #F4C550 50%, #00F0FF 100%) !important;
-  box-shadow: 0 4px 18px rgba(255, 46, 112, 0.35) !important;
-  position: relative;
-}
-
-.story-ring.active {
-  animation: rotateRing 6s linear infinite;
-}
 
 @keyframes rotateRing {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
-}
-
-.story-avatar {
-  width: 100% !important; height: 100% !important;
-  border-radius: 50% !important;
-  border: 2px solid var(--bg) !important;
-  background-size: cover !important;
-  background-position: center !important;
 }
 
 /* --- 9. LUXURY GLASS BOTTOM NAVIGATION --- */
@@ -105,16 +42,6 @@ body.keyboard-open #globalFloatingSearchBtn {
 @keyframes hmbs-shimmer {
   0%   { background-position: -400px 0; }
   100% { background-position: 400px 0; }
-}
-
-/* --- 10B. MATCHES & LIKES CONNECTIONS HUB --- */
-
-.online-pulse-dot {
-  width: 6px;
-  height: 6px;
-  background-color: #2ed573;
-  border-radius: 50%;
-  box-shadow: 0 0 8px #2ed573;
 }
 
 /* ================================================================
@@ -134,23 +61,7 @@ body[data-theme="light"]::before {
     radial-gradient(ellipse 400px 400px at 50% 50%, rgba(0, 162, 255, 0.03) 0%, transparent 70%) !important;
 }
 
-/* Matches & Conversations (Light) */
-[data-theme="light"] .story-name {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .story-avatar {
-  border-color: #FFFFFF !important;
-}
-
 /* Profile & Settings (Light) */
-
-[data-theme="light"] .profile-form,
-[data-theme="light"] .ai-lab-card {
-  background: #FFFFFF !important;
-  border: 1px solid rgba(0, 0, 0, 0.07) !important;
-  box-shadow: 0 8px 30px rgba(70, 40, 90, 0.06) !important;
-}
 
 #editBio,
 #signupBio {
@@ -165,167 +76,7 @@ body[data-theme="light"]::before {
   height: 0 !important;
 }
 
-[data-theme="light"] .photo-upload-area {
-  background: #FAF7FD !important;
-  border: 1.5px dashed #DDD5E7 !important;
-}
-
-[data-theme="light"] .photo-upload-label {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .photo-upload-hint {
-  color: #7A708A !important;
-}
-
-[data-theme="light"] .ai-lab-title {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .ai-lab-sub {
-  color: #685E79 !important;
-}
-
-[data-theme="light"] .ai-prompt-input {
-  background: #FAF7FD !important;
-  border: 1.5px solid #DDD5E7 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .ai-status span {
-  color: #685E79 !important;
-}
-
-/* High-End Photo Upload Dropzone */
-.photo-upload-area {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1.5px dashed rgba(255, 255, 255, 0.16) !important;
-  border-radius: 20px !important;
-  padding: 16px 18px !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 14px !important;
-  cursor: pointer !important;
-  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-.photo-upload-area:hover {
-  background: rgba(255, 46, 112, 0.06) !important;
-  border-color: #FF2E70 !important;
-  transform: translateY(-1px) !important;
-}
-.photo-upload-icon {
-  width: 46px !important;
-  height: 46px !important;
-  border-radius: 50% !important;
-  background: radial-gradient(circle, rgba(255, 46, 112, 0.2) 0%, rgba(209, 58, 99, 0.05) 70%) !important;
-  border: 1px solid rgba(255, 46, 112, 0.3) !important;
-  color: #FF2E70 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  flex-shrink: 0 !important;
-}
-.photo-upload-text-wrap {
-  flex: 1 !important;
-}
-.photo-upload-label {
-  font-size: 0.92rem !important;
-  font-weight: 700 !important;
-  color: var(--txt-primary, #FFFFFF) !important;
-  display: block !important;
-}
-.photo-upload-hint {
-  font-size: 0.75rem !important;
-  color: var(--txt-muted, #9E97B0) !important;
-  margin-top: 2px !important;
-  display: block !important;
-}
-.photo-upload-browse-btn {
-  background: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.16) !important;
-  border-radius: 14px !important;
-  color: var(--txt-primary, #FFFFFF) !important;
-  font-size: 0.78rem !important;
-  font-weight: 700 !important;
-  padding: 7px 14px !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-}
-.photo-upload-browse-btn:hover {
-  background: var(--flame-grad) !important;
-  border-color: transparent !important;
-  color: #FFFFFF !important;
-}
-
-/* AI AVATAR STUDIO CARD */
-.ai-lab-card {
-  background: linear-gradient(145deg, rgba(26, 18, 38, 0.85) 0%, rgba(14, 10, 22, 0.95) 100%) !important;
-  backdrop-filter: blur(28px) saturate(190%) !important;
-  -webkit-backdrop-filter: blur(28px) !important;
-  border: 1px solid rgba(168, 85, 247, 0.3) !important;
-  border-radius: 28px !important;
-  padding: 24px 20px !important;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 30px rgba(168, 85, 247, 0.12) !important;
-  margin-top: 24px !important;
-  position: relative !important;
-}
-
-.ai-lab-head {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  margin-bottom: 8px !important;
-}
-
-.ai-lab-badge {
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 6px !important;
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.25) 0%, rgba(209, 58, 99, 0.25) 100%) !important;
-  border: 1px solid rgba(168, 85, 247, 0.4) !important;
-  padding: 4px 10px !important;
-  border-radius: var(--r-pill) !important;
-  color: #C084FC !important;
-  font-size: 0.68rem !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.8px !important;
-}
-
-.ai-lab-title-wrap {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-}
-
-.ai-lab-title {
-  font-family: var(--font-display) !important;
-  font-size: 1.15rem !important;
-  font-weight: 800 !important;
-  color: #FFFFFF !important;
-  letter-spacing: -0.3px !important;
-}
-
-.ai-picker-label,
-.ai-presets-label,
-.ai-prompt-label {
-  font-size: 0.75rem !important;
-  font-weight: 800 !important;
-  letter-spacing: 0.6px !important;
-  text-transform: uppercase !important;
-  color: var(--txt-muted, #9E97B0) !important;
-  margin: 14px 0 8px !important;
-  display: block !important;
-}
-
 /* Candidate Target Grid */
-.ai-picker-grid {
-  display: flex !important;
-  gap: 12px !important;
-  overflow-x: auto !important;
-  padding-bottom: 6px !important;
-  scrollbar-width: none !important;
-}
-.ai-picker-grid::-webkit-scrollbar { display: none; }
 
 .ai-picker-item {
   cursor: pointer !important;
@@ -338,29 +89,6 @@ body[data-theme="light"]::before {
 }
 .ai-picker-item:hover { transform: scale(1.08) !important; }
 
-.ai-picker-avatar-ring {
-  width: 58px !important;
-  height: 58px !important;
-  border-radius: 50% !important;
-  padding: 2.5px !important;
-  background: rgba(255, 255, 255, 0.12) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  transition: all 0.2s ease !important;
-}
-
-.ai-picker-avatar-ring img {
-  width: 100% !important;
-  height: 100% !important;
-  border-radius: 50% !important;
-  object-fit: cover !important;
-}
-
-.ai-picker-item.selected .ai-picker-avatar-ring {
-  background: linear-gradient(135deg, #FF2E70 0%, #C084FC 50%, #00F0FF 100%) !important;
-  border-color: transparent !important;
-  box-shadow: 0 0 16px rgba(168, 85, 247, 0.55) !important;
-}
-
 .ai-picker-item span {
   font-size: 0.72rem !important;
   font-weight: 700 !important;
@@ -371,137 +99,12 @@ body[data-theme="light"]::before {
   font-weight: 800 !important;
 }
 
-/* Style Preset Chips */
-.ai-style-presets {
-  display: flex !important;
-  flex-wrap: wrap !important;
-  gap: 6px !important;
-}
-
-.ai-preset-chip {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 16px !important;
-  color: var(--txt-secondary, #E4E0EE) !important;
-  font-size: 0.75rem !important;
-  font-weight: 600 !important;
-  padding: 6px 12px !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-}
-.ai-preset-chip:hover {
-  background: rgba(168, 85, 247, 0.2) !important;
-  border-color: #C084FC !important;
-  color: #FFFFFF !important;
-  transform: translateY(-1px) !important;
-}
-
-/* Prompt Textarea */
-.ai-prompt-wrap {
-  margin-top: 12px !important;
-}
-
-.ai-prompt-input {
-  width: 100% !important;
-  height: 90px !important;
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 18px !important;
-  padding: 12px 14px !important;
-  color: #FFFFFF !important;
-  font-size: 0.88rem !important;
-  font-family: inherit !important;
-  resize: none !important;
-  outline: none !important;
-  transition: all 0.2s ease !important;
-  scrollbar-width: none !important; /* Firefox */
-  -ms-overflow-style: none !important; /* IE & Edge */
-  overflow-y: auto !important;
-}
-
-.ai-prompt-input::-webkit-scrollbar {
-  display: none !important; /* Chrome, Safari & Opera */
-  width: 0 !important;
-  height: 0 !important;
-}
-
-.ai-prompt-input:focus {
-  border-color: #C084FC !important;
-  box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.16), 0 0 20px rgba(168, 85, 247, 0.2) !important;
-}
-
-/* AI Action Buttons */
-.ai-btns-row {
-  display: flex !important;
-  gap: 10px !important;
-  margin-top: 14px !important;
-}
-
-.ai-batch-btn {
-  background: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  color: #FFFFFF !important;
-  font-size: 0.88rem !important;
-  font-weight: 700 !important;
-  border-radius: 26px !important;
-  padding: 12px 18px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 6px !important;
-  cursor: pointer !important;
-  transition: all 0.2s ease !important;
-}
-.ai-batch-btn:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border-color: rgba(255, 255, 255, 0.3) !important;
-}
-
-/* Status Bar */
-.ai-status {
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-  margin-top: 12px !important;
-  font-size: 0.82rem !important;
-  color: var(--txt-muted, #9E97B0) !important;
-  font-weight: 600 !important;
-}
-
 /* Light Mode Overrides for AI Studio & Profile */
-[data-theme="light"] .ai-lab-card {
-  background: #FFFFFF !important;
-  border: 1.5px solid rgba(168, 85, 247, 0.3) !important;
-  box-shadow: 0 16px 48px rgba(70, 40, 90, 0.08), 0 0 24px rgba(168, 85, 247, 0.08) !important;
-}
-[data-theme="light"] .ai-picker-avatar-ring {
-  background: #F4EFFB !important;
-  border-color: #DDD5E7 !important;
-}
+
 [data-theme="light"] .ai-picker-item span {
   color: #4A3E5C !important;
 }
 [data-theme="light"] .ai-picker-item.selected span {
-  color: #140C1D !important;
-}
-[data-theme="light"] .ai-preset-chip {
-  background: #FAF7FD !important;
-  border-color: #DDD5E7 !important;
-  color: #4A3E5C !important;
-}
-[data-theme="light"] .ai-preset-chip:hover {
-  background: #F4EFFB !important;
-  border-color: #C084FC !important;
-  color: #140C1D !important;
-}
-[data-theme="light"] .ai-prompt-input {
-  background: #FAF7FD !important;
-  border-color: #DDD5E7 !important;
-  color: #140C1D !important;
-}
-[data-theme="light"] .ai-batch-btn {
-  background: #F4EFFB !important;
-  border-color: #DDD5E7 !important;
   color: #140C1D !important;
 }
 
@@ -511,49 +114,8 @@ body[data-theme="light"]::before {
   color: #5A5068 !important;
 }
 
-[data-theme="light"] .benefit-row span {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .benefit-icon-chip {
-  background: rgba(244, 197, 80, 0.2) !important;
-  color: #8C6400 !important;
-  border: 1px solid rgba(244, 197, 80, 0.35) !important;
-}
-
-/* ================================================================
-   LUXURY VECTOR ARROWS & CHEVRON PHYSICS
-   ================================================================ */
-
-.global-back-btn svg,
-.btn-arrow-icon {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  transition: transform 0.24s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease !important;
-}
-
-.accent-btn:hover .btn-arrow-icon {
-  transform: translateX(4px) !important;
-}
-
-.global-back-btn:hover svg {
-  transform: translateX(-4px) !important;
-}
-
 /* Subtle shimmer animation on accent btn */
-.accent-btn {
-  position: relative !important;
-  overflow: hidden !important;
-}
-.accent-btn::after {
-  content: '' !important;
-  position: absolute !important;
-  top: 0; left: -100%; right: 0; bottom: 0 !important;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%) !important;
-  animation: shimmerBtn 3s ease-in-out infinite !important;
-  pointer-events: none !important;
-}
+
 @keyframes shimmerBtn {
   0% { left: -100%; }
   60%, 100% { left: 150%; }
@@ -566,74 +128,11 @@ body[data-theme="light"]::before {
   50% { transform: translateY(-12px); }
 }
 
-/* --- INTEREST TAGS: Premium pill design --- */
-.interest-tag {
-  background: rgba(255,255,255,0.05) !important;
-  border: 1.5px solid rgba(255,255,255,0.1) !important;
-  border-radius: var(--r-pill) !important;
-  font-size: 0.83rem !important;
-  font-weight: 700 !important;
-  transition: all 0.18s ease !important;
-}
-.interest-tag:hover {
-  background: rgba(255,46,112,0.1) !important;
-  border-color: rgba(255,46,112,0.4) !important;
-  transform: scale(1.04) !important;
-}
-.interest-tag.selected {
-  background: rgba(255,46,112,0.15) !important;
-  border-color: #FF2E70 !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 0 0 3px rgba(255,46,112,0.15), 0 4px 16px rgba(255,46,112,0.25) !important;
-}
-
 /* --- PROGRESS DOTS (signup) --- */
 
 @keyframes progressGlow {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
-}
-
-/* --- SECONDARY / OUTLINE BUTTONS --- */
-.outline-btn {
-  background: rgba(255,255,255,0.06) !important;
-  border: 1.5px solid rgba(255,255,255,0.15) !important;
-  border-radius: 26px !important;
-  color: #FFFFFF !important;
-  font-weight: 700 !important;
-  font-size: 0.95rem !important;
-  transition: all 0.18s ease !important;
-}
-.outline-btn:hover {
-  background: rgba(255,255,255,0.12) !important;
-  border-color: rgba(255,255,255,0.3) !important;
-  transform: translateY(-1px) !important;
-}
-
-/* --- DANGER BUTTON --- */
-.danger-btn {
-  background: rgba(255,46,112,0.1) !important;
-  border: 1.5px solid rgba(255,46,112,0.3) !important;
-  border-radius: 26px !important;
-  color: #FF6584 !important;
-  font-weight: 700 !important;
-  transition: all 0.18s ease !important;
-}
-.danger-btn:hover {
-  background: rgba(255,46,112,0.18) !important;
-  border-color: rgba(255,46,112,0.5) !important;
-}
-
-/* --- STORY VIEWER POLISH --- */
-.story-poll-option {
-  background: rgba(255,255,255,0.1) !important;
-  border: 1.5px solid rgba(255,255,255,0.2) !important;
-  border-radius: 16px !important;
-  transition: all 0.18s ease !important;
-}
-.story-poll-option:hover {
-  background: rgba(255,46,112,0.15) !important;
-  border-color: rgba(255,46,112,0.4) !important;
 }
 
 /* Ensure body ambient background shows on desktop */
@@ -646,46 +145,6 @@ body[data-theme="light"]::before {
       #060409 !important;
   }
 
-}
-
-/* --- Global Back Button Arrow: slide-left on hover --- */
-.global-back-btn svg {
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-}
-.global-back-btn:hover svg {
-  transform: translateX(-3px) !important;
-}
-.global-back-btn:active svg {
-  transform: translateX(-5px) scale(0.92) !important;
-}
-
-/* --- Sign-up Back / Continue buttons: icon alignment --- */
-.accent-btn svg {
-  flex-shrink: 0 !important;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-}
-
-.accent-btn:hover svg {
-  transform: translateX(3px) !important;
-}
-
-/* --- Photo upload row arrow --- */
-.photo-upload-area svg:last-child {
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease !important;
-  color: rgba(255, 255, 255, 0.3) !important;
-}
-.photo-upload-area:hover svg:last-child {
-  transform: translateX(4px) !important;
-  color: rgba(255, 255, 255, 0.7) !important;
-}
-
-/* Light theme overrides for chevrons */
-
-[data-theme="light"] .photo-upload-area svg:last-child {
-  color: rgba(0, 0, 0, 0.3) !important;
-}
-[data-theme="light"] .photo-upload-area:hover svg:last-child {
-  color: rgba(0, 0, 0, 0.6) !important;
 }
 
 /* Paywall gem pulse animation */
@@ -705,11 +164,6 @@ body[data-theme="light"]::before {
   0% { filter: drop-shadow(0 0 12px rgba(255, 46, 112, 0.4)); transform: scale(1) rotate(0deg); }
   50% { filter: drop-shadow(0 0 28px rgba(255, 46, 112, 0.7)); transform: scale(1.06) rotate(5deg); }
   100% { filter: drop-shadow(0 0 12px rgba(255, 46, 112, 0.4)); transform: scale(1) rotate(0deg); }
-}
-
-/* Hide any remaining crown SVG elements globally */
-.vip-crown-svg {
-  display: none !important;
 }
 
 /* ================================================================
@@ -864,10 +318,6 @@ body[data-theme="light"]::before {
   font-weight: 600 !important;
 }
 
-.story-top-pick-badge {
-  display: none !important;
-}
-
 .story-user-loc {
   font-size: 0.74rem !important;
   color: rgba(255, 255, 255, 0.65) !important;
@@ -945,11 +395,6 @@ body[data-theme="light"]::before {
   flex-direction: column !important;
   gap: 10px !important;
   transition: opacity 0.15s ease !important;
-}
-
-/* Hide intrusive bio card completely */
-.story-bio-card {
-  display: none !important;
 }
 
 /* Tap and hold pause state */
@@ -1082,34 +527,6 @@ body[data-theme="light"] {
 
 /* 7. Settings Screen Polish */
 
-[data-theme="light"] .range-slider {
-  background: #DDD5E7 !important;
-}
-
-[data-theme="light"] .ai-lab-card {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 8px 30px rgba(70, 40, 90, 0.06) !important;
-}
-
-[data-theme="light"] .ai-lab-title {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .ai-lab-sub {
-  color: #6C627A !important;
-}
-
-[data-theme="light"] .ai-prompt-input {
-  background: #FAF7FD !important;
-  border: 1.5px solid #DDD5E7 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .ai-prompt-input::placeholder {
-  color: #9E97AA !important;
-}
-
 [data-theme="light"] .ai-picker-item {
   background: #F8F5FC !important;
   border: 1px solid #DDD5E7 !important;
@@ -1118,26 +535,6 @@ body[data-theme="light"] {
 
 [data-theme="light"] .ai-picker-item.selected span {
   color: #140C1D !important;
-}
-
-[data-theme="light"] .ai-preset-chip {
-  background: #F4EFFB !important;
-  border: 1px solid #DDD5E7 !important;
-  color: #5C526A !important;
-}
-
-/* Interest Tag Pills */
-[data-theme="light"] .interest-tag {
-  background: #F4EFFB !important;
-  border-color: #DDD3E8 !important;
-  color: #2B213A !important;
-}
-
-[data-theme="light"] .interest-tag.active,
-[data-theme="light"] .interest-tag.selected {
-  background: linear-gradient(135deg, rgba(255, 46, 112, 0.14), rgba(244, 197, 80, 0.14)) !important;
-  border-color: #FF2E70 !important;
-  color: #D13A63 !important;
 }
 
 /* Universal centering of App Shell & Core Layout */
@@ -1164,44 +561,12 @@ body {
   align-items: center !important;
 }
 
-/* ==========================================================================
-   RESPONSIVE TOP BAR: FLUID FIT ACROSS ALL PHONE WIDTHS & DP SETTINGS
-   ========================================================================== */
-
-.global-back-btn svg {
-  width: clamp(18px, 4.8vw, 22px) !important;
-  height: clamp(18px, 4.8vw, 22px) !important;
-}
-
-/* --- 1. ACCENT & FILLED BUTTONS (High contrast text in both themes) --- */
-.accent-btn,
-button.accent-btn {
-  color: #FFFFFF !important;
-  -webkit-text-fill-color: #FFFFFF !important;
-  font-weight: 700 !important;
-}
-
-[data-theme="light"] .accent-btn,
-[data-theme="light"] button.accent-btn {
-  color: #FFFFFF !important;
-  -webkit-text-fill-color: #FFFFFF !important;
-  background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
-  box-shadow: 0 6px 20px rgba(180, 25, 75, 0.28) !important;
-}
-
-/* --- 2. DISCOVERY FILTER MODAL (Light & Dark Polish) --- */
-
-[data-theme="light"] .sheet-drag-handle {
-  background: rgba(0, 0, 0, 0.2) !important;
-}
-
 /* --- 8. PROFILE SCREEN & BADGES --- */
 
 [data-theme="light"] .hk-strength-link {
   color: #9C1045 !important;
   font-weight: 800 !important;
 }
-[data-theme="light"] .preview-card-btn,
 [data-theme="light"] #profilePreviewBtn {
   color: #8E1538 !important;
   border-color: #E8BFCD !important;
@@ -1227,13 +592,11 @@ button.accent-btn {
   font-weight: 800 !important;
 }
 
-[data-theme="light"] .preview-card-btn,
 [data-theme="light"] #profilePreviewBtn {
   background: #FFF0F4 !important;
   border: 1.5px solid #D13A63 !important;
   color: #7A1638 !important;
 }
-[data-theme="light"] .preview-card-btn span,
 [data-theme="light"] #profilePreviewBtn span {
   color: #7A1638 !important;
   font-weight: 700 !important;
