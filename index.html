@@ -396,21 +396,21 @@
             <p class="signup-step-sub">Pick up to 5. They show on your profile and help people start a conversation.</p>
 
             <div class="interest-tags-grid" role="group" aria-label="Interests">
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Music 🎵', this)">Music 🎵</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Travel ✈️', this)">Travel ✈️</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Fitness 💪', this)">Fitness 💪</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Art 🎨', this)">Art 🎨</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Food 🍕', this)">Food 🍕</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Gaming 🎮', this)">Gaming 🎮</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Books 📚', this)">Books 📚</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Fashion 👗', this)">Fashion 👗</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Nature 🌿', this)">Nature 🌿</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Business 📈', this)">Business 📈</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Movies 🎬', this)">Movies 🎬</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Coffee ☕', this)">Coffee ☕</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Dancing 💃', this)">Dancing 💃</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Tech 💻', this)">Tech 💻</button>
-              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Yoga 🧘', this)">Yoga 🧘</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Music 🎵', this)">Music</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Travel ✈️', this)">Travel</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Fitness 💪', this)">Fitness</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Art 🎨', this)">Art</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Food 🍕', this)">Food</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Gaming 🎮', this)">Gaming</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Books 📚', this)">Books</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Fashion 👗', this)">Fashion</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Nature 🌿', this)">Nature</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Business 📈', this)">Business</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Movies 🎬', this)">Movies</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Coffee ☕', this)">Coffee</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Dancing 💃', this)">Dancing</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Tech 💻', this)">Tech</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Yoga 🧘', this)">Yoga</button>
             </div>
 
             <div class="field-error auth-error" id="signupError2" role="alert"></div>
@@ -452,7 +452,7 @@
               <label class="field-label" for="signupLocation">Location <span class="u-muted">(optional)</span></label>
               <div class="input-wrap">
                 <svg class="i" aria-hidden="true"><use href="#i-map-pin"/></svg>
-                <input class="input" id="signupLocation" type="text" placeholder="Lagos, Nigeria" autocomplete="address-level2">
+                <input class="input" id="signupLocation" type="text" placeholder="City, e.g. Lagos" autocomplete="address-level2">
               </div>
             </div>
 
@@ -1703,7 +1703,7 @@
                 <span class="story-user-name" id="storyUserName">My Status</span>
                 <span class="story-user-age" id="storyUserAge"></span>
               </div>
-              <span class="story-user-loc" id="storyUserLoc">📍 Lagos</span>
+              <span class="story-user-loc" id="storyUserLoc"></span>
             </div>
           </div>
           <div style="display:flex;align-items:center;gap:6px">
@@ -1752,7 +1752,7 @@
         <!-- Action Row (for own stories) -->
         <div id="storyOwnActionBar" style="display:none;width:100%;align-items:center;justify-content:space-between;padding:10px 16px;background:rgba(18,10,28,0.75);border-radius:20px;border:1px solid rgba(255,255,255,0.12);backdrop-filter:blur(10px)">
           <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:0.95rem">📸</span>
+            <svg class="i" aria-hidden="true"><use href="#i-camera"/></svg>
             <span style="font-size:0.82rem;font-weight:600;color:rgba(255,255,255,0.85)">Your Status • 24h</span>
           </div>
           <div style="display:flex;gap:8px">
@@ -1991,14 +1991,14 @@
   <div id="pwaBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:99990;padding:0 16px 16px;pointer-events:none">
     <div class="pwa-banner-card" style="pointer-events:auto">
       <div class="pwa-banner-icon">
-        <img src="logo.png" alt="hookmebysam" onerror="this.textContent='🔥';this.style.fontSize='28px'">
+        <img src="logo.png" alt="hookmebysam" onerror="this.style.display='none'">
       </div>
       <div class="pwa-banner-text">
         <div class="pwa-banner-title">Add to Home Screen</div>
         <div class="pwa-banner-sub">Get the full app experience — faster, offline-ready</div>
       </div>
       <div class="pwa-banner-actions">
-        <button class="pwa-banner-dismiss" onclick="dismissPwaBanner()" aria-label="Dismiss">✕</button>
+        <button class="pwa-banner-dismiss" onclick="dismissPwaBanner()" aria-label="Dismiss"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
         <button class="pwa-banner-install" id="pwaBannerInstallBtn" onclick="triggerPwaInstall()">Install</button>
       </div>
     </div>
@@ -2127,7 +2127,7 @@
        ===================================================== -->
   <div class="super-like-fx-burst" id="superLikeFxBurst" style="display:none;position:fixed;inset:0;pointer-events:none;z-index:99990">
     <div class="super-like-fx-ring"></div>
-    <div class="super-like-fx-core">⭐</div>
+    <div class="super-like-fx-core"><svg class="i" aria-hidden="true"><use href="#i-star"/></svg></div>
     <div class="super-like-fx-stars" id="superLikeFxStars"></div>
   </div>
 

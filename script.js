@@ -591,7 +591,7 @@ function applyMatchesUpdate(realMatches) {
       if (existingIndex === -1) {
         matchedUsers.unshift(m);
         if (window._initialMatchesLoaded) {
-          showToast(`🎉 New Match with ${m.name || 'someone special'}!`, 'gold');
+          showToast(`New Match with ${m.name || 'someone special'}!`, 'gold');
           triggerSystemNotification(`🎉 New Match with ${m.name || 'someone special'}!`, {
             body: 'You both liked each other! Tap to chat 💕',
             data: { matchId: m.id }
@@ -638,7 +638,7 @@ function applyMatchesUpdate(realMatches) {
 
           if (!isViewing) {
             hasNewIncomingMessage = true;
-            showToast(`💬 ${m.name}: ${m.lastMessage.substring(0, 36)}...`, 'info');
+            showToast(`${m.name}: ${m.lastMessage.substring(0, 36)}...`, 'info');
             triggerSystemNotification(`💬 ${m.name}`, {
               body: m.lastMessage,
               data: { matchId: m.id }
@@ -668,7 +668,7 @@ function applyMatchesUpdate(realMatches) {
 async function refreshAppData({ manual = false, background = false } = {}) {
   try {
     if (!isRealUserLoggedIn()) {
-      if (manual) showToast('✨ Refreshed', 'gold');
+      if (manual) showToast('Refreshed', 'gold');
       return;
     }
 
@@ -1027,7 +1027,7 @@ function syncMatchedUsersFromConversations() {
         id: partnerId,
         name: convo.partnerName || convo.partner?.name || knownProfile?.name || 'Match',
         image: convo.partnerImage || convo.partner?.image || knownProfile?.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
-        age: convo.partner?.age || knownProfile?.age || 24,
+        age: convo.partner?.age || knownProfile?.age || null,
         bio: convo.partner?.bio || knownProfile?.bio || '',
         lastMessage: lastMsg?.text || (lastMsg?.imageUrl ? '📷 Photo' : (lastMsg?.videoUrl ? '🎥 Video' : (lastMsg?.audioUrl ? '🎵 Voice note' : ''))),
         lastSender: lastMsg?.senderId || lastMsg?.sender || '',
@@ -2247,7 +2247,7 @@ async function handleGoogleLoginSuccess(user) {
     saveToStorage();
     showScreen('discovery');
     initMainApp();
-    showToast('Welcome back, ' + currentUser.name + '! ✨', 'gold');
+    showToast('Welcome back, ' + currentUser.name + '!', 'gold');
     return;
   }
 
@@ -2275,7 +2275,7 @@ async function handleGoogleLoginSuccess(user) {
   const emailInput = document.getElementById('signupEmail');
   if (emailInput) emailInput.value = currentUser.email;
 
-  showToast(`Welcome ${cleanName || 'Explorer'}! Please complete your profile to start matching 🎯`, 'gold');
+  showToast(`Welcome ${cleanName || 'Explorer'}! Please complete your profile to start matching`, 'gold');
   showScreen('signup');
 }
 window.handleGoogleLoginSuccess = handleGoogleLoginSuccess;
@@ -2602,10 +2602,10 @@ function completeSignup() {
           name: userName,
           displayName: userName,
           username: (currentUser.username || userName).toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user',
-          age: currentUser.age || 24,
-          bio: currentUser.bio || 'Looking for real connections on hookmebysam!',
-          gender: currentUser.gender || 'Female',
-          interests: currentUser.interests || ['Music 🎵', 'Vibes ✨'],
+          age: currentUser.age || null,
+          bio: currentUser.bio || '',
+          gender: currentUser.gender || '',
+          interests: currentUser.interests || [],
           image: userPhoto,
           avatar: userPhoto,
           photos: (window._signupPhotos || []).filter(Boolean),
@@ -2806,7 +2806,7 @@ function playProfileVoiceIntro(profileId, event) {
     window.speechSynthesis.speak(utterance);
     if (typeof haptic === 'function') haptic('light');
   } else {
-    if (typeof showToast === 'function') showToast(`🎙️ ${pName}: "${text}"`, 'gold', 5000);
+    if (typeof showToast === 'function') showToast(`${pName}: "${text}"`, 'gold', 5000);
     setTimeout(() => {
       _resetVoiceIntroUI(profileId);
       _currentVoiceIntroProfileId = null;
@@ -5410,10 +5410,10 @@ function toggleMuteMatch(matchId, isMuted) {
     let mutedList = JSON.parse(localStorage.getItem('hmbs_muted_matches') || '[]');
     if (isMuted) {
       if (!mutedList.includes(matchId)) mutedList.push(matchId);
-      showToast('🔕 Notifications muted for this match', 'info');
+      showToast('Notifications muted for this match', 'info');
     } else {
       mutedList = mutedList.filter(id => id !== matchId);
-      showToast('🔔 Notifications unmuted', 'info');
+      showToast('Notifications unmuted', 'info');
     }
     localStorage.setItem('hmbs_muted_matches', JSON.stringify(mutedList));
   } catch (_) {}
@@ -5564,7 +5564,7 @@ function removeChatCustomBackground(chatId) {
 
   applyChatCustomBackground(id);
   if (hasBg) {
-    showToast('Chat background removed! Default wallpaper restored 🎨', 'gold');
+    showToast('Chat background removed! Default wallpaper restored', 'gold');
   } else {
     showToast('Default chat wallpaper is already active.', 'info');
   }
@@ -5878,7 +5878,7 @@ async function retryFailedMessage(partnerId, msgId) {
       delete msg._uploading;
       renderChatThread();
       saveToStorage();
-      showToast('Voice note sent! 🎤', 'gold');
+      showToast('Voice note sent!', 'gold');
     } else if (isVideo || isImage) {
       let mediaUrl = isVideo ? msg.videoUrl : msg.imageUrl;
       const isCloud = mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('http');
@@ -5932,7 +5932,7 @@ async function retryFailedMessage(partnerId, msgId) {
       delete msg._uploading;
       renderChatThread();
       saveToStorage();
-      showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
+      showToast(isVideo ? 'Video sent!' : 'Photo sent!', 'gold');
     } else {
       // Standard text message
       if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
@@ -5952,7 +5952,7 @@ async function retryFailedMessage(partnerId, msgId) {
       delete msg._uploading;
       renderChatThread();
       saveToStorage();
-      showToast('Message sent! ✨', 'info');
+      showToast('Message sent!', 'info');
     }
   } catch (err) {
     console.error('retryFailedMessage error:', err);
@@ -6842,7 +6842,7 @@ function downloadLightboxImage() {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  showToast('Photo saved to gallery 📥', 'gold');
+  showToast('Photo saved to gallery', 'gold');
 }
 window.downloadLightboxImage = downloadLightboxImage;
 
@@ -6866,7 +6866,7 @@ function toggleLightboxStar() {
     starBtn.style.color = msg.starred ? '#F4C550' : '#fff';
   }
   saveToStorage();
-  showToast(msg.starred ? 'Starred message ⭐' : 'Unstarred message', 'info');
+  showToast(msg.starred ? 'Starred message' : 'Unstarred message', 'info');
 }
 window.toggleLightboxStar = toggleLightboxStar;
 
@@ -6903,7 +6903,7 @@ function setLightboxAsChatBackground() {
   } catch (e) {}
 
   applyChatCustomBackground(currentChatId);
-  showToast('Chat background updated! 🖼️', 'gold');
+  showToast('Chat background updated!', 'gold');
 }
 window.setLightboxAsChatBackground = setLightboxAsChatBackground;
 
@@ -6958,7 +6958,7 @@ async function shareLightboxImage() {
 
   try {
     await navigator.clipboard.writeText(_lightboxCurrentSrc);
-    showToast('Media link copied to clipboard 📋', 'info');
+    showToast('Media link copied to clipboard', 'info');
   } catch (e) {
     downloadLightboxImage();
   }
@@ -6988,7 +6988,7 @@ async function deleteLightboxImage() {
   }
 
   closeImageLightbox();
-  showToast('Media deleted 🗑️', 'info');
+  showToast('Media deleted', 'info');
 }
 window.deleteLightboxImage = deleteLightboxImage;
 
@@ -7223,7 +7223,7 @@ async function sendImageMessage(event) {
         }
         showToast(isVideo ? 'Video uploaded, but could not be delivered. Please try again.' : 'Photo uploaded, but could not be delivered. Please try again.', 'error');
       } else {
-        showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
+        showToast(isVideo ? 'Video sent!' : 'Photo sent!', 'gold');
       }
     }
   })();
@@ -7489,7 +7489,7 @@ async function confirmMediaSend() {
         renderConversationList();
         renderChatsInbox();
         saveToStorage();
-        showToast(isVideo2 ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
+        showToast(isVideo2 ? 'Video sent!' : 'Photo sent!', 'gold');
       }
 
       const partnerPayloadUrl = cloudUrl || (!isVideo2 && localDataUrl && localDataUrl.startsWith('data:') ? localDataUrl : '');
@@ -7998,7 +7998,7 @@ async function startPeerCall(type) {
           updateCallUi(type, 'No answer 📵');
           setTimeout(() => {
             endCall(false);
-            showToast((partner.name || 'Your match') + ' is currently unavailable. Leave a voice note! 🎙️', 'info');
+            showToast((partner.name || 'Your match') + ' is currently unavailable. Leave a voice note!', 'info');
           }, 1800);
         }
       }, 5500);
@@ -8086,7 +8086,7 @@ async function startPeerCall(type) {
       }
     }, err => console.warn('Call listener error:', err.message));
 
-    showToast('Calling ' + (partner.name || 'your match') + '... 📞', 'info');
+    showToast('Calling ' + (partner.name || 'your match') + '...', 'info');
   } catch (err) {
     console.warn('Start call failed:', err);
     showToast('Could not start the call. Please try again.', 'error');
@@ -8688,7 +8688,7 @@ async function flipCamera() {
         } catch (_) {}
       }
 
-      showToast(currentFacingMode === 'user' ? 'Front camera 🤳' : 'Back camera 📸', 'info');
+      showToast(currentFacingMode === 'user' ? 'Front camera' : 'Back camera', 'info');
     }
   } catch (err) {
     console.warn('Flip camera error:', err);
@@ -8778,7 +8778,7 @@ function sendMessage() {
     renderChatThread();
     renderConversationList();
     cancelEditMessage();
-    showToast('Message edited ✏️', 'info');
+    showToast('Message edited', 'info');
     return;
   }
 
@@ -8941,7 +8941,7 @@ function triggerAutoReply() {
 
     if (!isChatOpen) {
       playNotificationSound();
-      showToast(`💬 ${partner.name}: ${replyText.substring(0, 36)}...`, 'info');
+      showToast(`${partner.name}: ${replyText.substring(0, 36)}...`, 'info');
     }
   }, 1400 + Math.random() * 600);
 }
@@ -9387,7 +9387,7 @@ function handleMicPointerMove(e) {
     _isMicHolding = false;
     const lockEl = document.getElementById('voiceFloatingLock');
     if (lockEl) lockEl.style.display = 'none';
-    if (typeof showToast === 'function') showToast('Voice note canceled 🗑️', 'info');
+    if (typeof showToast === 'function') showToast('Voice note canceled', 'info');
     return;
   }
 
@@ -9402,7 +9402,7 @@ function handleMicPointerMove(e) {
     if (lockedStatus) lockedStatus.style.display = 'flex';
     const slideHint = document.getElementById('voiceSlideHint');
     if (slideHint) slideHint.style.display = 'none';
-    if (typeof showToast === 'function') showToast('Recording locked 🔒 Hands-free', 'gold');
+    if (typeof showToast === 'function') showToast('Recording locked, hands-free', 'gold');
   }
 }
 window.handleMicPointerMove = handleMicPointerMove;
@@ -9674,7 +9674,7 @@ async function sendVoiceNote() {
                 saveToStorage();
                 showToast('Voice note uploaded, but could not be delivered. Please try again.', 'error', 7000);
               } else {
-                showToast('Voice note sent 🎤', 'gold');
+                showToast('Voice note sent', 'gold');
 
                 // Trigger push notification to partner (fire-and-forget)
                 const myName = (typeof currentUser !== 'undefined' && currentUser?.name) ? currentUser.name : 'Your match';
@@ -9703,7 +9703,7 @@ async function sendVoiceNote() {
               PROFILES_DATA.concat(typeof PREMIUM_MATCHES !== 'undefined' ? PREMIUM_MATCHES : []).some(p => p.id === partnerId && !p.isRealUser);
 
             if (isMockPartner) {
-              showToast('Voice note sent 🎤', 'gold');
+              showToast('Voice note sent', 'gold');
               if (typeof triggerAutoReply === 'function') {
                 triggerAutoReply();
               }
@@ -9716,7 +9716,7 @@ async function sendVoiceNote() {
           }
         } else {
           // Local/demo mode or offline preview: audio is already saved as base64DataUrl
-          showToast('Voice note sent 🎤', 'gold');
+          showToast('Voice note sent', 'gold');
           if (typeof triggerAutoReply === 'function') {
             triggerAutoReply();
           }
@@ -10172,7 +10172,7 @@ async function handleProfilePhotoUpload(event) {
       }, { merge: true }).catch(err => console.warn('Could not sync photo to Firestore:', err));
        syncPublicProfileToFirestore({ image: dataUrl, avatar: dataUrl }).catch(err => console.warn('Could not sync public photo:', err));
     }
-    showToast('✓ Photo updated successfully! ✨', 'success');
+    showToast('Photo updated successfully!', 'success');
   } catch (err) {
     console.error('Profile photo upload error:', err);
     showToast('Could not process this image. Try another photo.', 'error');
@@ -10223,7 +10223,7 @@ async function handleProfilePhotoUpload(event) {
     return;
   }
 
-  showToast('Processing your photo... 📸', 'info');
+  showToast('Processing your photo...', 'info');
   try {
     const dataUrl = await compressImage(file, 600, 0.82);
     currentUser.image = dataUrl;
@@ -10253,7 +10253,7 @@ async function handleProfilePhotoUpload(event) {
        syncPublicProfileToFirestore({ image: dataUrl, avatar: dataUrl }).catch(err => console.warn('Could not sync public photo:', err));
     }
 
-    showToast('✓ Real profile photo updated! ✨', 'success');
+    showToast('Real profile photo updated!', 'success');
   } catch (err) {
     console.error('Photo upload error:', err);
     showToast('Could not process this image. Try another photo.', 'error');
@@ -10504,7 +10504,7 @@ async function generateAiImage() {
     saveToStorage();
 
     if (statusEl) { statusEl.textContent = '✨ Portrait generated and applied!'; statusEl.style.color = 'var(--accent-green)'; }
-    showToast('AI Portrait generated successfully! ✨', 'success');
+    showToast('AI Portrait generated successfully!', 'success');
   } catch (err) {
     console.error('AI generation error:', err);
     if (statusEl) { statusEl.textContent = '⚠️ Error generating image. Try again!'; statusEl.style.color = 'var(--accent-pink)'; }
@@ -10738,11 +10738,11 @@ async function handleResendEmailVerification() {
       currentUser.emailVerified = true;
       saveToStorage();
       renderSettingsScreen();
-      showToast('✅ Your email address is verified!', 'gold');
+      showToast('Your email address is verified!', 'gold');
       return;
     }
     await user.sendEmailVerification();
-    showToast(`✉️ Verification link sent to ${user.email}. Check inbox & spam folder!`, 'info');
+    showToast(`Verification link sent to ${user.email}. Check inbox & spam folder!`, 'info');
   } catch (err) {
     if (err.code === 'auth/too-many-requests') {
       showToast('Please wait a moment before requesting another verification email.', 'gold');
@@ -10810,7 +10810,7 @@ async function saveCustomUsername() {
   }
 
   closeEditUsernameModal();
-  showToast(`Username updated to @${rawVal} ✨`, 'success');
+  showToast(`Username updated to @${rawVal}`, 'success');
 }
 window.saveCustomUsername = saveCustomUsername;
 
@@ -11474,7 +11474,7 @@ function triggerSuperLike() {
     openPaywall('super_like');
     return;
   }
-  showToast('⭐ Super Like sent! You will appear at the top of their matches!', 'gold');
+  showToast('Like sent', 'gold');
   triggerManualSwipe('right');
 }
 
@@ -11644,7 +11644,7 @@ function safeCssUrl(value) {
 
 function handleSignupComplete() {
   showScreen('discovery');
-  showToast('🎉 Welcome to hookmebysam! Start swiping!');
+  showToast('Welcome to hookmebysam');
 }
 
 // ==========================================================
@@ -12094,7 +12094,7 @@ async function deleteCurrentUserStory() {
     }
   }
 
-  showToast('Status deleted 🗑️', 'info');
+  showToast('Status deleted', 'info');
   renderStoriesRow();
 
   const nextList = _viewingUserStory ? userStories : getAllCommunityStories();
@@ -12183,7 +12183,7 @@ function likeStoryProfile() {
   if (!story) return;
 
   sendStoryDirectMessage(story, '❤️');
-  showToast(`Liked ${story.name}'s status ❤️`, 'pink');
+  showToast(`Liked ${story.name}'s status`, 'pink');
   closeStoryViewer();
 }
 
@@ -12199,7 +12199,7 @@ function sendStoryReply() {
   if (!story) return;
 
   sendStoryDirectMessage(story, val);
-  showToast(`Reply sent to ${story.name} 💬`, 'gold');
+  showToast(`Reply sent to ${story.name}`, 'gold');
   closeStoryViewer();
 }
 
@@ -13393,7 +13393,7 @@ async function deleteMessagePrompt(matchId, msgId) {
   saveToStorage();
   renderChatThread();
   renderConversationList();
-  showToast('Message deleted 🗑️', 'info');
+  showToast('Message deleted', 'info');
 }
 
 function copyMessageText(msgId) {
@@ -13403,12 +13403,12 @@ function copyMessageText(msgId) {
 
   if (navigator.clipboard) {
     navigator.clipboard.writeText(shareText).then(() => {
-      showToast('Copied to clipboard! 📋', 'info');
+      showToast('Copied to clipboard!', 'info');
     }).catch(() => {
-      showToast('Copied! 📋', 'info');
+      showToast('Copied!', 'info');
     });
   } else {
-    showToast('Copied! 📋', 'info');
+    showToast('Copied!', 'info');
   }
 }
 
@@ -13510,7 +13510,7 @@ async function forwardMessageToUser(targetUserId) {
   if (appState.currentChatId === targetUserId) {
     renderChatThread();
   }
-  showToast(`Sent to ${targetName} ➡️`, 'gold');
+  showToast(`Sent to ${targetName}`, 'gold');
 }
 
 async function toggleMsgReaction(matchId, msgId, emoji) {
@@ -13710,7 +13710,7 @@ async function submitForgotPassword() {
   if (typeof fbAuth !== 'undefined' && fbAuth) {
     try {
       await fbAuth.sendPasswordResetEmail(email);
-      showToast('✉️ Password reset email sent! Check your inbox and spam folder.', 'info');
+      showToast('Password reset email sent! Check your inbox and spam folder.', 'info');
       closeForgotPasswordModal();
     } catch (err) {
       console.warn("Forgot password error:", err.code, err.message);
@@ -13777,7 +13777,7 @@ async function submitForgotPasswordPhone() {
         setTimeout(() => otpInp.focus(), 150);
       }
       if (!window._devPhoneOtp) {
-        showToast('📱 SMS code sent to +234 ' + phone, 'info');
+        showToast('SMS code sent to +234 ' + phone, 'info');
       }
     } else {
       if (errEl) errEl.textContent = 'Could not send SMS code. Please try again.';
@@ -13805,7 +13805,7 @@ async function submitForgotPasswordPhone() {
 
   if (verified) {
     _fpPhoneOtpSent = false;
-    showToast('✅ Phone identity verified! Please create your new password.', 'gold');
+    showToast('Phone identity verified! Please create your new password.', 'gold');
     closeForgotPasswordModal();
   } else {
     if (errEl) errEl.textContent = 'Invalid verification code. Please try again.';
@@ -13934,7 +13934,7 @@ async function verifyPhoneOtp() {
     saveToStorage();
     // Backend already marks the authenticated account as phoneVerified.
     renderSettingsScreen();
-    showToast('✅ Phone number verified!', 'gold');
+    showToast('Phone number verified!', 'gold');
     closePhoneVerificationModal();
   } else {
     if (errEl) errEl.textContent = 'Incorrect code. Please try again.';
@@ -14031,7 +14031,7 @@ async function handleStoryPhotoSelected(event) {
   window._isUploadingStory = true;
   window._uploadingStoryPreview = previewUrl;
   renderStoriesRow();
-  showToast(isVideo ? 'Uploading video status... 🎬' : 'Posting status update... 📸', 'info');
+  showToast(isVideo ? 'Uploading video status...' : 'Posting status update...', 'info');
 
   try {
     let finalUrl = '';
@@ -14131,7 +14131,7 @@ async function handleStoryPhotoSelected(event) {
     window._isUploadingStory = false;
     window._uploadingStoryPreview = null;
     renderStoriesRow();
-    showToast(isVideo ? 'Video status posted! 🎬' : 'Status posted! ✨', 'gold');
+    showToast(isVideo ? 'Video status posted!' : 'Status posted!', 'gold');
 
     // 5. View story smoothly
     setTimeout(() => {
@@ -14935,7 +14935,7 @@ async function triggerPwaInstall() {
   haptic('medium');
   if (!_pwaInstallEvent) {
     // iOS fallback — show instructions
-    showToast('📱 Tap the Share button → "Add to Home Screen"', 'gold');
+    showToast('Tap the Share button → "Add to Home Screen"', 'gold');
     dismissPwaBanner();
     return;
   }
@@ -14944,7 +14944,7 @@ async function triggerPwaInstall() {
     const { outcome } = await _pwaInstallEvent.userChoice;
     if (outcome === 'accepted') {
       haptic('success');
-      showToast('🎉 App installed! Check your home screen', 'gold');
+      showToast('App installed! Check your home screen', 'gold');
     }
     _pwaInstallEvent = null;
   } catch (_) {}
@@ -15327,7 +15327,7 @@ window.triggerSuperLike = function() {
   }
 
   haptic('success');
-  showToast('⭐ Super Like sent! Priority match delivery activated!', 'gold');
+  showToast('Like sent', 'gold');
 
   setTimeout(() => {
     doSwipe('right');

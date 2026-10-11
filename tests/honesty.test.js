@@ -149,3 +149,11 @@ test('onboarding saves only what the person chose', () => {
   assert.doesNotMatch(wiz, /nightVibe|greenFlag|currentUser\.prompts|currentUser\.lifestyle|'Male'|'night_out'/, 'no invented lifestyle, prompts or gender defaults');
   assert.doesNotMatch(html.slice(html.indexOf('id="onboardingWizard"'), html.indexOf('id="matchConfettiCanvas"')), /selected"|aria-checked="true"/, 'no option is pre-selected');
 });
+
+test('signup never invents a profile and toasts carry no decoration or false promises', () => {
+  const emo = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{2B50}]/u;
+  const bad = js.split('\n').filter((l) => /showToast\(/.test(l) && emo.test(l));
+  assert.deepEqual(bad, [], 'toast copy should be plain text');
+  assert.doesNotMatch(js, /Priority match delivery|appear at the top of their matches/);
+  assert.doesNotMatch(js, /gender: currentUser\.gender \|\| 'Female'|Looking for real connections on hookmebysam|age: [^,\n]*\|\| 24,/);
+});
