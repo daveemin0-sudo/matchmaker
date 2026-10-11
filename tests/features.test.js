@@ -21,7 +21,8 @@ test('5-step conversational onboarding and relationship intent exist', () => {
   assert.ok(html.includes('id="obStep3"'), 'Missing obStep3');
   assert.ok(html.includes('id="obIntentGrid"'), 'Missing obIntentGrid');
   assert.ok(html.includes('id="signupIntentGrid"'), 'Missing signupIntentGrid');
-  assert.ok(css.includes('.ob-intent-card'), 'Missing .ob-intent-card CSS');
+  assert.ok(html.includes('id="obStep5"'), 'Missing obStep5');
+  assert.ok(css.includes('.wiz-title'), 'Missing wizard CSS');
   assert.ok(js.includes('selectObIntent'), 'Missing selectObIntent');
   assert.ok(js.includes('selectSignupIntent'), 'Missing selectSignupIntent');
 });
