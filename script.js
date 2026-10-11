@@ -3263,8 +3263,12 @@ const _FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([
 function _visibleFocusables(root) {
   return [...root.querySelectorAll(_FOCUSABLE)].filter(el => el.offsetParent !== null || el === document.activeElement);
 }
+function _pruneDialogStack() {
+  for (let i = _dialogStack.length - 1; i >= 0; i--) if (!_dialogStack[i].overlay.isConnected) _dialogStack.splice(i, 1);
+}
 function dialogOpened(overlay, opts = {}) {
   if (!overlay) return;
+  _pruneDialogStack();
   if (_dialogStack.some(d => d.overlay === overlay)) return;
   _dialogStack.push({ overlay, opener: document.activeElement, close: opts.close });
   setTimeout(() => {
@@ -3279,6 +3283,7 @@ function dialogClosed(overlay) {
   if (opener && document.contains(opener) && typeof opener.focus === 'function') opener.focus({ preventScroll: true });
 }
 document.addEventListener('keydown', (e) => {
+  _pruneDialogStack();
   const top = _dialogStack[_dialogStack.length - 1];
   if (!top) return;
   if (e.key === 'Escape' && typeof top.close === 'function') { e.preventDefault(); top.close(); return; }
@@ -3368,13 +3373,59 @@ function confirmDialog({ title, message = '', confirmLabel = 'Confirm', cancelLa
   });
 }
 
+// Builds a sheet dialog from parts and returns { overlay, close }. Used by every dialog that is created on demand.
+//   title (text), sub (text, optional), body (HTML string or Node), foot (HTML string, optional),
+//   alert: true for urgent confirmations (role=alertdialog, no close button), onClose: called once on any close.
+function openSheetDialog({ id, title, sub = '', body = '', foot = '', alert = false, narrow = false, onClose, onEscape, focus }) {
+  document.getElementById(id)?.remove();
+  const ov = document.createElement('div');
+  ov.id = id;
+  ov.className = 'sheet-overlay open' + (narrow ? ' confirm-overlay' : '');
+  ov.style.display = 'flex';
+  ov.innerHTML = `
+    <div class="sheet${narrow ? ' confirm-sheet' : ''}" role="${alert ? 'alertdialog' : 'dialog'}" aria-modal="true" aria-labelledby="${id}Title">
+      ${narrow ? '' : '<div class="sheet-grabber" aria-hidden="true"></div>'}
+      <div class="sheet-head">
+        <div class="sheet-head-text"><h2 class="sheet-title" id="${id}Title"></h2><p class="sheet-sub" hidden></p></div>
+        ${alert ? '' : '<button type="button" class="btn btn-ghost btn-icon" data-sheet-close aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>'}
+      </div>
+      <div class="sheet-body"></div>
+      ${foot ? '<div class="sheet-foot"></div>' : ''}
+    </div>`;
+  ov.querySelector('.sheet-title').textContent = title;
+  if (sub) { const el = ov.querySelector('.sheet-sub'); el.textContent = sub; el.hidden = false; }
+  const bodyEl = ov.querySelector('.sheet-body');
+  if (typeof body === 'string') bodyEl.innerHTML = body; else if (body) bodyEl.appendChild(body);
+  if (foot) ov.querySelector('.sheet-foot').innerHTML = foot;
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    dialogClosed(ov);
+    ov.remove();
+    if (typeof onClose === 'function') onClose();
+  };
+  ov._close = close;
+  ov.addEventListener('click', (e) => {
+    if ((e.target === ov && !alert) || e.target.closest('[data-sheet-close]')) close();
+  });
+  document.body.appendChild(ov);
+  dialogOpened(ov, { close: alert ? onEscape : close, focus });
+  return { overlay: ov, close };
+}
+function closeSheetDialog(id) {
+  const ov = document.getElementById(id);
+  if (!ov) return;
+  if (ov._close) ov._close(); else { dialogClosed(ov); ov.remove(); }
+}
+
 // Keyboard: arrow keys pass / like on the discovery screen (never while typing or with a dialog open).
 document.addEventListener('keydown', (e) => {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
   if (appState.currentScreen !== 'discovery' || !appState.activeCard) return;
   const t = e.target;
   if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
-  if (document.querySelector('.sheet-overlay.open, .modal-overlay.active, .whatsapp-dialog-overlay[style*="flex"], #matchPopup[style*="flex"]')) return;
+  if (document.querySelector('.sheet-overlay.open, .modal-overlay.active, #matchPopup[style*="flex"]')) return;
   if (e.key === 'ArrowLeft') { e.preventDefault(); triggerManualSwipe('left'); }
   else if (e.key === 'ArrowRight') { e.preventDefault(); triggerManualSwipe('right'); }
 });
@@ -5420,17 +5471,22 @@ function openFullPhotoModal(url) {
   if (!url) return;
   document.getElementById('fullPhotoModal')?.remove();
   const ov = document.createElement('div');
-  ov.className = 'whatsapp-dialog-overlay';
   ov.id = 'fullPhotoModal';
-  ov.style.zIndex = '10001';
-  ov.onclick = () => ov.remove();
+  ov.className = 'viewer viewer-fixed';
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.setAttribute('aria-label', 'Photo');
   ov.innerHTML = `
-    <div style="position:relative;max-width:90vw;max-height:85vh;animation:popIn 0.2s cubic-bezier(0.16,1,0.3,1)">
-      <img src="${url}" style="width:100%;max-height:85vh;object-fit:contain;border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,0.8)">
-      <button onclick="document.getElementById('fullPhotoModal')?.remove()" style="position:absolute;top:-14px;right:-14px;width:38px;height:38px;border-radius:50%;background:#FF2E70;color:#fff;border:none;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.5)">✕</button>
+    <div class="viewer-bar">
+      <span class="viewer-title"></span>
+      <button type="button" class="viewer-btn" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
-  `;
+    <div class="viewer-stage"><img alt="Photo"></div>`;
+  ov.querySelector('img').src = url;
+  const close = () => { dialogClosed(ov); ov.remove(); };
+  ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('.viewer-btn') || e.target.classList.contains('viewer-stage')) close(); });
   document.body.appendChild(ov);
+  dialogOpened(ov, { close, focus: '.viewer-btn' });
 }
 
 async function clearCurrentChatHistory() {
@@ -8081,28 +8137,29 @@ function showIncomingCallPrompt(callId, data) {
   playRingtone();
   const partner = matchedUsers.find(u => u.id === data.callerId) || PROFILES_DATA.find(u => u.id === data.callerId);
   const name = partner?.name || 'Someone';
-  const overlay = document.createElement('div');
-  overlay.id = 'incomingCallPrompt';
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card" style="text-align:center;max-width:360px;">
-      <div style="font-size:2.5rem;margin-bottom:8px;">${data.type === 'video' ? '📹' : '📞'}</div>
-      <h3 class="wa-dialog-title">${escHtml(name)} is calling</h3>
-      <p class="wa-dialog-desc">${data.type === 'video' ? 'Incoming video call' : 'Incoming voice call'}</p>
-      <div class="wa-dialog-actions">
-        <button class="wa-dialog-btn wa-dialog-btn-danger" onclick="acceptIncomingCall()">Accept</button>
-        <button class="wa-dialog-btn wa-dialog-btn-secondary" onclick="declineIncomingCall()">Decline</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
+  const isVideo = data.type === 'video';
+  const { overlay } = openSheetDialog({
+    id: 'incomingCallPrompt',
+    title: `${name} is calling`,
+    body: `<p class="dlg-text"><svg class="i" aria-hidden="true"><use href="#i-${isVideo ? 'video' : 'phone'}"/></svg> Incoming ${isVideo ? 'video' : 'voice'} call</p>`,
+    foot: '<button type="button" class="btn btn-secondary" data-call="decline">Decline</button><button type="button" class="btn btn-primary" data-call="accept">Accept</button>',
+    alert: true,
+    narrow: true,
+    focus: '[data-call="accept"]',
+    onEscape: () => declineIncomingCall()
+  });
+  overlay.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-call]')?.dataset.call;
+    if (act === 'accept') acceptIncomingCall();
+    else if (act === 'decline') declineIncomingCall();
+  });
 }
 
 async function acceptIncomingCall(incomingOverride) {
   const incoming = incomingOverride || pendingIncomingCall;
   stopRingtone();
   if (!incoming || !fbAuth?.currentUser || !fbDb) return;
-  document.getElementById('incomingCallPrompt')?.remove();
+  closeSheetDialog('incomingCallPrompt');
   pendingIncomingCall = null;
 
   const uid = fbAuth.currentUser.uid;
@@ -8157,7 +8214,7 @@ async function acceptIncomingCall(incomingOverride) {
 async function declineIncomingCall(incomingOverride) {
   const incoming = incomingOverride || pendingIncomingCall;
   stopRingtone();
-  document.getElementById('incomingCallPrompt')?.remove();
+  closeSheetDialog('incomingCallPrompt');
   pendingIncomingCall = null;
   if (!incoming) return;
 
@@ -8223,42 +8280,27 @@ function openCallConfirmDialog(type = 'voice') {
   const name = partner ? partner.name : 'your match';
   const isVideo = type === 'video';
 
-  document.getElementById('callConfirmDialog')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'callConfirmDialog';
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.68);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn 0.15s ease;';
-  overlay.onclick = (e) => {
-    if (e.target === overlay) closeCallConfirmDialog();
-  };
-
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card" style="text-align:center;max-width:320px;width:100%;border-radius:24px;padding:24px 20px;background:#1E1530;border:1px solid rgba(255,255,255,0.15);box-shadow:0 16px 40px rgba(0,0,0,0.85);">
-      <div style="width:58px;height:58px;border-radius:50%;background:rgba(209,58,99,0.18);color:#FF2E70;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:26px;">
-        ${isVideo ? '📹' : '📞'}
-      </div>
-      <h3 style="margin:0 0 6px;font-size:1.15rem;font-weight:700;color:#fff;">Call back ${escHtml(name)}?</h3>
-      <p style="margin:0 0 20px;font-size:0.85rem;color:rgba(255,255,255,0.65);line-height:1.4;">
-        Do you want to start a ${isVideo ? 'video' : 'voice'} call with ${escHtml(name)}?
-      </p>
-      <div style="display:flex;gap:10px;justify-content:center;">
-        <button onclick="closeCallConfirmDialog()" style="flex:1;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#fff;font-weight:600;font-size:0.9rem;cursor:pointer;">
-          Cancel
-        </button>
-        <button onclick="executeCallFromConfirm('${isVideo ? 'video' : 'voice'}')" style="flex:1;padding:12px;border-radius:14px;background:linear-gradient(135deg,#D13A63,#E0567F);color:#fff;border:none;font-weight:700;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-          <span>${isVideo ? '📹 Call' : '📞 Call'}</span>
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
+  const { overlay } = openSheetDialog({
+    id: 'callConfirmDialog',
+    title: `Call ${name}?`,
+    body: `<p class="confirm-msg">Start a ${isVideo ? 'video' : 'voice'} call with ${escHtml(name)}.</p>`,
+    foot: `<button type="button" class="btn btn-secondary" data-call="cancel">Cancel</button><button type="button" class="btn btn-primary" data-call="start"><svg class="i" aria-hidden="true"><use href="#i-${isVideo ? 'video' : 'phone'}"/></svg>Call</button>`,
+    alert: true,
+    narrow: true,
+    focus: '[data-call="start"]',
+    onEscape: () => closeCallConfirmDialog()
+  });
+  overlay.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-call]')?.dataset.call;
+    if (act === 'start') executeCallFromConfirm(isVideo ? 'video' : 'voice');
+    else if (act === 'cancel') closeCallConfirmDialog();
+    else if (e.target === overlay) closeCallConfirmDialog();
+  });
 }
 window.openCallConfirmDialog = openCallConfirmDialog;
 
 function closeCallConfirmDialog() {
-  document.getElementById('callConfirmDialog')?.remove();
+  closeSheetDialog('callConfirmDialog');
 }
 window.closeCallConfirmDialog = closeCallConfirmDialog;
 
@@ -12355,6 +12397,15 @@ function formatBoostTime(seconds) {
 // REPORT & BLOCK USER
 // ==========================================================
 
+// Values must all be accepted by POST /reports (checked in tests/security.test.js).
+const REPORT_REASON_OPTIONS = [
+  ['inappropriate', 'Inappropriate messages or photos'],
+  ['spam', 'Spam, advertising or a scam'],
+  ['fake', 'Fake profile or impersonation'],
+  ['harassment', 'Harassment, hate speech or abuse'],
+  ['other', 'Something else']
+];
+
 function reportUser() {
   let partner = null;
   if (appState.currentScreen === 'chat' && appState.currentChatId) {
@@ -12370,91 +12421,50 @@ function reportUser() {
   if (!partner && appState.currentChatId) {
     partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
   }
-  const name = partner ? escHtml(partner.name) : 'this user';
+  const name = partner?.name || 'this person';
   const userId = partner?.id || '';
 
-  document.getElementById('reportModalOverlay')?.remove();
+  const reasons = REPORT_REASON_OPTIONS;
+  const body = document.createElement('div');
+  body.className = 'dlg-stack';
+  const intro = document.createElement('p');
+  intro.className = 'dlg-text';
+  intro.textContent = `Blocking ${name} removes your match and stops them from messaging or calling you. They are not told. Reporting also sends your reason to our moderators.`;
+  const group = document.createElement('div');
+  group.className = 'choice-list';
+  group.setAttribute('role', 'radiogroup');
+  group.setAttribute('aria-label', 'Reason for reporting');
+  reasons.forEach(([value, label], i) => {
+    const row = document.createElement('label');
+    row.className = 'choice choice-radio';
+    const input = document.createElement('input');
+    input.type = 'radio'; input.name = 'reportReason'; input.value = value;
+    if (i === 0) input.checked = true;
+    const text = document.createElement('span');
+    text.textContent = label;
+    row.append(input, text);
+    group.appendChild(row);
+  });
+  body.append(intro, group);
 
-  const overlay = document.createElement('div');
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.id = 'reportModalOverlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeReportModal(); };
-
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card">
-      <button class="wa-dialog-close-btn" onclick="closeReportModal()" aria-label="Close" title="Close">✕</button>
-      <div class="wa-dialog-badge">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF2E70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-      </div>
-
-      <h3 class="wa-dialog-title">Report or Block ${name}?</h3>
-      <p class="wa-dialog-desc">Blocked contacts will no longer be able to message or call you on hookmebysam. Select a reason:</p>
-
-      <div class="wa-report-reasons" id="waReportReasons">
-        <label class="wa-reason-option active" onclick="selectReportReason(this)">
-          <input type="radio" name="reportReason" value="inappropriate" checked>
-          <span class="wa-reason-radio"></span>
-          <span class="wa-reason-text">🔞 Inappropriate messages or media</span>
-        </label>
-        <label class="wa-reason-option" onclick="selectReportReason(this)">
-          <input type="radio" name="reportReason" value="spam">
-          <span class="wa-reason-radio"></span>
-          <span class="wa-reason-text">🚫 Spam, commercial ads, or scam</span>
-        </label>
-        <label class="wa-reason-option" onclick="selectReportReason(this)">
-          <input type="radio" name="reportReason" value="fake">
-          <span class="wa-reason-radio"></span>
-          <span class="wa-reason-text">🎭 Fake profile or impersonation</span>
-        </label>
-        <label class="wa-reason-option" onclick="selectReportReason(this)">
-          <input type="radio" name="reportReason" value="harassment">
-          <span class="wa-reason-radio"></span>
-          <span class="wa-reason-text">⚠️ Harassment, hate speech, or abuse</span>
-        </label>
-        <label class="wa-reason-option" onclick="selectReportReason(this)">
-          <input type="radio" name="reportReason" value="other">
-          <span class="wa-reason-radio"></span>
-          <span class="wa-reason-text">⚡ I'm just not interested / Other</span>
-        </label>
-      </div>
-
-      <div class="wa-dialog-actions">
-        <button class="wa-dialog-btn wa-dialog-btn-danger" onclick="executeReportAndBlock('${userId}', '${name}')">
-          <span>Report &amp; Block</span>
-        </button>
-        <div class="wa-dialog-btn-row" style="display:flex;gap:8px;width:100%;">
-          <button class="wa-dialog-btn wa-dialog-btn-secondary" style="flex:1;" onclick="blockUser('${userId}', '${name}')">
-            <span>Block Only</span>
-          </button>
-          <button class="wa-dialog-btn wa-dialog-btn-cancel" style="flex:1;" onclick="closeReportModal()">
-            <span>Cancel</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-}
-
-function selectReportReason(el) {
-  document.querySelectorAll('.wa-reason-option').forEach(o => o.classList.remove('active'));
-  el.classList.add('active');
-  const radio = el.querySelector('input[type="radio"]');
-  if (radio) radio.checked = true;
+  const { close } = openSheetDialog({
+    id: 'reportModalOverlay',
+    title: `Report or block ${name}?`,
+    body,
+    foot: '<div class="dlg-actions"><button type="button" class="btn btn-danger-fill btn-block" data-act="report">Report and block</button><div class="dlg-grid-2"><button type="button" class="btn btn-secondary" data-act="block">Block only</button><button type="button" class="btn btn-ghost" data-act="cancel">Cancel</button></div></div>'
+  });
+  const ov = document.getElementById('reportModalOverlay');
+  ov.querySelector('.sheet-foot').addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (!act) return;
+    if (act === 'report') executeReportAndBlock(userId, name);
+    else if (act === 'block') blockUser(userId, name);
+    else close();
+  });
 }
 
 function closeReportModal() {
-  document.getElementById('reportModalOverlay')?.remove();
-}
-
-function submitReport(reason, name) {
-  closeReportModal();
-  showToast(`✅ Report submitted. We'll review ${name}'s account.`, 'info');
+  closeSheetDialog('reportModalOverlay');
 }
 
 async function persistBlockToFirestore(userId) {
@@ -12528,7 +12538,7 @@ async function blockUser(userId, name) {
       name: userObj.name || name || 'User',
       image: userObj.image || userObj.photoUrl || '',
       bio: userObj.bio || '',
-      age: userObj.age || 24,
+      age: userObj.age || null,
       blockedAt: Date.now()
     });
   }
@@ -12591,7 +12601,7 @@ async function executeReportAndBlock(userId, name) {
         name: userObj.name || name || 'User',
         image: userObj.image || userObj.photoUrl || '',
         bio: userObj.bio || '',
-        age: userObj.age || 24,
+        age: userObj.age || null,
         blockedAt: Date.now()
       });
     }
@@ -12603,7 +12613,7 @@ async function executeReportAndBlock(userId, name) {
     renderMatchesView();
     renderSettingsScreen();
     updateMatchesNotificationBadge();
-    showToast(`🛡️ ${name || 'User'} was reported and blocked.`, 'gold');
+    showToast(`${name || 'This person'} was reported and blocked.`, 'success');
     showScreen('matches');
   } catch (err) {
     console.warn('Report/block failed:', err);
@@ -12635,6 +12645,12 @@ function openSafetyToolkit(targetProfileId) {
     titleEl.textContent = 'Safety centre';
     contextEl.textContent = 'Tools and tips for staying safe';
   }
+
+  // Actions about a person only make sense when the centre was opened for one
+  const personHeading = document.getElementById('safetyPersonHeading');
+  const personList = document.getElementById('safetyQuickActionCards');
+  if (personHeading) personHeading.hidden = !partner;
+  if (personList) personList.hidden = !partner;
 
   if (typeof hideChatDropdown === 'function') hideChatDropdown();
 
@@ -12756,52 +12772,18 @@ window.openEmergencyHelp = openEmergencyHelp;
 // ==========================================================
 
 function openBlockedUsersModal() {
-  document.getElementById('blockedUsersModalOverlay')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.id = 'blockedUsersModalOverlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeBlockedUsersModal(); };
-
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card" style="max-width:480px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:38px;height:38px;border-radius:50%;background:rgba(255,46,112,0.14);display:flex;align-items:center;justify-content:center;color:#FF2E70;flex-shrink:0;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1c1.06 1.35 1.69 3.05 1.69 4.9 0 4.42-3.58 8-8 8z"/>
-            </svg>
-          </div>
-          <div>
-            <h3 class="wa-dialog-title" style="margin:0;font-size:1.15rem;text-align:left;">Blocked Contacts</h3>
-            <span style="font-size:0.75rem;color:var(--txt-muted);display:block;margin-top:2px;">Manage contacts you've blocked</span>
-          </div>
-        </div>
-        <button onclick="closeBlockedUsersModal()" style="background:none;border:none;color:var(--txt-muted);cursor:pointer;font-size:1.3rem;padding:4px 8px;">✕</button>
-      </div>
-
-      <p class="wa-dialog-desc" style="text-align:left;font-size:0.83rem;margin-bottom:6px;">
-        Blocked contacts cannot message or call you. Tap <strong>Unblock</strong> beside any contact to restore them.
-      </p>
-
-      <div class="blocked-users-list" id="blockedUsersContainer">
-        <!-- Rendered dynamically -->
-      </div>
-
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
-        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeBlockedUsersModal()" style="width:auto;padding:8px 24px;">
-          <span>Done</span>
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
+  openSheetDialog({
+    id: 'blockedUsersModalOverlay',
+    title: 'Blocked people',
+    sub: 'They cannot message or call you.',
+    body: '<div id="blockedUsersContainer" class="list"></div>',
+    foot: '<button type="button" class="btn btn-secondary btn-block" data-sheet-close>Done</button>'
+  });
   renderBlockedUsersListInModal();
 }
 
 function closeBlockedUsersModal() {
-  document.getElementById('blockedUsersModalOverlay')?.remove();
+  closeSheetDialog('blockedUsersModalOverlay');
 }
 
 function renderBlockedUsersListInModal() {
@@ -12809,38 +12791,31 @@ function renderBlockedUsersListInModal() {
   if (!container) return;
 
   if (blockedUsers.length === 0) {
-    container.innerHTML = `
-      <div class="blocked-empty-box">
-        <div class="blocked-empty-icon">🛡️</div>
-        <div class="blocked-empty-text" style="font-weight:600;color:var(--txt-primary);font-size:0.95rem;">No Blocked Contacts</div>
-        <div class="blocked-empty-text" style="font-size:0.8rem;margin-top:4px;color:var(--txt-muted);">You haven't blocked any contacts. Profiles you block will appear here.</div>
-      </div>
-    `;
+    container.innerHTML = `<div class="empty"><svg class="i" aria-hidden="true"><use href="#i-shield-check"/></svg><div class="empty-title">No one is blocked</div><p class="empty-text">People you block will be listed here, and you can unblock them at any time.</p></div>`;
     return;
   }
 
   container.innerHTML = blockedUsers.map(u => {
     const photo = u.image || '';
-    const initial = u.name ? u.name.charAt(0) : '?';
-    const dateStr = u.blockedAt ? new Date(u.blockedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Recently';
-
+    const dateStr = u.blockedAt ? new Date(u.blockedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
     return `
-      <div class="blocked-user-item">
-        <div class="blocked-user-left">
-          <div class="blocked-avatar" style="${photo ? `background-image:url('${photo}')` : ''}">
-            ${!photo ? initial : ''}
-          </div>
-          <div class="blocked-user-meta">
-            <div class="blocked-user-name">${escHtml(u.name)}</div>
-            <div class="blocked-user-date">Blocked • ${dateStr}</div>
-          </div>
-        </div>
-        <button class="unblock-action-btn" onclick="unblockUser('${u.id}', '${u.name.replace(/'/g, "\\'")}')">
-          Unblock
-        </button>
-      </div>
-    `;
+      <div class="row">
+        <span class="avatar">${photo ? `<img src="${escHtml(photo)}" alt="" loading="lazy">` : `<span class="avatar-initial" aria-hidden="true">${escHtml((u.name || '?').charAt(0).toUpperCase())}</span>`}</span>
+        <span class="row-body">
+          <span class="row-title">${escHtml(u.name || 'Unknown')}</span>
+          ${dateStr ? `<span class="row-sub">Blocked ${escHtml(dateStr)}</span>` : ''}
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm" data-unblock="${escHtml(String(u.id))}">Unblock</button>
+      </div>`;
   }).join('');
+  container.onclick = (e) => {
+    const btn = e.target.closest('[data-unblock]');
+    if (!btn) return;
+    const id = btn.dataset.unblock;
+    const u = blockedUsers.find(b => String(b.id) === id);
+    btn.disabled = true;
+    unblockUser(id, u?.name).finally(() => { btn.disabled = false; });
+  };
 }
 
 async function unblockUser(userId, name) {
@@ -12869,10 +12844,10 @@ async function unblockUser(userId, name) {
     matchedUsers.unshift({
       id: restoredProfile.id,
       name: restoredProfile.name || userName,
-      age: restoredProfile.age || 24,
+      age: restoredProfile.age || null,
       image: restoredProfile.image || '',
       bio: restoredProfile.bio || '',
-      tags: restoredProfile.tags || ['Music 🎵', 'Positive vibes ✨'],
+      tags: restoredProfile.tags || [],
       distance: restoredProfile.distance || ''
     });
   }
@@ -12881,7 +12856,7 @@ async function unblockUser(userId, name) {
   renderMatchesView();
   renderSettingsScreen();
   updateMatchesNotificationBadge();
-  showToast(`✨ ${userName} has been unblocked!`, 'gold');
+  showToast(`${userName} was unblocked.`, 'success');
   renderBlockedUsersListInModal();
 }
 
@@ -14572,194 +14547,67 @@ function updateDevicePermissionsSubtext(el) {
 }
 window.updateDevicePermissionsSubtext = updateDevicePermissionsSubtext;
 
+const DEVICE_PERMS = [
+  { key: 'camera', label: 'Camera', icon: 'video', why: 'Video calls and verification selfies', query: 'camera' },
+  { key: 'microphone', label: 'Microphone', icon: 'mic', why: 'Voice notes and calls', query: 'microphone' },
+  { key: 'location', label: 'Location', icon: 'map-pin', why: 'Showing people near you', query: 'geolocation' },
+  { key: 'notifications', label: 'Notifications', icon: 'bell', why: 'New messages and calls', query: null }
+];
+
 async function openDevicePermissionsModal() {
-  document.getElementById('devicePermissionsModalOverlay')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.id = 'devicePermissionsModalOverlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeDevicePermissionsModal(); };
-
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card" style="max-width:440px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:38px;height:38px;border-radius:50%;background:rgba(139,127,255,0.14);display:flex;align-items:center;justify-content:center;color:#8B7FFF;flex-shrink:0;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
-            </svg>
-          </div>
-          <div>
-            <h3 class="wa-dialog-title" style="margin:0;font-size:1.15rem;text-align:left;">Device Permissions</h3>
-            <span style="font-size:0.75rem;color:var(--txt-muted);display:block;margin-top:2px;">Hardware &amp; system access</span>
-          </div>
-        </div>
-        <button onclick="closeDevicePermissionsModal()" style="background:none;border:none;color:var(--txt-muted);cursor:pointer;font-size:1.3rem;padding:4px 8px;">✕</button>
-      </div>
-
-      <p class="wa-dialog-desc" style="text-align:left;font-size:0.82rem;margin-bottom:12px;">
-        Grant permissions below to enable crystal-clear HD video calls, instant voice messaging, distance discovery, and call alerts.
-      </p>
-
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-
-        <!-- Camera -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="font-size:1.4rem;">📹</div>
-            <div>
-              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Camera</div>
-              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permCamStatus">Checking status…</div>
-            </div>
-          </div>
-          <button class="unblock-action-btn" id="permCamBtn" onclick="requestDevicePermission('camera')" style="padding:6px 14px;font-size:0.78rem;">
-            Allow
-          </button>
-        </div>
-
-        <!-- Microphone -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="font-size:1.4rem;">🎙️</div>
-            <div>
-              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Microphone</div>
-              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permMicStatus">Checking status…</div>
-            </div>
-          </div>
-          <button class="unblock-action-btn" id="permMicBtn" onclick="requestDevicePermission('microphone')" style="padding:6px 14px;font-size:0.78rem;">
-            Allow
-          </button>
-        </div>
-
-        <!-- Location -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="font-size:1.4rem;">📍</div>
-            <div>
-              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Location</div>
-              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permLocStatus">Checking status…</div>
-            </div>
-          </div>
-          <button class="unblock-action-btn" id="permLocBtn" onclick="requestDevicePermission('location')" style="padding:6px 14px;font-size:0.78rem;">
-            Allow
-          </button>
-        </div>
-
-        <!-- Notifications -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="font-size:1.4rem;">🔔</div>
-            <div>
-              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Notifications</div>
-              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permNotifStatus">Checking status…</div>
-            </div>
-          </div>
-          <button class="unblock-action-btn" id="permNotifBtn" onclick="requestDevicePermission('notifications')" style="padding:6px 14px;font-size:0.78rem;">
-            Allow
-          </button>
-        </div>
-
-      </div>
-
-      <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;">
-        <button class="unblock-action-btn" onclick="requestAllDevicePermissions()" style="background:var(--flame-grad);border:none;color:#fff;padding:10px 18px;font-size:0.84rem;font-weight:600;flex:1;">
-          Grant All Permissions
-        </button>
-        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeDevicePermissionsModal()" style="width:auto;padding:8px 20px;">
-          <span>Done</span>
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
+  const rows = DEVICE_PERMS.map(p => `
+    <div class="row">
+      <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-${p.icon}"/></svg></span>
+      <span class="row-body">
+        <span class="row-title">${p.label}</span>
+        <span class="row-sub" id="perm-${p.key}-why">${p.why}</span>
+        <span class="perm-status" id="perm-${p.key}-status" role="status">Checking…</span>
+      </span>
+      <button type="button" class="btn btn-secondary btn-sm" id="perm-${p.key}-btn" data-perm="${p.key}" hidden>Allow</button>
+    </div>`).join('');
+  const { overlay } = openSheetDialog({
+    id: 'devicePermissionsModalOverlay',
+    title: 'Camera, microphone and more',
+    sub: 'Only used for the features listed. You can turn any of them off in your browser settings.',
+    body: `<div class="list">${rows}</div>`,
+    foot: '<button type="button" class="btn btn-secondary" data-sheet-close>Done</button><button type="button" class="btn btn-primary" data-perm-all>Allow all</button>',
+    onClose: () => { renderSettingsScreen(); }
+  });
+  overlay.addEventListener('click', (e) => {
+    const one = e.target.closest('[data-perm]');
+    if (one) requestDevicePermission(one.dataset.perm);
+    if (e.target.closest('[data-perm-all]')) requestAllDevicePermissions();
+  });
   refreshDevicePermissionsUI();
 }
 window.openDevicePermissionsModal = openDevicePermissionsModal;
 
 function closeDevicePermissionsModal() {
-  document.getElementById('devicePermissionsModalOverlay')?.remove();
-  renderSettingsScreen();
+  closeSheetDialog('devicePermissionsModalOverlay');
 }
 window.closeDevicePermissionsModal = closeDevicePermissionsModal;
 
 async function refreshDevicePermissionsUI() {
-  const camStatus = document.getElementById('permCamStatus');
-  const camBtn = document.getElementById('permCamBtn');
-  const micStatus = document.getElementById('permMicStatus');
-  const micBtn = document.getElementById('permMicBtn');
-  const locStatus = document.getElementById('permLocStatus');
-  const locBtn = document.getElementById('permLocBtn');
-  const notifStatus = document.getElementById('permNotifStatus');
-  const notifBtn = document.getElementById('permNotifBtn');
-
-  // Camera & Mic check
-  if (navigator.permissions) {
-    try {
-      const c = await navigator.permissions.query({ name: 'camera' });
-      if (camStatus && camBtn) {
-        if (c.state === 'granted') {
-          camStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
-          camBtn.textContent = 'Active';
-          camBtn.style.opacity = '0.6';
-        } else if (c.state === 'denied') {
-          camStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
-          camBtn.textContent = 'Enable';
-        } else {
-          camStatus.textContent = 'Tap to allow access';
-          camBtn.textContent = 'Allow';
-        }
-      }
-    } catch (_) {}
-
-    try {
-      const m = await navigator.permissions.query({ name: 'microphone' });
-      if (micStatus && micBtn) {
-        if (m.state === 'granted') {
-          micStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
-          micBtn.textContent = 'Active';
-          micBtn.style.opacity = '0.6';
-        } else if (m.state === 'denied') {
-          micStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
-          micBtn.textContent = 'Enable';
-        } else {
-          micStatus.textContent = 'Tap to allow access';
-          micBtn.textContent = 'Allow';
-        }
-      }
-    } catch (_) {}
-
-    try {
-      const l = await navigator.permissions.query({ name: 'geolocation' });
-      if (locStatus && locBtn) {
-        if (l.state === 'granted') {
-          locStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
-          locBtn.textContent = 'Active';
-          locBtn.style.opacity = '0.6';
-        } else if (l.state === 'denied') {
-          locStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
-          locBtn.textContent = 'Enable';
-        } else {
-          locStatus.textContent = 'Tap to allow access';
-          locBtn.textContent = 'Allow';
-        }
-      }
-    } catch (_) {}
-  }
-
-  // Notifications check
-  if ('Notification' in window && notifStatus && notifBtn) {
-    if (Notification.permission === 'granted') {
-      notifStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
-      notifBtn.textContent = 'Active';
-      notifBtn.style.opacity = '0.6';
-    } else if (Notification.permission === 'denied') {
-      notifStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
-      notifBtn.textContent = 'Enable';
-    } else {
-      notifStatus.textContent = 'Tap to enable notifications';
-      notifBtn.textContent = 'Allow';
+  const apply = (key, state) => {
+    const status = document.getElementById(`perm-${key}-status`);
+    const btn = document.getElementById(`perm-${key}-btn`);
+    if (!status || !btn) return;
+    status.className = 'perm-status' + (state === 'granted' ? ' is-ok' : state === 'denied' ? ' is-bad' : '');
+    if (state === 'granted') { status.textContent = 'Allowed'; btn.hidden = true; }
+    else if (state === 'denied') { status.textContent = 'Blocked. Change this in your browser’s site settings.'; btn.hidden = true; }
+    else if (state === 'unsupported') { status.textContent = 'Not available on this device'; btn.hidden = true; }
+    else { status.textContent = 'Not allowed yet'; btn.hidden = false; }
+  };
+  for (const p of DEVICE_PERMS) {
+    if (p.key === 'notifications') {
+      apply(p.key, !('Notification' in window) ? 'unsupported' : Notification.permission === 'default' ? 'prompt' : Notification.permission);
+      continue;
     }
+    let state = 'prompt';
+    if (navigator.permissions) {
+      try { state = (await navigator.permissions.query({ name: p.query })).state; } catch (_) { state = 'prompt'; }
+    }
+    apply(p.key, state);
   }
 }
 
@@ -14768,169 +14616,84 @@ async function requestDevicePermission(type) {
     if (type === 'camera') {
       const s = await navigator.mediaDevices.getUserMedia({ video: true });
       s.getTracks().forEach(t => t.stop());
-      showToast('📹 Camera access granted!', 'gold');
     } else if (type === 'microphone') {
       const s = await navigator.mediaDevices.getUserMedia({ audio: true });
       s.getTracks().forEach(t => t.stop());
-      showToast('🎙️ Microphone access granted!', 'gold');
     } else if (type === 'location') {
-      await new Promise((res, rej) => {
-        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000 });
-      });
-      showToast('📍 Location access granted!', 'gold');
+      await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000 }));
     } else if (type === 'notifications') {
-      if ('Notification' in window) {
-        const res = await Notification.requestPermission();
-        if (res === 'granted') {
-          showToast('🔔 Notifications enabled!', 'gold');
-        } else {
-          showToast('Notification permission denied.', 'warning');
-        }
-      }
+      if ('Notification' in window) await Notification.requestPermission();
     }
   } catch (err) {
     console.warn(`Permission request for ${type} failed:`, err);
-    showToast(`Could not enable ${type}. Check your browser settings.`, 'warning');
+    showToast(`Could not turn on ${type}. Check your browser’s site settings.`, 'warning');
   }
   refreshDevicePermissionsUI();
 }
 window.requestDevicePermission = requestDevicePermission;
 
 async function requestAllDevicePermissions() {
-  showToast('Requesting device permissions…', 'info');
   try {
     const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     s.getTracks().forEach(t => t.stop());
   } catch (_) {}
-
   try {
-    await new Promise((res, rej) => {
-      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 });
-    });
+    await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 }));
   } catch (_) {}
-
   try {
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      await Notification.requestPermission();
-    }
+    if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
   } catch (_) {}
-
   refreshDevicePermissionsUI();
-  showToast('✨ Device permissions updated!', 'gold');
 }
 window.requestAllDevicePermissions = requestAllDevicePermissions;
 
 // Video Call Quality Selection Modal
 function openVideoQualityModal() {
-  document.getElementById('videoQualityModalOverlay')?.remove();
-
   const current = localStorage.getItem('videoCallQuality') || '1080p';
-
-  const overlay = document.createElement('div');
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.id = 'videoQualityModalOverlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeVideoQualityModal(); };
-
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card" style="max-width:440px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:38px;height:38px;border-radius:50%;background:rgba(244,197,80,0.14);display:flex;align-items:center;justify-content:center;color:#F4C550;flex-shrink:0;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-            </svg>
-          </div>
-          <div>
-            <h3 class="wa-dialog-title" style="margin:0;font-size:1.15rem;text-align:left;">Video Call Quality</h3>
-            <span style="font-size:0.75rem;color:var(--txt-muted);display:block;margin-top:2px;">Camera resolution &amp; bitrate</span>
-          </div>
-        </div>
-        <button onclick="closeVideoQualityModal()" style="background:none;border:none;color:var(--txt-muted);cursor:pointer;font-size:1.3rem;padding:4px 8px;">✕</button>
-      </div>
-
-      <p class="wa-dialog-desc" style="text-align:left;font-size:0.82rem;margin-bottom:14px;">
-        Choose camera video stream clarity for all outgoing and incoming video calls.
-      </p>
-
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
-
-        <!-- 1080p -->
-        <div onclick="selectVideoQuality('1080p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '1080p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '1080p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">1080p</span>
-              <span style="background:var(--flame-grad);color:#fff;font-size:0.68rem;padding:2px 7px;border-radius:10px;font-weight:700;">HIGHEST</span>
-            </div>
-            <div style="font-size:0.77rem;color:var(--txt-muted);margin-top:4px;">
-              Full camera resolution (1920×1080 at 30 fps). Sharpest picture, uses the most data.
-            </div>
-          </div>
-          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${current === '1080p' ? '#F4C550' : 'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;">
-            ${current === '1080p' ? '<div style="width:10px;height:10px;border-radius:50%;background:#F4C550;"></div>' : ''}
-          </div>
-        </div>
-
-        <!-- 720p HD -->
-        <div onclick="selectVideoQuality('720p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '720p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '720p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">HD 720p</span>
-              <span style="background:rgba(255,255,255,0.12);color:var(--txt-primary);font-size:0.68rem;padding:2px 7px;border-radius:10px;font-weight:600;">BALANCED</span>
-            </div>
-            <div style="font-size:0.77rem;color:var(--txt-muted);margin-top:4px;">
-              High definition (1280×720 @ 30fps). Smooth performance and moderate data usage.
-            </div>
-          </div>
-          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${current === '720p' ? '#F4C550' : 'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;">
-            ${current === '720p' ? '<div style="width:10px;height:10px;border-radius:50%;background:#F4C550;"></div>' : ''}
-          </div>
-        </div>
-
-        <!-- 480p Data Saver -->
-        <div onclick="selectVideoQuality('480p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '480p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '480p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">Standard 480p</span>
-              <span style="background:rgba(255,255,255,0.12);color:var(--txt-muted);font-size:0.68rem;padding:2px 7px;border-radius:10px;font-weight:600;">DATA SAVER</span>
-            </div>
-            <div style="font-size:0.77rem;color:var(--txt-muted);margin-top:4px;">
-              Standard definition (640×480). Conserves mobile data on slow or limited connections.
-            </div>
-          </div>
-          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${current === '480p' ? '#F4C550' : 'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;">
-            ${current === '480p' ? '<div style="width:10px;height:10px;border-radius:50%;background:#F4C550;"></div>' : ''}
-          </div>
-        </div>
-
-      </div>
-
-      <div style="display:flex;justify-content:flex-end;">
-        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeVideoQualityModal()" style="width:auto;padding:8px 24px;">
-          <span>Done</span>
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
+  const options = [
+    ['1080p', '1080p', 'Sharpest picture (1920×1080). Uses the most data.'],
+    ['720p', '720p', 'Balanced picture (1280×720). Moderate data use.'],
+    ['480p', '480p', 'Lowest data use (640×480). Best on slow connections.']
+  ];
+  const body = document.createElement('div');
+  body.className = 'choice-list';
+  body.setAttribute('role', 'radiogroup');
+  body.setAttribute('aria-label', 'Video call quality');
+  options.forEach(([value, label, desc]) => {
+    const row = document.createElement('label');
+    row.className = 'choice choice-radio';
+    const input = document.createElement('input');
+    input.type = 'radio'; input.name = 'videoQuality'; input.value = value;
+    input.checked = value === current;
+    const text = document.createElement('span');
+    text.className = 'choice-text';
+    const t = document.createElement('span'); t.textContent = label;
+    const d = document.createElement('span'); d.className = 'choice-sub'; d.textContent = desc;
+    text.append(t, d);
+    row.append(input, text);
+    body.appendChild(row);
+  });
+  const { overlay } = openSheetDialog({
+    id: 'videoQualityModalOverlay',
+    title: 'Video call quality',
+    sub: 'Higher quality looks sharper but uses more mobile data.',
+    body,
+    foot: '<button type="button" class="btn btn-primary btn-block" data-sheet-close>Done</button>',
+    onClose: () => { renderSettingsScreen(); }
+  });
+  overlay.addEventListener('change', (e) => {
+    if (e.target.name === 'videoQuality') selectVideoQuality(e.target.value);
+  });
 }
 window.openVideoQualityModal = openVideoQualityModal;
 
 function closeVideoQualityModal() {
-  document.getElementById('videoQualityModalOverlay')?.remove();
-  renderSettingsScreen();
+  closeSheetDialog('videoQualityModalOverlay');
 }
 window.closeVideoQualityModal = closeVideoQualityModal;
 
 function selectVideoQuality(quality) {
-  localStorage.setItem('videoCallQuality', quality);
-  const labels = {
-    '1080p': '1080p (uses more data)',
-    '720p': 'HD 720p (Balanced)',
-    '480p': 'Standard 480p (Data Saver)'
-  };
-  showToast(`✨ Video Call Quality: ${labels[quality] || quality}`, 'gold');
-  closeVideoQualityModal();
+  try { localStorage.setItem('videoCallQuality', quality); } catch (_) {}
 }
 window.selectVideoQuality = selectVideoQuality;
 

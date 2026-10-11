@@ -150,6 +150,8 @@ button.chip:hover { border-color: var(--text-3); color: var(--text); }
 /* ---------- Avatar ---------- */
 .avatar { position: relative; width: 48px; height: 48px; flex: none; border-radius: 50%; background: var(--surface-raised) center / cover no-repeat; overflow: hidden; }
 .avatar > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar { display: inline-grid; place-items: center; }
+.avatar-initial { font-weight: 700; color: var(--text-2); line-height: 1; }
 .avatar-sm { width: 36px; height: 36px; }
 .avatar-lg { width: 64px; height: 64px; }
 .avatar-xl { width: 96px; height: 96px; }
@@ -398,3 +400,30 @@ button.row:hover, a.row:hover { background: var(--surface-raised); }
 .tips li { display: flex; gap: var(--s-3); align-items: flex-start; font-size: var(--fs-base); line-height: var(--lh-body); color: var(--text-2); }
 .tips li > .i { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--primary-text); }
 .tips strong { color: var(--text); }
+
+/* ---------- Radio list (report reasons, video quality) ---------- */
+.choice-list { display: flex; flex-direction: column; gap: var(--s-2); }
+.choice-radio { cursor: pointer; position: relative; }
+.choice-radio input {
+  appearance: none; -webkit-appearance: none; flex: none;
+  width: 20px; height: 20px; margin: 0; border-radius: 50%;
+  border: 2px solid var(--border-strong); background: transparent;
+  display: grid; place-items: center;
+}
+.choice-radio input::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--primary-text); transform: scale(0); transition: transform var(--dur-1); }
+.choice-radio input:checked { border-color: var(--primary-text); }
+.choice-radio input:checked::after { transform: scale(1); }
+.choice-radio:has(input:checked) { border-color: var(--primary-text); background: var(--primary-soft); }
+.choice-radio:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+.choice-radio .choice-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.choice-radio .choice-sub { font-size: var(--fs-sm); font-weight: 400; color: var(--text-2); }
+.dlg-actions { display: flex; flex-direction: column; gap: var(--s-2); width: 100%; }
+.sheet-foot:has(.dlg-actions) { padding-top: var(--s-3); }
+
+/* Full-screen photo viewer, opened on demand */
+.viewer-fixed { position: fixed; z-index: var(--z-modal); }
+.viewer-stage { flex: 1; min-height: 0; display: grid; place-items: center; padding: var(--s-3); cursor: zoom-out; }
+.viewer-stage img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: var(--r-sm); }
+.perm-status { font-size: var(--fs-sm); color: var(--text-3); }
+.perm-status.is-ok { color: var(--success); font-weight: 600; }
+.perm-status.is-bad { color: var(--danger); }
