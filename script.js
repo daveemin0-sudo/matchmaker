@@ -7673,6 +7673,16 @@ function stopRingtone() {
   }
 }
 
+let _turnRelayLoaded = false;
+
+function failCallMedia(type) {
+  updateCallUi(type, 'Could not connect');
+  showToast(_turnRelayLoaded
+    ? 'The call connected but no audio or video could pass. Check both internet connections and try again.'
+    : 'The call could not connect across different networks. Please try again in a moment.', 'error');
+  setTimeout(() => endCall(false), 1500);
+}
+
 async function refreshTurnCredentials() {
   if (!fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') return;
   try {
@@ -7680,11 +7690,12 @@ async function refreshTurnCredentials() {
     const res = await fetch(BACKEND_URL + '/turn/credentials', {
       headers: { Authorization: 'Bearer ' + token }
     });
-    if (!res.ok) return;
+    if (!res.ok) { console.warn('TURN credentials request failed:', res.status); return; }
     const liveServers = await res.json();
     if (Array.isArray(liveServers) && liveServers.length > 0) {
       peerConnectionConfig = { iceServers: liveServers.concat(METERED_ICE_SERVERS) };
-      console.log('✅ Live TURN servers loaded:', liveServers.length);
+      _turnRelayLoaded = liveServers.some(sv => [].concat(sv.urls || sv.url || []).some(u => /^turns?:/i.test(u)));
+      console.log('Call servers loaded:', liveServers.length, 'relay available:', _turnRelayLoaded);
     }
   } catch (_) {
     console.warn('TURN credential refresh failed; using STUN only.');
@@ -7916,6 +7927,29 @@ async function wireCallPeerConnection(type, pc, callRef) {
     if (stream) setCallMediaStream(stream, type);
   };
 
+  // The call can be "answered" (signalling goes through Firestore) while no audio or video ever
+  // flows, which is what happens when two phones on different networks cannot reach each other
+  // without a relay. Detect that and say so instead of leaving a silent, apparently connected call.
+  // Armed only once ICE starts checking (after the call is answered), so ringing is never cut short.
+  let mediaTimer = null;
+  pc.oniceconnectionstatechange = () => {
+    const st = pc.iceConnectionState;
+    if (st === 'checking' && !mediaTimer) {
+      mediaTimer = setTimeout(() => {
+        if (activePeerConnection === pc && !['connected', 'completed'].includes(pc.iceConnectionState)) {
+          console.warn('Call media did not connect. ICE state:', pc.iceConnectionState, 'relay servers:', _turnRelayLoaded);
+          failCallMedia(type);
+        }
+      }, 20000);
+    } else if (st === 'connected' || st === 'completed') {
+      clearTimeout(mediaTimer);
+    } else if (st === 'failed' && activePeerConnection === pc) {
+      clearTimeout(mediaTimer);
+      console.warn('Call ICE failed. relay servers:', _turnRelayLoaded);
+      failCallMedia(type);
+    }
+  };
+
   activeCandidateListener = callRef.collection('candidates').onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
       if (change.type !== 'added') return;
@@ -7995,7 +8029,7 @@ async function startPeerCall(type) {
       setTimeout(() => {
         if (activeCallIsRinging && overlay && overlay.style.display !== 'none') {
           stopRingtone();
-          updateCallUi(type, 'No answer 📵');
+          updateCallUi(type, 'No answer');
           setTimeout(() => {
             endCall(false);
             showToast((partner.name || 'Your match') + ' is currently unavailable. Leave a voice note!', 'info');
