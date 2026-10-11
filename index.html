@@ -2258,30 +2258,33 @@
   <!-- =====================================================
        IN-APP RATING & FEEDBACK MODAL
        ===================================================== -->
-  <div class="rating-modal-overlay" id="ratingModalOverlay" style="display:none" onclick="if(event.target===this)closeRatingModal(true)">
-    <div class="rating-modal-card">
-      <button class="rating-close-btn" onclick="closeRatingModal(true)" aria-label="Close">&times;</button>
-      <div class="rating-heart-badge">⭐</div>
-      <h3 class="rating-title">Enjoying hookmebysam?</h3>
-      <p class="rating-subtitle">Your rating helps us bring you more amazing local matches!</p>
-
-      <div class="rating-stars-row" id="ratingStarsRow">
-        <button class="rating-star-btn" data-star="1" onclick="setRatingScore(1)" aria-label="1 star">★</button>
-        <button class="rating-star-btn" data-star="2" onclick="setRatingScore(2)" aria-label="2 stars">★</button>
-        <button class="rating-star-btn" data-star="3" onclick="setRatingScore(3)" aria-label="3 stars">★</button>
-        <button class="rating-star-btn" data-star="4" onclick="setRatingScore(4)" aria-label="4 stars">★</button>
-        <button class="rating-star-btn" data-star="5" onclick="setRatingScore(5)" aria-label="5 stars">★</button>
+  <div class="sheet-overlay confirm-overlay" id="ratingModalOverlay" style="display:none" onclick="if(event.target===this)closeRatingModal(true)">
+    <div class="sheet confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="ratingTitle">
+      <div class="sheet-head">
+        <h2 class="sheet-title" id="ratingTitle">Enjoying hookmebysam?</h2>
+        <button type="button" class="btn btn-icon btn-ghost" onclick="closeRatingModal(true)" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
       </div>
-
-      <div class="rating-feedback-area" id="ratingFeedbackArea" style="display:none">
-        <textarea class="rating-feedback-input" id="ratingFeedbackText" placeholder="What could we improve? Tell us anything..." rows="3"></textarea>
+      <div class="sheet-body">
+        <p class="dlg-text">Rate the app. Your feedback goes straight to the team.</p>
+        <div class="rating-stars" id="ratingStarsRow" role="radiogroup" aria-label="Rating">
+          <button type="button" class="rating-star-btn" role="radio" aria-checked="true" data-star="1" onclick="setRatingScore(1)" aria-label="1 star"><svg class="i i-lg" aria-hidden="true"><use href="#i-star"/></svg></button>
+          <button type="button" class="rating-star-btn" role="radio" aria-checked="true" data-star="2" onclick="setRatingScore(2)" aria-label="2 stars"><svg class="i i-lg" aria-hidden="true"><use href="#i-star"/></svg></button>
+          <button type="button" class="rating-star-btn" role="radio" aria-checked="true" data-star="3" onclick="setRatingScore(3)" aria-label="3 stars"><svg class="i i-lg" aria-hidden="true"><use href="#i-star"/></svg></button>
+          <button type="button" class="rating-star-btn" role="radio" aria-checked="true" data-star="4" onclick="setRatingScore(4)" aria-label="4 stars"><svg class="i i-lg" aria-hidden="true"><use href="#i-star"/></svg></button>
+          <button type="button" class="rating-star-btn" role="radio" aria-checked="true" data-star="5" onclick="setRatingScore(5)" aria-label="5 stars"><svg class="i i-lg" aria-hidden="true"><use href="#i-star"/></svg></button>
+        </div>
+        <div class="field" id="ratingFeedbackArea" style="display:none">
+          <label class="field-label" for="ratingFeedbackText">What could we improve?</label>
+          <textarea class="textarea" id="ratingFeedbackText" rows="3" maxlength="1000"></textarea>
+        </div>
+        <p class="field-error" id="ratingError" role="alert"></p>
       </div>
-
-      <button class="rating-submit-btn" id="ratingSubmitBtn" onclick="submitRating()">Submit Rating ✨</button>
-      <button class="rating-dismiss-btn" onclick="closeRatingModal(true)">Remind me later</button>
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-secondary" onclick="closeRatingModal(true)">Not now</button>
+        <button type="button" class="btn btn-primary" id="ratingSubmitBtn" onclick="submitRating()">Send</button>
+      </div>
     </div>
   </div>
-
 
 </body>
 </html>

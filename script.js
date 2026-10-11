@@ -15425,45 +15425,49 @@ window.showRatingModal = showRatingModal;
 
 function setRatingScore(score) {
   _currentRatingScore = score;
-  const stars = document.querySelectorAll('.rating-star-btn');
-  stars.forEach((btn, idx) => {
+  document.querySelectorAll('.rating-star-btn').forEach((btn, idx) => {
     btn.classList.toggle('active', idx < score);
+    btn.setAttribute('aria-checked', String(idx + 1 === score));
   });
 
   const feedbackArea = document.getElementById('ratingFeedbackArea');
   if (feedbackArea) {
-    feedbackArea.style.display = score <= 4 ? 'block' : 'none';
+    feedbackArea.style.display = score <= 4 ? '' : 'none';
   }
 }
 window.setRatingScore = setRatingScore;
 
-function submitRating() {
-  haptic('success');
-  const feedback = (document.getElementById('ratingFeedbackText')?.value || '').trim();
+// Feedback is stored in Firestore (collection app_feedback, create-only, see firestore.rules).
+// The thank-you only appears once the write has actually succeeded.
+async function submitRating() {
+  const feedback = (document.getElementById('ratingFeedbackText')?.value || '').trim().slice(0, 1000);
+  const errEl = document.getElementById('ratingError');
+  const btn = document.getElementById('ratingSubmitBtn');
+  if (errEl) errEl.textContent = '';
 
+  if (typeof fbDb === 'undefined' || !fbDb || typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
+    if (errEl) errEl.textContent = 'Sign in to send feedback.';
+    return;
+  }
+  if (btn) btn.disabled = true;
   try {
-    localStorage.setItem('hmbs_has_rated', Date.now().toString());
-  } catch (_) {}
-
-  // Sync to Firestore if available
-  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    fbDb.collection('app_feedback').add({
+    await fbDb.collection('app_feedback').add({
       uid: fbAuth.currentUser.uid,
-      userName: currentUser.name || 'Anonymous',
+      userName: currentUser.name || '',
       rating: _currentRatingScore,
-      feedback: feedback,
+      feedback,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(() => {});
+    });
+  } catch (err) {
+    console.warn('Feedback write failed:', err);
+    if (errEl) errEl.textContent = 'Could not send your feedback. Please try again.';
+    if (btn) btn.disabled = false;
+    return;
   }
-
+  if (btn) btn.disabled = false;
+  try { localStorage.setItem('hmbs_has_rated', Date.now().toString()); } catch (_) {}
   closeRatingModal(false);
-
-  if (_currentRatingScore >= 5) {
-    launchMatchConfetti();
-    showToast('❤️ Thank you! We are thrilled you love hookmebysam!', 'gold');
-  } else {
-    showToast('🙏 Thank you for your feedback! We will keep improving!', 'success');
-  }
+  showToast('Thanks for your feedback.', 'success');
 }
 window.submitRating = submitRating;
 
@@ -15481,6 +15485,7 @@ window.closeRatingModal = closeRatingModal;
 function checkShowRatingPrompt() {
   try {
     if (localStorage.getItem('hmbs_has_rated')) return;
+    if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser) return; // feedback needs a signed-in account
     const dismissed = localStorage.getItem('hmbs_rating_dismissed');
     if (dismissed && Date.now() - parseInt(dismissed, 10) < 3 * 86400000) return; // 3 days cooldown
 
