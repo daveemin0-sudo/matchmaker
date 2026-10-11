@@ -124,3 +124,19 @@ test('no stealth/incognito promise exists anywhere in the app', () => {
   assert.doesNotMatch(js, /stealth/i);
   assert.doesNotMatch(js.replace(/mustache detective undercover incognito/, ''), /incognito/i);
 });
+
+test('nothing lets a user grant themselves a verification badge', () => {
+  // The backend never publishes a verified flag, so a client-side "face scan" would be a fake trust signal.
+  assert.doesNotMatch(js, /completeSelfieVerification|openSelfieVerifyModal|hmbs_verified/, 'self-service verification flow must not exist');
+  assert.doesNotMatch(html, /selfieVerifyModal|Face Match|Identity Confirmed|Blue Badge/i);
+  assert.doesNotMatch(js, /Face Match|Identity Confirmed|Blue Badge/i);
+  assert.doesNotMatch(html + js, /verifiedOnly|filterVerifiedOnly/, 'a "verified only" filter would hide everyone');
+  // Sample profiles must not claim a verification the app cannot perform.
+  const demo = js.slice(js.indexOf('const PROFILES_DATA'), js.indexOf('const PROFILES_DATA') + 12000);
+  assert.doesNotMatch(demo, /isVerified:\s*true/);
+});
+
+test('report/block dialog never interpolates names into inline JavaScript', () => {
+  const fn = js.slice(js.indexOf('function reportUser()'), js.indexOf('async function persistBlockToFirestore'));
+  assert.doesNotMatch(fn, /onclick=/, 'names with quotes would break or inject into inline handlers');
+});

@@ -1234,8 +1234,7 @@ body {
 
 /* --- 1. ACCENT & FILLED BUTTONS (High contrast text in both themes) --- */
 .accent-btn,
-button.accent-btn,
-.selfie-primary-btn {
+button.accent-btn {
   color: #FFFFFF !important;
   -webkit-text-fill-color: #FFFFFF !important;
   font-weight: 700 !important;
@@ -1253,60 +1252,6 @@ button.accent-btn,
 
 [data-theme="light"] .sheet-drag-handle {
   background: rgba(0, 0, 0, 0.2) !important;
-}
-
-/* --- 3. SELFIE VERIFICATION MODAL (Light & Dark Polish) --- */
-[data-theme="light"] .selfie-modal-card {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 24px 60px rgba(20, 12, 29, 0.16) !important;
-}
-[data-theme="light"] .selfie-modal-close {
-  background: #F3EEF8 !important;
-  color: #140C1D !important;
-}
-[data-theme="light"] .selfie-modal-title {
-  color: #140C1D !important;
-}
-[data-theme="light"] .selfie-modal-sub {
-  color: #4D4359 !important;
-}
-[data-theme="light"] .selfie-step-dot {
-  background: #F0EAF5 !important;
-  color: #4D4258 !important;
-  font-weight: 600 !important;
-}
-[data-theme="light"] .selfie-step-dot.active {
-  background: #0277BD !important;
-  color: #FFFFFF !important;
-  font-weight: 700 !important;
-}
-[data-theme="light"] .selfie-step-dot.done {
-  background: #1B5E20 !important;
-  color: #FFFFFF !important;
-}
-[data-theme="light"] .selfie-privacy-note {
-  color: #554A62 !important;
-}
-[data-theme="light"] .selfie-secondary-btn {
-  background: #F4EEF8 !important;
-  border-color: #DDD4E5 !important;
-  color: #22152F !important;
-}
-
-[data-theme="dark"] .selfie-step-dot,
-.selfie-step-dot {
-  color: #BDB7C8 !important;
-  background: rgba(255, 255, 255, 0.08) !important;
-}
-[data-theme="dark"] .selfie-step-dot.active,
-.selfie-step-dot.active {
-  color: #FFFFFF !important;
-  background: rgba(56, 151, 240, 0.5) !important;
-}
-[data-theme="dark"] .selfie-privacy-note,
-.selfie-privacy-note {
-  color: rgba(255, 255, 255, 0.72) !important;
 }
 
 /* --- 8. PROFILE SCREEN & BADGES --- */
@@ -1351,13 +1296,6 @@ button.accent-btn,
 [data-theme="light"] #profilePreviewBtn span {
   color: #7A1638 !important;
   font-weight: 700 !important;
-}
-
-.selfie-primary-btn,
-#selfieActionBtn.selfie-primary-btn {
-  background: linear-gradient(135deg, #0288D1 0%, #01579B 100%) !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 4px 16px rgba(1, 87, 155, 0.35) !important;
 }
 
 /* Card Voice Intro Button (Floating on Photo)

@@ -1057,7 +1057,6 @@
             <div class="acct-id">
               <div class="acct-name-row">
                 <h2 class="acct-name" id="profileDisplayName">Your name</h2>
-                <span class="badge badge-verified" id="profileVerifiedBadge" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-badge-check"/></svg>Verified</span>
                 <span class="badge badge-vip header-vip-badge" id="profileVipBadge" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-crown"/></svg>Gold</span>
               </div>
               <div class="acct-loc" id="profileLocationDisplay" hidden></div>
@@ -1095,14 +1094,6 @@
           <section class="acct-group" aria-labelledby="profTrustTitle">
             <h2 class="section-label" id="profTrustTitle">Trust and membership</h2>
             <div class="acct-card list">
-              <button type="button" class="row" id="hkVerifyPromptCard" onclick="openSelfieVerifyModal()">
-                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-scan-face"/></svg></span>
-                <span class="row-body">
-                  <span class="row-title" id="hkVerifyTitle">Photo verification</span>
-                  <span class="row-sub" id="hkVerifyDesc">Take a quick selfie to earn the Verified badge.</span>
-                </span>
-                <span class="badge" id="hkVerifyBadge">Not verified</span>
-              </button>
               <button type="button" class="row" id="hkGoldRow" onclick="openPaywall('profile_screen')">
                 <span class="row-icon acct-gold-icon"><svg class="i" aria-hidden="true"><use href="#i-crown"/></svg></span>
                 <span class="row-body">
@@ -1364,11 +1355,6 @@
                   </div>
                 </div>
               </div>
-              <label class="row" for="settingsVerifiedOnlyToggle">
-                <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-badge-check"/></svg></span>
-                <span class="row-body"><span class="row-title">Verified profiles only</span><span class="row-sub">Only show people who passed photo verification</span></span>
-                <span class="switch"><input type="checkbox" id="settingsVerifiedOnlyToggle" onchange="updateVerifiedSetting(this.checked)"><span class="track"></span></span>
-              </label>
             </div>
           </section>
 
@@ -1579,14 +1565,6 @@
               <input type="range" class="range" id="filterMaxAgeSlider" min="19" max="75" value="35" oninput="onFilterAgeChange()">
             </div>
           </div>
-
-          <label class="ctl ctl-row" for="filterVerifiedOnly">
-            <span class="row-body">
-              <span class="ctl-label">Verified profiles only</span>
-              <span class="row-sub">Only show people who passed photo verification</span>
-            </span>
-            <span class="switch"><input type="checkbox" id="filterVerifiedOnly" onchange="onFilterVerifiedToggle(this.checked)"><span class="track"></span></span>
-          </label>
 
           <div class="ctl" role="group" aria-labelledby="filterIntentLabel">
             <div class="ctl-head">
@@ -2003,7 +1981,6 @@
             <div class="preview-info">
               <div class="preview-name-row">
                 <span class="preview-name" id="hkPreviewName"></span>
-                <svg class="i preview-verified" id="hkPreviewVerifiedBadge" role="img" aria-label="Verified profile" style="display:none"><use href="#i-badge-check"/></svg>
               </div>
               <div class="preview-loc" id="hkPreviewLoc"></div>
               <div class="preview-bio" id="hkPreviewBio"></div>
@@ -2305,78 +2282,6 @@
     </div>
   </div>
 
-
-  <!-- SELFIE PHOTO VERIFICATION MODAL -->
-  <div class="selfie-modal-overlay" id="selfieVerifyModal" style="display:none">
-    <div class="selfie-modal-card">
-      <button class="selfie-modal-close" onclick="closeSelfieVerifyModal()" aria-label="Close">✕</button>
-      <div class="selfie-modal-header">
-        <div class="selfie-badge-icon">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="#3897F0">
-            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-          </svg>
-        </div>
-        <h3 class="selfie-modal-title">Live Photo Verification</h3>
-        <p class="selfie-modal-sub" id="selfieModalSub">Take a quick live selfie to confirm your identity and unlock your Blue Badge.</p>
-      </div>
-
-      <div class="selfie-scan-viewport" id="selfieScanViewport">
-        <!-- Live Video Element -->
-        <video id="selfieVideoEl" autoplay playsinline muted style="display:none"></video>
-
-        <!-- Canvas for processing selfie frame -->
-        <canvas id="selfieCanvas" style="display:none"></canvas>
-
-        <!-- Frozen Captured Selfie Preview Image -->
-        <img id="selfieCapturedPreview" class="selfie-captured-img" src="" alt="Captured Selfie" style="display:none" />
-
-        <!-- Camera Fallback UI if browser permission or insecure origin blocks WebRTC -->
-        <div class="selfie-camera-fallback" id="selfieCameraFallback" style="display:none">
-          <div class="selfie-fallback-icon">📷</div>
-          <div class="selfie-fallback-title">Camera Permission Needed</div>
-          <p class="selfie-fallback-desc">Tap below to snap a live selfie with your phone camera:</p>
-          <button type="button" class="selfie-native-snap-btn" onclick="triggerNativeSelfieCapture()">
-            <span>📸 Snap Live Selfie</span>
-          </button>
-        </div>
-
-        <!-- Camera Shutter Flash -->
-        <div class="selfie-flash-overlay" id="selfieFlashOverlay"></div>
-
-        <!-- Live Countdown Overlay -->
-        <div class="selfie-countdown-overlay" id="selfieCountdown" style="display:none">3</div>
-
-        <!-- Scanner Oval Guide & Laser -->
-        <div class="selfie-oval-guide" id="selfieOvalGuide">
-          <div class="selfie-scan-laser" id="selfieScanLaser"></div>
-        </div>
-
-        <!-- Floating Status Pill -->
-        <div class="selfie-scan-status-pill" id="selfieStatusPill">Align your face inside the oval</div>
-      </div>
-
-      <!-- Hidden Native Camera File Input -->
-      <input type="file" id="selfieFileInput" accept="image/*" capture="user" style="display:none" onchange="handleSelfieFileSelected(event)" />
-
-      <!-- Step Indicators -->
-      <div class="selfie-steps-tracker" id="selfieStepsTracker">
-        <div class="selfie-step-dot active" id="sStep1">1. Live Camera</div>
-        <div class="selfie-step-dot" id="sStep2">2. Facial Scan</div>
-        <div class="selfie-step-dot" id="sStep3">3. Verified</div>
-      </div>
-
-      <!-- Action Buttons Row -->
-      <div class="selfie-action-row" id="selfieActionRow">
-        <button class="selfie-primary-btn" id="selfieActionBtn" onclick="handleSelfieActionClick()">📸 Capture &amp; Scan Face</button>
-        <button class="selfie-secondary-btn" id="selfieRetakeBtn" onclick="retakeSelfiePhoto()" style="display:none">↺ Retake Selfie</button>
-      </div>
-
-      <!-- Security Note -->
-      <div class="selfie-privacy-note">
-        🔒 Encrypted verification. Your selfie is used solely to verify your real identity.
-      </div>
-    </div>
-  </div>
 
 </body>
 </html>
