@@ -22,7 +22,7 @@ gem badge-check shield-check shield-alert shield eye eye-off lock lock-open ban 
 gift rocket thumbs-up map-pin compass house message-circle message-square send paperclip image image-plus camera video
 video-off mic mic-off phone phone-off phone-call play pause volume-2 smile languages globe moon sun mail key-round trash-2
 pencil share-2 forward reply copy download upload log-out clock calendar cake briefcase graduation-cap ruler wine
-cigarette dumbbell baby coffee plane utensils music scan-face fingerprint wifi-off bookmark layers`.split(/\s+/).filter(Boolean);
+cigarette dumbbell baby coffee plane utensils music scan-face fingerprint wifi-off bookmark layers circle circle-x circle-user user-round message-circle-heart heart-off bell-ring images file-text film inbox lightbulb at-sign bot wand-sparkles rewind arrow-up arrow-down square refresh-ccw volume-x list-filter hourglass`.split(/\s+/).filter(Boolean);
 
 const LOGO = '<symbol id="i-logo" viewBox="0 0 64 64"><path d="M31 47 C19 40 14 33 14 26 a8.5 8.5 0 0 1 17 -3 a8.5 8.5 0 0 1 17 3 c0 6 -4 10 -9 15 c-3 3 -4.5 4.5 -4.5 7 a4.5 4.5 0 0 0 9 0" stroke-width="4.5"/></symbol>';
 

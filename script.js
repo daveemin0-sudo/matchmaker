@@ -1915,42 +1915,22 @@ function evaluatePasswordStrength(password) {
   const updateReq = (el, met, text) => {
     if (!el) return;
     el.classList.toggle('met', met);
-    el.innerHTML = `<span>${met ? '✓' : '○'}</span> ${text}`;
+    el.innerHTML = `<svg class="i i-sm" aria-hidden="true"><use href="#i-${met ? 'check' : 'circle'}"/></svg><span>${text}</span><span class="sr-only">${met ? ' (met)' : ' (not met yet)'}</span>`;
   };
 
-  updateReq(reqLength, hasLength, '8+ characters');
-  updateReq(reqUpper, hasUpper, 'Uppercase letter (A-Z)');
-  updateReq(reqNumber, hasNumber, 'Number (0-9)');
-  updateReq(reqSymbol, hasSymbol, 'Symbol (!@#$...)');
+  updateReq(reqLength, hasLength, '8 or more characters');
+  updateReq(reqUpper, hasUpper, 'An uppercase letter (A-Z)');
+  updateReq(reqNumber, hasNumber, 'A number (0-9)');
+  updateReq(reqSymbol, hasSymbol, 'A symbol (! @ # $ ...)');
 
   const score = [hasLength, hasUpper, hasNumber, hasSymbol].filter(Boolean).length;
-  const bar1 = document.getElementById('pwBar1');
-  const bar2 = document.getElementById('pwBar2');
-  const bar3 = document.getElementById('pwBar3');
-  const bar4 = document.getElementById('pwBar4');
   const label = document.getElementById('pwStrengthLabel');
-  const percent = document.getElementById('pwStrengthPercent');
+  const container = document.getElementById('pwStrengthContainer');
+  const labels = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong'];
 
-  const bars = [bar1, bar2, bar3, bar4];
-  const colors = ['#E53935', '#FB8C00', '#FDD835', '#21B06B'];
-  const labels = ['Too Weak', 'Weak', 'Fair', 'Good', 'Strong'];
-
-  bars.forEach((bar, i) => {
-    if (!bar) return;
-    if (i < score) {
-      bar.style.background = colors[Math.min(score - 1, colors.length - 1)];
-    } else {
-      bar.style.background = 'rgba(255, 255, 255, 0.12)';
-    }
-  });
-
-  if (label) {
-    label.textContent = labels[score];
-    label.style.color = score > 0 ? colors[Math.min(score - 1, colors.length - 1)] : 'var(--txt-muted)';
-  }
-  if (percent) {
-    percent.textContent = `${score * 25}%`;
-  }
+  // Bars and colours come from CSS via data-score (see css/auth.css).
+  if (container) container.dataset.score = String(score);
+  if (label) label.textContent = labels[score];
 
   return score === 4;
 }
@@ -1964,14 +1944,10 @@ function checkPasswordMatch() {
     feedback.style.display = 'none';
     return;
   }
-  feedback.style.display = 'block';
-  if (pwd === confirmPwd) {
-    feedback.style.color = '#10B981';
-    feedback.textContent = '✓ Passwords match';
-  } else {
-    feedback.style.color = '#EF4444';
-    feedback.textContent = '✕ Passwords do not match';
-  }
+  const ok = pwd === confirmPwd;
+  feedback.style.display = 'flex';
+  feedback.className = ok ? 'field-hint is-ok' : 'field-error';
+  feedback.innerHTML = `<svg class="i i-sm" aria-hidden="true"><use href="#i-${ok ? 'check' : 'x'}"/></svg>${ok ? 'Passwords match' : 'Passwords do not match'}`;
 }
 window.checkPasswordMatch = checkPasswordMatch;
 
@@ -2015,7 +1991,8 @@ async function handleLogin() {
   const btn = document.getElementById('loginBtn');
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<span>Signing in...</span>';
+    btn.textContent = 'Signing in…';
+    btn.setAttribute('aria-busy', 'true');
   }
 
   // Generic error message for security (prevents user account enumeration)
@@ -2073,7 +2050,7 @@ async function handleLogin() {
       } else {
         if (errorEl) errorEl.textContent = genericErrorMessage;
       }
-      if (btn) { btn.disabled = false; btn.innerHTML = 'Sign In'; }
+      if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = 'Sign in'; }
       return;
     }
   }
@@ -2097,7 +2074,7 @@ async function handleLogin() {
     if (errorEl) errorEl.textContent = genericErrorMessage;
   }
 
-  if (btn) { btn.disabled = false; btn.innerHTML = 'Sign In'; }
+  if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = 'Sign in'; }
 }
 
 // PHONE NUMBER SIGN-IN HANDLER
@@ -2147,13 +2124,13 @@ async function handlePhoneLogin() {
     if (sent) {
       _loginPhoneOtpSent = true;
       if (otpGroup) otpGroup.style.display = 'block';
-      if (btn) btn.textContent = 'Verify & Sign In';
+      if (btn) btn.textContent = 'Verify and sign in';
       if (otpInput) {
         otpInput.value = window._devPhoneOtp || '';
         setTimeout(() => otpInput.focus(), 150);
       }
       if (!window._devPhoneOtp) {
-        showToast('📱 SMS code sent to +234 ' + rawPhone, 'info');
+        showToast('Code sent to +234 ' + rawPhone, 'info');
       }
     } else {
       if (errEl) errEl.textContent = 'Could not send SMS verification code. Please check number or try again.';
@@ -2189,13 +2166,13 @@ async function handlePhoneLogin() {
     currentUser.phoneVerified = true;
     appState.isLoggedIn = true;
     saveToStorage();
-    showToast('Signed in with phone! Welcome to hookmebysam. 🌟', 'gold');
+    showToast('Signed in. Welcome back.', 'success');
     showScreen('discovery');
     initMainApp();
   } else {
     recordFailedLoginAttempt();
     if (errEl) errEl.textContent = 'Invalid verification code. Please check your SMS or request a new code.';
-    if (btn) btn.textContent = 'Verify & Sign In';
+    if (btn) btn.textContent = 'Verify and sign in';
   }
 }
 
@@ -2439,7 +2416,7 @@ function handleGuestLogin() {
     shareLocation: true,
   };
   saveToStorage();
-  showToast('Logged in as Guest Explorer! 🌟', 'info');
+  showToast('Demo mode: you are looking at sample profiles.', 'info');
   showScreen('discovery');
   initMainApp();
 }
@@ -2447,11 +2424,11 @@ function handleGuestLogin() {
 function togglePasswordVisibility(inputId, btnEl) {
   const input = document.getElementById(inputId);
   if (!input) return;
-  const isVisible = input.type === 'text';
-  input.type = isVisible ? 'password' : 'text';
-  btnEl.innerHTML = isVisible
-    ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`
-    : `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>`;
+  const nowVisible = input.type === 'password';
+  input.type = nowVisible ? 'text' : 'password';
+  btnEl.setAttribute('aria-pressed', String(nowVisible));
+  btnEl.setAttribute('aria-label', nowVisible ? 'Hide password' : 'Show password');
+  btnEl.innerHTML = `<svg class="i" aria-hidden="true"><use href="#i-${nowVisible ? 'eye-off' : 'eye'}"/></svg>`;
 }
 
 // ==========================================================
@@ -2470,20 +2447,23 @@ function goToLogin() {
 
 function selectGender(gender, el) {
   appState.signupGender = gender;
-  document.querySelectorAll('.gender-option').forEach(o => o.classList.remove('selected'));
+  document.querySelectorAll('.gender-option').forEach(o => { o.classList.remove('selected'); o.setAttribute('aria-checked', 'false'); });
   el.classList.add('selected');
+  el.setAttribute('aria-checked', 'true');
 }
 
 function toggleInterest(tag, el) {
   if (el.classList.contains('selected')) {
     el.classList.remove('selected');
+    el.setAttribute('aria-pressed', 'false');
     appState.signupInterests = appState.signupInterests.filter(i => i !== tag);
   } else {
     if (appState.signupInterests.length >= 5) {
-      showToast('Max 5 interests!', 'info');
+      showToast('You can pick up to 5 interests.', 'info');
       return;
     }
     el.classList.add('selected');
+    el.setAttribute('aria-pressed', 'true');
     appState.signupInterests.push(tag);
   }
 }
@@ -2500,6 +2480,14 @@ function renderSignupStep() {
     if (i + 1 === appState.signupStep) d.classList.add('active');
     if (i + 1 < appState.signupStep) d.classList.add('done');
   });
+
+  const count = document.getElementById('signupStepCount');
+  if (count) count.textContent = `Step ${appState.signupStep} of 4`;
+  // The last step creates the account, so the button must say so.
+  const nextBtn = document.getElementById('signupCompleteBtn');
+  if (nextBtn && !nextBtn.disabled) nextBtn.textContent = appState.signupStep === 4 ? 'Create account' : 'Continue';
+  const screen = document.getElementById('signupScreen');
+  if (screen) screen.scrollTop = 0;
 }
 
 function nextSignupStep() {
@@ -2534,7 +2522,7 @@ function nextSignupStep() {
       return;
     }
     if (!currentUser.image && !currentUser.avatar) {
-      if (errorEl) errorEl.textContent = 'Please upload your profile photo to continue! Every user must have their own real photo. 📸';
+      if (errorEl) errorEl.textContent = 'Add a photo of yourself to continue. Every profile needs a real photo.';
       return;
     }
     currentUser.bio = bio;
@@ -2625,7 +2613,7 @@ function completeSignup() {
   }
 
   const btn = document.getElementById('signupCompleteBtn');
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Creating account...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
 
   currentUser.email = email;
   currentUser.phone = phone;
@@ -2641,7 +2629,7 @@ function completeSignup() {
         // Dispatch real Firebase email verification
         try {
           await user.sendEmailVerification();
-          showToast('✉️ Verification email sent! Please check your inbox and spam folder.', 'info');
+          showToast('Verification email sent. Check your inbox and spam folder.', 'info');
         } catch (e) {
           console.warn("Could not dispatch email verification:", e);
         }
@@ -2671,17 +2659,17 @@ function completeSignup() {
           await syncPublicProfileToFirestore(profileData);
         }
 
+        // Firebase Auth owns the credentials. Never keep a (base64 = recoverable) copy of the password in the browser.
         saveRegisteredUser({
           ...profileData,
           email: email.toLowerCase(),
           phone: phone,
-          passwordHash: btoa(password),
           uid: user.uid,
           createdAt: Date.now()
         });
 
         saveToStorage();
-        if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
         showScreen('signupSuccess');
         initMainApp();
       })
@@ -2693,7 +2681,7 @@ function completeSignup() {
           'auth/invalid-email': 'Please enter a valid, real email address.'
         };
         if (errorEl) errorEl.textContent = msgs[err.code] || err.message || 'Signup failed. Please try again.';
-        if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
       });
     return;
   }
@@ -2711,7 +2699,7 @@ function completeSignup() {
   appState.isLoggedIn = true;
   saveToStorage();
   setTimeout(() => {
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
     showScreen('signupSuccess');
     initMainApp();
   }, 600);
@@ -10377,7 +10365,7 @@ async function handleEditProfilePhotoUpload(event) {
     return;
   }
 
-  showToast('Processing photo... 📸', 'info');
+  showToast('Processing photo…', 'info');
   try {
     const dataUrl = await compressImage(file, 720, 0.85);
     _editProfilePhotos[_activeEditPhotoSlot] = dataUrl;
@@ -10482,7 +10470,7 @@ async function handleProfilePhotoUpload(event) {
     return;
   }
 
-  showToast('Processing photo... 📸', 'info');
+  showToast('Processing photo…', 'info');
   try {
     const dataUrl = await compressImage(file, 600, 0.82);
     currentUser.image = dataUrl;
@@ -10612,7 +10600,7 @@ async function handleSignupPhotoUpload(event) {
     return;
   }
 
-  showToast('Processing photo... 📸', 'info');
+  showToast('Processing photo…', 'info');
   try {
     const dataUrl = await compressImage(file, 720, 0.85);
     window._signupPhotos[_activePhotoSlot] = dataUrl;
@@ -10628,7 +10616,7 @@ async function handleSignupPhotoUpload(event) {
 
     const errEl = document.getElementById('signupError3');
     if (errEl) errEl.textContent = '';
-    showToast(_activePhotoSlot === 0 ? '✓ Main photo set! Looking great ✨' : '✓ Photo added!', 'success');
+    showToast(_activePhotoSlot === 0 ? 'Main photo set.' : 'Photo added.', 'success');
   } catch (err) {
     console.error('Signup photo upload error:', err);
     showToast('Could not process this image. Try another.', 'error');
@@ -10647,20 +10635,21 @@ function _renderSignupPhotoSlot(slotIndex, dataUrl) {
   innerEl.innerHTML = '';
 
   // Add remove button if not already there
-  if (!slotEl.querySelector('.sps-remove')) {
+  if (!slotEl.querySelector('.photo-slot-remove')) {
     const removeBtn = document.createElement('button');
-    removeBtn.className = 'sps-remove';
-    removeBtn.innerHTML = '✕';
+    removeBtn.className = 'photo-slot-remove';
+    removeBtn.type = 'button';
+    removeBtn.innerHTML = '<svg class="i i-sm" aria-hidden="true"><use href="#i-x"/></svg>';
     removeBtn.title = 'Remove photo';
+    removeBtn.setAttribute('aria-label', `Remove photo ${slotIndex + 1}`);
     removeBtn.onclick = (e) => {
       e.stopPropagation();
       window._signupPhotos[slotIndex] = null;
       slotEl.classList.remove('filled');
       innerEl.style.backgroundImage = 'none';
-      const plusSvg = slotIndex === 0
-        ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
-        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
-      innerEl.innerHTML = plusSvg;
+      innerEl.innerHTML = slotIndex === 0
+        ? '<svg class="i i-lg" aria-hidden="true"><use href="#i-image-plus"/></svg>'
+        : '<svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>';
       removeBtn.remove();
       if (slotIndex === 0) { currentUser.image = null; currentUser.avatar = null; }
     };
@@ -15923,8 +15912,8 @@ function selectObGreenFlag(el) {
 window.selectObGreenFlag = selectObGreenFlag;
 
 function selectSignupIntent(intent, el) {
-  document.querySelectorAll('#signupIntentGrid .signup-intent-pill').forEach(p => p.classList.remove('selected'));
-  if (el) el.classList.add('selected');
+  document.querySelectorAll('#signupIntentGrid .signup-intent-pill').forEach(p => { p.classList.remove('selected'); p.setAttribute('aria-checked', 'false'); });
+  if (el) { el.classList.add('selected'); el.setAttribute('aria-checked', 'true'); }
   appState.signupIntent = intent;
   currentUser.intent = intent;
   haptic('light');

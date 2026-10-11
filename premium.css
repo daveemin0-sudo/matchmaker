@@ -16,108 +16,13 @@ body::before {
 }
 
 /* --- 5. AUTH / LOGIN SCREEN OVERHAUL --- */
-.auth-screen {
-  background: radial-gradient(circle at 50% 20%, #1F0A1B 0%, #07050C 65%) !important;
-}
-
-.auth-hero {
-  padding: 36px 20px 20px !important;
-  text-align: center;
-  /* .auth-screen is a flex column and .auth-hero has overflow:hidden, which
-     lets flexbox shrink it below its content when the form is taller than the
-     viewport — the heading's 2nd line and the tagline were clipped behind the
-     card on phones. Keep the hero at its natural height; the screen scrolls. */
-  flex-shrink: 0 !important;
-}
-
-.auth-brand-badge {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.auth-flame-icon {
-  width: 72px;
-  height: 72px;
-  background: radial-gradient(circle, rgba(209, 58, 99, 0.25) 0%, rgba(122, 22, 56, 0.08) 70%);
-  border-radius: var(--r-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(209, 58, 99, 0.35);
-  box-shadow: 0 0 35px rgba(209, 58, 99, 0.35);
-  animation: pulseGlow 3s ease-in-out infinite alternate;
-}
 
 @keyframes pulseGlow {
   0% { transform: scale(1); box-shadow: 0 0 25px rgba(209, 58, 99, 0.25); }
   100% { transform: scale(1.06); box-shadow: 0 0 45px rgba(209, 58, 99, 0.5); }
 }
 
-.auth-logo {
-  font-family: var(--font-display) !important;
-  font-size: 2.1rem !important;
-  font-weight: 900 !important;
-  letter-spacing: -0.8px !important;
-}
 /* brand wordmark colour split */
-
-.brand-by {
-  color: var(--txt-secondary) !important;
-  font-style: italic;
-  margin: 0 2px;
-  font-weight: 700;
-  -webkit-text-fill-color: var(--txt-secondary) !important;
-}
-.brand-sam {
-  background: linear-gradient(135deg, #E3B34D 0%, #A07628 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-}
-
-.auth-badge-tag {
-  font-size: 0.72rem !important;
-  font-weight: 800 !important;
-  letter-spacing: 2px !important;
-  text-transform: uppercase !important;
-  color: var(--gold-1) !important;
-  background: rgba(227, 179, 77, 0.1) !important;
-  border: 1px solid rgba(227, 179, 77, 0.3) !important;
-  padding: 4px 12px !important;
-  border-radius: var(--r-pill) !important;
-  box-shadow: 0 0 14px rgba(227, 179, 77, 0.2) !important;
-}
-
-.auth-tagline {
-  font-size: 0.92rem !important;
-  color: var(--txt-secondary) !important;
-  line-height: 1.55 !important;
-  max-width: 320px;
-  margin: 0 auto;
-}
-
-.auth-body {
-  background: rgba(14, 10, 22, 0.65) !important;
-  backdrop-filter: blur(28px) !important;
-  -webkit-backdrop-filter: blur(28px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 32px 32px 0 0 !important;
-  padding: 28px 24px 40px !important;
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5) !important;
-}
-
-.auth-form-group label {
-  font-size: 0.8rem !important;
-  font-weight: 700 !important;
-  letter-spacing: 0.5px !important;
-  text-transform: uppercase !important;
-  color: var(--txt-muted) !important;
-  margin-bottom: 8px !important;
-  display: block;
-}
 
 .auth-input-wrap {
   position: relative;
@@ -165,30 +70,6 @@ body::before {
 .accent-btn:hover {
   transform: translateY(-2px) scale(1.02) !important;
   box-shadow: 0 12px 40px rgba(255, 46, 112, 0.65) !important;
-}
-
-.google-btn {
-  width: 100% !important;
-  height: 50px !important;
-  background: rgba(255, 255, 255, 0.06) !important;
-  backdrop-filter: blur(12px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  border-radius: 25px !important;
-  color: #FFFFFF !important;
-  font-size: 0.92rem !important;
-  font-weight: 700 !important;
-  cursor: pointer !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 12px !important;
-  transition: all var(--t-fast) var(--ease-out) !important;
-}
-
-.google-btn:hover {
-  background: rgba(255, 255, 255, 0.12) !important;
-  border-color: rgba(255, 255, 255, 0.25) !important;
-  transform: translateY(-1px) !important;
 }
 
 /* --- 6. TINDER / BUMBLE GRADE DISCOVERY CARD STACK --- */
@@ -1083,25 +964,6 @@ body[data-theme="light"]::before {
 }
 
 /* Auth / Login Screens (Light) */
-[data-theme="light"] .auth-screen {
-  background: radial-gradient(circle at 50% 20%, #FFF5FA 0%, #F5F1FA 65%) !important;
-}
-
-[data-theme="light"] .auth-body {
-  background: rgba(255, 255, 255, 0.94) !important;
-  border: 1px solid rgba(0, 0, 0, 0.08) !important;
-  box-shadow: 0 -12px 40px rgba(70, 40, 90, 0.08) !important;
-}
-
-[data-theme="light"] .auth-title,
-[data-theme="light"] .signup-step-title,
-[data-theme="light"] .auth-tagline {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .auth-form-group label {
-  color: #5A5068 !important;
-}
 
 [data-theme="light"] .auth-input {
   background: #FAF7FD !important;
@@ -1114,22 +976,6 @@ body[data-theme="light"]::before {
 }
 
 [data-theme="light"] .auth-input-icon {
-  color: #7A708A !important;
-}
-
-[data-theme="light"] .google-btn {
-  background: #FFFFFF !important;
-  border: 1px solid #DDD5E7 !important;
-  color: #140C1D !important;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
-}
-
-[data-theme="light"] .google-btn:hover {
-  background: #FAF7FD !important;
-  border-color: #C8BED6 !important;
-}
-
-[data-theme="light"] .auth-switch-text {
   color: #7A708A !important;
 }
 
@@ -1889,10 +1735,6 @@ body[data-theme="light"]::before {
   transform: translateX(5px) scale(1.12) !important;
 }
 
-.secondary-btn:hover .btn-arrow-icon {
-  transform: translateX(-4px) !important;
-}
-
 .accent-btn:hover .btn-arrow-icon {
   transform: translateX(4px) !important;
 }
@@ -2598,35 +2440,6 @@ body[data-theme="light"]::before {
   box-shadow: 0 14px 44px rgba(70, 40, 90, 0.12);
 }
 
-/* --- AUTH SCREEN: Deeper luxury glass panel --- */
-.auth-hero {
-  background: linear-gradient(170deg, rgba(255,46,112,0.14) 0%, rgba(144,87,255,0.06) 50%, transparent 80%) !important;
-  border-bottom: none !important;
-  padding: 52px 24px 24px !important;
-}
-
-.auth-hero::before {
-  background: radial-gradient(circle, rgba(255,46,112,0.22) 0%, transparent 68%) !important;
-  width: 320px !important; height: 320px !important;
-  top: -60px !important;
-}
-
-.auth-logo-glyph,
-.auth-logo-emoji {
-  width: 68px !important; height: 68px !important;
-  border-radius: var(--r-md) !important;
-  background: radial-gradient(circle at 35% 30%, rgba(209,58,99,0.22), rgba(122,22,56,0.1) 70%) !important;
-  border: 1.5px solid rgba(209,58,99,0.35) !important;
-  box-shadow:
-    0 0 0 6px rgba(209,58,99,0.06),
-    0 12px 32px rgba(0,0,0,0.6) !important;
-}
-
-.auth-body {
-  border-radius: 36px 36px 0 0 !important;
-  background: rgba(12, 8, 20, 0.7) !important;
-}
-
 /* Input focus glow with gold shimmer */
 .auth-input:focus {
   border-color: rgba(255,46,112,0.7) !important;
@@ -2940,41 +2753,6 @@ body[data-theme="light"]::before {
   box-shadow: 0 0 0 3px rgba(255,46,112,0.15), 0 4px 16px rgba(255,46,112,0.25) !important;
 }
 
-/* --- GENDER OPTIONS: Premium card tiles --- */
-.gender-option {
-  background: rgba(255,255,255,0.04) !important;
-  border: 1.5px solid rgba(255,255,255,0.1) !important;
-  border-radius: 22px !important;
-  transition: all 0.2s ease !important;
-}
-.gender-option:hover {
-  border-color: rgba(255,46,112,0.4) !important;
-  background: rgba(255,46,112,0.05) !important;
-  transform: scale(1.03) !important;
-}
-.gender-option.selected {
-  border-color: #FF2E70 !important;
-  background: rgba(255,46,112,0.12) !important;
-  box-shadow: 0 0 0 3px rgba(255,46,112,0.15), 0 8px 28px rgba(255,46,112,0.2) !important;
-}
-
-/* --- SIGNUP SUCCESS SCREEN: Lavish welcome --- */
-.success-shell {
-  background: radial-gradient(circle at 50% 20%, rgba(255,46,112,0.18) 0%, rgba(10,7,16,1) 70%) !important;
-}
-
-.success-title {
-  font-size: 1.8rem !important;
-  font-weight: 900 !important;
-  line-height: 1.25 !important;
-}
-
-.success-stats {
-  background: rgba(255,255,255,0.05) !important;
-  border: 1px solid rgba(255,255,255,0.1) !important;
-  border-radius: 24px !important;
-}
-
 /* --- AD BANNER: Less intrusive, more elegant --- */
 .ad-banner-slot {
   background: rgba(255,255,255,0.03) !important;
@@ -2985,26 +2763,13 @@ body[data-theme="light"]::before {
 }
 
 /* --- PROGRESS DOTS (signup) --- */
-.progress-dot {
-  height: 3px !important;
-  border-radius: 3px !important;
-  background: rgba(255,255,255,0.15) !important;
-}
-.progress-dot.active {
-  background: linear-gradient(90deg, #FF2E70 0%, #D13A63 100%) !important;
-  box-shadow: 0 0 8px rgba(255,46,112,0.5) !important;
-  animation: progressGlow 1.4s ease-in-out infinite !important;
-}
+
 @keyframes progressGlow {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
 }
-.progress-dot.done {
-  background: linear-gradient(90deg, #34D399 0%, #10B981 100%) !important;
-}
 
 /* --- SECONDARY / OUTLINE BUTTONS --- */
-.secondary-btn,
 .outline-btn {
   background: rgba(255,255,255,0.06) !important;
   border: 1.5px solid rgba(255,255,255,0.15) !important;
@@ -3014,7 +2779,6 @@ body[data-theme="light"]::before {
   font-size: 0.95rem !important;
   transition: all 0.18s ease !important;
 }
-.secondary-btn:hover,
 .outline-btn:hover {
   background: rgba(255,255,255,0.12) !important;
   border-color: rgba(255,255,255,0.3) !important;
@@ -3102,14 +2866,11 @@ body[data-theme="light"]::before {
 }
 
 /* --- Sign-up Back / Continue buttons: icon alignment --- */
-.secondary-btn svg,
 .accent-btn svg {
   flex-shrink: 0 !important;
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
 }
-.secondary-btn:hover svg {
-  transform: translateX(-3px) !important;
-}
+
 .accent-btn:hover svg {
   transform: translateX(3px) !important;
 }
@@ -3206,17 +2967,7 @@ body[data-theme="light"]::before {
   100% { filter: drop-shadow(0 0 12px rgba(255, 46, 112, 0.4)); transform: scale(1) rotate(0deg); }
 }
 
-.success-crown-wrap svg {
-  animation: successGemPulse 3s ease-in-out infinite !important;
-}
-
 /* Crown wrap containers: re-used as diamond containers */
-.success-crown-wrap {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  margin-bottom: 8px !important;
-}
 
 .upgrade-crown-wrap {
   display: flex !important;
@@ -4366,25 +4117,6 @@ body[data-theme="light"] {
   color: #554D62 !important;
 }
 
-/* Auth Screens */
-[data-theme="light"] .auth-hero-title {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .auth-hero-italic {
-  color: #B8842B !important;
-}
-
-[data-theme="light"] .auth-tagline {
-  color: #554D62 !important;
-}
-
-[data-theme="light"] .auth-amber-badge {
-  background: #FFFFFF !important;
-  border: 2px solid #E5DFEC !important;
-  box-shadow: 0 4px 16px rgba(244, 197, 80, 0.2) !important;
-}
-
 /* Interest Tag Pills */
 [data-theme="light"] .interest-tag {
   background: #F4EFFB !important;
@@ -4954,35 +4686,6 @@ button.accent-btn,
   color: rgba(255, 255, 255, 0.72) !important;
 }
 
-/* --- 4. SIGNUP SUCCESS WELCOME SCREEN (Light & Dark Polish) --- */
-[data-theme="light"] .success-shell {
-  background: radial-gradient(circle at 50% 20%, #FFF0F5 0%, #FAF7F2 60%, #F5EEF9 100%) !important;
-}
-[data-theme="light"] .success-title {
-  color: #140C1D !important;
-}
-[data-theme="light"] .success-sub {
-  color: #382C40 !important;
-  font-weight: 500 !important;
-}
-[data-theme="light"] .success-stats {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 6px 20px rgba(30, 15, 45, 0.06) !important;
-}
-[data-theme="light"] .stat-label {
-  color: #4E4259 !important;
-  font-weight: 700 !important;
-}
-[data-theme="light"] .success-hint {
-  color: #4D4159 !important;
-  font-weight: 500 !important;
-}
-[data-theme="light"] .brand-by {
-  color: #554862 !important;
-  font-weight: 700 !important;
-}
-
 /* --- 6. AUTH SCREENS & DIALOGS POLISH --- */
 [data-theme="light"] .auth-tab {
   background: #F3EEF7 !important;
@@ -4992,37 +4695,6 @@ button.accent-btn,
   background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
   color: #FFFFFF !important;
   box-shadow: 0 4px 14px rgba(180, 25, 75, 0.28) !important;
-}
-[data-theme="light"] .auth-forgot {
-  color: #B71855 !important;
-  font-weight: 700 !important;
-}
-[data-theme="light"] .auth-switch-text span {
-  color: #B71855 !important;
-  font-weight: 700 !important;
-}
-[data-theme="light"] .auth-divider {
-  color: #554862 !important;
-  font-weight: 600 !important;
-}
-[data-theme="light"] .guest-btn {
-  color: #2D2138 !important;
-  border: 1.5px dashed #C8BED2 !important;
-  background: #FFFFFF !important;
-  font-weight: 600 !important;
-}
-[data-theme="light"] .guest-btn:hover {
-  background: #F9F5FC !important;
-  border-color: #B5A8C2 !important;
-}
-
-[data-theme="dark"] .auth-forgot,
-.auth-forgot {
-  color: #FF6694 !important;
-}
-[data-theme="dark"] .auth-switch-text span,
-.auth-switch-text span {
-  color: #FF6694 !important;
 }
 
 /* --- 7. SETTINGS SCREEN ENHANCEMENTS --- */
@@ -5163,11 +4835,6 @@ button.accent-btn,
 [data-theme="light"] .filter-age-val {
   color: #9C1045 !important;
   font-weight: 800 !important;
-}
-
-[data-theme="light"] .auth-hero-italic {
-  color: #8C5B00 !important;
-  font-weight: 700 !important;
 }
 
 [data-theme="light"] .section-count {
@@ -6070,40 +5737,6 @@ button#hkVerifyBtn.hk-vpc-btn {
   box-shadow: 0 2px 10px rgba(16, 185, 129, 0.2);
 }
 
-/* Signup Intent Selector */
-.signup-intent-grid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 6px;
-}
-.signup-intent-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.75);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  user-select: none;
-}
-.signup-intent-pill:hover {
-  background: rgba(255, 255, 255, 0.12);
-  color: #FFFFFF;
-}
-.signup-intent-pill.selected {
-  background: linear-gradient(135deg, rgba(209, 58, 99, 0.25), rgba(227, 179, 77, 0.16));
-  border-color: #FF5E8E;
-  color: #FF7597;
-  font-weight: 700;
-  box-shadow: 0 2px 10px rgba(209, 58, 99, 0.22);
-}
-
 /* Light Mode Overrides */
 [data-theme="light"] .ob-intent-card {
   background: #FFFFFF !important;
@@ -6146,16 +5779,6 @@ button#hkVerifyBtn.hk-vpc-btn {
   background: #ECFDF5 !important;
   border-color: #059669 !important;
   color: #059669 !important;
-}
-[data-theme="light"] .signup-intent-pill {
-  background: #F9FAFB !important;
-  border-color: rgba(0, 0, 0, 0.1) !important;
-  color: #374151 !important;
-}
-[data-theme="light"] .signup-intent-pill.selected {
-  background: #FDF2F8 !important;
-  border-color: #D13A63 !important;
-  color: #D13A63 !important;
 }
 
 /* ==========================================================

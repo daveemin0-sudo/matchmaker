@@ -46,6 +46,7 @@
   <link rel="stylesheet" href="css/base.css?v=70.0">
   <link rel="stylesheet" href="css/components.css?v=70.0">
   <link rel="stylesheet" href="css/shell.css?v=70.0">
+  <link rel="stylesheet" href="css/auth.css?v=70.0">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
@@ -132,7 +133,7 @@
   </script>
 </head>
 <body>
-<!-- sprite:start --><svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></symbol><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></symbol><symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></symbol><symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol><symbol id="i-check-check" viewBox="0 0 24 24"><path d="M18 6 7 17l-5-5" /><path d="m22 10-7.5 7.5L13 16" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /><path d="M12 5v14" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" /></symbol><symbol id="i-ellipsis" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></symbol><symbol id="i-ellipsis-vertical" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" /></symbol><symbol id="i-sliders-horizontal" viewBox="0 0 24 24"><path d="M10 5H3" /><path d="M12 19H3" /><path d="M14 3v4" /><path d="M16 17v4" /><path d="M21 12h-9" /><path d="M21 19h-5" /><path d="M21 5h-7" /><path d="M8 10v4" /><path d="M8 12H3" /></symbol><symbol id="i-settings" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0" /><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" /></symbol><symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0" /><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742" /><path d="m2 2 20 20" /><path d="M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05" /></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></symbol><symbol id="i-circle-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" /></symbol><symbol id="i-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></symbol><symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-loader-circle" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></symbol><symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></symbol><symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></symbol><symbol id="i-undo-2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></symbol><symbol id="i-external-link" viewBox="0 0 24 24"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" /></symbol><symbol id="i-heart-handshake" viewBox="0 0 24 24"><path d="M19.414 14.414C21 12.828 22 11.5 22 9.5a5.5 5.5 0 0 0-9.591-3.676.6.6 0 0 1-.818.001A5.5 5.5 0 0 0 2 9.5c0 2.3 1.5 4 3 5.5l5.535 5.362a2 2 0 0 0 2.879.052 2.12 2.12 0 0 0-.004-3 2.124 2.124 0 1 0 3-3 2.124 2.124 0 0 0 3.004 0 2 2 0 0 0 0-2.828l-1.881-1.882a2.41 2.41 0 0 0-3.409 0l-1.71 1.71a2 2 0 0 1-2.828 0 2 2 0 0 1 0-2.828l2.823-2.762" /></symbol><symbol id="i-star" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" /></symbol><symbol id="i-zap" viewBox="0 0 24 24"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" /></symbol><symbol id="i-crown" viewBox="0 0 24 24"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z" /><path d="M5 21h14" /></symbol><symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" /><path d="M20 2v4" /><path d="M22 4h-4" /><circle cx="4" cy="20" r="2" /></symbol><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" /></symbol><symbol id="i-gem" viewBox="0 0 24 24"><path d="M10.5 3 8 9l4 13 4-13-2.5-6" /><path d="M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z" /><path d="M2 9h20" /></symbol><symbol id="i-badge-check" viewBox="0 0 24 24"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" /><path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="m9 12 2 2 4-4" /></symbol><symbol id="i-shield-alert" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="M12 8v4" /><path d="M12 16h.01" /></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></symbol><symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></symbol><symbol id="i-lock-open" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 9.9-1" /></symbol><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M4.929 4.929 19.07 19.071" /></symbol><symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528" /></symbol><symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><path d="M16 3.128a4 4 0 0 1 0 7.744" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><circle cx="9" cy="7" r="4" /></symbol><symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" x2="19" y1="8" y2="14" /><line x1="22" x2="16" y1="11" y2="11" /></symbol><symbol id="i-user-x" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="17" x2="22" y1="8" y2="13" /><line x1="22" x2="17" y1="8" y2="13" /></symbol><symbol id="i-handshake" viewBox="0 0 24 24"><path d="m11 17 2 2a1 1 0 1 0 3-3" /><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4" /><path d="m21 3 1 11h-2" /><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3" /><path d="M3 4h8" /></symbol><symbol id="i-gift" viewBox="0 0 24 24"><path d="M12 7v14" /><path d="M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8" /><path d="M7.5 7a1 1 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 1 1 0 0 1 0 5" /><rect x="3" y="7" width="18" height="4" rx="1" /></symbol><symbol id="i-rocket" viewBox="0 0 24 24"><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" /><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09" /><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z" /><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05" /></symbol><symbol id="i-thumbs-up" viewBox="0 0 24 24"><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" /><path d="M7 10v12" /></symbol><symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /><circle cx="12" cy="10" r="3" /></symbol><symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z" /></symbol><symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></symbol><symbol id="i-message-square" viewBox="0 0 24 24"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" /></symbol><symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /><path d="m21.854 2.147-10.94 10.939" /></symbol><symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" /></symbol><symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></symbol><symbol id="i-image-plus" viewBox="0 0 24 24"><path d="M16 5h6" /><path d="M19 2v6" /><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /><circle cx="9" cy="9" r="2" /></symbol><symbol id="i-camera" viewBox="0 0 24 24"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z" /><circle cx="12" cy="13" r="3" /></symbol><symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" /><rect x="2" y="6" width="14" height="12" rx="2" /></symbol><symbol id="i-video-off" viewBox="0 0 24 24"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196" /><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2" /><path d="m2 2 20 20" /></symbol><symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 19v3" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><rect x="9" y="2" width="6" height="13" rx="3" /></symbol><symbol id="i-mic-off" viewBox="0 0 24 24"><path d="M12 19v3" /><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" /><path d="M16.95 16.95A7 7 0 0 1 5 12v-2" /><path d="M18.89 13.23A7 7 0 0 0 19 12v-2" /><path d="m2 2 20 20" /><path d="M9 9v3a3 3 0 0 0 5.12 2.12" /></symbol><symbol id="i-phone" viewBox="0 0 24 24"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" /></symbol><symbol id="i-phone-off" viewBox="0 0 24 24"><path d="M10.1 13.9a14 14 0 0 0 3.732 2.668 1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2 18 18 0 0 1-12.728-5.272" /><path d="M22 2 2 22" /><path d="M4.76 13.582A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 .244.473" /></symbol><symbol id="i-phone-call" viewBox="0 0 24 24"><path d="M13 2a9 9 0 0 1 9 9" /><path d="M13 6a5 5 0 0 1 5 5" /><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" /></symbol><symbol id="i-play" viewBox="0 0 24 24"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" /></symbol><symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="3" width="5" height="18" rx="1" /><rect x="5" y="3" width="5" height="18" rx="1" /></symbol><symbol id="i-volume-2" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" /><path d="M16 9a5 5 0 0 1 0 6" /><path d="M19.364 18.364a9 9 0 0 0 0-12.728" /></symbol><symbol id="i-smile" viewBox="0 0 24 24"><path d="M15 10V9" /><path d="M16.472 15a6 6 0 01-8.943 0" /><path d="M9 10V9" /><circle cx="12" cy="12" r="10" /></symbol><symbol id="i-languages" viewBox="0 0 24 24"><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></symbol><symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></symbol><symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" /><rect x="2" y="4" width="20" height="16" rx="2" /></symbol><symbol id="i-key-round" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" /><circle cx="16.5" cy="7.5" r=".5" fill="currentColor" /></symbol><symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6" /><path d="M14 11v6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></symbol><symbol id="i-share-2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /><line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></symbol><symbol id="i-forward" viewBox="0 0 24 24"><path d="m15 17 5-5-5-5" /><path d="M4 18v-2a4 4 0 0 1 4-4h12" /></symbol><symbol id="i-reply" viewBox="0 0 24 24"><path d="M20 18v-2a4 4 0 0 0-4-4H4" /><path d="m9 17-5-5 5-5" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12" /><path d="m17 8-5-5-5 5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></symbol><symbol id="i-log-out" viewBox="0 0 24 24"><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /></symbol><symbol id="i-cake" viewBox="0 0 24 24"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" /><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1" /><path d="M2 21h20" /><path d="M7 8v3" /><path d="M12 8v3" /><path d="M17 8v3" /><path d="M7 4h.01" /><path d="M12 4h.01" /><path d="M17 4h.01" /></symbol><symbol id="i-briefcase" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /><rect width="20" height="14" x="2" y="6" rx="2" /></symbol><symbol id="i-graduation-cap" viewBox="0 0 24 24"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" /><path d="M22 10v6" /><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" /></symbol><symbol id="i-ruler" viewBox="0 0 24 24"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /><path d="m14.5 12.5 2-2" /><path d="m11.5 9.5 2-2" /><path d="m8.5 6.5 2-2" /><path d="m17.5 15.5 2-2" /></symbol><symbol id="i-wine" viewBox="0 0 24 24"><path d="M8 22h8" /><path d="M7 10h10" /><path d="M12 15v7" /><path d="M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z" /></symbol><symbol id="i-cigarette" viewBox="0 0 24 24"><path d="M17 12H3a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14" /><path d="M18 8c0-2.5-2-2.5-2-5" /><path d="M21 16a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" /><path d="M22 8c0-2.5-2-2.5-2-5" /><path d="M7 12v4" /></symbol><symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z" /><path d="m2.5 21.5 1.4-1.4" /><path d="m20.1 3.9 1.4-1.4" /><path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z" /><path d="m9.6 14.4 4.8-4.8" /></symbol><symbol id="i-baby" viewBox="0 0 24 24"><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5" /><path d="M15 12h.01" /><path d="M19.38 6.813A9 9 0 0 1 20.8 10.2a2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1" /><path d="M9 12h.01" /></symbol><symbol id="i-coffee" viewBox="0 0 24 24"><path d="M10 2v2" /><path d="M14 2v2" /><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1" /><path d="M6 2v2" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" /></symbol><symbol id="i-utensils" viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><path d="M7 2v20" /><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" /></symbol><symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></symbol><symbol id="i-scan-face" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><path d="M9 9h.01" /><path d="M15 9h.01" /></symbol><symbol id="i-fingerprint" viewBox="0 0 24 24"><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" /><path d="M14 13.12c0 2.38 0 6.38-1 8.88" /><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" /><path d="M2 12a10 10 0 0 1 18-6" /><path d="M2 16h.01" /><path d="M21.8 16c.2-2 .131-5.354 0-6" /><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" /><path d="M8.65 22c.21-.66.45-1.32.57-2" /><path d="M9 6.8a6 6 0 0 1 9 5.2v2" /></symbol><symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M12 20h.01" /><path d="M8.5 16.429a5 5 0 0 1 7 0" /><path d="M5 12.859a10 10 0 0 1 5.17-2.69" /><path d="M19 12.859a10 10 0 0 0-2.007-1.523" /><path d="M2 8.82a15 15 0 0 1 4.177-2.643" /><path d="M22 8.82a15 15 0 0 0-11.288-3.764" /><path d="m2 2 20 20" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z" /></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol><symbol id="i-logo" viewBox="0 0 64 64"><path d="M31 47 C19 40 14 33 14 26 a8.5 8.5 0 0 1 17 -3 a8.5 8.5 0 0 1 17 3 c0 6 -4 10 -9 15 c-3 3 -4.5 4.5 -4.5 7 a4.5 4.5 0 0 0 9 0" stroke-width="4.5"/></symbol></svg><!-- sprite:end -->
+<!-- sprite:start --><svg xmlns="http://www.w3.org/2000/svg" style="display:none" aria-hidden="true"><symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7" /><path d="M19 12H5" /></symbol><symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></symbol><symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6" /></symbol><symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6" /></symbol><symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6" /></symbol><symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="m18 15-6-6-6 6" /></symbol><symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></symbol><symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5" /></symbol><symbol id="i-check-check" viewBox="0 0 24 24"><path d="M18 6 7 17l-5-5" /><path d="m22 10-7.5 7.5L13 16" /></symbol><symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14" /><path d="M12 5v14" /></symbol><symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14" /></symbol><symbol id="i-ellipsis" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></symbol><symbol id="i-ellipsis-vertical" viewBox="0 0 24 24"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></symbol><symbol id="i-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34" /><circle cx="11" cy="11" r="8" /></symbol><symbol id="i-sliders-horizontal" viewBox="0 0 24 24"><path d="M10 5H3" /><path d="M12 19H3" /><path d="M14 3v4" /><path d="M16 17v4" /><path d="M21 12h-9" /><path d="M21 19h-5" /><path d="M21 5h-7" /><path d="M8 10v4" /><path d="M8 12H3" /></symbol><symbol id="i-settings" viewBox="0 0 24 24"><path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /><circle cx="12" cy="12" r="3" /></symbol><symbol id="i-bell" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0" /><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" /></symbol><symbol id="i-bell-off" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0" /><path d="M17 17H4a1 1 0 0 1-.74-1.673C4.59 13.956 6 12.499 6 8a6 6 0 0 1 .258-1.742" /><path d="m2 2 20 20" /><path d="M8.668 3.01A6 6 0 0 1 18 8c0 2.687.77 4.653 1.707 6.05" /></symbol><symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></symbol><symbol id="i-circle-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" /><path d="M12 17h.01" /></symbol><symbol id="i-circle-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="12" /><line x1="12" x2="12.01" y1="16" y2="16" /></symbol><symbol id="i-triangle-alert" viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3" /><path d="M12 9v4" /><path d="M12 17h.01" /></symbol><symbol id="i-circle-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-loader-circle" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></symbol><symbol id="i-refresh-cw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" /><path d="M21 3v5h-5" /><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" /><path d="M8 16H3v5" /></symbol><symbol id="i-rotate-ccw" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></symbol><symbol id="i-undo-2" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5" /><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11" /></symbol><symbol id="i-external-link" viewBox="0 0 24 24"><path d="M15 3h6v6" /><path d="M10 14 21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></symbol><symbol id="i-heart" viewBox="0 0 24 24"><path d="M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5" /></symbol><symbol id="i-heart-handshake" viewBox="0 0 24 24"><path d="M19.414 14.414C21 12.828 22 11.5 22 9.5a5.5 5.5 0 0 0-9.591-3.676.6.6 0 0 1-.818.001A5.5 5.5 0 0 0 2 9.5c0 2.3 1.5 4 3 5.5l5.535 5.362a2 2 0 0 0 2.879.052 2.12 2.12 0 0 0-.004-3 2.124 2.124 0 1 0 3-3 2.124 2.124 0 0 0 3.004 0 2 2 0 0 0 0-2.828l-1.881-1.882a2.41 2.41 0 0 0-3.409 0l-1.71 1.71a2 2 0 0 1-2.828 0 2 2 0 0 1 0-2.828l2.823-2.762" /></symbol><symbol id="i-star" viewBox="0 0 24 24"><path d="M11.525 2.295a.53.53 0 0 1 .95 0l2.31 4.679a2.123 2.123 0 0 0 1.595 1.16l5.166.756a.53.53 0 0 1 .294.904l-3.736 3.638a2.123 2.123 0 0 0-.611 1.878l.882 5.14a.53.53 0 0 1-.771.56l-4.618-2.428a2.122 2.122 0 0 0-1.973 0L6.396 21.01a.53.53 0 0 1-.77-.56l.881-5.139a2.122 2.122 0 0 0-.611-1.879L2.16 9.795a.53.53 0 0 1 .294-.906l5.165-.755a2.122 2.122 0 0 0 1.597-1.16z" /></symbol><symbol id="i-zap" viewBox="0 0 24 24"><path d="M15.914 4a1.5 1.5 0 00-2.474-1.561l-9 9A1.5 1.5 0 005.5 14h4.002a.5.5 0 01.471.666L8.086 20a1.5 1.5 0 002.475 1.56l9-9A1.5 1.5 0 0018.5 10h-3.997a.5.5 0 01-.472-.667z" /></symbol><symbol id="i-crown" viewBox="0 0 24 24"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z" /><path d="M5 21h14" /></symbol><symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z" /><path d="M20 2v4" /><path d="M22 4h-4" /><circle cx="4" cy="20" r="2" /></symbol><symbol id="i-flame" viewBox="0 0 24 24"><path d="M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4" /></symbol><symbol id="i-gem" viewBox="0 0 24 24"><path d="M10.5 3 8 9l4 13 4-13-2.5-6" /><path d="M17 3a2 2 0 0 1 1.6.8l3 4a2 2 0 0 1 .013 2.382l-7.99 10.986a2 2 0 0 1-3.247 0l-7.99-10.986A2 2 0 0 1 2.4 7.8l2.998-3.997A2 2 0 0 1 7 3z" /><path d="M2 9h20" /></symbol><symbol id="i-badge-check" viewBox="0 0 24 24"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" /><path d="m16 9-5.5 5.5L8 12" /></symbol><symbol id="i-shield-check" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="m9 12 2 2 4-4" /></symbol><symbol id="i-shield-alert" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /><path d="M12 8v4" /><path d="M12 16h.01" /></symbol><symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /></symbol><symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0" /><circle cx="12" cy="12" r="3" /></symbol><symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M10.733 5.076a10.744 10.744 0 0 1 11.205 6.575 1 1 0 0 1 0 .696 10.747 10.747 0 0 1-1.444 2.49" /><path d="M14.084 14.158a3 3 0 0 1-4.242-4.242" /><path d="M17.479 17.499a10.75 10.75 0 0 1-15.417-5.151 1 1 0 0 1 0-.696 10.75 10.75 0 0 1 4.446-5.143" /><path d="m2 2 20 20" /></symbol><symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></symbol><symbol id="i-lock-open" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2" ry="2" /><path d="M7 11V7a5 5 0 0 1 9.9-1" /></symbol><symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M4.929 4.929 19.07 19.071" /></symbol><symbol id="i-flag" viewBox="0 0 24 24"><path d="M4 22V4a1 1 0 0 1 .4-.8A6 6 0 0 1 8 2c3 0 5 2 7.333 2q2 0 3.067-.8A1 1 0 0 1 20 4v10a1 1 0 0 1-.4.8A6 6 0 0 1 16 16c-3 0-5-2-8-2a6 6 0 0 0-4 1.528" /></symbol><symbol id="i-user" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></symbol><symbol id="i-users" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><path d="M16 3.128a4 4 0 0 1 0 7.744" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><circle cx="9" cy="7" r="4" /></symbol><symbol id="i-user-plus" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="19" x2="19" y1="8" y2="14" /><line x1="22" x2="16" y1="11" y2="11" /></symbol><symbol id="i-user-x" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><line x1="17" x2="22" y1="8" y2="13" /><line x1="22" x2="17" y1="8" y2="13" /></symbol><symbol id="i-handshake" viewBox="0 0 24 24"><path d="m11 17 2 2a1 1 0 1 0 3-3" /><path d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4" /><path d="m21 3 1 11h-2" /><path d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3" /><path d="M3 4h8" /></symbol><symbol id="i-gift" viewBox="0 0 24 24"><path d="M12 7v14" /><path d="M20 11v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8" /><path d="M7.5 7a1 1 0 0 1 0-5A4.8 8 0 0 1 12 7a4.8 8 0 0 1 4.5-5 1 1 0 0 1 0 5" /><rect x="3" y="7" width="18" height="4" rx="1" /></symbol><symbol id="i-rocket" viewBox="0 0 24 24"><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5" /><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09" /><path d="M9 12a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.4 22.4 0 0 1-4 2z" /><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 .05 5 .05" /></symbol><symbol id="i-thumbs-up" viewBox="0 0 24 24"><path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2h2.76a2 2 0 0 0 1.79-1.11L12 2a3.13 3.13 0 0 1 3 3.88Z" /><path d="M7 10v12" /></symbol><symbol id="i-map-pin" viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0" /><circle cx="12" cy="10" r="3" /></symbol><symbol id="i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z" /></symbol><symbol id="i-house" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8" /><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /></symbol><symbol id="i-message-circle" viewBox="0 0 24 24"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /></symbol><symbol id="i-message-square" viewBox="0 0 24 24"><path d="M22 17a2 2 0 0 1-2 2H6.828a2 2 0 0 0-1.414.586l-2.202 2.202A.71.71 0 0 1 2 21.286V5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2z" /></symbol><symbol id="i-send" viewBox="0 0 24 24"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z" /><path d="m21.854 2.147-10.94 10.939" /></symbol><symbol id="i-paperclip" viewBox="0 0 24 24"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551" /></symbol><symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" ry="2" /><circle cx="9" cy="9" r="2" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /></symbol><symbol id="i-image-plus" viewBox="0 0 24 24"><path d="M16 5h6" /><path d="M19 2v6" /><path d="M21 11.5V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7.5" /><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" /><circle cx="9" cy="9" r="2" /></symbol><symbol id="i-camera" viewBox="0 0 24 24"><path d="M13.997 4a2 2 0 0 1 1.76 1.05l.486.9A2 2 0 0 0 18.003 7H20a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h1.997a2 2 0 0 0 1.759-1.048l.489-.904A2 2 0 0 1 10.004 4z" /><circle cx="12" cy="13" r="3" /></symbol><symbol id="i-video" viewBox="0 0 24 24"><path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5" /><rect x="2" y="6" width="14" height="12" rx="2" /></symbol><symbol id="i-video-off" viewBox="0 0 24 24"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.5l5.248-3.062A.5.5 0 0 1 22 7.87v8.196" /><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2" /><path d="m2 2 20 20" /></symbol><symbol id="i-mic" viewBox="0 0 24 24"><path d="M12 19v3" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><rect x="9" y="2" width="6" height="13" rx="3" /></symbol><symbol id="i-mic-off" viewBox="0 0 24 24"><path d="M12 19v3" /><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" /><path d="M16.95 16.95A7 7 0 0 1 5 12v-2" /><path d="M18.89 13.23A7 7 0 0 0 19 12v-2" /><path d="m2 2 20 20" /><path d="M9 9v3a3 3 0 0 0 5.12 2.12" /></symbol><symbol id="i-phone" viewBox="0 0 24 24"><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" /></symbol><symbol id="i-phone-off" viewBox="0 0 24 24"><path d="M10.1 13.9a14 14 0 0 0 3.732 2.668 1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2 18 18 0 0 1-12.728-5.272" /><path d="M22 2 2 22" /><path d="M4.76 13.582A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 .244.473" /></symbol><symbol id="i-phone-call" viewBox="0 0 24 24"><path d="M13 2a9 9 0 0 1 9 9" /><path d="M13 6a5 5 0 0 1 5 5" /><path d="M13.832 16.568a1 1 0 0 0 1.213-.303l.355-.465A2 2 0 0 1 17 15h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2A18 18 0 0 1 2 4a2 2 0 0 1 2-2h3a2 2 0 0 1 2 2v3a2 2 0 0 1-.8 1.6l-.468.351a1 1 0 0 0-.292 1.233 14 14 0 0 0 6.392 6.384" /></symbol><symbol id="i-play" viewBox="0 0 24 24"><path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" /></symbol><symbol id="i-pause" viewBox="0 0 24 24"><rect x="14" y="3" width="5" height="18" rx="1" /><rect x="5" y="3" width="5" height="18" rx="1" /></symbol><symbol id="i-volume-2" viewBox="0 0 24 24"><path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z" /><path d="M16 9a5 5 0 0 1 0 6" /><path d="M19.364 18.364a9 9 0 0 0 0-12.728" /></symbol><symbol id="i-smile" viewBox="0 0 24 24"><path d="M15 10V9" /><path d="M16.472 15a6 6 0 01-8.943 0" /><path d="M9 10V9" /><circle cx="12" cy="12" r="10" /></symbol><symbol id="i-languages" viewBox="0 0 24 24"><path d="m5 8 6 6" /><path d="m4 14 6-6 2-3" /><path d="M2 5h12" /><path d="M7 2h1" /><path d="m22 22-5-10-5 10" /><path d="M14 18h6" /></symbol><symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" /><path d="M2 12h20" /></symbol><symbol id="i-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" /></symbol><symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M12 2v2" /><path d="M12 20v2" /><path d="m4.93 4.93 1.41 1.41" /><path d="m17.66 17.66 1.41 1.41" /><path d="M2 12h2" /><path d="M20 12h2" /><path d="m6.34 17.66-1.41 1.41" /><path d="m19.07 4.93-1.41 1.41" /></symbol><symbol id="i-mail" viewBox="0 0 24 24"><path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7" /><rect x="2" y="4" width="20" height="16" rx="2" /></symbol><symbol id="i-key-round" viewBox="0 0 24 24"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z" /><circle cx="16.5" cy="7.5" r=".5" fill="currentColor" /></symbol><symbol id="i-trash-2" viewBox="0 0 24 24"><path d="M10 11v6" /><path d="M14 11v6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" /><path d="M3 6h18" /><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></symbol><symbol id="i-pencil" viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" /><path d="m15 5 4 4" /></symbol><symbol id="i-share-2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" x2="15.42" y1="13.51" y2="17.49" /><line x1="15.41" x2="8.59" y1="6.51" y2="10.49" /></symbol><symbol id="i-forward" viewBox="0 0 24 24"><path d="m15 17 5-5-5-5" /><path d="M4 18v-2a4 4 0 0 1 4-4h12" /></symbol><symbol id="i-reply" viewBox="0 0 24 24"><path d="M20 18v-2a4 4 0 0 0-4-4H4" /><path d="m9 17-5-5 5-5" /></symbol><symbol id="i-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></symbol><symbol id="i-download" viewBox="0 0 24 24"><path d="M12 15V3" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /></symbol><symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 3v12" /><path d="m17 8-5-5-5 5" /><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /></symbol><symbol id="i-log-out" viewBox="0 0 24 24"><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /></symbol><symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></symbol><symbol id="i-calendar" viewBox="0 0 24 24"><path d="M8 2v3" /><path d="M16 2v3" /><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9h18" /></symbol><symbol id="i-cake" viewBox="0 0 24 24"><path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8" /><path d="M4 16s.5-1 2-1 2.5 2 4 2 2.5-2 4-2 2.5 2 4 2 2-1 2-1" /><path d="M2 21h20" /><path d="M7 8v3" /><path d="M12 8v3" /><path d="M17 8v3" /><path d="M7 4h.01" /><path d="M12 4h.01" /><path d="M17 4h.01" /></symbol><symbol id="i-briefcase" viewBox="0 0 24 24"><path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" /><rect width="20" height="14" x="2" y="6" rx="2" /></symbol><symbol id="i-graduation-cap" viewBox="0 0 24 24"><path d="M21.42 10.922a1 1 0 0 0-.019-1.838L12.83 5.18a2 2 0 0 0-1.66 0L2.6 9.08a1 1 0 0 0 0 1.832l8.57 3.908a2 2 0 0 0 1.66 0z" /><path d="M22 10v6" /><path d="M6 12.5V16a6 3 0 0 0 12 0v-3.5" /></symbol><symbol id="i-ruler" viewBox="0 0 24 24"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.41 2.41 0 0 1 0-3.4l2.6-2.6a2.41 2.41 0 0 1 3.4 0Z" /><path d="m14.5 12.5 2-2" /><path d="m11.5 9.5 2-2" /><path d="m8.5 6.5 2-2" /><path d="m17.5 15.5 2-2" /></symbol><symbol id="i-wine" viewBox="0 0 24 24"><path d="M8 22h8" /><path d="M7 10h10" /><path d="M12 15v7" /><path d="M12 15a5 5 0 0 0 5-5c0-2-.5-4-2-8H9c-1.5 4-2 6-2 8a5 5 0 0 0 5 5Z" /></symbol><symbol id="i-cigarette" viewBox="0 0 24 24"><path d="M17 12H3a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14" /><path d="M18 8c0-2.5-2-2.5-2-5" /><path d="M21 16a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" /><path d="M22 8c0-2.5-2-2.5-2-5" /><path d="M7 12v4" /></symbol><symbol id="i-dumbbell" viewBox="0 0 24 24"><path d="M17.596 12.768a2 2 0 1 0 2.829-2.829l-1.768-1.767a2 2 0 0 0 2.828-2.829l-2.828-2.828a2 2 0 0 0-2.829 2.828l-1.767-1.768a2 2 0 1 0-2.829 2.829z" /><path d="m2.5 21.5 1.4-1.4" /><path d="m20.1 3.9 1.4-1.4" /><path d="M5.343 21.485a2 2 0 1 0 2.829-2.828l1.767 1.768a2 2 0 1 0 2.829-2.829l-6.364-6.364a2 2 0 1 0-2.829 2.829l1.768 1.767a2 2 0 0 0-2.828 2.829z" /><path d="m9.6 14.4 4.8-4.8" /></symbol><symbol id="i-baby" viewBox="0 0 24 24"><path d="M10 16c.5.3 1.2.5 2 .5s1.5-.2 2-.5" /><path d="M15 12h.01" /><path d="M19.38 6.813A9 9 0 0 1 20.8 10.2a2 2 0 0 1 0 3.6 9 9 0 0 1-17.6 0 2 2 0 0 1 0-3.6A9 9 0 0 1 12 3c2 0 3.5 1.1 3.5 2.5s-.9 2.5-2 2.5c-.8 0-1.5-.4-1.5-1" /><path d="M9 12h.01" /></symbol><symbol id="i-coffee" viewBox="0 0 24 24"><path d="M10 2v2" /><path d="M14 2v2" /><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1" /><path d="M6 2v2" /></symbol><symbol id="i-plane" viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z" /></symbol><symbol id="i-utensils" viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2" /><path d="M7 2v20" /><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7" /></symbol><symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" /></symbol><symbol id="i-scan-face" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2" /><path d="M17 3h2a2 2 0 0 1 2 2v2" /><path d="M21 17v2a2 2 0 0 1-2 2h-2" /><path d="M7 21H5a2 2 0 0 1-2-2v-2" /><path d="M8 14s1.5 2 4 2 4-2 4-2" /><path d="M9 9h.01" /><path d="M15 9h.01" /></symbol><symbol id="i-fingerprint" viewBox="0 0 24 24"><path d="M12 10a2 2 0 0 0-2 2c0 1.02-.1 2.51-.26 4" /><path d="M14 13.12c0 2.38 0 6.38-1 8.88" /><path d="M17.29 21.02c.12-.6.43-2.3.5-3.02" /><path d="M2 12a10 10 0 0 1 18-6" /><path d="M2 16h.01" /><path d="M21.8 16c.2-2 .131-5.354 0-6" /><path d="M5 19.5C5.5 18 6 15 6 12a6 6 0 0 1 .34-2" /><path d="M8.65 22c.21-.66.45-1.32.57-2" /><path d="M9 6.8a6 6 0 0 1 9 5.2v2" /></symbol><symbol id="i-wifi-off" viewBox="0 0 24 24"><path d="M12 20h.01" /><path d="M8.5 16.429a5 5 0 0 1 7 0" /><path d="M5 12.859a10 10 0 0 1 5.17-2.69" /><path d="M19 12.859a10 10 0 0 0-2.007-1.523" /><path d="M2 8.82a15 15 0 0 1 4.177-2.643" /><path d="M22 8.82a15 15 0 0 0-11.288-3.764" /><path d="m2 2 20 20" /></symbol><symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M17 3a2 2 0 0 1 2 2v15a1 1 0 0 1-1.496.868l-4.512-2.578a2 2 0 0 0-1.984 0l-4.512 2.578A1 1 0 0 1 5 20V5a2 2 0 0 1 2-2z" /></symbol><symbol id="i-layers" viewBox="0 0 24 24"><path d="M12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z" /><path d="M2 12a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 12" /><path d="M2 17a1 1 0 0 0 .58.91l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9A1 1 0 0 0 22 17" /></symbol><symbol id="i-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /></symbol><symbol id="i-circle-x" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="m15 9-6 6" /><path d="m9 9 6 6" /></symbol><symbol id="i-circle-user" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="10" r="3" /><path d="M7 20.662V19a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1.662" /></symbol><symbol id="i-user-round" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5" /><path d="M20 21a8 8 0 0 0-16 0" /></symbol><symbol id="i-message-circle-heart" viewBox="0 0 24 24"><path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719" /><path d="M7.828 13.07A3 3 0 0 1 12 8.764a3 3 0 0 1 5.004 2.224 3 3 0 0 1-.832 2.083l-3.447 3.62a1 1 0 0 1-1.45-.001z" /></symbol><symbol id="i-heart-off" viewBox="0 0 24 24"><path d="M10.5 4.893a5.5 5.5 0 0 1 1.091.931.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 1.872-1.002 3.356-2.187 4.655" /><path d="m16.967 16.967-3.459 3.346a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5a5.5 5.5 0 0 1 2.747-4.761" /><path d="m2 2 20 20" /></symbol><symbol id="i-bell-ring" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0" /><path d="M22 8c0-2.3-.8-4.3-2-6" /><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326" /><path d="M4 2C2.8 3.7 2 5.7 2 8" /></symbol><symbol id="i-images" viewBox="0 0 24 24"><path d="m22 11-1.296-1.296a2.4 2.4 0 0 0-3.408 0L11 16" /><path d="M4 8a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2" /><circle cx="13" cy="7" r="1" fill="currentColor" /><rect x="8" y="2" width="14" height="14" rx="2" /></symbol><symbol id="i-file-text" viewBox="0 0 24 24"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" /><path d="M14 2v5a1 1 0 0 0 1 1h5" /><path d="M10 9H8" /><path d="M16 13H8" /><path d="M16 17H8" /></symbol><symbol id="i-film" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M7 3v18" /><path d="M3 7.5h4" /><path d="M3 12h18" /><path d="M3 16.5h4" /><path d="M17 3v18" /><path d="M17 7.5h4" /><path d="M17 16.5h4" /></symbol><symbol id="i-inbox" viewBox="0 0 24 24"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" /></symbol><symbol id="i-lightbulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5" /><path d="M9 18h6" /><path d="M10 22h4" /></symbol><symbol id="i-at-sign" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4" /><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8" /></symbol><symbol id="i-bot" viewBox="0 0 24 24"><path d="M12 8V4H8" /><rect width="16" height="12" x="4" y="8" rx="2" /><path d="M2 14h2" /><path d="M20 14h2" /><path d="M15 13v2" /><path d="M9 13v2" /></symbol><symbol id="i-wand-sparkles" viewBox="0 0 24 24"><path d="m21.64 3.64-1.28-1.28a1.21 1.21 0 0 0-1.72 0L2.36 18.64a1.21 1.21 0 0 0 0 1.72l1.28 1.28a1.2 1.2 0 0 0 1.72 0L21.64 5.36a1.2 1.2 0 0 0 0-1.72" /><path d="m14 7 3 3" /><path d="M5 6v4" /><path d="M19 14v4" /><path d="M10 2v2" /><path d="M7 8H3" /><path d="M21 16h-4" /><path d="M11 3H9" /></symbol><symbol id="i-rewind" viewBox="0 0 24 24"><path d="M12 6a2 2 0 0 0-3.414-1.414l-6 6a2 2 0 0 0 0 2.828l6 6A2 2 0 0 0 12 18z" /><path d="M22 6a2 2 0 0 0-3.414-1.414l-6 6a2 2 0 0 0 0 2.828l6 6A2 2 0 0 0 22 18z" /></symbol><symbol id="i-arrow-up" viewBox="0 0 24 24"><path d="m5 12 7-7 7 7" /><path d="M12 19V5" /></symbol><symbol id="i-arrow-down" viewBox="0 0 24 24"><path d="M12 5v14" /><path d="m19 12-7 7-7-7" /></symbol><symbol id="i-square" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2" /></symbol><symbol id="i-refresh-ccw" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" /><path d="M16 16h5v5" /></symbol><symbol id="i-volume-x" viewBox="0 0 24 24"><path d="M11 4.702a.7.7 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.7.7 0 0 0 11 19.298z" /><path d="m16.5 14.5 5-5" /><path d="m16.5 9.5 5 5" /></symbol><symbol id="i-list-filter" viewBox="0 0 24 24"><path d="M2 5h20" /><path d="M6 12h12" /><path d="M9 19h6" /></symbol><symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M5 22h14" /><path d="M5 2h14" /><path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" /><path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" /></symbol><symbol id="i-logo" viewBox="0 0 64 64"><path d="M31 47 C19 40 14 33 14 26 a8.5 8.5 0 0 1 17 -3 a8.5 8.5 0 0 1 17 3 c0 6 -4 10 -9 15 c-3 3 -4.5 4.5 -4.5 7 a4.5 4.5 0 0 0 9 0" stroke-width="4.5"/></symbol></svg><!-- sprite:end -->
 
   <!-- =========================================================
        AGE GATE — 18+ consent required for a dating app
@@ -242,132 +243,109 @@
            SCREEN: LOGIN
            ===================================================== -->
       <div class="screen auth-screen" id="loginScreen">
-        <div class="auth-hero">
-          <!-- Amber Heart Badge (Mockup Design) -->
-          <div class="auth-amber-badge">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="#F4C550">
-              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
-            </svg>
+        <div class="auth-wrap">
+          <div class="auth-brand brand" aria-label="hookmebysam">
+            <svg class="i i-logo" aria-hidden="true"><use href="#i-logo"/></svg>
+            <span class="brand-word"><b>hookme</b>bysam</span>
           </div>
 
-          <h1 class="auth-hero-title">
-            Find your<br>
-            <span class="auth-hero-italic">person.</span>
-          </h1>
+          <div class="auth-intro">
+            <h1 class="auth-title">Find your <em>person.</em></h1>
+            <p class="auth-lede">Sign in to pick up your conversations and see who is new.</p>
+          </div>
 
-          <p class="auth-tagline">Curated matchmaking for people who take their time seriously.</p>
-        </div>
-
-        <div class="auth-body">
-          <!-- Rate Limit / Brute-Force Lockout Banner (Dynamic) -->
-          <div class="auth-rate-limit-banner" id="loginRateLimitBanner" style="display:none">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          <div class="notice notice-danger" id="loginRateLimitBanner" role="alert" style="display:none">
+            <svg class="i" aria-hidden="true"><use href="#i-circle-alert"/></svg>
             <span id="loginRateLimitMsg">Too many failed attempts. Please wait 60s.</span>
           </div>
 
-          <!-- Auth Mode Tabs: Email vs Phone -->
-          <div class="auth-tabs" role="tablist">
-            <button type="button" class="auth-tab active" id="loginTabEmail" onclick="switchLoginMethod('email')" role="tab" aria-selected="true">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-              Email
+          <div class="seg auth-methods" role="tablist" aria-label="Sign-in method">
+            <button type="button" class="active" id="loginTabEmail" onclick="switchLoginMethod('email')" role="tab" aria-selected="true" aria-controls="loginEmailSection">
+              <svg class="i i-sm" aria-hidden="true"><use href="#i-mail"/></svg>Email
             </button>
-            <button type="button" class="auth-tab" id="loginTabPhone" onclick="switchLoginMethod('phone')" role="tab" aria-selected="false">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-              Phone Number
+            <button type="button" id="loginTabPhone" onclick="switchLoginMethod('phone')" role="tab" aria-selected="false" aria-controls="loginPhoneSection">
+              <svg class="i i-sm" aria-hidden="true"><use href="#i-phone"/></svg>Phone
             </button>
           </div>
 
-          <!-- EMAIL LOGIN SECTION -->
-          <div id="loginEmailSection">
-            <div class="auth-form-group">
-              <label for="loginEmail">Email Address</label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-icon">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
-                </span>
-                <input class="auth-input" id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
+          <!-- Email sign-in -->
+          <form class="auth-form" id="loginEmailSection" role="tabpanel" aria-labelledby="loginTabEmail" onsubmit="event.preventDefault(); handleLogin();" novalidate>
+            <div class="field">
+              <label class="field-label" for="loginEmail">Email</label>
+              <div class="input-wrap">
+                <svg class="i" aria-hidden="true"><use href="#i-mail"/></svg>
+                <input class="input" id="loginEmail" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
               </div>
             </div>
 
-            <div class="auth-form-group">
-              <label for="loginPassword">Password</label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-icon">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-                </span>
-                <input class="auth-input" id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password">
-                <button class="auth-toggle-password" type="button" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Toggle password">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            <div class="field">
+              <label class="field-label" for="loginPassword">Password</label>
+              <div class="input-wrap">
+                <svg class="i" aria-hidden="true"><use href="#i-lock"/></svg>
+                <input class="input" id="loginPassword" type="password" placeholder="Your password" autocomplete="current-password">
+                <button class="input-action" type="button" onclick="togglePasswordVisibility('loginPassword', this)" aria-label="Show password" aria-pressed="false">
+                  <svg class="i" aria-hidden="true"><use href="#i-eye"/></svg>
                 </button>
               </div>
             </div>
 
-            <div style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 14px">
-              <label style="display:inline-flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--txt-secondary);cursor:pointer;margin:0;user-select:none">
-                <input type="checkbox" id="loginRememberMe" checked style="accent-color:var(--flame-1);width:16px;height:16px;cursor:pointer">
-                <span>Remember Me</span>
+            <div class="auth-row">
+              <label class="check">
+                <input type="checkbox" id="loginRememberMe" checked>
+                <span class="box"><svg class="i" aria-hidden="true"><use href="#i-check"/></svg></span>
+                <span>Remember me</span>
               </label>
-              <span class="auth-forgot" onclick="handleForgotPassword()" style="margin:0">Forgot Password?</span>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="handleForgotPassword()">Forgot password?</button>
             </div>
 
-            <div class="auth-error" id="loginError"></div>
+            <div class="field-error auth-error" id="loginError" role="alert"></div>
 
-            <button class="accent-btn" id="loginBtn" onclick="handleLogin()">
-              Sign In
-            </button>
-          </div>
+            <button type="submit" class="btn btn-primary btn-lg btn-block" id="loginBtn">Sign in</button>
+          </form>
 
-          <!-- PHONE LOGIN SECTION -->
-          <div id="loginPhoneSection" style="display:none">
-            <div class="auth-form-group">
-              <label for="loginPhoneNumber">Phone Number</label>
-              <div class="phone-input-wrap">
-                <div class="phone-country-code">🇳🇬 +234</div>
-                <div class="auth-input-wrap" style="flex:1;min-width:0">
-                  <input class="auth-input" id="loginPhoneNumber" type="tel" placeholder="801 234 5678" inputmode="tel" autocomplete="tel-national">
-                </div>
+          <!-- Phone sign-in -->
+          <form class="auth-form" id="loginPhoneSection" role="tabpanel" aria-labelledby="loginTabPhone" style="display:none" onsubmit="event.preventDefault(); handlePhoneLogin();" novalidate>
+            <div class="field">
+              <label class="field-label" for="loginPhoneNumber">Phone number</label>
+              <div class="phone-field">
+                <span class="phone-prefix" aria-hidden="true">+234</span>
+                <input class="input" id="loginPhoneNumber" type="tel" placeholder="801 234 5678" inputmode="tel" autocomplete="tel-national" aria-label="Phone number, without the country code">
               </div>
             </div>
 
-            <div id="loginPhoneOtpGroup" style="display:none">
-              <div class="auth-form-group">
-                <label for="loginPhoneOtp">6-Digit Verification Code</label>
-                <div class="auth-input-wrap">
-                  <span class="auth-input-icon">
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg>
-                  </span>
-                  <input class="auth-input" id="loginPhoneOtp" type="text" placeholder="123456" maxlength="6" inputmode="numeric" style="letter-spacing:5px;font-weight:700">
-                </div>
-              </div>
+            <div class="field" id="loginPhoneOtpGroup" style="display:none">
+              <label class="field-label" for="loginPhoneOtp">6-digit code</label>
+              <input class="input input-code" id="loginPhoneOtp" type="text" placeholder="123456" maxlength="6" inputmode="numeric" autocomplete="one-time-code">
             </div>
 
-            <div class="auth-error" id="loginPhoneError"></div>
+            <div class="field-error auth-error" id="loginPhoneError" role="alert"></div>
 
-            <button class="accent-btn" id="loginPhoneBtn" onclick="handlePhoneLogin()">
-              Send Login Code
+            <button type="submit" class="btn btn-primary btn-lg btn-block" id="loginPhoneBtn">Send login code</button>
+          </form>
+
+          <div class="auth-divider"><span>or</span></div>
+
+          <div class="auth-alt">
+            <button type="button" class="btn btn-secondary btn-lg btn-block" id="googleLoginBtn" onclick="handleGoogleLogin()">
+              <svg class="google-g" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 4.5C13.8 4.5 15.4 5.2 16.6 6.3L19.9 3C17.9 1.1 15.1 0 12 0C7.4 0 3.4 2.6 1.4 6.4L5.2 9.3C6.2 6.5 8.8 4.5 12 4.5Z" fill="#EA4335"/>
+                <path d="M23.5 12.3C23.5 11.4 23.4 10.6 23.3 9.8H12V14.5H18.5C18.2 16 17.4 17.2 16.2 18L19.9 20.8C22.1 18.8 23.5 15.8 23.5 12.3Z" fill="#4285F4"/>
+                <path d="M5.2 14.7C4.9 13.9 4.8 13 4.8 12C4.8 11 5 10.1 5.2 9.3L1.4 6.4C0.5 8.1 0 10 0 12C0 14 0.5 15.9 1.4 17.6L5.2 14.7Z" fill="#FBBC05"/>
+                <path d="M12 24C15.1 24 17.8 23 19.9 20.8L16.2 18C15.1 18.7 13.7 19.2 12 19.2C8.8 19.2 6.2 17.2 5.2 14.4L1.4 17.3C3.4 21.4 7.4 24 12 24Z" fill="#34A853"/>
+              </svg>
+              Continue with Google
             </button>
+            <div class="field-error auth-error" id="googleLoginError" role="alert"></div>
           </div>
 
-          <div class="auth-divider">or</div>
+          <p class="auth-switch">New here? <button type="button" class="btn btn-ghost btn-sm" onclick="goToSignup()">Create an account</button></p>
 
-          <button class="google-btn" id="googleLoginBtn" onclick="handleGoogleLogin()">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M12 4.5C13.8 4.5 15.4 5.2 16.6 6.3L19.9 3C17.9 1.1 15.1 0 12 0C7.4 0 3.4 2.6 1.4 6.4L5.2 9.3C6.2 6.5 8.8 4.5 12 4.5Z" fill="#EA4335"/>
-              <path d="M23.5 12.3C23.5 11.4 23.4 10.6 23.3 9.8H12V14.5H18.5C18.2 16 17.4 17.2 16.2 18L19.9 20.8C22.1 18.8 23.5 15.8 23.5 12.3Z" fill="#4285F4"/>
-              <path d="M5.2 14.7C4.9 13.9 4.8 13 4.8 12C4.8 11 5 10.1 5.2 9.3L1.4 6.4C0.5 8.1 0 10 0 12C0 14 0.5 15.9 1.4 17.6L5.2 14.7Z" fill="#FBBC05"/>
-              <path d="M12 24C15.1 24 17.8 23 19.9 20.8L16.2 18C15.1 18.7 13.7 19.2 12 19.2C8.8 19.2 6.2 17.2 5.2 14.4L1.4 17.3C3.4 21.4 7.4 24 12 24Z" fill="#34A853"/>
-            </svg>
-            Continue with Google
-          </button>
-          <div class="auth-error" id="googleLoginError" style="margin:8px 0 4px;text-align:center;line-height:1.45;font-size:0.82rem"></div>
-
-          <button class="guest-btn" id="guestLoginBtn" type="button" onclick="handleGuestLogin()">
-            ⚡ Explore as Guest (Demo Mode)
-          </button>
-
-          <p class="auth-switch-text">
-            Don't have an account? <span onclick="goToSignup()">Sign Up Free</span>
-          </p>
+          <div class="auth-demo">
+            <button class="btn btn-ghost btn-sm" id="guestLoginBtn" type="button" onclick="handleGuestLogin()">
+              <svg class="i i-sm" aria-hidden="true"><use href="#i-eye"/></svg>Look around in demo mode
+            </button>
+            <p>Demo mode shows sample profiles only. Nothing is saved to a real account.</p>
+          </div>
         </div>
       </div>
 
@@ -375,251 +353,221 @@
            SCREEN: SIGN UP
            ===================================================== -->
       <div class="screen auth-screen" id="signupScreen">
-        <div class="auth-hero" style="padding-bottom:16px">
-          <div class="auth-logo" style="font-size:1.8rem">Create Your Profile</div>
-          <p class="auth-tagline">Just a few steps to find your perfect match 🎯</p>
-        </div>
+        <div class="auth-wrap auth-wrap-form">
+          <header class="signup-head">
+            <button type="button" class="btn btn-ghost btn-icon" onclick="prevSignupStep()" aria-label="Back">
+              <svg class="i" aria-hidden="true"><use href="#i-arrow-left"/></svg>
+            </button>
+            <div class="signup-progress" role="group" aria-label="Sign-up progress">
+              <div class="progress-dot active"></div>
+              <div class="progress-dot"></div>
+              <div class="progress-dot"></div>
+              <div class="progress-dot"></div>
+            </div>
+            <span class="signup-count" id="signupStepCount" aria-live="polite">Step 1 of 4</span>
+          </header>
 
-        <!-- Progress dots -->
-        <div class="signup-progress">
-          <div class="progress-dot active"></div>
-          <div class="progress-dot"></div>
-          <div class="progress-dot"></div>
-          <div class="progress-dot"></div>
-        </div>
-
-        <div class="auth-body" style="gap:16px">
-
-          <!-- Step 1: Name, Age, Gender -->
+          <!-- Step 1: Name, age, gender -->
           <div class="signup-step active" id="signupStep1">
-            <div class="signup-step-title">Who are you? 👤</div>
-            <p class="signup-step-sub">Tell us about yourself to find the best matches.</p>
+            <h1 class="signup-step-title">About you</h1>
+            <p class="signup-step-sub">The basics. You can change all of this later.</p>
 
-            <div class="auth-form-group">
-              <label>Full Name</label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></span>
-                <input class="auth-input" id="signupName" type="text" placeholder="Your first name" autocomplete="given-name">
+            <div class="field">
+              <label class="field-label" for="signupName">First name</label>
+              <div class="input-wrap">
+                <svg class="i" aria-hidden="true"><use href="#i-user"/></svg>
+                <input class="input" id="signupName" type="text" placeholder="Your first name" autocomplete="given-name">
               </div>
             </div>
 
-            <div class="auth-form-group">
-              <label>Age</label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 3H4v10c0 2.21 1.79 4 4 4h6c2.21 0 4-1.79 4-4v-3h2c1.11 0 2-.89 2-2V5c0-1.11-.89-2-2-2zm0 5h-2V5h2v3zM4 19h16v2H4z"/></svg></span>
-                <input class="auth-input" id="signupAge" type="number" placeholder="18" min="18" max="80" inputmode="numeric">
+            <div class="field">
+              <label class="field-label" for="signupAge">Age</label>
+              <input class="input" id="signupAge" type="number" placeholder="18 or older" min="18" max="80" inputmode="numeric">
+              <span class="field-hint">You must be 18 or older.</span>
+            </div>
+
+            <div class="field" role="radiogroup" aria-labelledby="genderLabel">
+              <span class="field-label" id="genderLabel">I am</span>
+              <div class="choice-grid">
+                <button type="button" class="choice gender-option selected" role="radio" aria-checked="true" onclick="selectGender('Male', this)">Man</button>
+                <button type="button" class="choice gender-option" role="radio" aria-checked="false" onclick="selectGender('Female', this)">Woman</button>
+                <button type="button" class="choice gender-option" role="radio" aria-checked="false" onclick="selectGender('Non-binary', this)">Non-binary</button>
+                <button type="button" class="choice gender-option" role="radio" aria-checked="false" onclick="selectGender('Other', this)">Other</button>
               </div>
             </div>
 
-            <div class="auth-form-group">
-              <label>I am a...</label>
-              <div class="gender-options">
-                <div class="gender-option selected" onclick="selectGender('Male', this)">
-                  <span class="gender-emoji">👨</span>
-                  Man
-                </div>
-                <div class="gender-option" onclick="selectGender('Female', this)">
-                  <span class="gender-emoji">👩</span>
-                  Woman
-                </div>
-                <div class="gender-option" onclick="selectGender('Non-binary', this)">
-                  <span class="gender-emoji">🌈</span>
-                  Non-binary
-                </div>
-                <div class="gender-option" onclick="selectGender('Other', this)">
-                  <span class="gender-emoji">✨</span>
-                  Other
-                </div>
-              </div>
-            </div>
-
-            <div class="auth-error" id="signupError1"></div>
+            <div class="field-error auth-error" id="signupError1" role="alert"></div>
+            <p class="auth-switch">Already have an account? <button type="button" class="btn btn-ghost btn-sm" onclick="goToLogin()">Sign in</button></p>
           </div>
 
           <!-- Step 2: Interests -->
           <div class="signup-step" id="signupStep2">
-            <div class="signup-step-title">Your Interests 🎯</div>
-            <p class="signup-step-sub">Pick up to 5 things you love. This helps us find your ideal match.</p>
+            <h1 class="signup-step-title">Your interests</h1>
+            <p class="signup-step-sub">Pick up to 5. They show on your profile and help people start a conversation.</p>
 
-            <div class="interest-tags-grid">
-              <span class="interest-tag" onclick="toggleInterest('Music 🎵', this)">Music 🎵</span>
-              <span class="interest-tag" onclick="toggleInterest('Travel ✈️', this)">Travel ✈️</span>
-              <span class="interest-tag" onclick="toggleInterest('Fitness 💪', this)">Fitness 💪</span>
-              <span class="interest-tag" onclick="toggleInterest('Art 🎨', this)">Art 🎨</span>
-              <span class="interest-tag" onclick="toggleInterest('Food 🍕', this)">Food 🍕</span>
-              <span class="interest-tag" onclick="toggleInterest('Gaming 🎮', this)">Gaming 🎮</span>
-              <span class="interest-tag" onclick="toggleInterest('Books 📚', this)">Books 📚</span>
-              <span class="interest-tag" onclick="toggleInterest('Fashion 👗', this)">Fashion 👗</span>
-              <span class="interest-tag" onclick="toggleInterest('Nature 🌿', this)">Nature 🌿</span>
-              <span class="interest-tag" onclick="toggleInterest('Business 📈', this)">Business 📈</span>
-              <span class="interest-tag" onclick="toggleInterest('Movies 🎬', this)">Movies 🎬</span>
-              <span class="interest-tag" onclick="toggleInterest('Coffee ☕', this)">Coffee ☕</span>
-              <span class="interest-tag" onclick="toggleInterest('Dancing 💃', this)">Dancing 💃</span>
-              <span class="interest-tag" onclick="toggleInterest('Tech 💻', this)">Tech 💻</span>
-              <span class="interest-tag" onclick="toggleInterest('Yoga 🧘', this)">Yoga 🧘</span>
+            <div class="interest-tags-grid" role="group" aria-label="Interests">
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Music 🎵', this)">Music 🎵</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Travel ✈️', this)">Travel ✈️</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Fitness 💪', this)">Fitness 💪</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Art 🎨', this)">Art 🎨</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Food 🍕', this)">Food 🍕</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Gaming 🎮', this)">Gaming 🎮</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Books 📚', this)">Books 📚</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Fashion 👗', this)">Fashion 👗</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Nature 🌿', this)">Nature 🌿</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Business 📈', this)">Business 📈</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Movies 🎬', this)">Movies 🎬</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Coffee ☕', this)">Coffee ☕</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Dancing 💃', this)">Dancing 💃</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Tech 💻', this)">Tech 💻</button>
+              <button type="button" class="chip chip-choice" aria-pressed="false" onclick="toggleInterest('Yoga 🧘', this)">Yoga 🧘</button>
             </div>
 
-            <div class="auth-error" id="signupError2"></div>
+            <div class="field-error auth-error" id="signupError2" role="alert"></div>
           </div>
 
-          <!-- Step 3: Bio, Intent & Location -->
+          <!-- Step 3: Intent, bio, location, photos -->
           <div class="signup-step" id="signupStep3">
-            <div class="signup-step-title">Tell Your Story ✍️</div>
-            <p class="signup-step-sub">A great bio and clear intentions lead to 3x higher compatibility!</p>
+            <h1 class="signup-step-title">Your profile</h1>
+            <p class="signup-step-sub">A clear bio and a good photo get the most replies.</p>
 
-            <div class="auth-form-group">
-              <label>What are you looking for?</label>
+            <div class="field" role="radiogroup" aria-labelledby="intentLabel">
+              <span class="field-label" id="intentLabel">What are you looking for?</span>
               <div class="signup-intent-grid" id="signupIntentGrid">
-                <div class="signup-intent-pill selected" data-intent="relationship" onclick="selectSignupIntent('relationship', this)">
-                  <span>💘</span> Serious Relationship
-                </div>
-                <div class="signup-intent-pill" data-intent="long-term dating" onclick="selectSignupIntent('long-term dating', this)">
-                  <span>🥂</span> Long-term, open to short
-                </div>
-                <div class="signup-intent-pill" data-intent="casual dating" onclick="selectSignupIntent('casual dating', this)">
-                  <span>✨</span> Casual Dating
-                </div>
-                <div class="signup-intent-pill" data-intent="friendship" onclick="selectSignupIntent('friendship', this)">
-                  <span>☕</span> New Friends
-                </div>
-                <div class="signup-intent-pill" data-intent="figuring it out" onclick="selectSignupIntent('figuring it out', this)">
-                  <span>🧭</span> Still Figuring Out
-                </div>
+                <button type="button" class="choice signup-intent-pill selected" role="radio" aria-checked="true" data-intent="relationship" onclick="selectSignupIntent('relationship', this)">
+                  <svg class="i" aria-hidden="true"><use href="#i-heart"/></svg>A serious relationship
+                </button>
+                <button type="button" class="choice signup-intent-pill" role="radio" aria-checked="false" data-intent="long-term dating" onclick="selectSignupIntent('long-term dating', this)">
+                  <svg class="i" aria-hidden="true"><use href="#i-wine"/></svg>Long-term, open to short
+                </button>
+                <button type="button" class="choice signup-intent-pill" role="radio" aria-checked="false" data-intent="casual dating" onclick="selectSignupIntent('casual dating', this)">
+                  <svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg>Casual dating
+                </button>
+                <button type="button" class="choice signup-intent-pill" role="radio" aria-checked="false" data-intent="friendship" onclick="selectSignupIntent('friendship', this)">
+                  <svg class="i" aria-hidden="true"><use href="#i-coffee"/></svg>New friends
+                </button>
+                <button type="button" class="choice signup-intent-pill" role="radio" aria-checked="false" data-intent="figuring it out" onclick="selectSignupIntent('figuring it out', this)">
+                  <svg class="i" aria-hidden="true"><use href="#i-compass"/></svg>Still figuring it out
+                </button>
               </div>
             </div>
 
-            <div class="auth-form-group">
-              <label>Your Bio</label>
-              <textarea class="auth-input" id="signupBio" style="height:90px;padding:12px 14px;resize:none" placeholder="What makes you interesting? What are you looking for?"></textarea>
+            <div class="field">
+              <label class="field-label" for="signupBio">Bio</label>
+              <textarea class="textarea" id="signupBio" rows="3" placeholder="What makes you interesting? What are you looking for?"></textarea>
+              <span class="field-hint">At least 10 characters.</span>
             </div>
 
-            <div class="auth-form-group">
-              <label>Location</label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></span>
-                <input class="auth-input" id="signupLocation" type="text" placeholder="Lagos, Nigeria" autocomplete="address-level2">
+            <div class="field">
+              <label class="field-label" for="signupLocation">Location <span class="u-muted">(optional)</span></label>
+              <div class="input-wrap">
+                <svg class="i" aria-hidden="true"><use href="#i-map-pin"/></svg>
+                <input class="input" id="signupLocation" type="text" placeholder="Lagos, Nigeria" autocomplete="address-level2">
               </div>
             </div>
 
-            <div class="auth-form-group">
-              <label>Profile Photos <span style="color:var(--flame-1)">*</span> <small style="font-weight:normal;color:var(--txt-muted);font-size:0.75rem">(Upload up to 6 — first photo is your main)</small></label>
-              <div class="signup-multi-photo-grid" id="signupPhotoGrid">
-                <!-- Slot 0: primary photo -->
-                <div class="signup-photo-slot primary" id="signupSlot0" onclick="triggerPhotoSlot(0)">
-                  <div class="sps-inner" id="signupSlotInner0">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
-                  </div>
-                  <div class="sps-primary-label">Main</div>
+            <div class="field">
+              <span class="field-label" id="photosLabel">Photos</span>
+              <span class="field-hint">Add at least one clear photo of yourself. The first one is your main photo.</span>
+              <div class="photo-grid" id="signupPhotoGrid" role="group" aria-labelledby="photosLabel">
+                <div class="photo-slot primary" id="signupSlot0">
+                  <button type="button" class="photo-slot-btn" id="signupSlotInner0" onclick="triggerPhotoSlot(0)" aria-label="Add main photo"><svg class="i i-lg" aria-hidden="true"><use href="#i-image-plus"/></svg></button>
+                  <div class="photo-slot-tag">Main</div>
                 </div>
-                <!-- Slots 1-5: additional photos -->
-                <div class="signup-photo-slot" id="signupSlot1" onclick="triggerPhotoSlot(1)">
-                  <div class="sps-inner" id="signupSlotInner1"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                <div class="photo-slot" id="signupSlot1">
+                  <button type="button" class="photo-slot-btn" id="signupSlotInner1" onclick="triggerPhotoSlot(1)" aria-label="Add photo 2"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button>
                 </div>
-                <div class="signup-photo-slot" id="signupSlot2" onclick="triggerPhotoSlot(2)">
-                  <div class="sps-inner" id="signupSlotInner2"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                <div class="photo-slot" id="signupSlot2">
+                  <button type="button" class="photo-slot-btn" id="signupSlotInner2" onclick="triggerPhotoSlot(2)" aria-label="Add photo 3"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button>
                 </div>
-                <div class="signup-photo-slot" id="signupSlot3" onclick="triggerPhotoSlot(3)">
-                  <div class="sps-inner" id="signupSlotInner3"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                <div class="photo-slot" id="signupSlot3">
+                  <button type="button" class="photo-slot-btn" id="signupSlotInner3" onclick="triggerPhotoSlot(3)" aria-label="Add photo 4"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button>
                 </div>
-                <div class="signup-photo-slot" id="signupSlot4" onclick="triggerPhotoSlot(4)">
-                  <div class="sps-inner" id="signupSlotInner4"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                <div class="photo-slot" id="signupSlot4">
+                  <button type="button" class="photo-slot-btn" id="signupSlotInner4" onclick="triggerPhotoSlot(4)" aria-label="Add photo 5"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button>
                 </div>
-                <div class="signup-photo-slot" id="signupSlot5" onclick="triggerPhotoSlot(5)">
-                  <div class="sps-inner" id="signupSlotInner5"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></div>
+                <div class="photo-slot" id="signupSlot5">
+                  <button type="button" class="photo-slot-btn" id="signupSlotInner5" onclick="triggerPhotoSlot(5)" aria-label="Add photo 6"><svg class="i" aria-hidden="true"><use href="#i-plus"/></svg></button>
                 </div>
               </div>
               <input type="file" id="signupPhotoFile" accept="image/*" style="display:none" onchange="handleSignupPhotoUpload(event)">
             </div>
 
-            <div class="auth-error" id="signupError3"></div>
+            <div class="field-error auth-error" id="signupError3" role="alert"></div>
           </div>
 
-          <!-- Step 4: Account Credentials (Email, Phone & Password) -->
+          <!-- Step 4: Account -->
           <div class="signup-step" id="signupStep4">
-            <div class="signup-step-title">Secure Your Account 🔐</div>
-            <p class="signup-step-sub">Create your login credentials. We verify real contact details.</p>
+            <h1 class="signup-step-title">Create your login</h1>
+            <p class="signup-step-sub">Use an email and phone number you can access. We verify real contact details.</p>
 
-            <div class="auth-form-group">
-              <label for="signupEmail">Email Address <span style="color:var(--flame-1)">*</span></label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg></span>
-                <input class="auth-input" id="signupEmail" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
+            <div class="field">
+              <label class="field-label" for="signupEmail">Email</label>
+              <div class="input-wrap">
+                <svg class="i" aria-hidden="true"><use href="#i-mail"/></svg>
+                <input class="input" id="signupEmail" type="email" placeholder="you@example.com" autocomplete="email" inputmode="email">
               </div>
             </div>
 
-            <div class="auth-form-group">
-              <label for="signupPhone">Phone Number <span style="color:var(--flame-1)">*</span></label>
-              <div class="phone-input-wrap">
-                <div class="phone-country-code">🇳🇬 +234</div>
-                <div class="auth-input-wrap" style="flex:1;min-width:0">
-                  <input class="auth-input" id="signupPhone" type="tel" placeholder="801 234 5678" inputmode="tel" autocomplete="tel-national">
-                </div>
+            <div class="field">
+              <label class="field-label" for="signupPhone">Phone number</label>
+              <div class="phone-field">
+                <span class="phone-prefix" aria-hidden="true">+234</span>
+                <input class="input" id="signupPhone" type="tel" placeholder="801 234 5678" inputmode="tel" autocomplete="tel-national" aria-label="Phone number, without the country code">
               </div>
             </div>
 
-            <div class="auth-form-group">
-              <label for="signupPassword">Password <span style="color:var(--flame-1)">*</span></label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></span>
-                <input class="auth-input" id="signupPassword" type="password" placeholder="Create a password (8+ chars)" autocomplete="new-password" oninput="evaluatePasswordStrength(this.value)">
-                <button class="auth-toggle-password" type="button" onclick="togglePasswordVisibility('signupPassword', this)" aria-label="Toggle password">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            <div class="field">
+              <label class="field-label" for="signupPassword">Password</label>
+              <div class="input-wrap">
+                <svg class="i" aria-hidden="true"><use href="#i-lock"/></svg>
+                <input class="input" id="signupPassword" type="password" placeholder="Create a password" autocomplete="new-password" oninput="evaluatePasswordStrength(this.value)" aria-describedby="pwStrengthContainer">
+                <button class="input-action" type="button" onclick="togglePasswordVisibility('signupPassword', this)" aria-label="Show password" aria-pressed="false">
+                  <svg class="i" aria-hidden="true"><use href="#i-eye"/></svg>
                 </button>
               </div>
 
-              <!-- Password Strength Meter & Checklist -->
-              <div class="pw-strength-container" id="pwStrengthContainer">
-                <div class="pw-strength-bars">
+              <div class="pw-strength-container" id="pwStrengthContainer" data-score="0">
+                <div class="pw-strength-bars" aria-hidden="true">
                   <div class="pw-strength-bar" id="pwBar1"></div>
                   <div class="pw-strength-bar" id="pwBar2"></div>
                   <div class="pw-strength-bar" id="pwBar3"></div>
                   <div class="pw-strength-bar" id="pwBar4"></div>
                 </div>
-                <div class="pw-strength-text">
-                  <span>Strength: <strong id="pwStrengthLabel">Too Weak</strong></span>
-                  <span id="pwStrengthPercent">0%</span>
-                </div>
-                <div class="pw-req-list">
-                  <div class="pw-req-item" id="reqLength"><span>○</span> 8+ characters</div>
-                  <div class="pw-req-item" id="reqUpper"><span>○</span> Uppercase letter (A-Z)</div>
-                  <div class="pw-req-item" id="reqNumber"><span>○</span> Number (0-9)</div>
-                  <div class="pw-req-item" id="reqSymbol"><span>○</span> Symbol (!@#$...)</div>
-                </div>
+                <div class="pw-strength-text">Strength: <strong id="pwStrengthLabel">Too weak</strong></div>
+                <ul class="pw-req-list">
+                  <li class="pw-req-item" id="reqLength"></li>
+                  <li class="pw-req-item" id="reqUpper"></li>
+                  <li class="pw-req-item" id="reqNumber"></li>
+                  <li class="pw-req-item" id="reqSymbol"></li>
+                </ul>
               </div>
             </div>
 
-            <div class="auth-form-group">
-              <label for="signupConfirmPassword">Confirm Password <span style="color:var(--flame-1)">*</span></label>
-              <div class="auth-input-wrap">
-                <span class="auth-input-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor"><path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/></svg></span>
-                <input class="auth-input" id="signupConfirmPassword" type="password" placeholder="Confirm your password" autocomplete="new-password" oninput="checkPasswordMatch()">
-                <button class="auth-toggle-password" type="button" onclick="togglePasswordVisibility('signupConfirmPassword', this)" aria-label="Toggle password">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
+            <div class="field">
+              <label class="field-label" for="signupConfirmPassword">Confirm password</label>
+              <div class="input-wrap">
+                <svg class="i" aria-hidden="true"><use href="#i-lock"/></svg>
+                <input class="input" id="signupConfirmPassword" type="password" placeholder="Type it again" autocomplete="new-password" oninput="checkPasswordMatch()">
+                <button class="input-action" type="button" onclick="togglePasswordVisibility('signupConfirmPassword', this)" aria-label="Show password" aria-pressed="false">
+                  <svg class="i" aria-hidden="true"><use href="#i-eye"/></svg>
                 </button>
               </div>
-              <div id="pwMatchFeedback" style="font-size:0.75rem;margin-top:4px;display:none"></div>
+              <div class="field-hint" id="pwMatchFeedback" role="status" style="display:none"></div>
             </div>
 
-            <p style="font-size:0.72rem;color:var(--text-muted);line-height:1.5">
-              By creating an account you agree to our <span style="color:var(--accent-pink);cursor:pointer">Terms of Service</span> and <span style="color:var(--accent-pink);cursor:pointer">Privacy Policy</span>.
+            <p class="auth-legal">By creating an account you agree to our
+              <button type="button" class="link-btn" onclick="openTermsModal()">Terms of Service</button> and
+              <button type="button" class="link-btn" onclick="openPrivacyModal()">Privacy Policy</button>.
             </p>
 
-            <div class="auth-error" id="signupError4"></div>
+            <div class="field-error auth-error" id="signupError4" role="alert"></div>
           </div>
 
-          <!-- Nav buttons -->
-          <div style="display:flex;gap:10px;margin-top:4px">
-            <button class="secondary-btn" style="flex:0 0 auto;width:auto;padding:13px 20px;display:flex;align-items:center;gap:8px" onclick="prevSignupStep()">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M5 12l6 6M5 12l6-6"/></svg>
-              Back
-            </button>
-            <button class="accent-btn" id="signupCompleteBtn" onclick="nextSignupStep()" style="display:flex;align-items:center;justify-content:center;gap:8px">
-              Continue
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-            </button>
+          <div class="signup-actions">
+            <button type="button" class="btn btn-primary btn-lg" id="signupCompleteBtn" onclick="nextSignupStep()">Continue</button>
           </div>
 
-          <p class="auth-switch-text">Already have an account? <span onclick="goToLogin()">Sign In</span></p>
         </div>
       </div>
 
@@ -627,46 +575,11 @@
            SCREEN: SIGNUP SUCCESS
            ===================================================== -->
       <div class="screen auth-screen" id="signupSuccessScreen">
-        <div class="success-shell">
-          <div class="success-glow"></div>
-          <div class="success-content">
-
-            <div class="success-crown-wrap">
-              <svg width="72" height="72" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter:drop-shadow(0 0 20px rgba(255,46,112,0.6))">
-                <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="url(#successGrad)" stroke="rgba(255,46,112,0.3)" stroke-width="0.5"/>
-                <defs>
-                  <linearGradient id="successGrad" x1="3" y1="2" x2="21" y2="22" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stop-color="#FF2E70"/>
-                    <stop offset="50%" stop-color="#FF6584"/>
-                    <stop offset="100%" stop-color="#F4C550"/>
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-
-            <h2 class="success-title">Welcome to<br><span class="brand-hook">hookme</span><span class="brand-by">by</span><span class="brand-sam">sam</span>!</h2>
-            <p class="success-sub">Your profile is live. Amazing people near you are ready to connect!</p>
-
-            <div class="success-stats">
-              <div class="success-stat-item">
-                <span class="stat-num">500+</span>
-                <span class="stat-label">Active Users</span>
-              </div>
-              <div class="success-stat-divider"></div>
-              <div class="success-stat-item">
-                <span class="stat-num">98%</span>
-                <span class="stat-label">Match Rate</span>
-              </div>
-              <div class="success-stat-divider"></div>
-              <div class="success-stat-item">
-                <span class="stat-num">4.9★</span>
-                <span class="stat-label">Rating</span>
-              </div>
-            </div>
-
-            <button class="accent-btn" onclick="handleSignupComplete()">Start Matching 🔥</button>
-            <p class="success-hint">4 people near you might already like your profile!</p>
-          </div>
+        <div class="auth-wrap auth-success">
+          <svg class="i i-logo success-mark" aria-hidden="true"><use href="#i-logo"/></svg>
+          <h1 class="auth-title">You're in, <em>welcome.</em></h1>
+          <p class="auth-lede">Your profile is set up. Start browsing to meet people, and add more photos or a voice intro from your profile whenever you like.</p>
+          <button type="button" class="btn btn-primary btn-lg btn-block" onclick="handleSignupComplete()">Start browsing</button>
         </div>
       </div>
 
