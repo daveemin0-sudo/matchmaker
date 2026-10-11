@@ -66,3 +66,36 @@ test('no invented statistics or social proof in the markup or templates', () => 
     assert.doesNotMatch(js, re, `script.js contains ${re}`);
   }
 });
+
+test('paywall and matches show no invented offers, countdowns, ads, or people', () => {
+  const banned = [
+    /Offer ends/i, /Expires soon/i, /% off/i, /Renews at/i, /First (month|week)/i,
+    /Dress to Impress/i, /Sponsored/i, /premium users have already/i, /unsplash\.com/i,
+    /3\.5\s*[x×]/i, /\b8\s*[x×] more/i, /\b3\s*[x×] more/i
+  ];
+  const start = html.indexOf('id="matchesScreen"');
+  const end = html.indexOf('SCREEN: CHATS INBOX');
+  const matchesHtml = html.slice(start, end);
+  const pw = html.slice(html.indexOf('id="paywallModal"'), html.indexOf('MODAL: DISCOVERY FILTERS'));
+  for (const re of banned) {
+    assert.doesNotMatch(matchesHtml, re, `matches screen contains ${re}`);
+    assert.doesNotMatch(pw, re, `paywall contains ${re}`);
+  }
+  assert.doesNotMatch(js, /_tgSecondsRemaining|startTgCountdownTimer|revealBlurredMatches/);
+});
+
+test('paywall only lists benefits the product delivers, at the prices the server charges', () => {
+  const server = fs.readFileSync('webhook-server/index.js', 'utf8');
+  const plans = [...server.matchAll(/amount:\s*(\d+)/g)].map((m) => Number(m[1]));
+  assert.deepEqual(plans.slice(0, 3), [2500, 7500, 25000]);
+  const m = js.match(/const PAYWALL_PLANS = \{([\s\S]*?)\n\};/);
+  assert.ok(m, 'PAYWALL_PLANS missing');
+  const clientPrices = [...m[1].matchAll(/price:\s*(\d+)/g)].map((x) => Number(x[1]));
+  assert.deepEqual(clientPrices, plans.slice(0, 3));
+  const pw = html.slice(html.indexOf('id="paywallModal"'), html.indexOf('MODAL: DISCOVERY FILTERS'));
+  assert.match(pw, /does not renew automatically/i);
+  // Features with no implementation behind them must not be sold.
+  for (const re of [/Boost/i, /Passport/i, /Super Like/i, /See Who Likes You/i, /Message Before Matching/i, /Zero Advertisements/i, /Top Picks/i]) {
+    assert.doesNotMatch(pw, re, `paywall promises ${re}`);
+  }
+});

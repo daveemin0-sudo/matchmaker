@@ -80,34 +80,6 @@ body::before {
 }
 
 /* --- 8. MATCHES SCREEN & BADOO / TANGO STORIES RAIL --- */
-.matches-workspace {
-  padding: 14px 18px 24px !important;
-}
-
-.stories-header-row {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  margin-bottom: 12px !important;
-}
-
-.stories-heading {
-  font-family: var(--font-display) !important;
-  font-size: 1.15rem !important;
-  font-weight: 800 !important;
-  color: #FFFFFF !important;
-  letter-spacing: -0.3px !important;
-}
-
-.stories-new-tag {
-  background: var(--flame-grad) !important;
-  color: #FFFFFF !important;
-  font-size: 0.68rem !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.8px !important;
-  padding: 3px 8px !important;
-  border-radius: var(--r-pill) !important;
-}
 
 .story-bubble {
   cursor: pointer;
@@ -143,50 +115,6 @@ body::before {
   border: 2px solid var(--bg) !important;
   background-size: cover !important;
   background-position: center !important;
-}
-
-/* VIP Blurred Likes You Card (Tinder Gold Style) */
-.vip-blur-card {
-  background: linear-gradient(135deg, rgba(30, 20, 45, 0.7) 0%, rgba(18, 12, 28, 0.8) 100%) !important;
-  backdrop-filter: blur(24px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--r-lg) !important;
-  padding: 20px !important;
-  margin-bottom: 22px !important;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
-  cursor: pointer !important;
-  transition: transform var(--t-fast) var(--spring), border-color var(--t-fast) !important;
-}
-.vip-blur-card:hover {
-  transform: translateY(-2px) scale(1.01) !important;
-  border-color: var(--border-active) !important;
-}
-
-.vip-card-header {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  margin-bottom: 14px !important;
-}
-
-.vip-card-title {
-  font-family: var(--font-display) !important;
-  font-size: 1.05rem !important;
-  font-weight: 800 !important;
-  color: #FFE066 !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 8px !important;
-}
-
-.vip-card-count {
-  background: var(--gold-grad) !important;
-  color: #1A0E04 !important;
-  font-size: 0.75rem !important;
-  font-weight: 900 !important;
-  padding: 3px 10px !important;
-  border-radius: var(--r-pill) !important;
 }
 
 /* Conversation List (Clean, Solid, No blurry bleed-through) */
@@ -363,74 +291,6 @@ body.keyboard-open #globalFloatingSearchBtn {
 }
 
 /* --- 10B. MATCHES & LIKES CONNECTIONS HUB --- */
-.matches-connections-section {
-  margin-top: 18px;
-}
-
-.matches-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-  margin-top: 10px;
-}
-
-.match-connection-card {
-  position: relative;
-  background: rgba(22, 16, 32, 0.75);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 18px;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  cursor: pointer;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-.match-connection-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(209, 58, 99, 0.45);
-  box-shadow: 0 12px 30px rgba(209, 58, 99, 0.18);
-}
-
-.match-connection-card:active {
-  transform: scale(0.98);
-}
-
-.match-card-media {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1.15;
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-color: #1a1622;
-}
-
-.match-card-gradient {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 40%, rgba(12, 8, 18, 0.85) 100%);
-}
-
-.match-card-online-badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(46, 213, 115, 0.3);
-  padding: 3px 8px;
-  border-radius: 20px;
-  font-size: 0.68rem;
-  font-weight: 700;
-  color: #2ed573;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  z-index: 2;
-}
 
 .online-pulse-dot {
   width: 6px;
@@ -438,223 +298,6 @@ body.keyboard-open #globalFloatingSearchBtn {
   background-color: #2ed573;
   border-radius: 50%;
   box-shadow: 0 0 8px #2ed573;
-}
-
-.match-card-compat-pill {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(209, 58, 99, 0.9);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  padding: 3px 8px;
-  border-radius: 20px;
-  font-size: 0.68rem;
-  font-weight: 800;
-  color: #ffffff;
-  letter-spacing: 0.3px;
-  z-index: 2;
-  box-shadow: 0 4px 12px rgba(209, 58, 99, 0.4);
-}
-
-.match-card-info {
-  padding: 10px 12px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.match-card-name-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  overflow: hidden;
-}
-
-.match-card-name {
-  margin: 0;
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.match-card-sub {
-  margin: 0;
-  font-size: 0.74rem;
-  color: var(--txt-muted, rgba(255, 255, 255, 0.6));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.match-card-chat-btn {
-  margin-top: 8px;
-  width: 100%;
-  padding: 7px 0;
-  background: linear-gradient(135deg, #d13a63 0%, #e05353 100%);
-  border: none;
-  border-radius: 12px;
-  color: #ffffff;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  transition: transform 0.15s ease, filter 0.15s ease;
-  box-shadow: 0 4px 12px rgba(209, 58, 99, 0.3);
-}
-
-.match-card-chat-btn:hover {
-  filter: brightness(1.1);
-  transform: scale(1.02);
-}
-
-.match-card-chat-btn:active {
-  transform: scale(0.98);
-}
-
-/* Empty state */
-.matches-empty-state {
-  grid-column: 1 / -1;
-  text-align: center;
-  padding: 36px 16px;
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px dashed rgba(255, 255, 255, 0.12);
-  border-radius: 20px;
-  margin-top: 6px;
-}
-
-.matches-empty-icon {
-  font-size: 2.6rem;
-  margin-bottom: 8px;
-  filter: drop-shadow(0 4px 14px rgba(209, 58, 99, 0.35));
-}
-
-.matches-empty-title {
-  margin: 0 0 6px;
-  font-size: 1.05rem;
-  font-weight: 800;
-  color: #ffffff;
-}
-
-.matches-empty-desc {
-  margin: 0 0 16px;
-  font-size: 0.82rem;
-  color: var(--txt-muted, rgba(255, 255, 255, 0.6));
-  line-height: 1.45;
-  max-width: 260px;
-  margin-left: auto;
-  margin-right: auto;
-}
-
-.matches-empty-cta {
-  background: linear-gradient(135deg, #d13a63 0%, #e05353 100%);
-  border: none;
-  border-radius: 24px;
-  padding: 9px 20px;
-  color: #ffffff;
-  font-size: 0.84rem;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(209, 58, 99, 0.35);
-  transition: transform 0.15s ease;
-}
-
-.matches-empty-cta:hover {
-  transform: scale(1.03);
-}
-
-/* Light theme overrides */
-[data-theme="light"] .match-connection-card {
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="light"] .match-card-name {
-  color: #111111;
-}
-
-[data-theme="light"] .matches-empty-state {
-  background: rgba(0, 0, 0, 0.02);
-  border-color: rgba(0, 0, 0, 0.1);
-}
-
-[data-theme="light"] .matches-empty-title {
-  color: #111111;
-}
-
-/* --- 11. RAYA / TINDER PLATINUM PAYWALL MODAL --- */
-.paywall-modal {
-  backdrop-filter: blur(28px) !important;
-  -webkit-backdrop-filter: blur(28px) !important;
-  background: rgba(0, 0, 0, 0.85) !important;
-}
-
-.paywall-inner {
-  background: radial-gradient(circle at 50% 0%, #201308 0%, #0C0812 70%) !important;
-  border: 1px solid rgba(244, 197, 80, 0.35) !important;
-  border-radius: 36px 36px 0 0 !important;
-  box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.9), 0 0 40px rgba(244, 197, 80, 0.15) !important;
-}
-
-.pricing-card {
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1.5px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 22px !important;
-  padding: 16px 12px !important;
-  text-align: center !important;
-  cursor: pointer !important;
-  transition: all var(--t-fast) var(--spring) !important;
-}
-
-.pricing-card:hover {
-  transform: translateY(-2px) !important;
-  border-color: rgba(244, 197, 80, 0.4) !important;
-}
-
-.pricing-card.selected {
-  background: linear-gradient(135deg, rgba(227, 179, 77, 0.14) 0%, rgba(160, 118, 40, 0.22) 100%) !important;
-  border-color: var(--gold-1) !important;
-  box-shadow: 0 0 24px rgba(227, 179, 77, 0.28) !important;
-  transform: scale(1.03) !important;
-}
-
-.pricing-best-badge {
-  background: var(--gold-grad) !important;
-  color: #1A0E04 !important;
-  font-size: 0.62rem !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.8px !important;
-  border-radius: var(--r-pill) !important;
-  padding: 3px 8px !important;
-}
-
-.paywall-cta-btn {
-  background: var(--gold-grad) !important;
-  color: #1A0E04 !important;
-  font-family: var(--font-body) !important;
-  font-size: 1.02rem !important;
-  font-weight: 900 !important;
-  letter-spacing: 0.3px !important;
-  box-shadow: var(--shadow-gold) !important;
-  border-radius: var(--r-pill) !important;
-  height: 54px !important;
-  border: none !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  gap: 8px !important;
-}
-
-.paywall-cta-btn:hover {
-  box-shadow: 0 12px 48px rgba(160, 118, 40, 0.6) !important;
-  transform: scale(1.02) !important;
 }
 
 /* ================================================================
@@ -691,28 +334,12 @@ body[data-theme="light"]::before {
 }
 
 /* Matches & Conversations (Light) */
-[data-theme="light"] .stories-heading,
-[data-theme="light"] .section-title,
 [data-theme="light"] .story-name {
   color: #140C1D !important;
 }
 
 [data-theme="light"] .story-avatar {
   border-color: #FFFFFF !important;
-}
-
-[data-theme="light"] .vip-blur-card {
-  background: linear-gradient(135deg, #FFFDF7 0%, #FFF9EC 100%) !important;
-  border: 1.5px solid rgba(244, 197, 80, 0.6) !important;
-  box-shadow: 0 10px 32px rgba(244, 197, 80, 0.18) !important;
-}
-
-[data-theme="light"] .vip-card-title {
-  color: #8C6400 !important;
-}
-
-[data-theme="light"] .vip-card-sub {
-  color: #61480C !important;
 }
 
 [data-theme="light"] .convo-item {
@@ -956,21 +583,6 @@ body[data-theme="light"]::before {
 
 [data-theme="light"] .ai-status span {
   color: #685E79 !important;
-}
-
-[data-theme="light"] .ad-banner-slot {
-  background: #FFFFFF !important;
-  border: 1px solid rgba(0, 0, 0, 0.07) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
-}
-
-[data-theme="light"] .ad-banner-slot span,
-[data-theme="light"] .ad-banner-slot div {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .ad-label {
-  color: #8C829E !important;
 }
 
 /* High-End Photo Upload Dropzone */
@@ -1346,26 +958,6 @@ body[data-theme="light"]::before {
 }
 
 /* Upgrade to Gold Paywall Modal (Light Mode) */
-[data-theme="light"] .paywall-modal {
-  background: rgba(20, 12, 29, 0.45) !important;
-  backdrop-filter: blur(28px) !important;
-}
-
-[data-theme="light"] .paywall-inner {
-  background: #FFFFFF !important;
-  border: 1px solid rgba(244, 197, 80, 0.4) !important;
-  box-shadow: 0 -20px 60px rgba(70, 40, 90, 0.18), 0 0 40px rgba(244, 197, 80, 0.2) !important;
-}
-
-[data-theme="light"] .paywall-close {
-  background: #F4EFFB !important;
-  border: 1px solid #DDD5E7 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .paywall-hero h2 {
-  color: #140C1D !important;
-}
 
 [data-theme="light"] #paywallReason {
   color: #5A5068 !important;
@@ -1379,46 +971,6 @@ body[data-theme="light"]::before {
   background: rgba(244, 197, 80, 0.2) !important;
   color: #8C6400 !important;
   border: 1px solid rgba(244, 197, 80, 0.35) !important;
-}
-
-[data-theme="light"] .pricing-card {
-  background: #FAF7FD !important;
-  border: 1.5px solid #E4DCEE !important;
-}
-
-[data-theme="light"] .pricing-card:hover {
-  background: #F4EFFB !important;
-  border-color: #F4C550 !important;
-}
-
-[data-theme="light"] .pricing-period {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .pricing-amount {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .pricing-strike {
-  color: #8C829E !important;
-}
-
-[data-theme="light"] .pricing-card.selected {
-  background: linear-gradient(135deg, #FFFDF5 0%, #FFF4D6 100%) !important;
-  border-color: #F4C550 !important;
-  box-shadow: 0 8px 24px rgba(244, 197, 80, 0.28) !important;
-}
-
-[data-theme="light"] .pricing-card.selected .pricing-period {
-  color: #8C6400 !important;
-}
-
-[data-theme="light"] .pricing-card.selected .pricing-amount {
-  color: #7A5500 !important;
-}
-
-[data-theme="light"] .paywall-fine-print {
-  color: #8C829E !important;
 }
 
 /* ================================================================
@@ -2126,14 +1678,6 @@ body[data-theme="light"]::before {
 }
 
 /* --- MATCHES SCREEN: Premium sections --- */
-.section-title {
-  font-size: 1.1rem !important;
-  font-weight: 900 !important;
-  background: linear-gradient(135deg, #FFFFFF 0%, rgba(255,255,255,0.75) 100%) !important;
-  -webkit-background-clip: text !important;
-  -webkit-text-fill-color: transparent !important;
-  background-clip: text !important;
-}
 
 .match-bubble-ring {
   background: var(--flame-grad) !important;
@@ -2187,14 +1731,6 @@ body[data-theme="light"]::before {
 
 [data-theme="light"] .convo-time {
   color: #7B7289 !important;
-}
-
-/* --- VIP BLUR CARD: More dramatic --- */
-.vip-blur-card {
-  background: linear-gradient(135deg, rgba(28,16,52,0.98) 0%, rgba(10,7,16,1) 100%) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: var(--r-lg) !important;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.6) !important;
 }
 
 /* --- PROFILE SCREEN: Elevated premium feel --- */
@@ -2286,25 +1822,6 @@ body[data-theme="light"]::before {
   transform: scale(1.03) !important;
 }
 
-/* --- PAYWALL MODAL: Raya-tier luxury --- */
-.paywall-inner {
-  background: radial-gradient(circle at 50% 0%, #1E1008 0%, #0A0710 65%) !important;
-}
-
-.paywall-cta-btn {
-  width: 100% !important;
-  position: relative !important;
-  overflow: hidden !important;
-}
-.paywall-cta-btn::after {
-  content: '' !important;
-  position: absolute !important;
-  top: 0; left: -100%; right: 0; bottom: 0 !important;
-  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.2) 50%, transparent 100%) !important;
-  animation: shimmerBtn 2.5s ease-in-out infinite !important;
-  pointer-events: none !important;
-}
-
 /* --- MATCH POPUP: Dramatic celebration --- */
 .match-popup {
   background: radial-gradient(circle at 50% 20%, rgba(255,46,112,0.25) 0%, rgba(10,7,16,0.96) 65%) !important;
@@ -2350,15 +1867,6 @@ body[data-theme="light"]::before {
   border-color: #FF2E70 !important;
   color: #FFFFFF !important;
   box-shadow: 0 0 0 3px rgba(255,46,112,0.15), 0 4px 16px rgba(255,46,112,0.25) !important;
-}
-
-/* --- AD BANNER: Less intrusive, more elegant --- */
-.ad-banner-slot {
-  background: rgba(255,255,255,0.03) !important;
-  border: 1px solid rgba(255,255,255,0.07) !important;
-  border-radius: 18px !important;
-  padding: 10px 14px !important;
-  margin: 0 12px 8px !important;
 }
 
 /* --- PROGRESS DOTS (signup) --- */
@@ -3182,13 +2690,6 @@ body[data-theme="light"] {
 }
 
 /* 5. Matches Screen & Inbox Polish */
-[data-theme="light"] .section-title,
-[data-theme="light"] .stories-heading {
-  background: none !important;
-  -webkit-background-clip: initial !important;
-  -webkit-text-fill-color: #140C1D !important;
-  color: #140C1D !important;
-}
 
 [data-theme="light"] .chats-search-input,
 [data-theme="light"] .chat-search-bar {
@@ -3228,20 +2729,6 @@ body[data-theme="light"] {
 
 [data-theme="light"] .convo-time {
   color: #8C829E !important;
-}
-
-[data-theme="light"] .vip-blur-card {
-  background: linear-gradient(135deg, #FFFDF7 0%, #FFF8E7 100%) !important;
-  border: 1.5px solid #F4C550 !important;
-  box-shadow: 0 8px 30px rgba(212, 160, 23, 0.12) !important;
-}
-
-[data-theme="light"] .vip-card-title {
-  color: #6E4E00 !important;
-}
-
-[data-theme="light"] .vip-card-sub {
-  color: #7A5B18 !important;
 }
 
 /* 6. Chat Screen Polish */
@@ -3943,7 +3430,6 @@ body {
 }
 
 /* Other Workspaces Centering */
-.matches-workspace,
 .settings-workspace,
 .chat-workspace,
 .convo-messages-wrap {
@@ -4199,28 +3685,10 @@ button.accent-btn,
 }
 
 /* --- 9. VIP & PAYWALL GOLD POLISH --- */
-[data-theme="light"] .vip-card-badge {
-  color: #724D00 !important;
-  background: #FFF3CC !important;
-  border: 1px solid #FFD54F !important;
-  font-weight: 800 !important;
-}
+
 [data-theme="light"] #tgCountdownTimer {
   color: #7A5300 !important;
   font-weight: 800 !important;
-}
-[data-theme="light"] .tg-th-free {
-  color: #4D4258 !important;
-  font-weight: 700 !important;
-}
-[data-theme="light"] .tg-secure-footer {
-  color: #4D4258 !important;
-}
-[data-theme="light"] .tg-price-struck {
-  color: #635770 !important;
-}
-[data-theme="light"] .tg-ti-sub {
-  color: #554A62 !important;
 }
 
 /* --- 10. SAFETY & UNMATCH CONFIRMATION MODALS --- */
@@ -4251,11 +3719,6 @@ button.accent-btn,
 [data-theme="light"] .filter-age-val {
   color: #9C1045 !important;
   font-weight: 800 !important;
-}
-
-[data-theme="light"] .section-count {
-  color: #524760 !important;
-  font-weight: 600 !important;
 }
 
 [data-theme="light"] #editProfileModal .form-hint,

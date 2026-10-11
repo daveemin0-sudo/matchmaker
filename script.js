@@ -3276,6 +3276,45 @@ function onDragEnd() {
   document.removeEventListener('mouseup', onDragEnd);
 }
 
+// ==========================================================
+// DIALOG FOCUS MANAGEMENT (shared by every sheet / dialog)
+//   dialogOpened(overlay, {close, focus}) once the dialog is visible,
+//   dialogClosed(overlay) once it is hidden. Gives: focus moved inside, Tab kept
+//   inside, Esc closes the top dialog, focus returned to what opened it.
+// ==========================================================
+const _dialogStack = [];
+const _FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+function _visibleFocusables(root) {
+  return [...root.querySelectorAll(_FOCUSABLE)].filter(el => el.offsetParent !== null || el === document.activeElement);
+}
+function dialogOpened(overlay, opts = {}) {
+  if (!overlay) return;
+  if (_dialogStack.some(d => d.overlay === overlay)) return;
+  _dialogStack.push({ overlay, opener: document.activeElement, close: opts.close });
+  setTimeout(() => {
+    const target = (opts.focus && overlay.querySelector(opts.focus)) || _visibleFocusables(overlay)[0];
+    if (target) target.focus({ preventScroll: true });
+  }, 60);
+}
+function dialogClosed(overlay) {
+  const i = _dialogStack.findIndex(d => d.overlay === overlay);
+  if (i < 0) return;
+  const [{ opener }] = _dialogStack.splice(i, 1);
+  if (opener && document.contains(opener) && typeof opener.focus === 'function') opener.focus({ preventScroll: true });
+}
+document.addEventListener('keydown', (e) => {
+  const top = _dialogStack[_dialogStack.length - 1];
+  if (!top) return;
+  if (e.key === 'Escape' && typeof top.close === 'function') { e.preventDefault(); top.close(); return; }
+  if (e.key !== 'Tab') return;
+  const items = _visibleFocusables(top.overlay);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (!top.overlay.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
 // Keyboard: arrow keys pass / like on the discovery screen (never while typing or with a dialog open).
 document.addEventListener('keydown', (e) => {
   if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
@@ -3752,50 +3791,40 @@ function renderMatchesView() {
 function renderMatchesConnectionsGrid() {
   const grid = document.getElementById('matchesGrid');
   const countEl = document.getElementById('matchesCount');
-  if (countEl) {
-    countEl.textContent = (matchedUsers || []).length;
-  }
+  if (countEl) countEl.textContent = (matchedUsers || []).length;
   if (!grid) return;
 
   if (!matchedUsers || matchedUsers.length === 0) {
     grid.innerHTML = `
-      <div class="matches-empty-state">
-        <div class="matches-empty-icon">🔥</div>
-        <h3 class="matches-empty-title">No matches yet</h3>
-        <p class="matches-empty-desc">Swipe right on profiles you like in Discover. When they like you back, they'll appear here!</p>
-        <button class="matches-empty-cta" onclick="switchTab('discovery')">Start Swiping</button>
-      </div>
-    `;
+      <div class="empty">
+        <svg class="i" aria-hidden="true"><use href="#i-heart-handshake"/></svg>
+        <div class="empty-title">No matches yet</div>
+        <p class="empty-text">When you and someone else both like each other, they show up here and you can start talking.</p>
+        <button type="button" class="btn btn-primary" onclick="switchTab('discovery')">Go to Discover</button>
+      </div>`;
     return;
   }
 
   grid.innerHTML = matchedUsers.map(u => {
-    const userStatus = typeof getUserOnlineStatus === 'function' ? getUserOnlineStatus(u) : { isOnline: false };
+    const online = typeof getUserOnlineStatus === 'function' ? Boolean(getUserOnlineStatus(u).isOnline) : false;
     const compat = calculateCompatibility(currentUser, u);
     const inCommon = compat.sharedTags.length;
-
-    const tags = Array.isArray(u.tags) ? u.tags : (Array.isArray(u.interests) ? u.interests : []);
-    const tagDisplay = tags.length > 0 ? tags[0] : (u.location || 'New connection');
-
+    const idArg = escHtml(JSON.stringify(String(u.id)));
+    const subtitle = u.location || (Array.isArray(u.tags) && u.tags[0]) || '';
     return `
-      <div class="match-connection-card" onclick="openChat('${u.id}')">
-        <div class="match-card-media" style="background-image:url('${escHtml(u.image || '')}')">
-          <div class="match-card-gradient"></div>
-          ${userStatus.isOnline ? '<span class="match-card-online-badge"><span class="online-pulse-dot"></span> Active</span>' : ''}
-          ${inCommon ? `<div class="match-card-compat-pill"><span>${inCommon} in common</span></div>` : ''}
-        </div>
-        <div class="match-card-info">
-          <div class="match-card-name-row">
-            <h4 class="match-card-name">${escHtml(u.name)}${u.age ? `, ${u.age}` : ''}</h4>
-            ${u.verified ? '<svg class="verified-badge-mini" viewBox="0 0 24 24" width="14" height="14" fill="#3897f0" style="vertical-align:middle;flex-shrink:0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' : ''}
-          </div>
-          <p class="match-card-sub">${escHtml(tagDisplay)}</p>
-          <button class="match-card-chat-btn" onclick="event.stopPropagation();openChat('${u.id}')">
-            <span>Say Hi 👋</span>
-          </button>
-        </div>
-      </div>
-    `;
+      <article class="match-card">
+        <button type="button" class="match-card-open" onclick="openChat(${idArg})" aria-label="Message ${escHtml(u.name)}">
+          <span class="match-card-photo">
+            ${u.image ? `<img src="${escHtml(u.image)}" alt="" loading="lazy">` : '<svg class="i" aria-hidden="true"><use href="#i-user"/></svg>'}
+            ${online ? '<span class="match-card-online"><span class="dot" aria-hidden="true"></span>Online</span>' : ''}
+          </span>
+          <span class="match-card-body">
+            <span class="match-card-name">${escHtml(u.name)}${u.age ? `, ${escHtml(u.age)}` : ''}${u.verified ? '<svg class="i verified-icon" role="img" aria-label="Verified"><use href="#i-badge-check"/></svg>' : ''}</span>
+            ${subtitle ? `<span class="match-card-sub">${escHtml(subtitle)}</span>` : ''}
+            ${inCommon ? `<span class="match-card-sub match-card-common">${inCommon} interest${inCommon === 1 ? '' : 's'} in common</span>` : ''}
+          </span>
+        </button>
+      </article>`;
   }).join('');
 }
 
@@ -11568,6 +11597,7 @@ function openProfileDetailSheet(profileId, event) {
     modal.classList.add('open');
     if (sheet) sheet.classList.add('open');
   });
+  dialogOpened(modal, { close: closeProfileDetailSheet, focus: '.detail-sheet-close-btn' });
 
   document.body.style.overflow = 'hidden';
   if (typeof haptic === 'function') haptic('light');
@@ -11581,6 +11611,7 @@ function closeProfileDetailSheet() {
 
   if (sheet) sheet.classList.remove('open');
   modal.classList.remove('open');
+  dialogClosed(modal);
 
   setTimeout(() => {
     modal.style.display = 'none';
@@ -11691,9 +11722,15 @@ async function handleDeleteAccount() {
 // VIP / PAYWALL
 // ==========================================================
 
+const PAYWALL_PLANS = {
+  1: { price: 2500,  label: '₦2,500',  name: '1 Week VIP Gold' },
+  2: { price: 7500,  label: '₦7,500',  name: '1 Month VIP Gold' },
+  3: { price: 25000, label: '₦25,000', name: 'Lifetime VIP Gold' }
+};
+
 function openPaywall(context) {
   if (appState.isVip) {
-    showToast('👑 VIP Gold Active: Unlimited access is unlocked!', 'gold');
+    showToast('Gold is active on your account.', 'success');
     return;
   }
 
@@ -11701,23 +11738,20 @@ function openPaywall(context) {
   const reasonEl = document.getElementById('paywallReason');
   if (!modal) return;
 
+  // Only name limits that Gold really lifts.
   const reasons = {
-    rewind: 'Out of free rewinds! Upgrade for unlimited.',
-    ai_gen: 'Out of free AI generations! Upgrade for unlimited.',
-    bulk_ai: 'Bulk AI generation requires VIP Gold.',
-    likes_you: 'See who swiped right on you instantly with VIP Gold.',
-    settings: 'Unlock all premium features with VIP Gold.',
-    boost: 'Upgrade to VIP Gold for unlimited profile boosts.',
-    super_like: 'Send unlimited Super Likes with VIP Gold.',
-    profile_upgrade: 'Unlock all premium features with VIP Gold.',
-    swipe_limit: "You’ve used all your free likes today 🔥 Upgrade VIP Gold for unlimited swipes.",
-    default: 'Unlock all VIP features and match instantly.'
+    rewind: 'You have used your free rewind. Gold gives you unlimited rewinds.',
+    ai_gen: 'You have used your free AI portrait. Gold gives you unlimited AI portraits.',
+    bulk_ai: 'Generating several AI portraits at once needs Gold.',
+    swipe_limit: 'You have reached the daily like limit. Gold removes it.',
+    default: 'Gold removes the daily limits on likes, rewinds and AI portraits.'
   };
   if (reasonEl) reasonEl.textContent = reasons[context] || reasons.default;
 
+  modal.style.display = 'flex';
   modal.classList.add('open');
   selectPricingTier(appState.selectedPricingTier || 2);
-  startTgCountdownTimer();
+  dialogOpened(modal, { close: closePaywall, focus: '.plan.is-selected' });
 }
 
 function triggerSuperLike() {
@@ -11731,110 +11765,52 @@ function triggerSuperLike() {
 
 function closePaywall() {
   const modal = document.getElementById('paywallModal');
-  if (modal) modal.classList.remove('open');
-  if (_tgTimerInterval) { clearInterval(_tgTimerInterval); _tgTimerInterval = null; }
-}
-
-let _tgTimerInterval = null;
-let _tgSecondsRemaining = 29 * 60 + 49; // 00:29:49
-
-function startTgCountdownTimer() {
-  if (_tgTimerInterval) clearInterval(_tgTimerInterval);
-  const timerEl = document.getElementById('tgCountdownTimer');
-  if (!timerEl) return;
-
-  const update = () => {
-    if (_tgSecondsRemaining <= 0) {
-      _tgSecondsRemaining = 30 * 60;
-    }
-    const hrs = Math.floor(_tgSecondsRemaining / 3600);
-    const mins = Math.floor((_tgSecondsRemaining % 3600) / 60);
-    const secs = _tgSecondsRemaining % 60;
-    timerEl.textContent =
-      String(hrs).padStart(2, '0') + ':' +
-      String(mins).padStart(2, '0') + ':' +
-      String(secs).padStart(2, '0');
-    _tgSecondsRemaining--;
-  };
-  update();
-  _tgTimerInterval = setInterval(update, 1000);
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.style.display = 'none';
+  dialogClosed(modal);
 }
 
 function selectPricingTier(n) {
-  appState.selectedPricingTier = n;
+  const plan = PAYWALL_PLANS[n] || PAYWALL_PLANS[2];
+  appState.selectedPricingTier = PAYWALL_PLANS[n] ? n : 2;
 
-  // Toggle tier items for Tinder Gold layout
-  document.querySelectorAll('.tg-tier-item').forEach((item, i) => {
-    item.classList.toggle('selected', (i + 1) === n);
+  [1, 2, 3].forEach((i) => {
+    const card = document.getElementById(`pricingCard${i}`);
+    if (!card) return;
+    const on = i === appState.selectedPricingTier;
+    card.classList.toggle('is-selected', on);
+    card.setAttribute('aria-checked', String(on));
   });
-  document.querySelectorAll('.pricing-card').forEach((card, i) => {
-    card.classList.toggle('selected', (i + 1) === n);
-  });
 
-  const tierPrices = { 1: '₦2,500', 2: '₦7,500', 3: '₦25,000' };
-  const tierNames  = { 1: '1 Week VIP Gold', 2: '1 Month VIP Gold', 3: 'Lifetime VIP Gold' };
-  const nameEl  = document.getElementById('renewalPlanName');
-  const priceEl = document.getElementById('renewalPrice');
-  const ctaEl   = document.getElementById('paywallCtaLabel');
-  if (nameEl)  nameEl.textContent  = tierNames[n]  || '1 Month VIP Gold';
-  if (priceEl) priceEl.textContent = tierPrices[n] || '₦7,500';
-  if (ctaEl)   ctaEl.textContent   = `Continue — ${tierNames[n] || 'VIP Gold'}`;
-
-  // Update Tinder Gold hero card text dynamically
-  const titleEl = document.getElementById('paywallTitle');
-  const pricePrimary = document.getElementById('tgPricePrimary');
-  const priceStruck = document.getElementById('tgPriceStruck');
-  const renewalNotice = document.getElementById('tgRenewalNotice');
-
-  if (n === 1) {
-    if (titleEl) titleEl.textContent = 'Get 30% Off your first week of HookMe Gold®';
-    if (pricePrimary) pricePrimary.textContent = 'First week ₦2,500';
-    if (priceStruck) priceStruck.textContent = '₦3,500/wk';
-    if (renewalNotice) renewalNotice.innerHTML = 'Renews at ₦2,500/week after first week. Your payment will be processed securely via Paystack. Cancel anytime in Settings. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.';
-  } else if (n === 2) {
-    if (titleEl) titleEl.textContent = 'Get 50% Off your first month of HookMe Gold®';
-    if (pricePrimary) pricePrimary.textContent = 'First month ₦7,500';
-    if (priceStruck) priceStruck.textContent = '₦15,000/mo';
-    if (renewalNotice) renewalNotice.innerHTML = 'Renews at ₦15,000 after first month. Your payment will be processed securely via Paystack. Cancel anytime in Settings. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.';
-  } else if (n === 3) {
-    if (titleEl) titleEl.textContent = 'Get Lifetime Unlimited Access to HookMe Gold®';
-    if (pricePrimary) pricePrimary.textContent = 'Lifetime VIP ₦25,000';
-    if (priceStruck) priceStruck.textContent = '₦45,000';
-    if (renewalNotice) renewalNotice.innerHTML = 'One-time payment for permanent VIP access. Your payment will be processed securely via Paystack. No renewals. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.';
-  }
+  const ctaEl = document.getElementById('paywallCtaLabel');
+  if (ctaEl) ctaEl.textContent = `Pay ${plan.label} with Paystack`;
 }
 
 function simulatePurchase() {
   const btn = document.getElementById('paywallCta');
   const label = document.getElementById('paywallCtaLabel');
-
-  // Calculate price based on selected tier matching HTML pricing cards
-  const tierPrices = { 1: 2500, 2: 7500, 3: 25000 };
-  const tierNames  = { 1: '1 Week VIP Gold', 2: '1 Month VIP Gold', 3: 'Lifetime VIP Gold' };
-  const tier  = appState.selectedPricingTier || 2;
-  const price = tierPrices[tier] || 7500;
-  const name  = tierNames[tier]  || '1 Month VIP Gold';
+  const tier = PAYWALL_PLANS[appState.selectedPricingTier] ? appState.selectedPricingTier : 2;
+  const { price, name } = PAYWALL_PLANS[tier];
+  const resetCta = () => { selectPricingTier(tier); if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); } };
 
   if (typeof triggerPaystackPayment === "function") {
     triggerPaystackPayment(name, price, async (response) => {
       // Paystack's popup saying "success" is just JS running in this
       // browser — it proves nothing by itself. Don't grant VIP until the
       // backend has independently confirmed the payment with Paystack.
-      if (btn) { btn.disabled = true; }
+      if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); }
       if (label) { label.textContent = 'Confirming payment…'; }
 
       const result = await verifyPaymentOnBackend(response.reference, tier);
 
-      if (btn) { btn.disabled = false; }
-      if (label) { label.textContent = 'Subscribe Now — Unlock VIP Gold'; }
-
+      resetCta();
       if (result.success) {
         completeVipUpgrade();
       }
     });
   } else {
-    if (btn) { btn.disabled = false; }
-    if (label) { label.textContent = 'Subscribe Now — Unlock VIP Gold'; }
+    resetCta();
     showToast('Payment service is unavailable. Please try again.', 'error');
   }
 }
@@ -11845,13 +11821,12 @@ function completeVipUpgrade() {
   saveToStorage();
   closePaywall();
 
-  showToast('👑 VIP GOLD ACTIVATED!', 'gold');
+  showToast('Gold is active. Your limits are lifted.', 'success');
 
   // Persistent VIP state is granted by the backend after verified payment.
 
   updateMatchesNotificationBadge();
   renderMatchesView();
-  revealBlurredMatches();
   renderProfileScreen();
   renderSettingsScreen();
   saveToStorage();
@@ -11883,29 +11858,6 @@ function applyVipUI() {
   const boostBtn = document.getElementById('boostBtn');
   if (boostBtn && isVip) {
     boostBtn.title = 'Profile Boost (VIP Unlimited)';
-  }
-
-  // 7. Matches screen: Blurred Likes card
-  const blurCard = document.querySelector('.vip-blur-card');
-  if (blurCard) {
-    if (isVip) {
-      blurCard.onclick = () => showToast('👑 VIP Unlocked: You can see everyone who likes you!', 'gold');
-      const cardTitle = blurCard.querySelector('.vip-card-title');
-      const cardBadge = blurCard.querySelector('.vip-card-badge');
-      const cardSub = blurCard.querySelector('.vip-card-sub');
-      if (cardTitle) {
-        cardTitle.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:6px;filter:drop-shadow(0 0 4px rgba(244,197,80,0.8))"><path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="#F4C550"/></svg> People Who Liked You`;
-      }
-      if (cardBadge) {
-        cardBadge.textContent = '👑 VIP UNLOCKED';
-        cardBadge.style.background = 'var(--gold-gradient)';
-        cardBadge.style.color = '#1A0E04';
-      }
-      if (cardSub) {
-        cardSub.textContent = 'VIP Gold active — all secret likes revealed!';
-      }
-      revealBlurredMatches();
-    }
   }
 
   // 8. Profile screen: Upgrade banner
@@ -11963,19 +11915,6 @@ function updateLimitBadges() {
   };
   setBadge('rewindBadge', appState.freeRewinds);
   setBadge('aiLimitBadge', appState.freeAiGens);
-}
-
-function revealBlurredMatches() {
-  for (let i = 1; i <= 4; i++) {
-    const item = document.getElementById(`blurItem${i}`);
-    const lock = document.getElementById(`blurLock${i}`);
-    if (item) item.classList.add('revealed');
-    if (lock) {
-      lock.textContent = '⭐';
-      lock.style.background = 'rgba(244,197,80,0.85)';
-      lock.style.color = '#1A0E04';
-    }
-  }
 }
 
 // ==========================================================
@@ -12156,94 +12095,43 @@ function renderStoriesRow() {
   if (!scroll) return;
 
   const isUploading = Boolean(window._isUploadingStory);
-  const uploadPreview = window._uploadingStoryPreview;
   const hasStory = (typeof userStories !== 'undefined' && Array.isArray(userStories) && userStories.length > 0);
-  const userAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
-  const latestUserStory = hasStory ? userStories[userStories.length - 1] : null;
+  const myAvatar = currentUser.avatar || currentUser.image || '';
+
+  const tile = ({ onclick, label, avatar, ring, extra = '', aria }) => `
+    <button type="button" class="status-tile" role="listitem" onclick="${onclick}" aria-label="${escHtml(aria || label)}">
+      <span class="status-avatar ${ring}">
+        ${avatar ? `<img src="${escHtml(avatar)}" alt="" loading="lazy">` : '<svg class="i" aria-hidden="true"><use href="#i-user"/></svg>'}
+        ${extra}
+      </span>
+      <span class="status-name">${escHtml(label)}</span>
+    </button>`;
 
   let html = '';
 
-  // 1. User Status Card (WhatsApp Style)
+  // 1. Your own status
   if (isUploading) {
-    html += `
-      <div class="wa-status-card your-status-card uploading" onclick="event.stopPropagation()">
-        <div class="wa-status-card-bg" style="background-image:url('${uploadPreview || userAvatar}')"></div>
-        <div class="wa-status-card-overlay"></div>
-        <div class="wa-status-avatar-wrap">
-          <div class="wa-status-avatar" style="background-image:url('${userAvatar}')"></div>
-          <div class="wa-status-upload-ring">
-            <svg viewBox="0 0 44 44" class="wa-status-spinner-svg">
-              <circle class="wa-status-spinner-track" cx="22" cy="22" r="19" fill="none" stroke-width="3.5"/>
-              <circle class="wa-status-spinner-circle" cx="22" cy="22" r="19" fill="none" stroke-width="3.5"/>
-            </svg>
-          </div>
-        </div>
-        <div class="wa-status-card-info">
-          <span class="wa-status-card-name">Sending...</span>
-        </div>
-      </div>`;
-  } else if (hasStory && latestUserStory) {
-    const isMyVid = Boolean(latestUserStory.isVideo || latestUserStory.video);
-    const myMedia = latestUserStory.video || latestUserStory.thumb || latestUserStory.image;
-    html += `
-      <div class="wa-status-card your-status-card has-story" onclick="viewYourStory(0)">
-        ${isMyVid && myMedia
-          ? `<video class="wa-status-card-video" src="${escHtml(myMedia)}#t=0.5" preload="metadata" muted playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;"></video>`
-          : `<div class="wa-status-card-bg" style="background-image:url('${latestUserStory.thumb || latestUserStory.image}')"></div>`
-        }
-        <div class="wa-status-card-overlay"></div>
-        <div class="wa-status-avatar-wrap">
-          <div class="wa-status-avatar active-ring" style="background-image:url('${userAvatar}')"></div>
-          <span class="wa-status-add-badge" onclick="event.stopPropagation();openYourStoryUpload(event);" title="Add status">+</span>
-        </div>
-        <div class="wa-status-card-info">
-          <span class="wa-status-card-name">${escHtml(currentUser.name || 'My status')}</span>
-        </div>
-      </div>`;
+    html += tile({ onclick: 'event.stopPropagation()', label: 'Sending…', avatar: myAvatar, ring: 'is-busy',
+      extra: '<span class="status-badge" aria-hidden="true"><svg class="i spin"><use href="#i-loader-circle"/></svg></span>' });
+  } else if (hasStory) {
+    html += tile({ onclick: 'viewYourStory(0)', label: 'Your status', avatar: myAvatar, ring: 'is-unseen',
+      extra: '<span class="status-badge" role="presentation" onclick="event.stopPropagation();openYourStoryUpload(event);" title="Add to your status"><svg class="i"><use href="#i-plus"/></svg></span>' });
   } else {
-    html += `
-      <div class="wa-status-card your-status-card empty" onclick="openYourStoryUpload(event)">
-        <div class="wa-status-card-bg empty-bg"></div>
-        <div class="wa-status-card-overlay"></div>
-        <div class="wa-status-avatar-wrap empty-avatar-wrap">
-          <div class="wa-status-avatar" style="background-image:url('${userAvatar}')"></div>
-          <span class="wa-status-add-badge" title="Add status">+</span>
-        </div>
-        <div class="wa-status-card-info">
-          <span class="wa-status-card-name">Add status</span>
-        </div>
-      </div>`;
+    html += tile({ onclick: 'openYourStoryUpload(event)', label: 'Add status', avatar: myAvatar, ring: 'is-empty',
+      extra: '<span class="status-badge" aria-hidden="true"><svg class="i"><use href="#i-plus"/></svg></span>' });
   }
 
-  // 2. Contact Status Cards (WhatsApp Style)
-  const list = getAllCommunityStories();
-  html += list.map((s) => {
+  // 2. Other people's statuses (real, unexpired, from Firestore)
+  html += getAllCommunityStories().map((s) => {
     const seen = seenStories.has(s.id);
-    const contactAvatar = s.avatar || s.thumb || s.image;
+    const avatar = s.avatar || s.thumb || s.image || '';
     const isVid = Boolean(s.isVideo || s.video);
-    const mediaUrl = s.video || s.image || '';
-
-    let mediaBgHtml = '';
-    if (isVid && mediaUrl) {
-      mediaBgHtml = `<video class="wa-status-card-video" src="${escHtml(mediaUrl)}#t=0.5" preload="metadata" muted playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;"></video>`;
-    } else if (mediaUrl) {
-      mediaBgHtml = `<div class="wa-status-card-bg" style="background-image:url('${escHtml(mediaUrl)}')"></div>`;
-    } else {
-      mediaBgHtml = `<div class="wa-status-card-bg" style="background-image:url('${escHtml(contactAvatar)}')"></div>`;
-    }
-
-    return `
-      <div class="wa-status-card contact-status-card ${seen ? 'seen' : ''}" onclick="viewStory('${s.id}')">
-        ${mediaBgHtml}
-        <div class="wa-status-card-overlay"></div>
-        <div class="wa-status-avatar-wrap">
-          <div class="wa-status-avatar ${seen ? 'seen-ring' : 'active-ring'}" style="background-image:url('${contactAvatar}')"></div>
-          ${isVid ? `<span class="wa-status-vid-icon" style="position:absolute;bottom:-2px;right:-2px;background:#111b21;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;">📹</span>` : ''}
-        </div>
-        <div class="wa-status-card-info">
-          <span class="wa-status-card-name">${escHtml(s.name)}</span>
-        </div>
-      </div>`;
+    return tile({
+      onclick: `viewStory(${escHtml(JSON.stringify(String(s.id)))})`,
+      label: s.name || 'Member', avatar, ring: seen ? 'is-seen' : 'is-unseen',
+      aria: `${s.name || 'Member'}'s status${isVid ? ' (video)' : ''}${seen ? ', viewed' : ''}`,
+      extra: isVid ? '<span class="status-badge status-badge-media" aria-hidden="true"><svg class="i"><use href="#i-video"/></svg></span>' : ''
+    });
   }).join('');
 
   scroll.innerHTML = html;
@@ -13364,7 +13252,7 @@ function requestNotificationPermission() {
   if (!slot) return;
 
   const banner = document.createElement('div');
-  banner.className = 'notice notif-permission-banner';
+  banner.className = 'notice';
   banner.id = 'notifPermBanner';
   banner.setAttribute('role', 'region');
   banner.setAttribute('aria-label', 'Notifications');
@@ -13477,7 +13365,7 @@ async function handleUserSearchInput(e) {
   const resultsContainer = document.getElementById('searchResultsContainer');
   const resultsList = document.getElementById('searchResultsList');
   const resultsCount = document.getElementById('searchResultsCount');
-  const mainContentSections = document.querySelectorAll('#storiesSection, .vip-blur-card, .ad-banner-slot');
+  const mainContentSections = document.querySelectorAll('#storiesSection');
 
   if (clearBtn) clearBtn.style.display = query.length > 0 ? 'block' : 'none';
 

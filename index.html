@@ -48,6 +48,8 @@
   <link rel="stylesheet" href="css/shell.css?v=70.0">
   <link rel="stylesheet" href="css/auth.css?v=70.0">
   <link rel="stylesheet" href="css/discovery.css?v=70.0">
+  <link rel="stylesheet" href="css/matches.css?v=70.0">
+  <link rel="stylesheet" href="css/paywall.css?v=70.0">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
     if ('serviceWorker' in navigator) {
@@ -652,13 +654,6 @@
             <button type="button" class="circ-btn btn-like" onclick="pulseClick(this);triggerManualSwipe('right')" title="Like" aria-label="Like this profile">
               <svg class="i i-lg i-fill" aria-hidden="true"><use href="#i-heart"/></svg>
             </button>
-            <button type="button" class="circ-btn btn-super" onclick="pulseClick(this);triggerSuperLike()" title="Super like" aria-label="Super like">
-              <svg class="i" aria-hidden="true"><use href="#i-star"/></svg>
-            </button>
-            <button type="button" class="circ-btn btn-boost" id="boostBtn" onclick="pulseClick(this);startBoost()" title="Boost your profile" aria-label="Boost your profile">
-              <svg class="i" aria-hidden="true"><use href="#i-zap"/></svg>
-              <span class="boost-timer" id="boostTimer" style="display:none"></span>
-            </button>
           </div>
         </div>
       </div>
@@ -669,71 +664,24 @@
       <div class="screen" id="matchesScreen">
         <div class="matches-workspace">
 
-          <!-- Stories / Top Picks Row -->
-          <div class="stories-section" id="storiesSection" style="display:none">
-            <div class="stories-header-row">
-              <span class="stories-heading">Status</span>
-            </div>
-            <div class="stories-scroll" id="storiesScroll">
-              <!-- Rendered by JS -->
-            </div>
-          </div>
+          <!-- Status row (people who posted a status; rendered by JS) -->
+          <section class="status-section" id="storiesSection" aria-labelledby="statusHeading" style="display:none">
+            <h2 class="sec-title" id="statusHeading">Status</h2>
+            <div class="status-row" id="storiesScroll" role="list"></div>
+          </section>
 
-          <!-- VIP Blurred Likes Card -->
-          <div class="vip-blur-card" onclick="openPaywall('likes_you')">
-            <div class="vip-card-header">
-              <span class="vip-card-title">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:6px;filter:drop-shadow(0 0 4px rgba(244,197,80,0.8))">
-                  <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="#F4C550"/>
-                </svg>
-                People Who Liked You
-              </span>
-              <span class="vip-card-badge">VIP FEATURE</span>
-            </div>
-            <p class="vip-card-sub">4 premium users have already swiped right on you! Upgrade to see who.</p>
-            <div class="vip-blur-grid">
-              <div class="blur-item" id="blurItem1" style="background-image:url('https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=150&q=80')">
-                <div class="blur-lock" id="blurLock1">🔒</div>
-              </div>
-              <div class="blur-item" id="blurItem2" style="background-image:url('https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=150&q=80')">
-                <div class="blur-lock" id="blurLock2">🔒</div>
-              </div>
-              <div class="blur-item" id="blurItem3" style="background-image:url('https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=150&q=80')">
-                <div class="blur-lock" id="blurLock3">🔒</div>
-              </div>
-              <div class="blur-item" id="blurItem4" style="background-image:url('https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=150&q=80')">
-                <div class="blur-lock" id="blurLock4">🔒</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Ad Banner (Google AdSense ready) -->
-          <div class="ad-banner-slot" style="margin-top:12px">
-            <span class="ad-label">Ad</span>
-            <div style="flex:1">
-              <div style="font-weight:700;font-size:0.85rem;color:var(--text-primary)">Sponsored: Dress to Impress 👔</div>
-              <div style="font-size:0.75rem;color:var(--text-muted)">Premium fashion deals for your next date night</div>
-            </div>
-            <!-- Replace with: <ins class="adsbygoogle" data-ad-client="ca-pub-XXXXXXX" data-ad-slot="XXXXXXX"></ins> -->
-          </div>
-
-          <!-- Connections & Mutual Matches Grid -->
-          <div class="matches-connections-section">
-            <div class="section-header" style="margin-top:16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
-              <div style="display:flex;align-items:center;gap:8px">
-                <span class="section-title" style="font-size:1.05rem;font-weight:700">Your Connections</span>
-                <span class="section-count" id="matchesCount">0</span>
-              </div>
-              <button class="matches-inbox-shortcut-btn" onclick="switchTab('chatsList')" style="background:none;border:none;color:var(--flame-1);font-size:0.82rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:4px">
-                Open Inbox 💬
+          <!-- Mutual matches -->
+          <section class="matches-section" aria-labelledby="matchesHeading">
+            <div class="section-bar">
+              <h2 class="sec-title" id="matchesHeading">Matches <span class="count-badge count-badge-quiet" id="matchesCount">0</span></h2>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="switchTab('chatsList')">
+                <svg class="i" aria-hidden="true"><use href="#i-message-circle"/></svg>
+                Open messages
               </button>
             </div>
-            
-            <div class="matches-grid" id="matchesGrid">
-              <!-- Rendered by JS -->
-            </div>
-          </div>
-            </div>
+            <div class="match-grid" id="matchesGrid"></div>
+          </section>
+        </div>
       </div>
 
       <!-- =====================================================
@@ -1973,135 +1921,61 @@
     <!-- =====================================================
          VIP PAYWALL MODAL
          ===================================================== -->
-    <div class="paywall-modal" id="paywallModal">
-      <div class="tg-modal-sheet">
-        <!-- Top Navigation Header -->
-        <div class="tg-header">
-          <button class="tg-close-btn" onclick="closePaywall()" aria-label="Close">✕</button>
-          <div class="tg-brand-wrap">
-            <span class="tg-brand-title">HOOKME</span>
-            <span class="tg-brand-badge">GOLD</span>
-          </div>
-          <div style="width:34px"></div>
+    <div class="sheet-overlay paywall-overlay" id="paywallModal" onclick="if(event.target===this)closePaywall()">
+      <div class="sheet paywall-sheet" role="dialog" aria-modal="true" aria-labelledby="paywallTitle">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <div class="sheet-head">
+          <h2 class="sheet-title" id="paywallTitle">
+            HookMe Gold
+          </h2>
+          <button type="button" class="btn btn-icon btn-ghost" onclick="closePaywall()" aria-label="Close">
+            <svg class="i" aria-hidden="true"><use href="#i-x"/></svg>
+          </button>
         </div>
 
-        <div class="tg-scroll-body">
-          <!-- Main Hero Promo Card (Matches Tinder Gold screenshot) -->
-          <div class="tg-hero-card">
-            <div class="tg-pill-tag">Expires soon</div>
-            <h2 class="tg-hero-heading" id="paywallTitle">Get 50% Off your first month of HookMe Gold®</h2>
-            
-            <div class="tg-pricing-row">
-              <div class="tg-price-primary" id="tgPricePrimary">First month ₦7,500</div>
-              <div class="tg-price-struck" id="tgPriceStruck">₦15,000/mo</div>
-            </div>
+        <div class="sheet-body paywall-body">
+          <p class="paywall-reason" id="paywallReason">Remove the daily limits on likes, rewinds and AI portraits.</p>
 
-            <p class="tg-renewal-text" id="tgRenewalNotice">
-              Renews at ₦15,000 after first month. Your payment will be processed securely via Paystack. You can cancel anytime in Settings. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.
-            </p>
-
-            <div class="tg-timer-box">
-              Offer ends in <strong id="tgCountdownTimer">00:29:49</strong>
-            </div>
-
-            <button class="tg-continue-btn" id="paywallCta" onclick="simulatePurchase()">
-              Continue
+          <div class="plans" role="radiogroup" aria-label="Choose a plan">
+            <button type="button" class="plan" id="pricingCard1" role="radio" aria-checked="false" onclick="selectPricingTier(1)">
+              <span class="plan-name">1 week</span>
+              <span class="plan-price">₦2,500</span>
+              <span class="plan-note">Lasts 7 days</span>
+            </button>
+            <button type="button" class="plan is-selected" id="pricingCard2" role="radio" aria-checked="true" onclick="selectPricingTier(2)">
+              <span class="plan-name">1 month</span>
+              <span class="plan-price">₦7,500</span>
+              <span class="plan-note">Lasts 1 month</span>
+            </button>
+            <button type="button" class="plan" id="pricingCard3" role="radio" aria-checked="false" onclick="selectPricingTier(3)">
+              <span class="plan-name">Lifetime</span>
+              <span class="plan-price">₦25,000</span>
+              <span class="plan-note">Never expires</span>
             </button>
           </div>
 
-          <!-- Subscription Plan Tiers Selector -->
-          <div class="tg-tiers-container">
-            <div class="tg-tier-item" id="pricingCard1" onclick="selectPricingTier(1)">
-              <div class="tg-ti-name">1 Week</div>
-              <div class="tg-ti-price">₦2,500</div>
-              <div class="tg-ti-sub">₦2,500/wk</div>
-            </div>
-            <div class="tg-tier-item selected" id="pricingCard2" onclick="selectPricingTier(2)">
-              <div class="tg-ti-badge">BEST VALUE</div>
-              <div class="tg-ti-name">1 Month</div>
-              <div class="tg-ti-price">₦7,500</div>
-              <div class="tg-ti-sub">50% OFF</div>
-            </div>
-            <div class="tg-tier-item" id="pricingCard3" onclick="selectPricingTier(3)">
-              <div class="tg-ti-badge">LIFETIME</div>
-              <div class="tg-ti-name">Lifetime</div>
-              <div class="tg-ti-price">₦25,000</div>
-              <div class="tg-ti-sub">One-time</div>
-            </div>
-          </div>
+          <table class="compare">
+            <caption class="compare-caption">What Gold changes</caption>
+            <thead>
+              <tr><th scope="col">Feature</th><th scope="col">Free</th><th scope="col" class="compare-gold">Gold</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Daily likes</th><td>Limited</td><td class="compare-gold">Unlimited</td></tr>
+              <tr><th scope="row">Rewind a pass</th><td>1</td><td class="compare-gold">Unlimited</td></tr>
+              <tr><th scope="row">AI portraits</th><td>1</td><td class="compare-gold">Unlimited</td></tr>
+            </tbody>
+          </table>
 
-          <!-- Tinder-style "What's included" Comparison Table -->
-          <div class="tg-table-section">
-            <div class="tg-table-head">
-              <div class="tg-th-feature">What's included</div>
-              <div class="tg-th-free">Free</div>
-              <div class="tg-th-gold">
-                <span class="tg-brand-badge">GOLD</span>
-              </div>
-            </div>
+          <p class="paywall-terms" id="tgRenewalNotice">
+            One-time payment. It does not renew automatically. Paid securely with Paystack.
+            By continuing you agree to the <button type="button" class="link-btn" onclick="openTermsModal()">Terms</button>.
+          </p>
+        </div>
 
-            <div class="tg-table-list">
-              <div class="tg-table-row">
-                <div class="tg-td-feature">Filter Age & Distance</div>
-                <div class="tg-td-free"><span class="tg-check">✓</span></div>
-                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
-              </div>
-              <div class="tg-table-row">
-                <div class="tg-td-feature">See Who Likes You</div>
-                <div class="tg-td-free"><span class="tg-dash">—</span></div>
-                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
-              </div>
-              <div class="tg-table-row">
-                <div class="tg-td-feature">Top Picks & Compatibility</div>
-                <div class="tg-td-free"><span class="tg-dash">—</span></div>
-                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
-              </div>
-              <div class="tg-table-row">
-                <div class="tg-td-feature">Unlimited Rewinds</div>
-                <div class="tg-td-free"><span class="tg-dash">—</span></div>
-                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
-              </div>
-              <div class="tg-table-row">
-                <div class="tg-td-feature">Unlimited Swipes & Likes</div>
-                <div class="tg-td-free"><span class="tg-dash">—</span></div>
-                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
-              </div>
-              <div class="tg-table-row">
-                <div class="tg-td-feature">1 Free Boost per Month</div>
-                <div class="tg-td-free"><span class="tg-dash">—</span></div>
-                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
-              </div>
-              <div class="tg-table-row">
-                <div class="tg-td-feature">5 Free Super Likes a Day</div>
-                <div class="tg-td-free"><span class="tg-dash">—</span></div>
-                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
-              </div>
-              <div class="tg-table-row">
-                <div class="tg-td-feature">Message Before Matching</div>
-                <div class="tg-td-free"><span class="tg-dash">—</span></div>
-                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
-              </div>
-              <div class="tg-table-row">
-                <div class="tg-td-feature">Passport to Any Location</div>
-                <div class="tg-td-free"><span class="tg-dash">—</span></div>
-                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
-              </div>
-              <div class="tg-table-row">
-                <div class="tg-td-feature">Zero Advertisements</div>
-                <div class="tg-td-free"><span class="tg-dash">—</span></div>
-                <div class="tg-td-gold"><span class="tg-check">✓</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="tg-secure-footer">
-            🔒 256-bit Encrypted • Paystack Secure • Cancel anytime
-          </div>
-
-          <div id="paywallRenewalTerms" class="paywall-renewal-terms" style="display:none">
-            <span id="renewalPlanName">1 Month VIP Gold</span>
-            <span id="renewalPrice">₦7,500</span>
-          </div>
+        <div class="sheet-foot paywall-foot">
+          <button type="button" class="btn btn-gold btn-lg" id="paywallCta" onclick="simulatePurchase()">
+            <span id="paywallCtaLabel">Pay ₦7,500 with Paystack</span>
+          </button>
         </div>
       </div>
     </div>
@@ -2220,9 +2094,6 @@
         <div class="profile-detail-actions-bar" id="detailSheetActionsBar">
           <button type="button" class="circ-btn btn-pass" onclick="actionFromDetailSheet('nope')" aria-label="Pass" title="Pass">
             <svg class="i i-lg" aria-hidden="true"><use href="#i-x"/></svg>
-          </button>
-          <button type="button" class="circ-btn btn-super" onclick="actionFromDetailSheet('superlike')" aria-label="Super like" title="Super like">
-            <svg class="i" aria-hidden="true"><use href="#i-star"/></svg>
           </button>
           <button type="button" class="circ-btn btn-like" onclick="actionFromDetailSheet('like')" aria-label="Like" title="Like">
             <svg class="i i-lg i-fill" aria-hidden="true"><use href="#i-heart"/></svg>
