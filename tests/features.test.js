@@ -8,11 +8,11 @@ const css = ['premium.css', 'style.css', ...fs.readdirSync('css').filter((f) => 
   .map((f) => fs.readFileSync(f, 'utf8')).join('\n');
 const js = fs.readFileSync('script.js', 'utf8');
 
-test('in-chat AI assistant and tap-to-retry message failure states exist', () => {
+test('in-chat conversation starters and tap-to-retry message failure states exist', () => {
   assert.ok(html.includes('id="chatAiSuggestionsPanel"'), 'Missing chatAiSuggestionsPanel');
   assert.ok(html.includes('id="chatAiAssistBtn"'), 'Missing chatAiAssistBtn');
   assert.ok(css.includes('.msg-failed-retry-bar'), 'Missing .msg-failed-retry-bar CSS');
-  assert.ok(css.includes('.chat-ai-suggestions-panel'), 'Missing .chat-ai-suggestions-panel CSS');
+  assert.ok(css.includes('.chat-starters'), 'Missing .chat-starters CSS');
   assert.ok(js.includes('function retryFailedMessage'), 'Missing retryFailedMessage');
   assert.ok(js.includes('function toggleChatAiAssistant'), 'Missing toggleChatAiAssistant');
 });

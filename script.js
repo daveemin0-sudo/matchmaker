@@ -4039,10 +4039,10 @@ function syncMatchesPresenceListeners() {
               const status = getUserOnlineStatus(id);
               if (status.isOnline) {
                 statusEl.className = 'chat-partner-status is-online';
-                statusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+                statusEl.innerHTML = '<span class="presence-dot" aria-hidden="true"></span>Active now';
               } else {
                 statusEl.className = 'chat-partner-status';
-                statusEl.innerHTML = escHtml(status.label);
+                statusEl.textContent = status.label;
               }
             }
           }
@@ -5084,8 +5084,8 @@ const EMOJI_KEYWORDS = {
   '💎': 'gem stone diamond jewel sapphire precious crystal expensive rich sparkly jewelry luxury gem'
 };
 
-const SMILEY_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5 14.67 11 15.5 11zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>`;
-const KEYBOARD_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>`;
+const SMILEY_SVG = `<svg class="i" aria-hidden="true"><use href="#i-smile"/></svg>`;
+const KEYBOARD_SVG = `<svg class="i" aria-hidden="true"><use href="#i-keyboard"/></svg>`;
 
 let currentEmojiCategory = 'smileys';
 
@@ -5122,24 +5122,18 @@ function openChat(profileId, { fromHistory = false } = {}) {
 
   if (nameEl) nameEl.textContent = partner ? partner.name : 'Chat';
   if (avatarEl) {
-    if (photo) {
-      avatarEl.style.backgroundImage = `url('${photo}')`;
-      avatarEl.style.backgroundSize = 'cover';
-      avatarEl.style.backgroundPosition = 'center';
-      avatarEl.textContent = '';
-    } else {
-      avatarEl.style.backgroundImage = 'none';
-      avatarEl.textContent = partner ? partner.name.charAt(0) : '?';
-    }
+    avatarEl.innerHTML = photo
+      ? `<img src="${escHtml(photo)}" alt="">`
+      : escHtml(partner && partner.name ? partner.name.charAt(0).toUpperCase() : '?');
   }
   if (statusEl) {
     const currentStatus = getUserOnlineStatus(profileId);
     if (currentStatus.isOnline) {
       statusEl.className = 'chat-partner-status is-online';
-      statusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+      statusEl.innerHTML = '<span class="presence-dot" aria-hidden="true"></span>Active now';
     } else {
       statusEl.className = 'chat-partner-status';
-      statusEl.innerHTML = escHtml(currentStatus.label);
+      statusEl.textContent = currentStatus.label;
     }
   }
 
@@ -5166,10 +5160,10 @@ function openChat(profileId, { fromHistory = false } = {}) {
           if (currentStatusEl && appState.currentChatId === profileId) {
             if (updated.isOnline) {
               currentStatusEl.className = 'chat-partner-status is-online';
-              currentStatusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+              currentStatusEl.innerHTML = '<span class="presence-dot" aria-hidden="true"></span>Active now';
             } else {
               currentStatusEl.className = 'chat-partner-status';
-              currentStatusEl.innerHTML = escHtml(updated.label);
+              currentStatusEl.textContent = updated.label;
             }
           }
         }
@@ -5373,190 +5367,11 @@ function viewCurrentMatchProfile() {
   const menu = document.getElementById('chatDropdownMenu');
   if (menu) menu.style.display = 'none';
   if (!appState.currentChatId) return;
-
-  const partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
-  if (!partner) return;
-
-  document.getElementById('whatsappProfileOverlay')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.className = 'whatsapp-profile-overlay';
-  overlay.id = 'whatsappProfileOverlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeWhatsAppProfile(); };
-
-  const allPhotos = [];
-  if (Array.isArray(partner.photos) && partner.photos.length > 0) {
-    partner.photos.forEach(u => { if (u) allPhotos.push(u); });
-  }
-  if (allPhotos.length === 0 && (partner.image || partner.photoUrl)) {
-    allPhotos.push(partner.image || partner.photoUrl);
-  }
-  const photo = allPhotos[0] || '';
-  const tagsHtml = (partner.tags || ['Positive vibes ✨', 'Music 🎵', 'Foodie 🍕']).map(t => `<span class="wa-interest-pill">${escHtml(t)}</span>`).join('');
-  const partnerName = escHtml(partner.name || 'User');
-  const partnerAge = partner.age || 24;
-  const partnerLoc = partner.location || partner.city || 'Lagos, Nigeria';
-  const partnerDistance = typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(partner) : (partner.distance || '3 km away');
-  const partnerBio = escHtml(partner.bio || 'Living life with good energy, positive vibes only! ✨');
-
-  let isMuted = false;
-  try {
-    const mutedList = JSON.parse(localStorage.getItem('hmbs_muted_matches') || '[]');
-    isMuted = mutedList.includes(partner.id);
-  } catch (_) {}
-
-  overlay.innerHTML = `
-    <div class="whatsapp-profile-sheet" id="whatsappProfileSheet">
-      <div class="wa-grab-bar-wrap" onclick="closeWhatsAppProfile()">
-        <div class="wa-grab-bar"></div>
-      </div>
-      
-      <!-- Top actions -->
-      <div class="wa-profile-top-bar">
-        <button class="wa-circle-btn" onclick="closeWhatsAppProfile()" aria-label="Close" title="Back">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-        <span class="wa-top-title">Contact Info</span>
-        <button class="wa-circle-btn" onclick="closeWhatsAppProfile();reportUser();" aria-label="Report or Block" title="Options">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-        </button>
-      </div>
-
-      <div class="wa-profile-scroll-content">
-        <!-- Hero Photo & Details -->
-        <div class="wa-profile-hero">
-          <div class="wa-avatar-ring">
-            ${photo ? `<img src="${photo}" class="wa-avatar-img" alt="${partnerName}" onclick="openFullPhotoModal('${photo}')" title="Click to enlarge">` : `<div class="wa-avatar-fallback">${partnerName.charAt(0)}</div>`}
-          </div>
-          <div class="wa-name-row">
-            <h2 class="wa-profile-name">${partnerName}, ${partnerAge}</h2>
-            <span class="wa-verified-badge" title="Verified Profile">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-            </span>
-          </div>
-          <div class="wa-status-row">
-            <span class="wa-pulse-dot"></span>
-            <span class="wa-status-text">Active now • ${escHtml(partnerLoc)}</span>
-          </div>
-        </div>
-
-        <!-- WhatsApp Quick Action Icons -->
-        <div class="wa-quick-actions">
-          <button class="wa-action-btn" onclick="closeWhatsAppProfile();setTimeout(()=>{const inp=document.getElementById('chatInput');if(inp)inp.focus();},150);" title="Message">
-            <div class="wa-action-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
-            </div>
-            <span>Message</span>
-          </button>
-          <button class="wa-action-btn" onclick="closeWhatsAppProfile();startVoiceCall();" title="Audio Call">
-            <div class="wa-action-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-            </div>
-            <span>Audio</span>
-          </button>
-          <button class="wa-action-btn" onclick="closeWhatsAppProfile();startVideoCall();" title="Video Call">
-            <div class="wa-action-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-            </div>
-            <span>Video</span>
-          </button>
-          <button class="wa-action-btn" onclick="closeWhatsAppProfile();reportUser();" title="Report / Block">
-            <div class="wa-action-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-            </div>
-            <span>Report</span>
-          </button>
-        </div>
-
-        ${allPhotos.length > 0 ? `
-        <!-- Media Gallery -->
-        <div class="wa-card">
-          <div class="wa-card-header" style="display:flex;align-items:center;justify-content:space-between">
-            <span class="wa-card-label">Media, Links and Docs</span>
-            <span class="wa-media-count" style="font-size:0.78rem;color:#E3B34D;font-weight:700">${allPhotos.length} photo${allPhotos.length > 1 ? 's' : ''}</span>
-          </div>
-          <div class="wa-media-strip">
-            ${allPhotos.map((p, idx) => `
-              <div class="wa-media-thumb" style="background-image:url('${safeCssUrl(p)}')" onclick="openFullPhotoModal('${escHtml(p)}')" role="button" tabindex="0" title="View photo ${idx + 1}"></div>
-            `).join('')}
-          </div>
-        </div>
-        ` : ''}
-
-        <!-- Notifications Settings -->
-        <div class="wa-card">
-          <div class="wa-settings-row">
-            <div class="wa-settings-info">
-              <div class="wa-settings-title">Mute Notifications</div>
-              <div class="wa-settings-sub">Silence incoming messages & calls from this match</div>
-            </div>
-            <label class="wa-toggle-switch">
-              <input type="checkbox" id="waMuteToggle" onchange="toggleMuteMatch('${partner.id}', this.checked)" ${isMuted ? 'checked' : ''}>
-              <span class="wa-toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <!-- WhatsApp Info Cards -->
-        <div class="wa-card">
-          <div class="wa-card-header">
-            <span class="wa-card-label">About</span>
-          </div>
-          <p class="wa-card-body">${partnerBio}</p>
-          <div class="wa-card-sub">Connected via hookmebysam match</div>
-        </div>
-
-        <div class="wa-card">
-          <div class="wa-card-header">
-            <span class="wa-card-label">Passions & Lifestyle</span>
-          </div>
-          <div class="wa-tags-wrap">${tagsHtml}</div>
-        </div>
-
-        <div class="wa-card">
-          <div class="wa-card-header">
-            <span class="wa-card-label">Location & Distance</span>
-          </div>
-          <div class="wa-info-row">
-            <span class="wa-info-icon">📍</span>
-            <div class="wa-info-text">
-              <div class="wa-info-main">${escHtml(partnerLoc)}</div>
-              <div class="wa-info-sub">${escHtml(partnerDistance)}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- WhatsApp Privacy / Danger Actions -->
-        <div class="wa-card wa-danger-card">
-          <div class="wa-danger-item" onclick="closeWhatsAppProfile();blockUser('${partner.id}', '${partnerName}');">
-            <div class="wa-danger-icon">
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"/></svg>
-            </div>
-            <span>Block ${partnerName}</span>
-          </div>
-          <div class="wa-danger-item" onclick="closeWhatsAppProfile();reportUser();">
-            <div class="wa-danger-icon">
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
-            </div>
-            <span>Report ${partnerName}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
+  openProfileDetailSheet(appState.currentChatId, null, { hideActions: true });
 }
 
 function closeWhatsAppProfile() {
-  const overlay = document.getElementById('whatsappProfileOverlay');
-  if (!overlay) return;
-  const sheet = document.getElementById('whatsappProfileSheet');
-  if (sheet) {
-    sheet.style.transform = 'translateY(100%)';
-    sheet.style.transition = 'transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)';
-  }
-  setTimeout(() => overlay.remove(), 220);
+  document.getElementById('whatsappProfileOverlay')?.remove();
 }
 
 function toggleMuteMatch(matchId, isMuted) {
@@ -5740,32 +5555,29 @@ function renderChatThread() {
   const partnerPhoto = partner?.image || partner?.photoUrl || partner?.avatar || conversations[partnerId]?.partnerImage || '';
 
   if (hist.length === 0) {
+    const pid = escHtml(JSON.stringify(String(partnerId)));
+    const starters = [
+      `Hey ${partner?.name || ''}! How is your day going?`.replace('  ', ' '),
+      'What kind of music have you been playing lately?',
+      'Describe your perfect Sunday.'
+    ];
     container.innerHTML = `
-      <div class="chat-match-milestone" style="text-align:center;padding:28px 16px 36px;color:var(--txt-muted);">
-        <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 12px;background:var(--grad-flame);display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 8px 24px rgba(255,46,112,0.3)">🔥</div>
-        <p style="font-weight:700;color:var(--txt-primary);font-size:1.05rem;margin-bottom:4px">You matched with ${partnerName}!</p>
-        <p style="font-size:0.82rem;line-height:1.45;max-width:260px;margin:0 auto 16px;color:rgba(255,255,255,0.6)">Break the ice with a conversation starter:</p>
+      <div class="chat-match-milestone">
+        <span class="avatar avatar-xl">${partnerPhoto ? `<img src="${escHtml(partnerPhoto)}" alt="">` : ''}</span>
+        <h2 class="chat-match-title">You matched with ${partnerName}</h2>
+        <p class="chat-match-sub">Say something first. A few ideas:</p>
         <div class="chat-empty-icebreakers">
-          <button class="chat-empty-ib-btn" onclick="sendChatEmptyStarter('${escHtml(partnerId)}', 'Hey ${partnerName}! How is your day going? ✨')">
-            👋 Hey ${partnerName}! How's your day going?
-          </button>
-          <button class="chat-empty-ib-btn" onclick="sendChatEmptyStarter('${escHtml(partnerId)}', 'Loved your vibe on your profile! What music are you listening to lately? 🎵')">
-            🎵 Loved your vibe! What music are you playing lately?
-          </button>
-          <button class="chat-empty-ib-btn" onclick="sendChatEmptyStarter('${escHtml(partnerId)}', 'Describe your perfect Sunday in Lagos 🌅')">
-            🌅 Describe your perfect Sunday in Lagos
-          </button>
+          ${starters.map(t => `<button type="button" class="chat-empty-ib-btn" onclick="sendChatEmptyStarter(${pid}, ${escHtml(JSON.stringify(t))})">${escHtml(t)}</button>`).join('')}
         </div>
-      </div>
-    `;
+      </div>`;
     return;
   }
 
+  const ic = (name, cls = '') => `<svg class="i ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
   let lastDateHeader = null;
   let html = '';
 
   hist.forEach((msg, idx) => {
-    const isLast = idx === hist.length - 1;
     let isSent = msg.sender === 'me';
     if (msg.isCall) {
       if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
@@ -5786,19 +5598,19 @@ function renderChatThread() {
     if (!msg.firestoreId && !String(msgId).startsWith('local_')) msg.firestoreId = msgId;
     const timeStr = formatWhatsAppTime(msg.timestamp, msg.time);
 
-    // Date separator pill (Today, Yesterday, or Month Day, Year)
+    // Date separator (Today, Yesterday, or a date)
     const dateHeader = getWhatsAppDateHeader(msg.timestamp, msg.time);
     if (dateHeader && dateHeader !== lastDateHeader) {
       lastDateHeader = dateHeader;
       html += `<div class="chat-date-separator" data-date="${escHtml(dateHeader)}"><span>${escHtml(dateHeader)}</span></div>`;
     }
 
-    // Build reaction bar
+    // Reactions
     const reactions = msg.reactions || {};
     const reactionKeys = Object.keys(reactions).filter(k => reactions[k]?.length > 0);
     const reactionBar = reactionKeys.length > 0
       ? `<div class="msg-reaction-bar">${reactionKeys.map(emoji =>
-          `<span class="msg-reaction-pill" onclick="event.stopPropagation();openReactionSheet('${matchId}','${msgId}','${emoji}')">${emoji} <span>${reactions[emoji].length}</span></span>`
+          `<button type="button" class="msg-reaction-pill" aria-label="${escHtml(emoji)} reacted ${reactions[emoji].length} time${reactions[emoji].length === 1 ? '' : 's'}" onclick="event.stopPropagation();openReactionSheet('${matchId}','${msgId}','${emoji}')">${emoji} <span>${reactions[emoji].length}</span></button>`
         ).join('')}</div>`
       : '';
 
@@ -5806,45 +5618,35 @@ function renderChatThread() {
 
     let bubbleHtml = '';
     const isRead = msg.read === true || hist.some(m => m.sender !== 'me' && (m.timestamp || 0) >= (msg.timestamp || 0));
-    const receiptHtml = isSent ? `<span class="msg-receipt-ticks ${isRead ? 'read' : ''}">✓✓</span>` : '';
-    const editedHtml = msg.edited ? `<span class="msg-edited">(edited)</span>` : '';
-    const forwardedHtml = msg.forwarded
-      ? `<div class="msg-forwarded-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg> Forwarded</div>`
+    const receiptHtml = (isSent && !(msg._uploadFailed || msg._failed))
+      ? `<span class="msg-receipt-ticks ${isRead ? 'read' : ''}" role="img" aria-label="${isRead ? 'Read' : 'Sent'}">${ic('check-check')}</span>`
       : '';
+    const editedHtml = msg.edited ? `<span class="msg-edited">(edited)</span>` : '';
+    const forwardedHtml = msg.forwarded ? `<div class="msg-forwarded-tag">${ic('forward')}Forwarded</div>` : '';
 
-    // Quoted reply block inside the bubble
+    // Quoted reply inside the bubble
     let quoteHtml = '';
     if (msg.replyTo) {
       const qAuthor = escHtml(msg.replyTo.senderName || 'You');
       let qText = escHtml(msg.replyTo.text || '');
       const qId = msg.replyTo.id || '';
 
-      // Resolve thumbnail image from replyTo or by searching thread history
       let qImg = msg.replyTo.imageUrl || '';
       if (!qImg && qId) {
         const found = hist.find(m => m.firestoreId === qId || m.id === qId || (m.timestamp && ('msg_' + m.timestamp) === qId));
-        if (found && found.imageUrl) {
-          qImg = found.imageUrl;
-        }
-      }
-      if (!qImg && (qText.toLowerCase().includes('photo') || qText.includes('📷'))) {
-        const priorPhoto = [...hist].reverse().find(m => m.imageUrl && (m.timestamp || 0) <= (msg.timestamp || Date.now()));
-        if (priorPhoto && priorPhoto.imageUrl) {
-          qImg = priorPhoto.imageUrl;
-        }
+        if (found && found.imageUrl) qImg = found.imageUrl;
       }
 
       let qThumb = '';
       if (qImg) {
-        qThumb = `<div class="quote-thumb-wrap"><img src="${escHtml(qImg)}" class="quote-thumb-img" alt="Photo"></div>`;
-        if (qText === '📷 Photo' || qText === 'Photo' || !qText) {
-          qText = `<span class="quote-photo-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:3px"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>Photo</span>`;
+        qThumb = `<span class="quote-thumb-wrap"><img src="${escHtml(qImg)}" class="quote-thumb-img" alt=""></span>`;
+        if (qText === 'Photo' || qText === '📷 Photo' || !qText) {
+          qText = `<span class="quote-photo-label">${ic('camera')}Photo</span>`;
         }
       }
 
       quoteHtml = `
-        <div class="msg-quote-preview ${qImg ? 'has-thumb' : ''}" onclick="scrollToQuotedMessage('${qId}')">
-          <div class="quote-stripe"></div>
+        <div class="msg-quote-preview ${qImg ? 'has-thumb' : ''}" onclick="event.stopPropagation();scrollToQuotedMessage(${escHtml(JSON.stringify(String(qId)))})">
           <div class="quote-text-col">
             <div class="quote-author">${qAuthor}</div>
             <div class="quote-content">${qText}</div>
@@ -5853,30 +5655,25 @@ function renderChatThread() {
         </div>`;
     }
 
-    const timeBadgeHtml = `<span class="msg-time-badge"><span class="msg-time">${timeStr}</span>${receiptHtml}</span>`;
+    const timeBadgeHtml = `<span class="msg-time-badge"><span class="msg-time">${escHtml(timeStr)}</span>${receiptHtml}</span>`;
 
-    // Detect if this message is a call
+    // Calls
     const rawText = typeof msg.text === 'string' ? msg.text : '';
-    const isCallMsg = msg.isCall || 
-      rawText.startsWith('Voice call') || 
-      rawText.startsWith('Video call') || 
-      rawText.startsWith('Missed') || 
-      rawText.startsWith('Declined') || 
-      rawText.startsWith('Cancelled') ||
-      rawText.toLowerCase().includes('voice call') ||
-      rawText.toLowerCase().includes('video call') ||
-      rawText.toLowerCase().includes('call (');
+    const lowerText = rawText.toLowerCase();
+    const isCallMsg = msg.isCall ||
+      rawText.startsWith('Voice call') || rawText.startsWith('Video call') ||
+      rawText.startsWith('Missed') || rawText.startsWith('Declined') || rawText.startsWith('Cancelled') ||
+      lowerText.includes('voice call') || lowerText.includes('video call') || lowerText.includes('call (');
 
     if (isCallMsg) {
-      const isVideo = msg.callType === 'video' || rawText.toLowerCase().includes('video');
-      const isDeclined = msg.callStatus === 'declined' || rawText.toLowerCase().includes('declined');
-      const isNoAnswer = msg.callStatus === 'no_answer' || msg.callStatus === 'cancelled' || rawText.toLowerCase().includes('cancelled') || rawText.toLowerCase().includes('no answer');
-      const isMissed = msg.callStatus === 'missed' || rawText.toLowerCase().includes('missed');
+      const isVideo = msg.callType === 'video' || lowerText.includes('video');
+      const isDeclined = msg.callStatus === 'declined' || lowerText.includes('declined');
+      const isNoAnswer = msg.callStatus === 'no_answer' || msg.callStatus === 'cancelled' || lowerText.includes('cancelled') || lowerText.includes('no answer');
+      const isMissed = msg.callStatus === 'missed' || lowerText.includes('missed');
       const isUnanswered = isDeclined || isNoAnswer || isMissed;
 
       let title = '';
       let subText = 'Tap to call back';
-
       if (isDeclined) {
         title = isSent ? 'No answer' : `Declined ${isVideo ? 'video' : 'voice'} call`;
       } else if (isNoAnswer || isMissed) {
@@ -5885,102 +5682,74 @@ function renderChatThread() {
         title = isVideo ? 'Video call' : 'Voice call';
         subText = msg.duration || (rawText.match(/\((.*?)\)/)?.[1]) || 'Completed';
       }
-
-      const phoneIconSvg = isUnanswered
-        ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><path d="m23 7-6 6"/><path d="m17 7h6v6"/></svg>`
-        : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/><path d="M16 3l5 5"/><path d="M21 3v5h-5"/></svg>`;
-
-      const videoIconSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`;
+      const callIcon = isUnanswered ? 'phone-off' : (isVideo ? 'video' : 'phone');
 
       bubbleHtml = `
-        <div class="msg-call-card ${isSent ? 'sent' : 'received'}" onclick="openCallConfirmDialog('${isVideo ? 'video' : 'voice'}')" title="Tap to call back" ${pressEvents}>
-          <div class="call-card-icon-circle ${isUnanswered ? 'missed' : 'normal'}">
-            ${isVideo ? videoIconSvg : phoneIconSvg}
-          </div>
-          <div class="call-card-body">
-            <div class="call-card-title ${isUnanswered ? 'missed' : ''}">${title}</div>
-            <div class="call-card-sub">${subText}</div>
-          </div>
-          <div class="call-card-meta">${timeStr}</div>
-        </div>`;
+        <button type="button" class="msg-call-card ${isSent ? 'sent' : 'received'}" onclick="openCallConfirmDialog('${isVideo ? 'video' : 'voice'}')" aria-label="${escHtml(title)}. Call back" ${pressEvents}>
+          <span class="call-card-icon-circle ${isUnanswered ? 'missed' : 'normal'}">${ic(callIcon)}</span>
+          <span class="call-card-body">
+            <span class="call-card-title ${isUnanswered ? 'missed' : ''}">${escHtml(title)}</span>
+            <span class="call-card-sub">${escHtml(subText)}</span>
+          </span>
+          <span class="call-card-meta">${escHtml(timeStr)}</span>
+        </button>`;
     } else if (msg.imageUrl || msg.videoUrl) {
       const isVideoMsg = Boolean(msg.videoUrl || msg.isVideo);
       const mediaSrc = msg.videoUrl || msg.imageUrl;
       const rawCap = typeof msg.text === 'string' ? msg.text.trim() : '';
       const hasCaption = Boolean(rawCap && rawCap !== 'Photo' && rawCap !== 'Video' && rawCap !== '📷 Photo' && rawCap !== '📹 Video');
       const captionText = hasCaption ? rawCap : '';
+      const fwdBtn = `<button type="button" class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" aria-label="Forward"><svg class="i" aria-hidden="true"><use href="#i-forward"/></svg></button>`;
 
       bubbleHtml = `
         <div class="msg-image-card-container ${isSent ? 'sent' : 'received'}">
-          ${isSent ? `<button class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg></button>` : ''}
-          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'} ${hasCaption ? 'has-caption' : ''}" onclick="openImageLightbox('${escHtml(mediaSrc)}', '${msgId}', ${isVideoMsg})" title="Tap to view ${isVideoMsg ? 'video' : 'photo'}" ${pressEvents}>
+          ${isSent ? fwdBtn : ''}
+          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'} ${hasCaption ? 'has-caption' : ''}" role="button" tabindex="0" aria-label="Open ${isVideoMsg ? 'video' : 'photo'}" onclick="openImageLightbox('${escHtml(mediaSrc)}', '${msgId}', ${isVideoMsg})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" ${pressEvents}>
             ${quoteHtml}
             <div class="msg-image-wrap">
-              ${isVideoMsg ?
-                `<video src="${escHtml(mediaSrc)}" class="msg-chat-img" playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:12px;"></video>
-                 <div class="msg-img-hd-badge">▶ Video</div>` :
-                `<img src="${escHtml(mediaSrc)}" class="msg-chat-img" loading="lazy" alt="Photo">
-                 <div class="msg-img-hd-badge">HD</div>`
-              }
-              ${!hasCaption ? `
-                <div class="msg-img-overlay-meta">
-                  ${timeBadgeHtml}
-                </div>
-              ` : ''}
+              ${isVideoMsg
+                ? `<video src="${escHtml(mediaSrc)}" class="msg-chat-img" playsinline preload="metadata"></video><span class="msg-media-tag">${ic('play')}Video</span>`
+                : `<img src="${escHtml(mediaSrc)}" class="msg-chat-img" loading="lazy" alt="Photo">`}
+              ${!hasCaption ? `<div class="msg-img-overlay-meta">${timeBadgeHtml}</div>` : ''}
             </div>
             ${hasCaption ? `
               <div class="msg-caption-wrap">
                 <div class="msg-caption-text">${escHtml(captionText)}</div>
-                <div class="msg-caption-meta">
-                  <span class="msg-caption-time">${timeStr}</span>
-                  ${receiptHtml}
-                </div>
-              </div>
-            ` : ''}
+                <div class="msg-caption-meta">${timeBadgeHtml}</div>
+              </div>` : ''}
           </div>
-          ${!isSent ? `<button class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg></button>` : ''}
+          ${!isSent ? fwdBtn : ''}
         </div>`;
     } else if (msg.isVoice) {
       const audioSrc = msg.audioUrl || '';
       const totalDuration = msg.duration || '0:05';
-      const playIconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
-      const waveformHtml = typeof renderVoiceWaveformHtml === 'function' 
-        ? renderVoiceWaveformHtml(msgId, msg.seed || msgId, 28) 
+      const waveformHtml = typeof renderVoiceWaveformHtml === 'function'
+        ? renderVoiceWaveformHtml(msgId, msg.seed || msgId, 28)
         : '';
       const avatarSrc = isSent ? (currentUser?.image || currentUser?.avatar || '') : (partnerPhoto || partner?.image || partner?.photoUrl || '');
-      const badgeHtml = avatarSrc 
-        ? `<div class="vn-avatar-badge"><img src="${escHtml(avatarSrc)}" alt="" onerror="this.style.display='none'"><span class="vn-mic-badge-icon">🎙️</span></div>`
-        : `<div class="vn-avatar-badge" style="background:linear-gradient(135deg,#FF5E8E,#FF2E70);color:#fff;font-size:14px;">🎙️</div>`;
 
       bubbleHtml = `
         <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" id="voiceBubble_${msgId}" data-audiosrc="${escHtml(audioSrc)}" data-duration="${escHtml(totalDuration)}" ${pressEvents}>
           ${quoteHtml}
           <div class="vn-player-wrap">
-            <div class="vn-avatar-speed-wrap">
-              ${badgeHtml}
-              <button type="button" class="vn-speed-btn" id="vnSpeed_${msgId}" onclick="event.stopPropagation();toggleVoicePlaybackSpeed(event, '${msgId}')" title="Playback speed">1x</button>
-            </div>
-            <button class="vn-play-btn" onclick="event.stopPropagation();toggleVoiceNotePlayback('${msgId}')" aria-label="Play voice note">
-              ${playIconSvg}
-            </button>
+            <button type="button" class="vn-play-btn" onclick="event.stopPropagation();toggleVoiceNotePlayback('${msgId}')" aria-label="Play voice note">${PLAY_ICON_SVG}</button>
             <div class="vn-content-col">
               ${waveformHtml || `
-                <div class="vn-track-wrap" onclick="event.stopPropagation();seekVoiceNote(event, '${msgId}')" title="Tap to seek">
-                  <div class="vn-track-fill" id="vnFill_${msgId}">
-                    <div class="vn-track-knob"></div>
-                  </div>
-                </div>
-              `}
+                <div class="vn-track-wrap" onclick="event.stopPropagation();seekVoiceNote(event, '${msgId}')">
+                  <div class="vn-track-fill" id="vnFill_${msgId}"><div class="vn-track-knob"></div></div>
+                </div>`}
               <div class="vn-meta-row">
                 <span class="vn-duration" id="vnTime_${msgId}">${escHtml(totalDuration)}</span>
+                <button type="button" class="vn-speed-btn" id="vnSpeed_${msgId}" onclick="event.stopPropagation();toggleVoicePlaybackSpeed(event, '${msgId}')" aria-label="Playback speed">1x</button>
                 ${timeBadgeHtml}
               </div>
             </div>
+            <span class="vn-avatar-badge">${avatarSrc ? `<img src="${escHtml(avatarSrc)}" alt="" onerror="this.style.display='none'">` : ''}${ic('mic')}</span>
           </div>
         </div>`;
     } else {
       bubbleHtml = `
-        <div class="msg-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" ${pressEvents}>
+        <div class="msg-bubble ${isSent ? 'sent' : 'received'}" ${pressEvents}>
           ${quoteHtml}
           <div class="msg-text-wrap">
             <span class="msg-text">${escHtml(msg.text)}${editedHtml}</span>
@@ -5991,10 +5760,9 @@ function renderChatThread() {
 
     const isFailed = Boolean(isSent && (msg._uploadFailed || msg._failed));
     const failedRetryHtml = isFailed ? `
-      <div class="msg-failed-retry-bar" onclick="event.stopPropagation();retryFailedMessage('${partnerId}', '${msgId}')" role="button" tabindex="0" title="Tap to retry sending">
-        <span class="msg-failed-retry-icon">⚠️</span>
-        <span class="msg-failed-retry-text">Couldn't send • Tap to retry</span>
-      </div>` : '';
+      <button type="button" class="msg-failed-retry-bar" onclick="event.stopPropagation();retryFailedMessage('${partnerId}', '${msgId}')">
+        ${ic('triangle-alert')}<span>Not sent. Tap to retry.</span>
+      </button>` : '';
 
     html += `
       <div class="msg-row ${isSent ? 'sent' : 'received'} ${isFailed ? 'is-failed-msg' : ''}" data-msg-id="${msgId}"
@@ -6002,16 +5770,14 @@ function renderChatThread() {
         ontouchmove="handleMsgTouchMove(event, '${msgId}')"
         ontouchend="handleMsgTouchEnd(event, '${msgId}')"
         onmousedown="handleMsgMouseDown(event, '${msgId}')"
-        ondblclick="startReplyToMessage('${msgId}')"
-        style="display:flex;flex-direction:column;align-self:${isSent ? 'flex-end' : 'flex-start'};align-items:${isSent ? 'flex-end' : 'flex-start'};max-width:78%;gap:3px">
-        <div class="swipe-reply-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 14 4 9 9 4"/>
-            <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
-          </svg>
-        </div>
+        ondblclick="startReplyToMessage('${msgId}')">
+        <div class="swipe-reply-icon">${ic('reply')}</div>
         ${forwardedHtml}
-        ${bubbleHtml}
+        <div class="msg-line">
+          ${isSent ? `<button type="button" class="msg-more" aria-label="Message options" onclick="event.stopPropagation();showReactionPicker(event,'${matchId}','${msgId}')">${ic('ellipsis')}</button>` : ''}
+          ${bubbleHtml}
+          ${!isSent ? `<button type="button" class="msg-more" aria-label="Message options" onclick="event.stopPropagation();showReactionPicker(event,'${matchId}','${msgId}')">${ic('ellipsis')}</button>` : ''}
+        </div>
         ${reactionBar}
         ${failedRetryHtml}
       </div>`;
@@ -6185,7 +5951,7 @@ function getChatAiSuggestions(partnerId) {
   if (compat && Array.isArray(compat.icebreakers)) {
     compat.icebreakers.forEach(ib => {
       const clean = ib.replace(/^["']|["']$/g, '').trim();
-      if (clean) pool.push({ icon: '✨', text: clean });
+      if (clean) pool.push({ text: clean });
     });
   }
 
@@ -6196,7 +5962,6 @@ function getChatAiSuggestions(partnerId) {
     const a = promptObj.answer || '';
     if (a) {
       pool.push({
-        icon: '💬',
         text: `Your answer to "${q}" caught my eye! Tell me more about that?`
       });
     }
@@ -6207,23 +5972,19 @@ function getChatAiSuggestions(partnerId) {
   if (Array.isArray(tags) && tags.length > 0) {
     const tag = tags[0].replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim();
     pool.push({
-      icon: '🎯',
       text: `I noticed you're into ${tag}. What got you passionate about it?`
     });
   }
 
   // 4. Fun playful starters
   pool.push({
-    icon: '☕',
     text: `Quick icebreaker: what does your ideal low-key Sunday look like?`
   });
   pool.push({
-    icon: '🎶',
     text: `If you had to pick one song that always puts you in a good mood, what is it?`
   });
   pool.push({
-    icon: '🍕',
-    text: `Spontaneous debate: best comfort food spot in the city?`
+    text: `Spontaneous debate: best comfort food spot in town?`
   });
 
   return pool;
@@ -6262,20 +6023,14 @@ function refreshChatAiSuggestions() {
   const compat = typeof calculateCompatibility === 'function' ? calculateCompatibility(currentUser, partner) : null;
   if (badgeEl) {
     badgeEl.textContent = compat && compat.headline ? compat.headline : '';
-    badgeEl.style.display = badgeEl.textContent ? '' : 'none';
+    badgeEl.hidden = !badgeEl.textContent;
   }
 
   const allSuggestions = getChatAiSuggestions(partnerId);
   const shuffled = allSuggestions.sort(() => 0.5 - Math.random()).slice(0, 5);
 
-  let chipsHtml = '';
-  shuffled.forEach(s => {
-    chipsHtml += `
-      <div class="chat-ai-chip" onclick="selectChatAiSuggestion('${escHtml(s.text).replace(/'/g, "\\'")}')" role="button" tabindex="0">
-        <span class="chat-ai-chip-icon">${s.icon}</span>
-        <span class="chat-ai-chip-txt">${escHtml(s.text)}</span>
-      </div>`;
-  });
+  const chipsHtml = shuffled.map(sug => `
+    <button type="button" class="chat-ai-chip" data-text="${escHtml(sug.text)}" onclick="selectChatAiSuggestion(this.dataset.text)">${escHtml(sug.text)}</button>`).join('');
 
   listEl.innerHTML = chipsHtml;
 }
@@ -6362,7 +6117,7 @@ function handleMsgTouchEnd(e, msgId) {
 
 function handleMsgMouseDown(e, msgId) {
   if (e.button !== 0) return;
-  if (e.target.closest('.msg-reaction-pill, .msg-quote-preview, .audio-play-btn, button, a')) return;
+  if (e.target.closest('.msg-reaction-pill, .msg-quote-preview, button, a')) return;
 
   const row = e.currentTarget || document.querySelector(`.msg-row[data-msg-id="${msgId}"]`);
   _swipeState = {
@@ -6802,7 +6557,7 @@ function openImageLightbox(src, msgId, isVideo = false) {
                   conversations[appState.currentChatId]?.partner ||
                   {};
   let senderName = partner.name || document.getElementById('chatPartnerName')?.textContent?.trim() || 'Match';
-  let timeMeta = 'HD • ' + new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  let timeMeta = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   if (msgId) {
     const { msg } = getMessageInfo(msgId);
@@ -6812,11 +6567,12 @@ function openImageLightbox(src, msgId, isVideo = false) {
       }
       const dateH = getWhatsAppDateHeader(msg.timestamp, msg.time);
       const timeS = formatWhatsAppTime(msg.timestamp, msg.time);
-      timeMeta = `HD • ${dateH || 'Today'}, ${timeS || ''}`.trim();
+      timeMeta = `${dateH || 'Today'}, ${timeS || ''}`.trim();
 
       const starBtn = document.getElementById('lightboxStarBtn');
       if (starBtn) {
-        starBtn.style.color = msg.starred ? '#F4C550' : '#fff';
+        starBtn.style.color = msg.starred ? 'var(--gold)' : '';
+        starBtn.querySelector('.i')?.classList.toggle('i-fill', Boolean(msg.starred));
       }
     }
   }
@@ -7478,8 +7234,7 @@ function openMediaPreview() {
   // Set recipient name in title
   const recipEl = document.getElementById('mpxRecipientName');
   if (recipEl) {
-    const partner = PROFILES_DATA.concat(PREMIUM_MATCHES).find(p => p.id === appState.currentChatId)
-      || { name: 'Match' };
+    const partner = getPartnerProfileForChat(appState.currentChatId) || { name: 'your match' };
     recipEl.textContent = partner.name;
   }
 
@@ -7548,17 +7303,17 @@ function _mpxRenderFilmstrip() {
     if (!item.isVideo) {
       thumb.style.backgroundImage = `url("${item.objectUrl}")`;
     } else {
-      thumb.style.background = '#1a2633';
+      thumb.classList.add('mpx-thumb-video');
       const badge = document.createElement('span');
       badge.className = 'mpx-thumb-video-badge';
-      badge.textContent = '▶ VID';
+      badge.textContent = 'Video';
       thumb.appendChild(badge);
     }
 
     // Remove button
     const rmBtn = document.createElement('button');
     rmBtn.className = 'mpx-thumb-remove';
-    rmBtn.innerHTML = '✕';
+    rmBtn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-x"/></svg>';
     rmBtn.setAttribute('aria-label', 'Remove');
     rmBtn.onclick = (e) => { e.stopPropagation(); _mpxRemoveItem(idx); };
     thumb.appendChild(rmBtn);
@@ -9185,8 +8940,8 @@ let _liveAudioCtx = null;
 let _liveAnalyser = null;
 let _liveAnimFrame = null;
 
-const PLAY_ICON_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
-const PAUSE_ICON_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+const PLAY_ICON_SVG = `<svg class="i" aria-hidden="true"><use href="#i-play"/></svg>`;
+const PAUSE_ICON_SVG = `<svg class="i" aria-hidden="true"><use href="#i-pause"/></svg>`;
 
 function formatAudioTime(seconds) {
   if (isNaN(seconds) || seconds < 0) seconds = 0;
@@ -10051,7 +9806,7 @@ function renderProfileScreen() {
   if (pctEl) pctEl.textContent = pct + '%';
   if (tipEl) {
     if (pct >= 95) tipEl.textContent = '🌟 All-star profile! You get maximum visibility in recommendations.';
-    else if (!currentUser.voiceIntro) tipEl.textContent = 'Tip: Add a voice introduction to reach 100% and get 3x more matches!';
+    else if (!currentUser.voiceIntro) tipEl.textContent = 'Tip: Add a voice introduction to reach 100%.';
     else if (!currentUser.photos || currentUser.photos.length < 3) tipEl.textContent = 'Tip: Profiles with 3+ photos get 4x more mutual likes!';
     else tipEl.textContent = 'Tip: Add your lifestyle preferences to unlock high-affinity match suggestions.';
   }
@@ -10990,7 +10745,7 @@ function renderSettingsScreen() {
   const currentQuality = localStorage.getItem('videoCallQuality') || '1080p';
   const qualitySub = document.getElementById('videoQualitySubtext');
   if (qualitySub) {
-    if (currentQuality === '1080p') qualitySub.textContent = 'Ultra HD 1080p (Crystal Clear)';
+    if (currentQuality === '1080p') qualitySub.textContent = '1080p (uses more data)';
     else if (currentQuality === '720p') qualitySub.textContent = 'HD 720p (Balanced)';
     else qualitySub.textContent = 'Standard 480p (Data Saver)';
   }
@@ -11492,7 +11247,7 @@ window.applyDiscoveryFilters = applyDiscoveryFilters;
 // DEEP PROFILE DETAIL SHEET (Hinge/Tinder Expansion)
 // ==========================================================
 
-function openProfileDetailSheet(profileId, event) {
+function openProfileDetailSheet(profileId, event, opts = {}) {
   if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
 
   // Find the profile from stack, pool, data, or matches
@@ -11613,6 +11368,8 @@ function openProfileDetailSheet(profileId, event) {
 
   // Reset scroll to top
   content.scrollTop = 0;
+  const detailActions = document.getElementById('detailSheetActionsBar');
+  if (detailActions) detailActions.hidden = Boolean(opts.hideActions);
 
   // Open modal
   modal.style.display = 'flex';
@@ -12576,7 +12333,7 @@ function showTypingIndicator() {
       statusEl.dataset.prevStatus = statusEl.textContent;
     }
     statusEl.textContent = `${pName} is typing...`;
-    statusEl.style.color = '#21B06B';
+    statusEl.style.color = 'var(--success)';
   }
 
   // Bubble in thread
@@ -13748,67 +13505,39 @@ function showReactionPicker(event, matchId, msgId) {
   let idealTop = (relY > shellRect.height * 0.52) ? (relY - pickerH - 12) : (relY + 12);
   const top = Math.max(minTop, Math.min(idealTop, maxTop));
 
-  picker.style.cssText = `
-    position:absolute;z-index:99999;
-    left:${Math.round(left)}px;top:${Math.round(top)}px;
-    width:${pickerW}px;max-width:calc(100% - 24px);
-    background:#1E1530;border:1px solid rgba(255,255,255,0.18);
-    border-radius:20px;padding:8px;
-    display:flex;flex-direction:column;gap:6px;
-    box-shadow:0 18px 50px rgba(0,0,0,0.85);
-    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-    animation:reactionPickerIn 0.18s cubic-bezier(0.175,0.885,0.32,1.275);
-    box-sizing:border-box;
-  `;
+  picker.setAttribute('role', 'menu');
+  picker.setAttribute('aria-label', 'Message options');
+  picker.style.left = `${Math.round(left)}px`;
+  picker.style.top = `${Math.round(top)}px`;
+  picker.style.width = `${pickerW}px`;
 
-  // Top: Emojis Row
+  const ic = (n) => `<svg class="i" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+
+  // Reactions
   const emojiRow = document.createElement('div');
-  emojiRow.style.cssText = 'display:flex;justify-content:space-around;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);';
+  emojiRow.className = 'reaction-row';
   emojiRow.innerHTML = REACTION_EMOJIS_SET.map(emoji =>
-    `<button onclick="event.stopPropagation();toggleMsgReaction('${matchId}','${msgId}','${emoji}');closeReactionPicker();"
-      style="background:none;border:none;font-size:1.45rem;cursor:pointer;transition:transform 0.15s;padding:2px"
-      onmouseenter="this.style.transform='scale(1.3)'" onmouseleave="this.style.transform='scale(1)'">${emoji}</button>`
+    `<button type="button" class="reaction-btn" aria-label="React ${emoji}" onclick="event.stopPropagation();toggleMsgReaction('${matchId}','${msgId}','${emoji}');closeReactionPicker();">${emoji}</button>`
   ).join('');
   picker.appendChild(emojiRow);
 
-  // Bottom: Actions list (Edit, Forward, Share to User, Copy, Delete)
+  // Actions
   const actionsList = document.createElement('div');
-  actionsList.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding-top:2px;';
+  actionsList.className = 'reaction-actions';
 
   let actionsHtml = `
-    <button class="msg-menu-btn" onclick="event.stopPropagation();startReplyToMessage('${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="9 14 4 9 9 4"/>
-        <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
-      </svg>
-      <span>Reply</span>
-    </button>`;
+    <button type="button" class="menu-item" role="menuitem" onclick="event.stopPropagation();startReplyToMessage('${msgId}');closeReactionPicker();">${ic('reply')}Reply</button>`;
 
   if (isSent && isText) {
     actionsHtml += `
-      <button class="msg-menu-btn" onclick="event.stopPropagation();startEditMessage('${matchId}','${msgId}');closeReactionPicker();">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-        <span>Edit Message</span>
-      </button>`;
+      <button type="button" class="menu-item" role="menuitem" onclick="event.stopPropagation();startEditMessage('${matchId}','${msgId}');closeReactionPicker();">${ic('pencil')}Edit message</button>`;
   }
 
   actionsHtml += `
-    <button class="msg-menu-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
-      <span>Forward</span>
-    </button>
-    <button class="msg-menu-btn" onclick="event.stopPropagation();shareMessageToUserPrompt('${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/></svg>
-      <span>Share to User</span>
-    </button>
-    <button class="msg-menu-btn" onclick="event.stopPropagation();copyMessageText('${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-      <span>Copy Text</span>
-    </button>
-    <button class="msg-menu-btn msg-menu-btn-danger" onclick="event.stopPropagation();deleteMessagePrompt('${matchId}','${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="#FF2E70"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-      <span style="color:#FF2E70">Delete</span>
-    </button>
+    <button type="button" class="menu-item" role="menuitem" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}');closeReactionPicker();">${ic('forward')}Forward</button>
+    <button type="button" class="menu-item" role="menuitem" onclick="event.stopPropagation();shareMessageToUserPrompt('${msgId}');closeReactionPicker();">${ic('share-2')}Send to someone</button>
+    <button type="button" class="menu-item" role="menuitem" onclick="event.stopPropagation();copyMessageText('${msgId}');closeReactionPicker();">${ic('copy')}Copy text</button>
+    <button type="button" class="menu-item is-danger" role="menuitem" onclick="event.stopPropagation();deleteMessagePrompt('${matchId}','${msgId}');closeReactionPicker();">${ic('trash-2')}Delete</button>
   `;
   actionsList.innerHTML = actionsHtml;
   picker.appendChild(actionsList);
@@ -15331,11 +15060,11 @@ function openVideoQualityModal() {
         <div onclick="selectVideoQuality('1080p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '1080p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '1080p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
           <div>
             <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">Ultra HD 1080p</span>
+              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">1080p</span>
               <span style="background:var(--flame-grad);color:#fff;font-size:0.68rem;padding:2px 7px;border-radius:10px;font-weight:700;">HIGHEST</span>
             </div>
             <div style="font-size:0.77rem;color:var(--txt-muted);margin-top:4px;">
-              Crystal clear native camera clarity (1920×1080 @ 30fps). Highest sharpness, like a normal phone camera.
+              Full camera resolution (1920×1080 at 30 fps). Sharpest picture, uses the most data.
             </div>
           </div>
           <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${current === '1080p' ? '#F4C550' : 'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;">
@@ -15398,7 +15127,7 @@ window.closeVideoQualityModal = closeVideoQualityModal;
 function selectVideoQuality(quality) {
   localStorage.setItem('videoCallQuality', quality);
   const labels = {
-    '1080p': 'Ultra HD 1080p (Crystal Clear)',
+    '1080p': '1080p (uses more data)',
     '720p': 'HD 720p (Balanced)',
     '480p': 'Standard 480p (Data Saver)'
   };

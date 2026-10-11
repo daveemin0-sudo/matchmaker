@@ -25,6 +25,7 @@ const APP_SHELL = [
   "/css/matches.css",
   "/css/paywall.css",
   "/css/inbox.css",
+  "/css/chat.css",
   "/fonts/plus-jakarta-sans-latin-wght-normal.woff2",
   "/script.js",
   "/manifest.json"

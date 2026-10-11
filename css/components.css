@@ -318,3 +318,47 @@ button.row:hover, a.row:hover { background: var(--surface-raised); }
 .confirm-sheet { max-width: 400px; border-bottom: 1px solid var(--border); border-radius: var(--r-md); padding-bottom: 0; transform: none; }
 .confirm-sheet .sheet-body { display: flex; flex-direction: column; gap: var(--s-2); padding: var(--s-5) var(--s-5) var(--s-4); }
 .confirm-msg { margin: 0; color: var(--text-2); font-size: var(--fs-base); line-height: var(--lh-body); }
+
+/* ---------- Popup menu (chat options, message options, viewer) ---------- */
+.menu {
+  position: absolute; z-index: var(--z-sticky);
+  min-width: 220px; max-width: calc(100vw - 24px);
+  padding: var(--s-1);
+  background: var(--surface-raised); color: var(--text);
+  border: 1px solid var(--border-strong); border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+}
+.menu-item {
+  display: flex; align-items: center; gap: var(--s-3);
+  width: 100%; min-height: 44px; padding: 0 var(--s-3);
+  border: 0; border-radius: var(--r-sm); background: none; color: inherit;
+  font-size: var(--fs-base); font-weight: 600; text-align: left;
+}
+.menu-item:hover, .menu-item:focus-visible { background: var(--primary-soft); }
+.menu-item .i { color: var(--text-2); flex: none; }
+.menu-item.is-danger, .menu-item.is-danger .i { color: var(--danger); }
+.menu-sep { margin: var(--s-1) 0; border: 0; border-top: 1px solid var(--border); }
+
+/* ---------- Full-screen viewer (photo preview before send, media lightbox) ---------- */
+.viewer {
+  position: absolute; inset: 0; z-index: var(--z-sheet);
+  display: flex; flex-direction: column;
+  background: #000; color: #fff;
+}
+.viewer-bar {
+  flex: none; display: flex; align-items: center; gap: var(--s-2);
+  padding: calc(var(--safe-top) + var(--s-2)) var(--s-3) var(--s-2);
+  background: rgba(0, 0, 0, 0.72);
+}
+.viewer-title { margin: 0; flex: 1; min-width: 0; font-size: var(--fs-md); font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.viewer-btn {
+  display: inline-grid; place-items: center; flex: none;
+  width: var(--tap); height: var(--tap);
+  border: 0; border-radius: 50%; background: rgba(255, 255, 255, 0.12); color: #fff;
+}
+.viewer-btn:hover { background: rgba(255, 255, 255, 0.22); }
+.viewer .menu { background: #1c1820; color: #fff; border-color: rgba(255, 255, 255, 0.2); }
+.viewer .menu-item .i { color: rgba(255, 255, 255, 0.85); }
+.viewer .menu-item.is-danger, .viewer .menu-item.is-danger .i { color: #ff8a8a; }
+.viewer .input { background: rgba(255, 255, 255, 0.1); color: #fff; border-color: rgba(255, 255, 255, 0.3); }
+.viewer .input::placeholder { color: rgba(255, 255, 255, 0.75); }
