@@ -1151,23 +1151,6 @@ body[data-theme="light"] {
   color: #5C526A !important;
 }
 
-/* Preview Sheet */
-[data-theme="light"] .hk-preview-sheet {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18) !important;
-}
-
-[data-theme="light"] .hk-preview-title {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .hk-preview-close-btn {
-  background: #F4EFFB !important;
-  border: 1px solid #DDD3E8 !important;
-  color: #140C1D !important;
-}
-
 /* Reaction Sheet */
 [data-theme="light"] .reaction-sheet-card {
   background: #FFFFFF !important;

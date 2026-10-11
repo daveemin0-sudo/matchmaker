@@ -1981,40 +1981,38 @@
     <!-- =====================================================
          MODAL: PREVIEW AS MATCH (Interactive Discovery Card Preview)
          ===================================================== -->
-    <div class="modal-overlay" id="profilePreviewModal" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;z-index:99999;background:rgba(0,0,0,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)">
-      <div class="hk-preview-sheet">
-        <div class="hk-preview-topbar">
-          <span class="hk-preview-title">Preview: How Others See You</span>
-          <button onclick="closeProfileCardPreview()" class="hk-preview-close-btn" aria-label="Close">✕</button>
-        </div>
-        
-        <div class="hk-preview-card" id="hkPreviewCard">
-          <!-- Story dashes for multiple photos -->
-          <div class="hk-preview-bars" id="hkPreviewBars"></div>
-          
-          <!-- Image and tap navigation -->
-          <div class="hk-preview-photo-wrap" id="hkPreviewPhotoWrap">
-            <img id="hkPreviewPhotoImg" class="hk-preview-photo-img" src="" alt="Profile Photo" />
-            <div class="hk-preview-tap-left" onclick="hkPrevPreviewPhoto(event)"></div>
-            <div class="hk-preview-tap-right" onclick="hkNextPreviewPhoto(event)"></div>
+    <div class="sheet-overlay" id="profilePreviewModal" style="display:none" onclick="if(event.target===this)closeProfileCardPreview()">
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="hkPreviewTitle">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <div class="sheet-head">
+          <div class="sheet-head-text">
+            <h2 class="sheet-title" id="hkPreviewTitle">Your profile preview</h2>
+            <p class="sheet-sub">This is how people see you in Discover.</p>
           </div>
-
-          <!-- Bottom Card Gradient Overlay with Profile Info -->
-          <div class="hk-preview-info">
-            <div class="hk-preview-name-row">
-              <span class="hk-preview-name" id="hkPreviewName">Dave, 24</span>
-              <span class="hk-verified-badge" id="hkPreviewVerifiedBadge" title="Verified Profile" style="display:none">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-              </span>
+          <button type="button" class="btn btn-icon btn-ghost" onclick="closeProfileCardPreview()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
+        </div>
+        <div class="sheet-body">
+          <div class="preview-card" id="hkPreviewCard">
+            <div class="preview-bars" id="hkPreviewBars"></div>
+            <div class="preview-photo" id="hkPreviewPhotoWrap">
+              <img id="hkPreviewPhotoImg" alt="Your profile photo">
+              <div class="preview-empty" id="hkPreviewEmpty"><svg class="i i-lg" aria-hidden="true"><use href="#i-user"/></svg><span>No photo yet</span></div>
+              <button type="button" class="preview-tap preview-tap-left" aria-label="Previous photo" onclick="hkPrevPreviewPhoto(event)"></button>
+              <button type="button" class="preview-tap preview-tap-right" aria-label="Next photo" onclick="hkNextPreviewPhoto(event)"></button>
+            </div>
+            <div class="preview-info">
+              <div class="preview-name-row">
+                <span class="preview-name" id="hkPreviewName"></span>
+                <svg class="i preview-verified" id="hkPreviewVerifiedBadge" role="img" aria-label="Verified profile" style="display:none"><use href="#i-badge-check"/></svg>
               </div>
-            <div class="hk-preview-location" id="hkPreviewLoc"></div>
-            <div class="hk-preview-bio" id="hkPreviewBio"></div>
-            <div class="hk-preview-tags" id="hkPreviewTags"></div>
+              <div class="preview-loc" id="hkPreviewLoc"></div>
+              <div class="preview-bio" id="hkPreviewBio"></div>
+              <div class="preview-tags" id="hkPreviewTags"></div>
+            </div>
           </div>
         </div>
-
-        <div class="hk-preview-footer">
-          <button class="accent-btn" onclick="closeProfileCardPreview();openEditProfileModal()">Edit Details &amp; Photos</button>
+        <div class="sheet-foot">
+          <button type="button" class="btn btn-primary btn-block" onclick="closeProfileCardPreview();openEditProfileModal()">Edit details and photos</button>
         </div>
       </div>
     </div>
@@ -2022,27 +2020,24 @@
     <!-- =====================================================
          MODAL: SEARCH REGISTERED USERS (Discovery / Direct Connect)
          ===================================================== -->
-    <div id="searchModalOverlay" class="search-modal-overlay" style="display:none;position:fixed;inset:0;z-index:99996;background:rgba(0,0,0,0.82);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);align-items:flex-start;justify-content:center;padding:16px;" onclick="if(event.target===this)closeSearchModal()">
-      <div class="search-modal-card" style="width:100%;max-width:540px;background:linear-gradient(180deg,#1C112A 0%,#0C0816 100%);border:1px solid rgba(255,255,255,0.12);border-radius:24px;box-shadow:0 24px 60px rgba(0,0,0,0.7);overflow:hidden;margin-top:24px;display:flex;flex-direction:column;max-height:85vh;">
-        <!-- Header -->
-        <div style="padding:18px 20px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.08);">
-          <div style="display:flex;align-items:center;gap:10px;">
-            <span style="font-size:1.3rem;">🔍</span>
-            <h3 style="margin:0;font-size:1.1rem;font-weight:700;color:#FFF;">Search People</h3>
-          </div>
-          <button type="button" onclick="closeSearchModal()" style="background:rgba(255,255,255,0.08);border:none;border-radius:50%;width:32px;height:32px;color:#FFF;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;" aria-label="Close search">✕</button>
+    <div class="sheet-overlay search-overlay" id="searchModalOverlay" style="display:none" onclick="if(event.target===this)closeSearchModal()">
+      <div class="sheet sheet-tall" role="dialog" aria-modal="true" aria-labelledby="searchModalTitle">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <div class="sheet-head">
+          <h2 class="sheet-title" id="searchModalTitle">Search people</h2>
+          <button type="button" class="btn btn-icon btn-ghost" onclick="closeSearchModal()" aria-label="Close search"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
         </div>
-        <!-- Input row -->
-        <div style="padding:14px 20px;position:relative;">
-          <div style="position:relative;display:flex;align-items:center;">
-            <input type="text" id="searchModalInput" placeholder="Search by name, bio, or email..." oninput="handleModalSearchInput(event)" style="width:100%;padding:12px 38px 12px 16px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.15);border-radius:14px;color:#FFF;font-size:0.95rem;outline:none;" autocomplete="off">
-            <button id="clearModalSearchBtn" type="button" onclick="clearModalSearch()" style="display:none;position:absolute;right:10px;background:none;border:none;color:rgba(255,255,255,0.5);font-size:1rem;cursor:pointer;padding:4px;" aria-label="Clear">✕</button>
+        <div class="search-bar">
+          <div class="input-wrap">
+            <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+            <input type="search" class="input" id="searchModalInput" placeholder="Search by name or bio" aria-label="Search by name or bio" oninput="handleModalSearchInput(event)" autocomplete="off">
+            <button id="clearModalSearchBtn" type="button" class="input-action" onclick="clearModalSearch()" aria-label="Clear search" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
           </div>
         </div>
-        <!-- Results container -->
-        <div id="searchModalResults" style="padding:10px 20px 24px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:10px;">
-          <div style="text-align:center;padding:32px 16px;color:rgba(255,255,255,0.5);font-size:0.88rem">
-            Type a name or email above to search registered accounts 🔍
+        <div class="sheet-body sheet-body-flush" id="searchModalResults" aria-live="polite">
+          <div class="empty">
+            <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+            <p class="empty-text">Type a name to find people on hookmebysam.</p>
           </div>
         </div>
       </div>

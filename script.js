@@ -12997,7 +12997,7 @@ async function handleUserSearchInput(e) {
   clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(async () => {
     if (resultsContainer) resultsContainer.style.display = 'block';
-    if (resultsList) resultsList.innerHTML = `<p style="color:var(--text-muted,#888);padding:12px;font-size:0.85rem;text-align:center">Searching…</p>`;
+    if (resultsList) resultsList.innerHTML = `<p class="empty-text search-status">Searching…</p>`;
 
     let matches = [];
 
@@ -13057,7 +13057,7 @@ async function connectAndChatWithUser(userId, userName, userImage) {
     partner = {
       id: userId,
       name: userName,
-      image: userImage || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+      image: userImage || '',
       isRealUser: true
     };
     matchedUsers.push(partner);
@@ -13087,7 +13087,7 @@ async function connectAndChatWithUser(userId, userName, userImage) {
   saveToStorage();
   renderMatchesView();
   openChat(userId);
-  showToast(`Connected with ${userName}! Say hi 👋`, 'gold');
+  showToast(`Chat opened with ${userName}.`, 'success');
 }
 
 function openSearchModal() {
@@ -13116,7 +13116,7 @@ async function handleModalSearchInput(e) {
   const clearBtn = document.getElementById('clearModalSearchBtn');
   const resultsBody = document.getElementById('searchModalResults');
 
-  if (clearBtn) clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+  if (clearBtn) clearBtn.style.display = query.length > 0 ? '' : 'none';
 
   if (!query) {
     if (resultsBody) {
@@ -13132,7 +13132,7 @@ async function handleModalSearchInput(e) {
   clearTimeout(modalSearchDebounce);
   modalSearchDebounce = setTimeout(async () => {
     if (resultsBody) {
-      resultsBody.innerHTML = `<p style="color:rgba(255,255,255,0.6);padding:16px;font-size:0.88rem;text-align:center">Searching…</p>`;
+      resultsBody.innerHTML = `<p class="empty-text search-status">Searching…</p>`;
     }
 
     let matches = [];
@@ -14424,7 +14424,7 @@ function openProfileCardPreview() {
   if (locEl) { locEl.textContent = displayLoc; locEl.style.display = displayLoc ? '' : 'none'; }
   if (bioEl) { bioEl.textContent = displayBio; bioEl.style.display = displayBio ? '' : 'none'; }
   if (tagsEl) {
-    tagsEl.innerHTML = displayInterests.map(t => `<span class="hk-preview-tag">${escHtml(t)}</span>`).join('');
+    tagsEl.innerHTML = displayInterests.map(t => `<span class="preview-tag">${escHtml(t)}</span>`).join('');
   }
 
   const previewBadge = document.getElementById('hkPreviewVerifiedBadge');
@@ -14445,18 +14445,23 @@ function closeProfileCardPreview() {
 function _renderPreviewCardPhoto() {
   const imgEl = document.getElementById('hkPreviewPhotoImg');
   const barsEl = document.getElementById('hkPreviewBars');
+  const emptyEl = document.getElementById('hkPreviewEmpty');
+  const hasPhotos = _hkPreviewPhotosList.length > 0;
 
-  if (imgEl && _hkPreviewPhotosList.length === 0) imgEl.removeAttribute('src');
-  if (imgEl && _hkPreviewPhotosList.length > 0) {
+  if (imgEl && !hasPhotos) imgEl.removeAttribute('src');
+  if (imgEl && hasPhotos) {
     const currentUrl = _hkPreviewPhotosList[_hkPreviewPhotoIndex] || _hkPreviewPhotosList[0];
     imgEl.src = currentUrl;
   }
+  if (imgEl) imgEl.hidden = !hasPhotos;
+  if (emptyEl) emptyEl.hidden = hasPhotos;
+  document.querySelectorAll('#hkPreviewPhotoWrap .preview-tap').forEach(b => { b.hidden = _hkPreviewPhotosList.length < 2; });
 
   if (barsEl) {
     if (_hkPreviewPhotosList.length > 1) {
       barsEl.style.display = 'flex';
       barsEl.innerHTML = _hkPreviewPhotosList.map((_, i) => `
-        <div class="hk-preview-bar-dash ${i === _hkPreviewPhotoIndex ? 'active' : ''}"></div>
+        <span class="preview-bar${i === _hkPreviewPhotoIndex ? ' active' : ''}"></span>
       `).join('');
     } else {
       barsEl.style.display = 'none';

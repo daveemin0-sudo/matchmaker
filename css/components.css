@@ -437,3 +437,11 @@ button.row:hover, a.row:hover { background: var(--surface-raised); }
 .prose strong { color: var(--text); }
 .prose-meta { font-size: var(--fs-sm); color: var(--text-3); }
 .legal-overlay { z-index: var(--z-modal); }
+
+/* ---------- Search sheet ---------- */
+.search-bar { flex: none; padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--border); }
+.search-status { padding: var(--s-6) var(--s-4); text-align: center; max-width: none; color: var(--text-2); }
+.search-overlay .sheet { min-height: min(70dvh, 560px); }
+.search-hit { padding-left: var(--s-4); padding-right: var(--s-4); }
+.search-bar input[type="search"]::-webkit-search-cancel-button { display: none; -webkit-appearance: none; }
+.search-hit .row-sub { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
