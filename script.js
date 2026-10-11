@@ -12787,6 +12787,8 @@ function requestNotificationPermission() {
     if (Number(localStorage.getItem(NOTIF_PROMPT_SNOOZE_KEY) || 0) > Date.now()) return;
   } catch (_) {}
   if (document.getElementById('notifPermBanner')) return;
+  // Sample-profile mode has no real matches or messages to notify about.
+  if (String(currentUser?.id || '').startsWith('demo_guest_')) return;
 
   const slot = document.getElementById('shellNotices');
   if (!slot) return;

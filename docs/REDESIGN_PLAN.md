@@ -64,5 +64,30 @@ Tokens (all colour pairs checked for contrast by a script in `tests/`):
 3. Preserve every `id`, `onclick`, `data-*` and JS hook; templates change markup only where the redesign needs it, with the handler kept.
 4. After each screen: headless-Chromium screenshots (390×844, 360×740, 768×1024, 1280×800; dark + light), console-error check, click-through of the screen's actions, `npm test`.
 
-## 4. Status
-Tracked in the PR description. Not verified in this sandbox: real photos (network-blocked, placeholders used), real devices, live Firebase.
+## 4. Status (stages A–G)
+
+| Stage | State |
+|---|---|
+| A audit | done (section 1) |
+| B direction + tokens | done: `css/tokens.css`, dark default + light theme, Plus Jakarta Sans, Fraunces italic accent, flat/border-first surfaces |
+| C shared components | done: `css/components.css` (buttons, fields, switch, segmented, chips, badges, avatar, list rows, sheets, confirm, menu, viewer, notices, empty states) and an inline SVG icon sprite (`tools/build-sprite.js`) |
+| D every screen | done: auth, onboarding wizard, discovery, matches, inbox, chat (composer, media, voice, calls), profile, edit profile, settings, paywall, and every dialog/sheet |
+| E responsive + a11y | checked at 390x844, 360x740, 768x1024, 1280x800 in dark and light; focus trap/Escape/restore on all dialogs, reduced-motion, contrast tests, tap targets |
+| F regression | `npm test` (79 tests) plus Playwright click-through scripts (account/settings, match popup, onboarding wizard, call controls, dialogs) |
+| G polish + PR | PR opened, not merged |
+
+### Decisions taken during the redesign
+- **Verification removed.** The self-service "face scan" verification and the "verified only" filter were removed: the backend never publishes a verified flag, so they were fake trust signals. Sample profiles no longer claim verification.
+- **Onboarding** collects only what the person chooses; nothing is pre-selected, and nothing invented is saved (no default gender, lifestyle, prompts, bio, age or interests).
+- **Dialogs** all share one sheet/confirm pattern with a common focus trap (`dialogOpened`, `openSheetDialog`, `watchStaticDialogs`).
+- **Calls** have their own `css/call.css`; mute/camera/speaker state is exposed through `aria-pressed` and matching labels.
+- **Honesty:** no invented statistics, countdowns, discounts, social proof or premium benefits that are not implemented. Paywall prices are asserted equal to the server's.
+- **Feedback** now actually saves (`app_feedback`, create-only rule in `firestore.rules`).
+- **Legacy CSS** reduced by pruning only selectors confirmed unused (`tools/css-prune.js`).
+
+### Not verified in this sandbox / open items
+- Firestore rules are in the repo only; the owner must publish them (including `app_feedback`).
+- Firebase Storage is not provisioned (Blaze billing), so Status/stories are disabled. The story viewer overlay is still legacy-styled and unreachable.
+- Real photos, two-device chat, voice/video calls, push notifications, Paystack and Termii flows were not exercised live; screenshots use placeholders and a sample-profile fixture.
+- Search downloads all `public_profiles` per query; the no-Firebase local fallback stores a base64 password; voice intros are stored as base64 data URLs. These pre-date the redesign.
+- Legal copy (refund window, NDPR/GDPR wording) is owner-authored and not reviewed.

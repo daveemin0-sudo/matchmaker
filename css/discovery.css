@@ -78,7 +78,7 @@
   backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
 }
 .card-distance-badge { left: var(--s-3); }
-.card-voice-intro-btn { right: var(--s-3); }
+.card-voice-intro-btn { right: var(--s-3); height: 36px; }
 .card-voice-intro-btn.playing { background: var(--primary); }
 .card-voice-waves { display: none; align-items: center; gap: 2px; height: 12px; }
 .card-voice-waves.playing { display: inline-flex; }
