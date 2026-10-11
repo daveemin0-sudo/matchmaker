@@ -1,0 +1,106 @@
+/* ==========================================================================
+   Messages list (inbox): search, new matches, conversation rows,
+   chat options sheet, archived page.
+   ========================================================================== */
+
+.inbox { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: var(--s-6); }
+.inbox-search { padding: var(--s-3) var(--s-4); position: sticky; top: 0; z-index: 2; background: var(--bg); }
+.inbox-new { padding-bottom: var(--s-3); border-bottom: 1px solid var(--border); }
+.inbox-new[hidden] { display: none; }
+.inbox-new > .sec-title, .inbox-messages > .sec-title { padding: var(--s-3) var(--s-4) var(--s-2); font-size: var(--fs-sm); color: var(--text-2); }
+
+/* ---------- Conversation rows ---------- */
+.convo-list { display: flex; flex-direction: column; }
+.convo-swipe-wrapper { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); background: var(--bg); }
+.convo-swipe-actions { position: absolute; top: 0; right: 0; bottom: 0; width: 144px; display: flex; }
+.convo-action-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  border: 0; background: var(--surface-raised); color: var(--text);
+  font-size: var(--fs-xs); font-weight: 700;
+}
+.convo-action-btn.is-danger { background: var(--danger-fill); color: #fff; }
+.convo-item {
+  position: relative; z-index: 1;
+  display: flex; align-items: center;
+  background: var(--bg);
+  transition: transform var(--dur-2) var(--ease-out), background var(--dur-1);
+  touch-action: pan-y;
+  user-select: none; -webkit-user-select: none;
+}
+.convo-item:hover { background: var(--surface); }
+.convo-open {
+  flex: 1; min-width: 0;
+  display: flex; align-items: center; gap: var(--s-3);
+  padding: var(--s-3) 0 var(--s-3) var(--s-4);
+  border: 0; background: none; color: inherit; text-align: left;
+  min-height: 72px;
+}
+.convo-avatar-wrap { position: relative; flex: none; width: 52px; height: 52px; display: block; }
+.convo-avatar { width: 52px; height: 52px; border-radius: 50%; object-fit: cover; display: block; background: var(--surface-raised); }
+.convo-avatar-empty { display: grid; place-items: center; color: var(--text-3); }
+.convo-online-dot {
+  position: absolute; right: 0; bottom: 0;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--success); border: 2px solid var(--bg); box-sizing: border-box;
+}
+.convo-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.convo-name { font-size: var(--fs-md); font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.convo-preview { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-sm); color: var(--text-2); }
+.convo-preview .i { width: 14px; height: 14px; flex: none; }
+.convo-preview-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.convo-name-unread { font-weight: 800; }
+.convo-preview-unread { color: var(--text); font-weight: 600; }
+.convo-meta { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; min-width: 36px; }
+.convo-time { display: inline-flex; align-items: center; gap: 4px; font-size: var(--fs-xs); color: var(--text-3); }
+.convo-time .i { width: 12px; height: 12px; }
+.convo-time-unread { color: var(--primary-text); font-weight: 700; }
+.convo-more {
+  flex: none; width: var(--tap); height: var(--tap); margin-right: var(--s-1);
+  display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: none; color: var(--text-3);
+}
+.convo-more:hover { background: var(--surface-raised); color: var(--text); }
+.convo-open:focus-visible { outline-offset: -3px; }
+
+.convo-archived-row {
+  display: flex; align-items: center; gap: var(--s-3); width: 100%;
+  min-height: 56px; padding: 0 var(--s-4);
+  border: 0; border-bottom: 1px solid var(--border); background: none; color: var(--text-2);
+  font-size: var(--fs-base); font-weight: 600; text-align: left;
+}
+.convo-archived-row:hover { background: var(--surface); }
+.convo-archived-label { flex: 1; }
+
+.convo-skeleton-item { display: flex; align-items: center; gap: var(--s-3); padding: var(--s-3) var(--s-4); }
+.convo-skeleton-avatar { width: 52px; height: 52px; border-radius: 50%; flex: none; }
+.convo-skeleton-body { flex: 1; display: flex; flex-direction: column; gap: var(--s-2); }
+.convo-skeleton-line { height: 12px; border-radius: 6px; }
+.convo-skeleton-name { width: 40%; }
+.convo-skeleton-preview { width: 70%; }
+
+/* ---------- Action rows inside sheets ---------- */
+.sheet-actions { display: flex; flex-direction: column; padding: var(--s-2) 0; }
+.sheet-action {
+  display: flex; align-items: center; gap: var(--s-4);
+  width: 100%; min-height: 52px; padding: 0 var(--s-5);
+  border: 0; background: none; color: var(--text);
+  font-size: var(--fs-md); font-weight: 600; text-align: left;
+}
+.sheet-action:hover { background: var(--surface-raised); }
+.sheet-action .i { color: var(--text-2); }
+.sheet-action.is-danger, .sheet-action.is-danger .i { color: var(--danger); }
+
+/* ---------- Full-page overlay (archived chats etc.) ---------- */
+.fullpage {
+  position: fixed; inset: 0; z-index: var(--z-sheet);
+  display: flex; flex-direction: column;
+  background: var(--bg); color: var(--text);
+}
+.fullpage-bar {
+  flex: none; display: flex; align-items: center; gap: var(--s-2);
+  min-height: calc(var(--bar-h) + var(--safe-top));
+  padding: var(--safe-top) var(--s-3) 0;
+  border-bottom: 1px solid var(--border);
+  max-width: var(--content-max); width: 100%; margin: 0 auto; box-sizing: border-box;
+}
+.fullpage-body { flex: 1; min-height: 0; overflow-y: auto; max-width: var(--content-max); width: 100%; margin: 0 auto; }

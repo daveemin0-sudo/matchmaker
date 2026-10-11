@@ -47,6 +47,19 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ── app_feedback (in-app rating prompt) ────────────────────────────────
+    // Create-only, tied to the signed-in user, bounded fields. Nobody can read it from a client.
+    match /app_feedback/{feedbackId} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'userName', 'rating', 'feedback', 'createdAt'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.rating is int
+        && request.resource.data.rating >= 1 && request.resource.data.rating <= 5
+        && request.resource.data.feedback is string && request.resource.data.feedback.size() <= 1000
+        && request.resource.data.userName is string && request.resource.data.userName.size() <= 80;
+      allow read, update, delete: if false;
+    }
+
     // ── presence (Live user online/offline status) ─────────────────────────
     match /presence/{userId} {
       allow read: if signedIn();

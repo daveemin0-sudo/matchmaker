@@ -3,14 +3,16 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 
 const html = fs.readFileSync('index.html', 'utf8');
-const css = fs.readFileSync('premium.css', 'utf8');
+// All shipped stylesheets: the redesign moves rules out of the legacy sheets into css/*.css.
+const css = ['premium.css', 'style.css', ...fs.readdirSync('css').filter((f) => f.endsWith('.css')).map((f) => `css/${f}`)]
+  .map((f) => fs.readFileSync(f, 'utf8')).join('\n');
 const js = fs.readFileSync('script.js', 'utf8');
 
-test('in-chat AI assistant and tap-to-retry message failure states exist', () => {
+test('in-chat conversation starters and tap-to-retry message failure states exist', () => {
   assert.ok(html.includes('id="chatAiSuggestionsPanel"'), 'Missing chatAiSuggestionsPanel');
   assert.ok(html.includes('id="chatAiAssistBtn"'), 'Missing chatAiAssistBtn');
   assert.ok(css.includes('.msg-failed-retry-bar'), 'Missing .msg-failed-retry-bar CSS');
-  assert.ok(css.includes('.chat-ai-suggestions-panel'), 'Missing .chat-ai-suggestions-panel CSS');
+  assert.ok(css.includes('.chat-starters'), 'Missing .chat-starters CSS');
   assert.ok(js.includes('function retryFailedMessage'), 'Missing retryFailedMessage');
   assert.ok(js.includes('function toggleChatAiAssistant'), 'Missing toggleChatAiAssistant');
 });
@@ -19,7 +21,8 @@ test('5-step conversational onboarding and relationship intent exist', () => {
   assert.ok(html.includes('id="obStep3"'), 'Missing obStep3');
   assert.ok(html.includes('id="obIntentGrid"'), 'Missing obIntentGrid');
   assert.ok(html.includes('id="signupIntentGrid"'), 'Missing signupIntentGrid');
-  assert.ok(css.includes('.ob-intent-card'), 'Missing .ob-intent-card CSS');
+  assert.ok(html.includes('id="obStep5"'), 'Missing obStep5');
+  assert.ok(css.includes('.wiz-title'), 'Missing wizard CSS');
   assert.ok(js.includes('selectObIntent'), 'Missing selectObIntent');
   assert.ok(js.includes('selectSignupIntent'), 'Missing selectSignupIntent');
 });

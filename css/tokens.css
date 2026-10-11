@@ -1,0 +1,218 @@
+/* ==========================================================================
+   hookmebysam design tokens
+   Single source of truth for colour, type, space, radius, elevation, motion.
+   Components use the SEMANTIC tokens (--bg, --surface, --text, --primary ...),
+   never raw hex values. Dark is the default; light overrides the same names.
+   Contrast of every text/background pair is asserted in tests/design-tokens.test.js.
+   ========================================================================== */
+
+@font-face {
+  font-family: "Plus Jakarta Sans";
+  src: url("../fonts/plus-jakarta-sans-latin-wght-normal.woff2") format("woff2");
+  font-weight: 200 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Fraunces";
+  src: url("../fonts/fraunces-latin-wght-italic.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ---- Colour: dark (default) ---- */
+  --bg:             #0F0C11;
+  --surface:        #17131A;
+  --surface-raised: #211B25;
+  --surface-sunken: #0B090D;
+  --border:         rgba(255, 255, 255, 0.10);
+  --border-strong:  rgba(255, 255, 255, 0.20);
+
+  --text:   #F6F1EE;
+  --text-2: #C8BEC6;
+  --text-3: #A0959F;
+
+  --primary:         #D6335A;   /* fills: buttons, selected states */
+  --primary-hover:   #C92E55;
+  --primary-pressed: #B82A4D;
+  --primary-text:    #FF7090;   /* primary used AS TEXT/ICON on dark surfaces */
+  --primary-soft:    rgba(214, 51, 90, 0.16);
+  --on-primary:      #FFFFFF;
+
+  --gold:      #E0AC48;         /* VIP / premium ONLY */
+  --gold-text: #EDBE62;
+  --gold-soft: rgba(224, 172, 72, 0.14);
+  --on-gold:   #1A1206;
+
+  --success:      #3DC785;
+  --success-soft: rgba(61, 199, 133, 0.14);
+  --warning:      #F2A93B;
+  --warning-soft: rgba(242, 169, 59, 0.14);
+  --danger:       #FF7A7A;
+  --danger-fill:  #D93D3D;
+  --danger-soft:  rgba(255, 122, 122, 0.14);
+  --info:         #6CB8FF;
+
+  --focus:   #FF9DB2;
+  --scrim:   rgba(8, 6, 10, 0.64);          /* behind sheets/modals */
+  --photo-scrim: linear-gradient(to top, rgba(8, 6, 10, 0.92) 0%, rgba(8, 6, 10, 0.72) 55%, rgba(8, 6, 10, 0) 100%);
+  --on-photo:   #FFFFFF;                      /* text/icons drawn over photos (always on a dark scrim) */
+  --on-photo-2: rgba(255, 255, 255, 0.86);
+  --photo-chip: rgba(8, 6, 10, 0.66);         /* small controls floating on photos */
+
+  /* ---- Type ---- */
+  --font-ui: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: "Fraunces", Georgia, "Times New Roman", serif;   /* italic accents only */
+  --fs-xs: 0.75rem;     /* 12 */
+  --fs-sm: 0.8125rem;   /* 13 */
+  --fs-base: 0.9375rem; /* 15 */
+  --fs-md: 1.0625rem;   /* 17 */
+  --fs-lg: 1.25rem;     /* 20 */
+  --fs-xl: 1.625rem;    /* 26 */
+  --fs-2xl: 2.125rem;   /* 34 */
+  --lh-tight: 1.2;
+  --lh-snug: 1.35;
+  --lh-body: 1.5;
+
+  /* ---- Space (4px scale) ---- */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px; --s-5: 20px;
+  --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px; --s-14: 56px;
+
+  /* ---- Radius: few, intentional ---- */
+  --r-xs: 6px;        /* chips, small tags */
+  --r-sm: 10px;       /* controls: inputs, buttons */
+  --r-md: 16px;       /* cards, sheets */
+  --r-lg: 24px;       /* the swipe card, hero surfaces */
+  --r-pill: 999px;    /* avatars, count badges, toggles */
+
+  /* ---- Elevation: borders first, shadow only for things that float ---- */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.55);
+
+  /* ---- Layout ---- */
+  --tap: 44px;                 /* minimum touch target */
+  --bar-h: 56px;               /* top app bar */
+  --nav-h: 60px;               /* bottom tab bar */
+  --content-max: 520px;        /* phone column on large screens */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* ---- Motion ---- */
+  --dur-1: 120ms; --dur-2: 200ms; --dur-3: 320ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ---- z-index scale ---- */
+  --z-nav: 20; --z-sticky: 30; --z-sheet: 100; --z-modal: 110; --z-toast: 200;
+}
+
+/* Light theme: same names, new values. Selectors match the boot script / setTheme()
+   which put data-theme="light" on <html>. Specificity equals the legacy light block
+   (html[data-theme]) and this file loads after it. */
+html[data-theme="light"],
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg:             #FAF6F3;
+  --surface:        #FFFFFF;
+  --surface-raised: #FFFFFF;
+  --surface-sunken: #F1EAE5;
+  --border:         rgba(30, 21, 25, 0.12);
+  --border-strong:  rgba(30, 21, 25, 0.24);
+
+  --text:   #1E1519;
+  --text-2: #54454D;
+  --text-3: #6F5F67;
+
+  --primary:         #C42A50;
+  --primary-hover:   #B3254A;
+  --primary-pressed: #A82244;
+  --primary-text:    #B3254A;
+  --primary-soft:    rgba(196, 42, 80, 0.10);
+  --on-primary:      #FFFFFF;
+
+  --gold:      #D9A236;
+  --gold-text: #8A5E0A;
+  --gold-soft: rgba(217, 162, 54, 0.16);
+  --on-gold:   #1A1206;
+
+  --success:      #146C43;
+  --success-soft: rgba(20, 108, 67, 0.10);
+  --warning:      #8A5A00;
+  --warning-soft: rgba(138, 90, 0, 0.10);
+  --danger:       #B3261E;
+  --danger-fill:  #B3261E;
+  --danger-soft:  rgba(179, 38, 30, 0.10);
+  --info:         #0B63B8;
+
+  --focus:   #C42A50;
+  --scrim:   rgba(30, 21, 25, 0.48);
+  --photo-scrim: linear-gradient(to top, rgba(12, 8, 10, 0.92) 0%, rgba(12, 8, 10, 0.72) 55%, rgba(12, 8, 10, 0) 100%);
+
+  --shadow-1: 0 1px 2px rgba(30, 21, 25, 0.08);
+  --shadow-2: 0 10px 30px rgba(30, 21, 25, 0.14);
+  --shadow-3: 0 24px 64px rgba(30, 21, 25, 0.22);
+}
+
+/* Legacy aliases (old stylesheets + JS-generated markup still use these names).
+   The selector list mirrors the legacy light-theme block so that, loading later,
+   these win over its hard-coded light values. Remove as screens move to semantic
+   tokens (tracked in docs/REDESIGN_PLAN.md). */
+:root,
+html[data-theme="light"],
+body[data-theme="light"],
+.app-shell[data-theme="light"],
+[data-theme="light"] {
+  --flame-1: var(--primary);
+  --flame-2: var(--primary-pressed);
+  --flame-grad: var(--primary);
+  --accent-pink: var(--primary-text);
+  --gold-1: var(--gold);
+  --gold-2: var(--gold);
+  --gold-grad: var(--gold);
+  --gold-gradient: var(--gold);
+  --card-gold-edge: var(--gold);
+  --super-blue: var(--info);
+  --super-blue-grad: var(--info);
+  --green-match: var(--success);
+  --green-grad: var(--success);
+  --bg-surface: var(--surface);
+  --bg-elevated: var(--surface-raised);
+  --bg-card: var(--surface);
+  --bg-glass: transparent;
+  --txt-primary: var(--text);
+  --txt-secondary: var(--text-2);
+  --txt-muted: var(--text-3);
+  --txt-on-flame: var(--on-primary);
+  --text-primary: var(--text);
+  --text-muted: var(--text-3);
+  --border-color: var(--border);
+  --border-active: var(--primary);
+  --border-gold: var(--gold);
+  --card-dark: var(--surface);
+  --shadow-sm: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-xl: var(--shadow-3);
+  --shadow-flame: none;
+  --shadow-gold: none;
+  --r-xl: var(--r-lg);
+  --r-input: var(--r-sm);
+  --r-full: var(--r-pill);
+  --font-display: var(--font-ui);
+  --font-body: var(--font-ui);
+  --font: var(--font-ui);
+  --ease: var(--ease-in-out);
+  --spring: var(--ease-out);
+  --t-fast: var(--dur-1);
+  --t-mid: var(--dur-2);
+  --t-slow: var(--dur-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --dur-1: 0ms; --dur-2: 0ms; --dur-3: 0ms; }
+}

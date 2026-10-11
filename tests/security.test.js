@@ -52,8 +52,9 @@ test('no route path is registered twice in the deployed backend (Express keeps o
 
 test('reporting a user accepts every reason the in-app report sheet can send, and records who filed it', () => {
   const app = read('script.js');
-  const uiReasons = [...app.matchAll(/name="reportReason" value="([a-z]+)"/g)].map(m => m[1]);
-  assert.ok(uiReasons.length > 0, 'expected to find reportReason radio options in script.js');
+  const optionsBlock = (app.match(/const REPORT_REASON_OPTIONS = \[([\s\S]*?)\n\];/) || [])[1] || '';
+  const uiReasons = [...optionsBlock.matchAll(/\['([a-z]+)',/g)].map(m => m[1]);
+  assert.ok(uiReasons.length > 0, 'expected to find REPORT_REASON_OPTIONS in script.js');
 
   const server = read('webhook-server/index.js');
   // Capture any reason allow-list declared just above the route too (e.g. a
@@ -121,4 +122,17 @@ test('firestore rules: a match document id must agree with its users and partici
   const rules = read('firestore.rules');
   assert.match(rules, /request\.resource\.data\.users\.hasAll\(matchId\.split\('_'\)\)/);
   assert.match(rules, /request\.resource\.data\.users\.hasAll\(resource\.data\.users\)/);
+});
+
+test('in-app feedback is create-only and bounded, and the client writes exactly the allowed fields', () => {
+  const rules = read('firestore.rules');
+  const block = (rules.match(/match \/app_feedback\/\{feedbackId\}[\s\S]*?\n    \}/) || [''])[0];
+  assert.ok(block, 'expected an app_feedback rule');
+  assert.match(block, /allow read, update, delete: if false;/);
+  assert.match(block, /request\.resource\.data\.uid == request\.auth\.uid/);
+  assert.match(block, /rating >= 1 && request\.resource\.data\.rating <= 5/);
+  const app = read('script.js');
+  const write = (app.match(/collection\('app_feedback'\)\.add\(\{([\s\S]*?)\}\);/) || [])[1] || '';
+  const keys = [...write.matchAll(/^\s*([a-zA-Z]+)[:,]/gm)].map(m => m[1]).sort();
+  assert.deepEqual(keys, ['createdAt', 'feedback', 'rating', 'uid', 'userName']);
 });

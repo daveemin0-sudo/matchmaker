@@ -34,7 +34,7 @@ const PROFILES_DATA = [
       { question: 'A life goal of mine...', answer: 'Design an award-winning app and spend December watching sunsets in Cape Town.' }
     ],
     voiceIntro: { duration: '0:14', text: "Hey! I'm Zainab. I love listening to fresh Amapiano, designing sleek apps, and discovering new coffee spots in Lagos. Swipe right and say hi!" },
-    distance: '3 km', isVerified: true, intent: 'dating', mutualChance: true,
+    distance: '3 km', isVerified: false, intent: 'dating', mutualChance: true,
     autoReply: 'Hey! Thanks for matching with me 😊 I was just listening to some new Amapiano tracks. Are you into music?',
     aiPrompt: 'Beautiful professional portrait of a 22 year old African woman smiling, Amapiano aesthetic, vibrant lighting, highly detailed studio photo'
   },
@@ -92,7 +92,7 @@ const PROFILES_DATA = [
       { question: 'Together, we could...', answer: 'Host unforgettable dinner parties and hunt down the most scenic travel destinations.' }
     ],
     voiceIntro: { duration: '0:15', text: "Hey there! I'm Amara. Fashion designer and aesthetic enthusiast. I'm all about spontaneous road trips, aesthetic photography, and good vibes. Looking forward to meeting someone special!" },
-    distance: '7 km', isVerified: true, intent: 'relationship', mutualChance: true,
+    distance: '7 km', isVerified: false, intent: 'relationship', mutualChance: true,
     autoReply: 'Hi! I saw your profile and loved your bio. Are you ready for a photo session? 📸',
     aiPrompt: 'Gorgeous artistic portrait of a creative 24 year old Nigerian fashion designer, studio backdrop with textiles, modern Lagos fashion, high detail'
   },
@@ -121,7 +121,7 @@ const PROFILES_DATA = [
       { question: 'Dating me is like...', answer: 'VIP invites to gallery openings followed by 2 AM street food runs in high fashion.' }
     ],
     voiceIntro: { duration: '0:18', text: "Hello! I'm Chidi. Contemporary art curator and fitness lover. If your idea of a great date includes gallery walks, good wine, and deep conversation, we'll get along great." },
-    distance: '5 km', isVerified: true, intent: 'relationship', mutualChance: true,
+    distance: '5 km', isVerified: false, intent: 'relationship', mutualChance: true,
     autoReply: 'Hey! Glad we matched. What\'s your idea of a perfect weekend getaway? 🌊',
     aiPrompt: 'Close headshot of a handsome smiling 27 year old African man, gallery director, blurred artistic oil paintings background, clean lighting'
   },
@@ -179,7 +179,7 @@ const PROFILES_DATA = [
       { question: 'Together, we could...', answer: 'Travel to Lisbon and Milan to study brutalist architecture and taste real gelato.' }
     ],
     voiceIntro: { duration: '0:14', text: "Hey! I'm Kemi. Medical doctor and wellness enthusiast. Looking for genuine connection with someone ambitious, kind, and emotionally grounded." },
-    distance: '35 km', isVerified: true, intent: 'relationship', mutualChance: true,
+    distance: '35 km', isVerified: false, intent: 'relationship', mutualChance: true,
     autoReply: 'Hello! Really liked your vibe. What\'s your favorite spot in town?',
     aiPrompt: 'Portrait of a 30 year old African woman architect smiling, modern office, natural warm lighting'
   },
@@ -237,7 +237,7 @@ const PROFILES_DATA = [
       { question: 'I\'m weirdly good at...', answer: 'Guessing people\'s zodiac signs within five minutes of meeting them.' }
     ],
     voiceIntro: { duration: '0:15', text: "Hi! I'm Folake. Brand marketer and live music fan. Catch me at concerts or hosting dinner with friends. Let's make memorable moments together!" },
-    distance: '9 km', isVerified: true, intent: 'dating', mutualChance: true,
+    distance: '9 km', isVerified: false, intent: 'dating', mutualChance: true,
     autoReply: 'Hey! Your profile caught my eye. What\'s your go-to weekend plan? ✨',
     aiPrompt: 'Portrait of a stylish 21 year old African girl smiling warmly, aesthetic lighting'
   }
@@ -292,28 +292,22 @@ let appState = {
   boostInterval: null,
   boostSecondsLeft: 0,
   isTypingVisible: false,
-  isStealthMode: (() => {
-    try {
-      return localStorage.getItem('hmbs_stealth_mode') === 'true';
-    } catch (_) {
-      return false;
-    }
-  })(),
   activeSafetyPartner: null,
 };
 
+// Blank until a real account (or the demo guest) is loaded: nothing here may read as someone's real profile.
 let currentUser = {
   id: 'me',
-  name: 'Dave',
-  username: 'dave',
+  name: '',
+  username: '',
   email: '',
-  age: 24,
-  bio: 'Software engineer and builder. Love beach hangouts in Lekki and good vibes.',
+  age: null,
+  bio: '',
   image: '',
   avatar: '',
-  location: 'Lagos, Nigeria',
-  gender: 'Male',
-  interests: ['Tech 💻', 'Fitness 💪', 'Music 🎵'],
+  location: '',
+  gender: '',
+  interests: [],
 };
 
 let profileStack = [...PROFILES_DATA];
@@ -349,7 +343,6 @@ let deletedConvoIds = (() => {
 let settings = {
   maxDistance: 50,
   minAge: 20, maxAge: 35,
-  verifiedOnly: false,
   intent: 'all',
   notifMatches: true,
   notifMessages: true,
@@ -378,33 +371,17 @@ window.isRealUserLoggedIn = isRealUserLoggedIn;
 window.isGuestMode = isGuestMode;
 
 // ==========================================================
-// AGE GATE — 18+ verification (COPPA / dating-app law)
+// AGE GATE — 18+ self-declaration
 // ==========================================================
 
-(function initAgeGate() {
+// The gate itself is shown, confirmed and rejected by small inline functions in index.html so it appears before
+// the app loads. Here it only joins the shared dialog handling (focus trap, focus return).
+setTimeout(function initAgeGate() {
+  // deferred so the dialog helpers further down this file are defined
   const overlay = document.getElementById('ageGateOverlay');
-  if (!overlay) return;
-  // If user already confirmed age in this browser, skip the gate
-  if (localStorage.getItem('hmbs_age_confirmed') === '1') {
-    overlay.style.display = 'none';
-  }
-  // Otherwise it stays visible blocking the entire app
-})();
-
-function confirmAgeGate() {
-  localStorage.setItem('hmbs_age_confirmed', '1');
-  const overlay = document.getElementById('ageGateOverlay');
-  if (overlay) {
-    overlay.style.transition = 'opacity 0.4s';
-    overlay.style.opacity = '0';
-    setTimeout(() => { overlay.style.display = 'none'; }, 400);
-  }
-}
-
-function rejectAgeGate() {
-  // Redirect under-18 users away from the page
-  window.location.replace('https://www.google.com');
-}
+  if (!overlay || getComputedStyle(overlay).display === 'none') return;
+  dialogOpened(overlay, { focus: '#ageGateConfirmBtn' });
+}, 0);
 
 // ==========================================================
 // INIT — Fast Instant Boot (no waiting for external assets)
@@ -614,7 +591,7 @@ function applyMatchesUpdate(realMatches) {
       if (existingIndex === -1) {
         matchedUsers.unshift(m);
         if (window._initialMatchesLoaded) {
-          showToast(`🎉 New Match with ${m.name || 'someone special'}!`, 'gold');
+          showToast(`New Match with ${m.name || 'someone special'}!`, 'gold');
           triggerSystemNotification(`🎉 New Match with ${m.name || 'someone special'}!`, {
             body: 'You both liked each other! Tap to chat 💕',
             data: { matchId: m.id }
@@ -661,7 +638,7 @@ function applyMatchesUpdate(realMatches) {
 
           if (!isViewing) {
             hasNewIncomingMessage = true;
-            showToast(`💬 ${m.name}: ${m.lastMessage.substring(0, 36)}...`, 'info');
+            showToast(`${m.name}: ${m.lastMessage.substring(0, 36)}...`, 'info');
             triggerSystemNotification(`💬 ${m.name}`, {
               body: m.lastMessage,
               data: { matchId: m.id }
@@ -691,7 +668,7 @@ function applyMatchesUpdate(realMatches) {
 async function refreshAppData({ manual = false, background = false } = {}) {
   try {
     if (!isRealUserLoggedIn()) {
-      if (manual) showToast('✨ Refreshed', 'gold');
+      if (manual) showToast('Refreshed', 'gold');
       return;
     }
 
@@ -774,7 +751,7 @@ function initPullToRefresh() {
   function getScrollTop() {
     const activeScreen = document.querySelector('.screen.active');
     if (!activeScreen) return window.scrollY || document.documentElement.scrollTop || 0;
-    const scrollContainer = activeScreen.querySelector('.matches-workspace, .chats-inbox-wrap');
+    const scrollContainer = activeScreen.querySelector('.matches-workspace, .inbox');
     if (scrollContainer && scrollContainer.scrollTop !== undefined) {
       return scrollContainer.scrollTop;
     }
@@ -1050,7 +1027,7 @@ function syncMatchedUsersFromConversations() {
         id: partnerId,
         name: convo.partnerName || convo.partner?.name || knownProfile?.name || 'Match',
         image: convo.partnerImage || convo.partner?.image || knownProfile?.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
-        age: convo.partner?.age || knownProfile?.age || 24,
+        age: convo.partner?.age || knownProfile?.age || null,
         bio: convo.partner?.bio || knownProfile?.bio || '',
         lastMessage: lastMsg?.text || (lastMsg?.imageUrl ? '📷 Photo' : (lastMsg?.videoUrl ? '🎥 Video' : (lastMsg?.audioUrl ? '🎵 Voice note' : ''))),
         lastSender: lastMsg?.senderId || lastMsg?.sender || '',
@@ -1172,10 +1149,6 @@ function loadFromStorage(scopedUid) {
         blockedUsers = JSON.parse(savedBlocked);
       } catch (e) { blockedUsers = []; }
     }
-    const savedStealth = localStorage.getItem('hmbs_stealth_mode');
-    if (savedStealth !== null) {
-      appState.isStealthMode = (savedStealth === 'true');
-    }
     // Guarantee all conversation threads appear in matchedUsers even if data is off
     syncMatchedUsersFromConversations();
     sortMatchedUsersByLatest();
@@ -1195,7 +1168,6 @@ function saveToStorage() {
       freeRewinds: appState.freeRewinds,
       freeAiGens: appState.freeAiGens,
     }));
-    localStorage.setItem('hmbs_stealth_mode', String(Boolean(appState.isStealthMode)));
     localStorage.setItem('hmbs_user', JSON.stringify(currentUser));
     if (currentUser && currentUser.email && currentUser.name && !currentUser.name.includes('@')) {
       try {
@@ -1305,8 +1277,9 @@ function showScreen(screenId, { fromHistory = false } = {}) {
   }
 
   const navEl = document.getElementById('bottomNav');
+  const wideLayout = window.matchMedia && window.matchMedia('(min-width: 900px)').matches;
   if (navEl) {
-    if (isAuth || isChat) {
+    if (isAuth || (isChat && !wideLayout)) {
       navEl.classList.add('is-hidden');
       navEl.style.setProperty('display', 'none', 'important');
     } else {
@@ -1392,10 +1365,9 @@ function updateHeader(screenId) {
   setHeaderBtnVisible(reportBtn, screenId === 'discovery');
   setHeaderBtnVisible(upgradeBtn, screenId === 'discovery' || screenId === 'matches');
 
-  const stealthBadge = document.getElementById('stealthModeHeaderBadge');
-  if (stealthBadge) {
-    stealthBadge.style.display = (screenId === 'discovery' && appState.isStealthMode) ? 'inline-flex' : 'none';
-  }
+  // Demo (guest) mode is always labelled, on every main screen.
+  const demoBanner = document.getElementById('demoModeBanner');
+  if (demoBanner) demoBanner.style.display = (appState.isLoggedIn && String(currentUser?.id || '').startsWith('demo_guest_')) ? 'flex' : 'none';
 
   // Back button visibility:
   // Main bottom navigation tabs (Discovery, Matches, Messages, Profile) DO NOT have back button beside page name.
@@ -1404,18 +1376,18 @@ function updateHeader(screenId) {
     case 'discovery':
       setHeaderBtnVisible(backBtn, false);
       headerTitle.className = 'main-header-logo';
-      headerTitle.innerHTML = '<span class="header-flame-icon">🔥</span><span class="brand-hook">hookme</span>';
+      headerTitle.innerHTML = '<span class="brand-lockup"><svg class="i i-logo" aria-hidden="true"><use href="#i-logo"/></svg><span class="brand-word"><b>hookme</b></span></span><span class="header-title-alt">Discover</span>';
       headerTitle.style.background = '';
       headerTitle.style.webkitBackgroundClip = '';
       headerTitle.style.webkitTextFillColor = '';
       break;
     case 'matches':
       setHeaderBtnVisible(backBtn, false);
-      setHeaderTitle('Matches & Likes ✨');
+      setHeaderTitle('Matches');
       break;
     case 'chatsList':
       setHeaderBtnVisible(backBtn, false);
-      setHeaderTitle('Messages 💬');
+      setHeaderTitle('Messages');
       break;
     case 'profile':
       setHeaderBtnVisible(backBtn, false);
@@ -1492,7 +1464,7 @@ function setTheme(theme) {
   }
 
   if (themeLabel) {
-    themeLabel.textContent = theme === 'light' ? 'Light Mode' : 'Dark Mode';
+    themeLabel.textContent = theme === 'light' ? 'Light mode is on' : 'Dark mode is on';
   }
 }
 
@@ -1505,9 +1477,17 @@ function updateHeaderForAuth() {
 window.updateHeader = updateHeader;
 
 function updateBottomNav(screenId) {
-  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-  const activeTab = document.querySelector(`[data-tab="${screenId}"]`);
-  if (activeTab) activeTab.classList.add('active');
+  // An open conversation belongs to the Messages tab.
+  const tabId = screenId === 'chat' ? 'chatsList' : screenId;
+  document.querySelectorAll('.nav-tab').forEach(t => {
+    t.classList.remove('active');
+    t.removeAttribute('aria-current');
+  });
+  const activeTab = document.querySelector(`.nav-tab[data-tab="${tabId}"]`);
+  if (activeTab) {
+    activeTab.classList.add('active');
+    activeTab.setAttribute('aria-current', 'page');
+  }
 }
 
 function closeAnyOpenModal() {
@@ -1596,14 +1576,6 @@ function closeAnyOpenModal() {
   if (phoneModal && phoneModal.style.display !== 'none' && phoneModal.style.display !== '') {
     if (typeof closePhoneVerificationModal === 'function') { closePhoneVerificationModal(); return true; }
     phoneModal.style.display = 'none';
-    return true;
-  }
-
-  // 8. Language modal
-  const langModal = document.getElementById('languageModal');
-  if (langModal && langModal.style.display !== 'none' && langModal.style.display !== '') {
-    if (typeof closeLanguageModal === 'function') { closeLanguageModal(); return true; }
-    langModal.style.display = 'none';
     return true;
   }
 
@@ -1881,12 +1853,12 @@ function switchForgotMethod(method) {
     if (emailTab) emailTab.classList.remove('active');
     if (phoneTab) phoneTab.classList.add('active');
     if (emailSec) emailSec.style.display = 'none';
-    if (phoneSec) phoneSec.style.display = 'block';
+    if (phoneSec) phoneSec.style.display = 'flex';
   } else {
     if (phoneTab) phoneTab.classList.remove('active');
     if (emailTab) emailTab.classList.add('active');
     if (phoneSec) phoneSec.style.display = 'none';
-    if (emailSec) emailSec.style.display = 'block';
+    if (emailSec) emailSec.style.display = 'flex';
   }
 }
 
@@ -1906,42 +1878,22 @@ function evaluatePasswordStrength(password) {
   const updateReq = (el, met, text) => {
     if (!el) return;
     el.classList.toggle('met', met);
-    el.innerHTML = `<span>${met ? '✓' : '○'}</span> ${text}`;
+    el.innerHTML = `<svg class="i i-sm" aria-hidden="true"><use href="#i-${met ? 'check' : 'circle'}"/></svg><span>${text}</span><span class="sr-only">${met ? ' (met)' : ' (not met yet)'}</span>`;
   };
 
-  updateReq(reqLength, hasLength, '8+ characters');
-  updateReq(reqUpper, hasUpper, 'Uppercase letter (A-Z)');
-  updateReq(reqNumber, hasNumber, 'Number (0-9)');
-  updateReq(reqSymbol, hasSymbol, 'Symbol (!@#$...)');
+  updateReq(reqLength, hasLength, '8 or more characters');
+  updateReq(reqUpper, hasUpper, 'An uppercase letter (A-Z)');
+  updateReq(reqNumber, hasNumber, 'A number (0-9)');
+  updateReq(reqSymbol, hasSymbol, 'A symbol (! @ # $ ...)');
 
   const score = [hasLength, hasUpper, hasNumber, hasSymbol].filter(Boolean).length;
-  const bar1 = document.getElementById('pwBar1');
-  const bar2 = document.getElementById('pwBar2');
-  const bar3 = document.getElementById('pwBar3');
-  const bar4 = document.getElementById('pwBar4');
   const label = document.getElementById('pwStrengthLabel');
-  const percent = document.getElementById('pwStrengthPercent');
+  const container = document.getElementById('pwStrengthContainer');
+  const labels = ['Too weak', 'Weak', 'Fair', 'Good', 'Strong'];
 
-  const bars = [bar1, bar2, bar3, bar4];
-  const colors = ['#E53935', '#FB8C00', '#FDD835', '#21B06B'];
-  const labels = ['Too Weak', 'Weak', 'Fair', 'Good', 'Strong'];
-
-  bars.forEach((bar, i) => {
-    if (!bar) return;
-    if (i < score) {
-      bar.style.background = colors[Math.min(score - 1, colors.length - 1)];
-    } else {
-      bar.style.background = 'rgba(255, 255, 255, 0.12)';
-    }
-  });
-
-  if (label) {
-    label.textContent = labels[score];
-    label.style.color = score > 0 ? colors[Math.min(score - 1, colors.length - 1)] : 'var(--txt-muted)';
-  }
-  if (percent) {
-    percent.textContent = `${score * 25}%`;
-  }
+  // Bars and colours come from CSS via data-score (see css/auth.css).
+  if (container) container.dataset.score = String(score);
+  if (label) label.textContent = labels[score];
 
   return score === 4;
 }
@@ -1955,14 +1907,10 @@ function checkPasswordMatch() {
     feedback.style.display = 'none';
     return;
   }
-  feedback.style.display = 'block';
-  if (pwd === confirmPwd) {
-    feedback.style.color = '#10B981';
-    feedback.textContent = '✓ Passwords match';
-  } else {
-    feedback.style.color = '#EF4444';
-    feedback.textContent = '✕ Passwords do not match';
-  }
+  const ok = pwd === confirmPwd;
+  feedback.style.display = 'flex';
+  feedback.className = ok ? 'field-hint is-ok' : 'field-error';
+  feedback.innerHTML = `<svg class="i i-sm" aria-hidden="true"><use href="#i-${ok ? 'check' : 'x'}"/></svg>${ok ? 'Passwords match' : 'Passwords do not match'}`;
 }
 window.checkPasswordMatch = checkPasswordMatch;
 
@@ -2006,7 +1954,8 @@ async function handleLogin() {
   const btn = document.getElementById('loginBtn');
   if (btn) {
     btn.disabled = true;
-    btn.innerHTML = '<span>Signing in...</span>';
+    btn.textContent = 'Signing in…';
+    btn.setAttribute('aria-busy', 'true');
   }
 
   // Generic error message for security (prevents user account enumeration)
@@ -2039,10 +1988,6 @@ async function handleLogin() {
             }
             const vipExpiryMs = uData.vipExpiry?.toMillis ? uData.vipExpiry.toMillis() : 0;
             appState.isVip = Boolean(uData.isVip && (!vipExpiryMs || vipExpiryMs > Date.now()));
-            if (uData.isVerified !== undefined) {
-              currentUser.isVerified = Boolean(uData.isVerified);
-              if (currentUser.isVerified) localStorage.setItem('hmbs_verified', 'true');
-            }
           }
         } catch (e) {
           console.warn("Could not fetch user profile from Firestore:", e);
@@ -2064,7 +2009,7 @@ async function handleLogin() {
       } else {
         if (errorEl) errorEl.textContent = genericErrorMessage;
       }
-      if (btn) { btn.disabled = false; btn.innerHTML = 'Sign In'; }
+      if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = 'Sign in'; }
       return;
     }
   }
@@ -2088,7 +2033,7 @@ async function handleLogin() {
     if (errorEl) errorEl.textContent = genericErrorMessage;
   }
 
-  if (btn) { btn.disabled = false; btn.innerHTML = 'Sign In'; }
+  if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = 'Sign in'; }
 }
 
 // PHONE NUMBER SIGN-IN HANDLER
@@ -2138,13 +2083,13 @@ async function handlePhoneLogin() {
     if (sent) {
       _loginPhoneOtpSent = true;
       if (otpGroup) otpGroup.style.display = 'block';
-      if (btn) btn.textContent = 'Verify & Sign In';
+      if (btn) btn.textContent = 'Verify and sign in';
       if (otpInput) {
         otpInput.value = window._devPhoneOtp || '';
         setTimeout(() => otpInput.focus(), 150);
       }
       if (!window._devPhoneOtp) {
-        showToast('📱 SMS code sent to +234 ' + rawPhone, 'info');
+        showToast('Code sent to +234 ' + rawPhone, 'info');
       }
     } else {
       if (errEl) errEl.textContent = 'Could not send SMS verification code. Please check number or try again.';
@@ -2180,13 +2125,13 @@ async function handlePhoneLogin() {
     currentUser.phoneVerified = true;
     appState.isLoggedIn = true;
     saveToStorage();
-    showToast('Signed in with phone! Welcome to hookmebysam. 🌟', 'gold');
+    showToast('Signed in. Welcome back.', 'success');
     showScreen('discovery');
     initMainApp();
   } else {
     recordFailedLoginAttempt();
     if (errEl) errEl.textContent = 'Invalid verification code. Please check your SMS or request a new code.';
-    if (btn) btn.textContent = 'Verify & Sign In';
+    if (btn) btn.textContent = 'Verify and sign in';
   }
 }
 
@@ -2302,7 +2247,7 @@ async function handleGoogleLoginSuccess(user) {
     saveToStorage();
     showScreen('discovery');
     initMainApp();
-    showToast('Welcome back, ' + currentUser.name + '! ✨', 'gold');
+    showToast('Welcome back, ' + currentUser.name + '!', 'gold');
     return;
   }
 
@@ -2330,7 +2275,7 @@ async function handleGoogleLoginSuccess(user) {
   const emailInput = document.getElementById('signupEmail');
   if (emailInput) emailInput.value = currentUser.email;
 
-  showToast(`Welcome ${cleanName || 'Explorer'}! Please complete your profile to start matching 🎯`, 'gold');
+  showToast(`Welcome ${cleanName || 'Explorer'}! Please complete your profile to start matching`, 'gold');
   showScreen('signup');
 }
 window.handleGoogleLoginSuccess = handleGoogleLoginSuccess;
@@ -2430,7 +2375,7 @@ function handleGuestLogin() {
     shareLocation: true,
   };
   saveToStorage();
-  showToast('Logged in as Guest Explorer! 🌟', 'info');
+  showToast('Demo mode: you are looking at sample profiles.', 'info');
   showScreen('discovery');
   initMainApp();
 }
@@ -2438,11 +2383,11 @@ function handleGuestLogin() {
 function togglePasswordVisibility(inputId, btnEl) {
   const input = document.getElementById(inputId);
   if (!input) return;
-  const isVisible = input.type === 'text';
-  input.type = isVisible ? 'password' : 'text';
-  btnEl.innerHTML = isVisible
-    ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>`
-    : `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z"/></svg>`;
+  const nowVisible = input.type === 'password';
+  input.type = nowVisible ? 'text' : 'password';
+  btnEl.setAttribute('aria-pressed', String(nowVisible));
+  btnEl.setAttribute('aria-label', nowVisible ? 'Hide password' : 'Show password');
+  btnEl.innerHTML = `<svg class="i" aria-hidden="true"><use href="#i-${nowVisible ? 'eye-off' : 'eye'}"/></svg>`;
 }
 
 // ==========================================================
@@ -2461,20 +2406,23 @@ function goToLogin() {
 
 function selectGender(gender, el) {
   appState.signupGender = gender;
-  document.querySelectorAll('.gender-option').forEach(o => o.classList.remove('selected'));
+  document.querySelectorAll('.gender-option').forEach(o => { o.classList.remove('selected'); o.setAttribute('aria-checked', 'false'); });
   el.classList.add('selected');
+  el.setAttribute('aria-checked', 'true');
 }
 
 function toggleInterest(tag, el) {
   if (el.classList.contains('selected')) {
     el.classList.remove('selected');
+    el.setAttribute('aria-pressed', 'false');
     appState.signupInterests = appState.signupInterests.filter(i => i !== tag);
   } else {
     if (appState.signupInterests.length >= 5) {
-      showToast('Max 5 interests!', 'info');
+      showToast('You can pick up to 5 interests.', 'info');
       return;
     }
     el.classList.add('selected');
+    el.setAttribute('aria-pressed', 'true');
     appState.signupInterests.push(tag);
   }
 }
@@ -2491,6 +2439,14 @@ function renderSignupStep() {
     if (i + 1 === appState.signupStep) d.classList.add('active');
     if (i + 1 < appState.signupStep) d.classList.add('done');
   });
+
+  const count = document.getElementById('signupStepCount');
+  if (count) count.textContent = `Step ${appState.signupStep} of 4`;
+  // The last step creates the account, so the button must say so.
+  const nextBtn = document.getElementById('signupCompleteBtn');
+  if (nextBtn && !nextBtn.disabled) nextBtn.textContent = appState.signupStep === 4 ? 'Create account' : 'Continue';
+  const screen = document.getElementById('signupScreen');
+  if (screen) screen.scrollTop = 0;
 }
 
 function nextSignupStep() {
@@ -2525,7 +2481,7 @@ function nextSignupStep() {
       return;
     }
     if (!currentUser.image && !currentUser.avatar) {
-      if (errorEl) errorEl.textContent = 'Please upload your profile photo to continue! Every user must have their own real photo. 📸';
+      if (errorEl) errorEl.textContent = 'Add a photo of yourself to continue. Every profile needs a real photo.';
       return;
     }
     currentUser.bio = bio;
@@ -2616,7 +2572,7 @@ function completeSignup() {
   }
 
   const btn = document.getElementById('signupCompleteBtn');
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Creating account...'; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
 
   currentUser.email = email;
   currentUser.phone = phone;
@@ -2632,7 +2588,7 @@ function completeSignup() {
         // Dispatch real Firebase email verification
         try {
           await user.sendEmailVerification();
-          showToast('✉️ Verification email sent! Please check your inbox and spam folder.', 'info');
+          showToast('Verification email sent. Check your inbox and spam folder.', 'info');
         } catch (e) {
           console.warn("Could not dispatch email verification:", e);
         }
@@ -2646,10 +2602,10 @@ function completeSignup() {
           name: userName,
           displayName: userName,
           username: (currentUser.username || userName).toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user',
-          age: currentUser.age || 24,
-          bio: currentUser.bio || 'Looking for real connections on hookmebysam!',
-          gender: currentUser.gender || 'Female',
-          interests: currentUser.interests || ['Music 🎵', 'Vibes ✨'],
+          age: currentUser.age || null,
+          bio: currentUser.bio || '',
+          gender: currentUser.gender || '',
+          interests: currentUser.interests || [],
           image: userPhoto,
           avatar: userPhoto,
           photos: (window._signupPhotos || []).filter(Boolean),
@@ -2662,17 +2618,17 @@ function completeSignup() {
           await syncPublicProfileToFirestore(profileData);
         }
 
+        // Firebase Auth owns the credentials. Never keep a (base64 = recoverable) copy of the password in the browser.
         saveRegisteredUser({
           ...profileData,
           email: email.toLowerCase(),
           phone: phone,
-          passwordHash: btoa(password),
           uid: user.uid,
           createdAt: Date.now()
         });
 
         saveToStorage();
-        if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
         showScreen('signupSuccess');
         initMainApp();
       })
@@ -2684,7 +2640,7 @@ function completeSignup() {
           'auth/invalid-email': 'Please enter a valid, real email address.'
         };
         if (errorEl) errorEl.textContent = msgs[err.code] || err.message || 'Signup failed. Please try again.';
-        if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
+        if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
       });
     return;
   }
@@ -2702,7 +2658,7 @@ function completeSignup() {
   appState.isLoggedIn = true;
   saveToStorage();
   setTimeout(() => {
-    if (btn) { btn.disabled = false; btn.innerHTML = 'Create Account'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
     showScreen('signupSuccess');
     initMainApp();
   }, 600);
@@ -2713,155 +2669,81 @@ function completeSignup() {
 // INTELLIGENT MATCHMAKING & COMPATIBILITY ENGINE
 // ==========================================================
 
+// What two people actually have in common, from their profiles. Nothing here is
+// invented: no percentage, no "chemistry" score. `rank` is an internal ordering
+// used only to pick which profile to suggest first; it is never shown.
+const INTENT_LABELS = {
+  'relationship': 'a serious relationship',
+  'long-term dating': 'something long-term',
+  'casual dating': 'casual dating',
+  'friendship': 'new friends',
+  'figuring it out': 'seeing where things go',
+  'marriage': 'marriage'
+};
+const EMOJI_RE = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu;
+const stripEmoji = (str) => String(str || '').replace(EMOJI_RE, '').trim();
+function joinList(items) {
+  if (items.length <= 1) return items.join('');
+  return `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+}
+
 function calculateCompatibility(me, partner) {
+  const generic = [
+    '"What made you smile today?"',
+    '"What is your favourite way to spend a weekend?"'
+  ];
   if (!partner) {
-    return {
-      score: 88,
-      headline: 'Great Chemistry ✨',
-      reasons: ['High mutual chemistry', 'Active verified member on HookMeBySam'],
-      icebreakers: ["Hey there! Glad we connected 😊 What made you smile today?", "What's the best weekend plan you've had recently? 🌴"],
-      sharedTags: []
-    };
+    return { rank: 0, headline: '', reasons: [], icebreakers: generic, sharedTags: [], sameIntent: false };
   }
 
-  const myInterests = Array.isArray(me?.interests)
-    ? me.interests
-    : (typeof me?.interests === 'string' ? me.interests.split(',').map(s => s.trim()) : ['Music 🎵', 'Travel ✈️', 'Foodie 🍕']);
-  const theirInterests = Array.isArray(partner?.tags)
-    ? partner.tags
-    : (Array.isArray(partner?.interests) ? partner.interests : []);
+  const toList = (v) => Array.isArray(v) ? v : (typeof v === 'string' ? v.split(',').map(x => x.trim()) : []);
+  const myInterests = toList(me?.interests);
+  const theirInterests = Array.isArray(partner?.tags) && partner.tags.length ? partner.tags : toList(partner?.interests);
 
-  // Clean text helper (removes emojis and symbols)
-  const norm = (s) => String(s || '').replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').toLowerCase().trim();
+  const norm = (str) => stripEmoji(str).toLowerCase();
   const myNorm = myInterests.map(norm).filter(Boolean);
-
-  const shared = [];
-  theirInterests.forEach(item => {
+  const shared = theirInterests.filter(item => {
     const ni = norm(item);
-    if (ni && myNorm.some(m => m.includes(ni) || ni.includes(m))) {
-      shared.push(item);
-    }
+    return ni && myNorm.some(m => m === ni || m.includes(ni) || ni.includes(m));
   });
 
-  let score = 76; // Matchmaking affinity baseline
+  const myIntent = String(me?.intent || '').toLowerCase();
+  const theirIntent = String(partner?.intent || '').toLowerCase();
+  const sameIntent = Boolean(myIntent && theirIntent && myIntent === theirIntent && INTENT_LABELS[theirIntent]);
+  const verified = Boolean(partner?.isVerified || partner?.verified);
+
   const reasons = [];
+  if (shared.length) reasons.push(`You both like ${joinList(shared.slice(0, 3).map(stripEmoji))}`);
+  if (sameIntent) reasons.push(`You are both looking for ${INTENT_LABELS[theirIntent]}`);
+  if (verified) reasons.push('Photo verified');
 
-  // 1. Relationship Intent Synergy (up to +12 pts)
-  const myIntent = (me?.intent || 'relationship').toLowerCase();
-  const theirIntent = (partner?.intent || 'relationship').toLowerCase();
+  const headline = shared.length
+    ? `${shared.length} ${shared.length === 1 ? 'interest' : 'interests'} in common`
+    : (sameIntent ? 'Looking for the same thing' : '');
 
-  if (myIntent === theirIntent || (myIntent.includes('relat') && theirIntent.includes('relat'))) {
-    score += 12;
-    if (theirIntent.includes('relat') || theirIntent.includes('marriage') || theirIntent === 'long-term dating') {
-      reasons.push('You both share the same vision for a serious, meaningful connection');
-    } else if (theirIntent.includes('dat') || theirIntent.includes('casual')) {
-      reasons.push('Both seeking exciting dates, chemistry, and spontaneous adventures');
-    } else if (theirIntent.includes('friend')) {
-      reasons.push('Both interested in genuine friendships and expanding close circles');
-    } else {
-      reasons.push('Aligned dating goals and compatible relationship intentions');
-    }
-  } else if ((myIntent.includes('relat') && theirIntent.includes('marriage')) || (myIntent.includes('marriage') && theirIntent.includes('relat'))) {
-    score += 10;
-    reasons.push('Complementary aspirations for a serious, lasting partnership');
-  } else {
-    score += 4;
-  }
-
-  // 2. Shared Passions & Interests (up to +12 pts)
-  if (shared.length >= 3) {
-    score += 12;
-    const cleanNames = shared.slice(0, 3).map(s => s.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim());
-    reasons.push(`Shared passions for ${cleanNames.join(', ')}`);
-  } else if (shared.length > 0) {
-    score += shared.length * 4;
-    const cleanNames = shared.map(s => s.replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim());
-    reasons.push(`Both love ${cleanNames.join(' & ')}`);
-  } else if (theirInterests.length > 0) {
-    score += 4;
-    const cleanTag = theirInterests[0].replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim();
-    reasons.push(`Exciting complementary passions in ${cleanTag}`);
-  }
-
-  // 3. Lifestyle Synergy (up to +8 pts)
-  const myWorkout = norm(me?.workout || me?.lifestyle?.workout || 'active');
-  const theirWorkout = norm(partner?.workout || '');
-  if ((myWorkout.includes('fit') || myWorkout.includes('gym') || myWorkout.includes('active') || myWorkout.includes('yoga') || myWorkout.includes('walk')) &&
-      (theirWorkout.includes('fit') || theirWorkout.includes('gym') || theirWorkout.includes('active') || theirWorkout.includes('yoga') || theirWorkout.includes('weights') || theirWorkout.includes('swim') || theirWorkout.includes('pilates'))) {
-    score += 5;
-    reasons.push('Both value an active, healthy, and energetic lifestyle');
-  }
-
-  const mySmoking = norm(me?.smoking || me?.lifestyle?.smoking || 'non');
-  const theirSmoking = norm(partner?.smoking || '');
-  if (theirSmoking.includes('never') || theirSmoking.includes('non') || theirSmoking.includes('rarely') || mySmoking.includes('never') || mySmoking.includes('non')) {
-    score += 3;
-    reasons.push('Compatible lifestyle preferences & healthy everyday habits');
-  }
-
-  // 4. Verification & Authentic Profile Bonus (+3 pts)
-  if (partner?.isVerified || partner?.verified) {
-    score += 3;
-    reasons.push('Verified authentic identity & vetted photos 🛡️');
-  }
-
-  // Normalized affinity bounds: 84% - 98%
-  score = Math.min(98, Math.max(84, score));
-
-  // Determine headline
-  let headline = 'Exceptional Match 🔥';
-  if (score >= 94) headline = 'Exceptional Chemistry 🔥';
-  else if (score >= 89) headline = 'High Compatibility ✨';
-  else headline = 'Strong Potential 💫';
-
-  if (reasons.length < 2) {
-    reasons.push('Complementary communication styles & positive energy');
-  }
-
-  // Tailored Conversation Starters based on their profile prompts & tags
+  // Conversation starters grounded in the profile, with generic fallbacks.
   const pName = partner?.name || 'them';
   const icebreakers = [];
-
-  // Interest-based icebreaker
   if (shared.length > 0) {
-    const topic = shared[0].replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim();
-    if (topic.toLowerCase().includes('music') || topic.toLowerCase().includes('afrobeat') || topic.toLowerCase().includes('amapiano')) {
-      icebreakers.push(`"Saw we both love music! What artist or album are you playing on repeat right now? 🎵"`);
-    } else if (topic.toLowerCase().includes('travel')) {
-      icebreakers.push(`"You love traveling — what's the most unforgettable trip you've ever taken? ✈️"`);
-    } else if (topic.toLowerCase().includes('food') || topic.toLowerCase().includes('brunch')) {
-      icebreakers.push(`"Fellow foodie here! What's your #1 underrated spot in town right now? 🍕"`);
-    } else {
-      icebreakers.push(`"Tell me about your favorite thing about ${topic}!"`);
-    }
+    const topic = stripEmoji(shared[0]);
+    const t = topic.toLowerCase();
+    if (t.includes('music') || t.includes('afrobeat') || t.includes('amapiano')) icebreakers.push('"We both like music. What are you playing on repeat right now?"');
+    else if (t.includes('travel')) icebreakers.push('"What is the best trip you have taken?"');
+    else if (t.includes('food') || t.includes('brunch')) icebreakers.push('"What is your most underrated food spot in town?"');
+    else icebreakers.push(`"What do you like most about ${topic.toLowerCase()}?"`);
   }
-
-  // Prompt-based icebreaker
   if (Array.isArray(partner?.prompts) && partner.prompts.length > 0) {
     const q1 = partner.prompts[0]?.question || '';
-    if (q1.includes('pleasures')) {
-      icebreakers.push(`"Your answer about simple pleasures resonated with me. What's next on your bucket list?"`);
-    } else if (q1.includes('Sunday')) {
-      icebreakers.push(`"Your ideal Sunday sounds awesome. Best brunch in town or relaxing at home?"`);
-    } else if (q1.includes('boundary') || q1.includes('green flag')) {
-      icebreakers.push(`"Loved your prompt answer! What's something that instantly earns your respect?"`);
-    }
+    if (q1.includes('Sunday')) icebreakers.push('"Your ideal Sunday sounds good. Brunch out or a day at home?"');
+    else if (q1.includes('green flag') || q1.includes('boundary')) icebreakers.push('"I liked your prompt answer. What earns your respect straight away?"');
+    else if (q1.includes('pleasures')) icebreakers.push('"What is next on your list of simple pleasures?"');
   }
+  if (icebreakers.length < 3) icebreakers.push(`"Hi ${pName}, what made you smile today?"`);
+  if (icebreakers.length < 3) icebreakers.push('"What do you do to unwind after a busy week?"');
 
-  if (icebreakers.length < 3) {
-    icebreakers.push(`"Hey ${pName}! Glad we matched 😊 What made you smile today?"`);
-  }
-  if (icebreakers.length < 3) {
-    icebreakers.push(`"What's your go-to way to unwind after a productive week? 🌴"`);
-  }
+  const rank = 50 + shared.length * 8 + (sameIntent ? 15 : 0) + (verified ? 3 : 0) + (partner?.voiceIntro ? 2 : 0);
 
-  return {
-    score,
-    headline,
-    reasons: reasons.slice(0, 3),
-    icebreakers: icebreakers.slice(0, 3),
-    sharedTags: shared
-  };
+  return { rank, headline, reasons: reasons.slice(0, 3), icebreakers: icebreakers.slice(0, 3), sharedTags: shared, sameIntent };
 }
 window.calculateCompatibility = calculateCompatibility;
 
@@ -2924,7 +2806,7 @@ function playProfileVoiceIntro(profileId, event) {
     window.speechSynthesis.speak(utterance);
     if (typeof haptic === 'function') haptic('light');
   } else {
-    if (typeof showToast === 'function') showToast(`🎙️ ${pName}: "${text}"`, 'gold', 5000);
+    if (typeof showToast === 'function') showToast(`${pName}: "${text}"`, 'gold', 5000);
     setTimeout(() => {
       _resetVoiceIntroUI(profileId);
       _currentVoiceIntroProfileId = null;
@@ -3009,26 +2891,20 @@ function renderTodayTopPick() {
   }
 
   let bestCandidate = null;
-  let bestScore = -1;
+  let bestRank = -1;
   let bestCompat = null;
 
   validCandidates.forEach(p => {
-    const compat = typeof calculateCompatibility === 'function'
-      ? calculateCompatibility(currentUser, p)
-      : { score: 90, headline: 'Great Chemistry', reasons: [] };
-
-    const voiceBonus = p.voiceIntro ? 2 : 0;
-    const verifiedBonus = (p.isVerified || p.verified) ? 1 : 0;
-    const totalScore = compat.score + voiceBonus + verifiedBonus;
-
-    if (totalScore > bestScore) {
-      bestScore = totalScore;
+    const compat = calculateCompatibility(currentUser, p);
+    if (compat.rank > bestRank) {
+      bestRank = compat.rank;
       bestCandidate = p;
       bestCompat = compat;
     }
   });
 
-  if (!bestCandidate) {
+  // Only recommend someone when there is a real reason to (shared interests or the same goal).
+  if (!bestCandidate || !bestCompat || (!bestCompat.sharedTags.length && !bestCompat.sameIntent)) {
     cardEl.style.display = 'none';
     return;
   }
@@ -3043,15 +2919,14 @@ function renderTodayTopPick() {
 
   const photo = bestCandidate.photos?.[0] || bestCandidate.image || bestCandidate.avatar || '';
   if (avatarImg && photo) avatarImg.src = photo;
-  if (nameEl) nameEl.textContent = `${bestCandidate.name || 'Match'}, ${bestCandidate.age ?? ''}`;
-  if (compatPill && bestCompat) compatPill.textContent = `${bestCompat.score}% Match`;
-  if (reasonEl && bestCompat) {
-    const reasonText = bestCompat.reasons?.[0] || 'Exceptional chemistry and vibe';
-    reasonEl.textContent = `${bestCompat.headline} • ${reasonText}`;
+  if (nameEl) nameEl.textContent = `${bestCandidate.name || 'Someone'}${bestCandidate.age ? ', ' + bestCandidate.age : ''}`;
+  if (compatPill) {
+    const n = bestCompat.sharedTags.length;
+    compatPill.textContent = n ? `${n} in common` : '';
+    compatPill.style.display = n ? 'inline-flex' : 'none';
   }
-  if (verifiedEl) {
-    verifiedEl.style.display = (bestCandidate.isVerified || bestCandidate.verified) ? 'inline' : 'none';
-  }
+  if (reasonEl) reasonEl.textContent = bestCompat.reasons[0] || '';
+  if (verifiedEl) verifiedEl.style.display = (bestCandidate.isVerified || bestCandidate.verified) ? 'inline-block' : 'none';
 
   cardEl.style.display = 'flex';
 }
@@ -3124,54 +2999,49 @@ function buildProfileCard(p, idx) {
   card._photoIndex = 0;
   card._photos = photos;
 
-  const tagsHTML = (Array.isArray(p.tags) ? p.tags : []).map(t => `<span class="tag-chip">${escHtml(t)}</span>`).join('');
+  const allTags = Array.isArray(p.tags) ? p.tags : [];
+  const shownTags = allTags.slice(0, 3);
+  const tagsHTML = shownTags.map(t => `<span class="chip chip-static">${escHtml(t)}</span>`).join('')
+    + (allTags.length > shownTags.length ? `<span class="chip chip-static">+${allTags.length - shownTags.length}</span>` : '');
 
-  const dotsHTML = photos.map((_, i) =>
-    `<div class="photo-dot${i === 0 ? ' active' : ''}"></div>`
-  ).join('') || '<div class="photo-dot active"></div>';
+  const dotsHTML = photos.length > 1
+    ? photos.map((_, i) => `<div class="photo-dot${i === 0 ? ' active' : ''}"></div>`).join('')
+    : '';
 
-  const compat = typeof calculateCompatibility === 'function'
-    ? calculateCompatibility(currentUser, p)
-    : { score: 92, headline: 'High Chemistry', reasons: ['High chemistry & shared positive energy'], icebreakers: [] };
+  const compat = calculateCompatibility(currentUser, p);
+  const commonLine = compat.reasons[0] || '';
 
   const voiceIntroBtnHtml = p.voiceIntro ? `
-    <button type="button" class="card-voice-intro-btn" id="cardVoiceBtn_${p.id}" onclick="event.stopPropagation();playProfileVoiceIntro('${p.id}', event)" aria-label="Listen to voice introduction" title="Listen to voice intro">
-      <span class="card-voice-mic-icon">🎙️</span>
-      <span class="card-voice-label">Voice Intro</span>
+    <button type="button" class="card-voice-intro-btn" id="cardVoiceBtn_${p.id}" onclick="event.stopPropagation();playProfileVoiceIntro('${p.id}', event)" aria-label="Play voice introduction">
+      <svg class="i i-sm" aria-hidden="true"><use href="#i-mic"/></svg>
+      <span class="card-voice-label">Voice intro</span>
       <span class="card-voice-waves" id="cardVoiceWaves_${p.id}"><span></span><span></span><span></span></span>
     </button>
   ` : '';
 
+  const distance = typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(p) : (p.distance || '');
+  const isVerified = Boolean(p.isVerified || p.verified);
+
   card.innerHTML = `
     <div class="card-photo-area">
-      <div class="card-photo-dots">${dotsHTML}</div>
-      <div class="card-distance-badge">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-        ${escHtml(typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(p) : (p.distance || '2 km away'))}
-      </div>
+      ${dotsHTML ? `<div class="card-photo-dots" aria-hidden="true">${dotsHTML}</div>` : ''}
+      ${distance ? `<div class="card-distance-badge"><svg class="i i-sm" aria-hidden="true"><use href="#i-map-pin"/></svg>${escHtml(distance)}</div>` : ''}
       ${voiceIntroBtnHtml}
-      <div class="stamp stamp-like">LIKE</div>
-      <div class="stamp stamp-nope">NOPE</div>
+      <div class="stamp stamp-like" aria-hidden="true">LIKE</div>
+      <div class="stamp stamp-nope" aria-hidden="true">PASS</div>
       ${photos.length > 1 ? '<div class="card-photo-tap-prev"></div><div class="card-photo-tap-next"></div>' : ''}
     </div>
     <div class="card-info">
-      <!-- Why You Click Compatibility Pill -->
-      <div class="card-compat-pill" onclick="event.stopPropagation();openProfileDetailSheet('${p.id}', event)" title="Click to view full matchmaking reasons">
-        <span class="compat-pill-badge">${compat.score}% MATCH</span>
-        <span class="compat-pill-reason">${escHtml(compat.reasons[0] || 'High Chemistry')}</span>
-        <span class="compat-pill-arrow">›</span>
-      </div>
       <div class="card-name-row">
-        <h2>${escHtml(p.name || 'User')}, ${escHtml(p.age ?? '')}</h2>
-        ${(p.isVerified || p.verified) ? `<span class="verified-icon" title="Photo Verified Authentic Profile">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-        </span>` : ''}
-        <button type="button" class="card-info-btn" aria-label="View profile details" title="View profile details" onclick="event.stopPropagation();openProfileDetailSheet('${p.id}', event)">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+        <h2>${escHtml(p.name || 'User')}${p.age ? `, ${escHtml(p.age)}` : ''}</h2>
+        ${isVerified ? '<svg class="i verified-icon" role="img" aria-label="Photo verified"><use href="#i-badge-check"/></svg>' : ''}
+        <button type="button" class="card-info-btn" aria-label="View ${escHtml(p.name || 'profile')}'s full profile" onclick="event.stopPropagation();openProfileDetailSheet('${p.id}', event)">
+          <svg class="i" aria-hidden="true"><use href="#i-info"/></svg>
         </button>
       </div>
-      <div class="card-tags">${tagsHTML}</div>
-      <p class="card-bio">${escHtml(p.bio || '')}</p>
+      ${commonLine ? `<p class="card-common"><svg class="i i-sm" aria-hidden="true"><use href="#i-sparkles"/></svg>${escHtml(commonLine)}</p>` : ''}
+      ${p.bio ? `<p class="card-bio">${escHtml(p.bio)}</p>` : ''}
+      ${tagsHTML ? `<div class="card-tags">${tagsHTML}</div>` : ''}
     </div>
   `;
 
@@ -3361,6 +3231,184 @@ function onDragEnd() {
   document.removeEventListener('mouseup', onDragEnd);
 }
 
+// ==========================================================
+// DIALOG FOCUS MANAGEMENT (shared by every sheet / dialog)
+//   dialogOpened(overlay, {close, focus}) once the dialog is visible,
+//   dialogClosed(overlay) once it is hidden. Gives: focus moved inside, Tab kept
+//   inside, Esc closes the top dialog, focus returned to what opened it.
+// ==========================================================
+const _dialogStack = [];
+const _FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+function _visibleFocusables(root) {
+  return [...root.querySelectorAll(_FOCUSABLE)].filter(el => el.offsetParent !== null || el === document.activeElement);
+}
+function _pruneDialogStack() {
+  for (let i = _dialogStack.length - 1; i >= 0; i--) if (!_dialogStack[i].overlay.isConnected) _dialogStack.splice(i, 1);
+}
+function dialogOpened(overlay, opts = {}) {
+  if (!overlay) return;
+  _pruneDialogStack();
+  if (_dialogStack.some(d => d.overlay === overlay)) return;
+  _dialogStack.push({ overlay, opener: document.activeElement, close: opts.close });
+  setTimeout(() => {
+    const target = (opts.focus && overlay.querySelector(opts.focus)) || _visibleFocusables(overlay)[0];
+    if (target) target.focus({ preventScroll: true });
+  }, 60);
+}
+function dialogClosed(overlay) {
+  const i = _dialogStack.findIndex(d => d.overlay === overlay);
+  if (i < 0) return;
+  const [{ opener }] = _dialogStack.splice(i, 1);
+  if (opener && document.contains(opener) && typeof opener.focus === 'function') opener.focus({ preventScroll: true });
+}
+document.addEventListener('keydown', (e) => {
+  _pruneDialogStack();
+  const top = _dialogStack[_dialogStack.length - 1];
+  if (!top) return;
+  if (e.key === 'Escape' && typeof top.close === 'function') { e.preventDefault(); top.close(); return; }
+  if (e.key !== 'Tab') return;
+  const items = _visibleFocusables(top.overlay);
+  if (!items.length) return;
+  const first = items[0], last = items[items.length - 1];
+  if (!top.overlay.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+
+// Static dialogs are opened by setting style.display; this gives all of them the same behaviour
+// (fade in, focus moves in and is trapped, Escape closes, focus returns to the opener) without touching each opener.
+(function watchStaticDialogs() {
+  const SEL = '.sheet-overlay[id], .modal-overlay[id]';
+  const shown = (el) => el.style.display !== '' && el.style.display !== 'none';
+  const sync = (el) => {
+    if (shown(el)) {
+      requestAnimationFrame(() => el.classList.add('open'));
+      dialogOpened(el, {
+        close: () => {
+          const btn = el.querySelector('[data-close], [aria-label="Close"]');
+          if (btn) btn.click(); else el.click();
+        }
+      });
+    } else {
+      el.classList.remove('open');
+      dialogClosed(el);
+    }
+  };
+  const label = (el) => {
+    const panel = el.querySelector('.sheet');
+    if (!panel) return;
+    if (!panel.hasAttribute('role')) panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    const title = panel.querySelector('.sheet-title');
+    if (title && !panel.hasAttribute('aria-labelledby') && !panel.hasAttribute('aria-label')) {
+      if (!title.id) title.id = (el.id || 'dlg') + 'Title';
+      panel.setAttribute('aria-labelledby', title.id);
+    }
+  };
+  const obs = new MutationObserver((list) => {
+    list.forEach((m) => { if (m.target.matches && m.target.matches(SEL)) sync(m.target); });
+  });
+  const start = () => document.querySelectorAll(SEL).forEach((el) => {
+    label(el);
+    obs.observe(el, { attributes: true, attributeFilter: ['style'] });
+  });
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+
+// In-app replacement for window.confirm()/alert(). Resolves true when confirmed.
+function confirmDialog({ title, message = '', confirmLabel = 'Confirm', cancelLabel = 'Cancel', danger = false }) {
+  return new Promise((resolve) => {
+    document.getElementById('confirmDialog')?.remove();
+    const ov = document.createElement('div');
+    ov.id = 'confirmDialog';
+    ov.className = 'sheet-overlay confirm-overlay open';
+    ov.style.display = 'flex';
+    ov.innerHTML = `
+      <div class="sheet confirm-sheet" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMsg">
+        <div class="sheet-body">
+          <h2 class="sheet-title" id="confirmTitle"></h2>
+          <p class="confirm-msg" id="confirmMsg"></p>
+        </div>
+        <div class="sheet-foot">
+          ${cancelLabel ? '<button type="button" class="btn btn-secondary" data-r="0"></button>' : ''}
+          <button type="button" class="btn ${danger ? 'btn-danger-fill' : 'btn-primary'}" data-r="1"></button>
+        </div>
+      </div>`;
+    ov.querySelector('#confirmTitle').textContent = title;
+    const msgEl = ov.querySelector('#confirmMsg');
+    msgEl.textContent = message;
+    msgEl.style.whiteSpace = 'pre-line';
+    if (!message) msgEl.remove();
+    if (cancelLabel) ov.querySelector('[data-r="0"]').textContent = cancelLabel;
+    ov.querySelector('[data-r="1"]').textContent = confirmLabel;
+    const done = (v) => { dialogClosed(ov); ov.remove(); resolve(v); };
+    ov.addEventListener('click', (e) => {
+      if (e.target === ov) return done(false);
+      const b = e.target.closest('[data-r]');
+      if (b) done(b.dataset.r === '1');
+    });
+    document.body.appendChild(ov);
+    dialogOpened(ov, { close: () => done(false), focus: cancelLabel ? '[data-r="0"]' : '[data-r="1"]' });
+  });
+}
+
+// Builds a sheet dialog from parts and returns { overlay, close }. Used by every dialog that is created on demand.
+//   title (text), sub (text, optional), body (HTML string or Node), foot (HTML string, optional),
+//   alert: true for urgent confirmations (role=alertdialog, no close button), onClose: called once on any close.
+function openSheetDialog({ id, title, sub = '', body = '', foot = '', alert = false, narrow = false, onClose, onEscape, focus }) {
+  document.getElementById(id)?.remove();
+  const ov = document.createElement('div');
+  ov.id = id;
+  ov.className = 'sheet-overlay open' + (narrow ? ' confirm-overlay' : '');
+  ov.style.display = 'flex';
+  ov.innerHTML = `
+    <div class="sheet${narrow ? ' confirm-sheet' : ''}" role="${alert ? 'alertdialog' : 'dialog'}" aria-modal="true" aria-labelledby="${id}Title">
+      ${narrow ? '' : '<div class="sheet-grabber" aria-hidden="true"></div>'}
+      <div class="sheet-head">
+        <div class="sheet-head-text"><h2 class="sheet-title" id="${id}Title"></h2><p class="sheet-sub" hidden></p></div>
+        ${alert ? '' : '<button type="button" class="btn btn-ghost btn-icon" data-sheet-close aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>'}
+      </div>
+      <div class="sheet-body"></div>
+      ${foot ? '<div class="sheet-foot"></div>' : ''}
+    </div>`;
+  ov.querySelector('.sheet-title').textContent = title;
+  if (sub) { const el = ov.querySelector('.sheet-sub'); el.textContent = sub; el.hidden = false; }
+  const bodyEl = ov.querySelector('.sheet-body');
+  if (typeof body === 'string') bodyEl.innerHTML = body; else if (body) bodyEl.appendChild(body);
+  if (foot) ov.querySelector('.sheet-foot').innerHTML = foot;
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    dialogClosed(ov);
+    ov.remove();
+    if (typeof onClose === 'function') onClose();
+  };
+  ov._close = close;
+  ov.addEventListener('click', (e) => {
+    if ((e.target === ov && !alert) || e.target.closest('[data-sheet-close]')) close();
+  });
+  document.body.appendChild(ov);
+  dialogOpened(ov, { close: alert ? onEscape : close, focus });
+  return { overlay: ov, close };
+}
+function closeSheetDialog(id) {
+  const ov = document.getElementById(id);
+  if (!ov) return;
+  if (ov._close) ov._close(); else { dialogClosed(ov); ov.remove(); }
+}
+
+// Keyboard: arrow keys pass / like on the discovery screen (never while typing or with a dialog open).
+document.addEventListener('keydown', (e) => {
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+  if (appState.currentScreen !== 'discovery' || !appState.activeCard) return;
+  const t = e.target;
+  if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+  if (document.querySelector('.sheet-overlay.open, .modal-overlay.active, #matchPopup[style*="flex"]')) return;
+  if (e.key === 'ArrowLeft') { e.preventDefault(); triggerManualSwipe('left'); }
+  else if (e.key === 'ArrowRight') { e.preventDefault(); triggerManualSwipe('right'); }
+});
+
 function pulseClick(el) {
   if (!el) return;
   el.classList.remove('btn-clicked');
@@ -3493,13 +3541,13 @@ function undoSwipe() {
 
 function refreshStack() {
   if (isRealUserLoggedIn()) {
-    showToast('Checking for new profiles nearby... 🔍', 'info');
+    showToast('Checking for new profiles…', 'info');
     loadProfilesForDiscovery();
   } else {
     if (window._swipedProfileIds) window._swipedProfileIds.clear();
     applyDiscoveryFilters();
     appState.lastAction = null;
-    showToast('Discovery feed refreshed! ✨', 'success');
+    showToast('Feed refreshed.', 'success');
   }
 }
 
@@ -3521,48 +3569,19 @@ function getTotalUnreadCount() {
 }
 
 function updateMatchesNotificationBadge() {
-  const badge = document.getElementById('matchesNavBadge');
+  // Unread messages are shown on the Messages tab only (the Matches tab used to
+  // mirror the same number, which was confusing).
   const chatsBadge = document.getElementById('chatsNavBadge');
-  const headerBadge = document.getElementById('headerMatchesCountBadge');
-  const headerDot = document.getElementById('headerNotifDot');
   const count = getTotalUnreadCount();
-
-  if (badge) {
-    if (count > 0) {
-      badge.textContent = count > 99 ? '99+' : count;
-      badge.style.display = 'inline-flex';
-      badge.classList.remove('badge-pop');
-      void badge.offsetWidth;
-      badge.classList.add('badge-pop');
-    } else {
-      badge.style.display = 'none';
-      badge.textContent = '0';
-    }
-  }
-
-  // Mirror unread count on the dedicated Messages nav tab
   if (chatsBadge) {
     if (count > 0) {
       chatsBadge.textContent = count > 99 ? '99+' : count;
-      chatsBadge.style.display = 'inline-flex';
+      chatsBadge.style.display = 'inline-block';
+      chatsBadge.setAttribute('aria-label', `${count} unread`);
     } else {
       chatsBadge.style.display = 'none';
       chatsBadge.textContent = '0';
     }
-  }
-
-  if (headerBadge) {
-    if (count > 0) {
-      headerBadge.textContent = count > 99 ? '99+' : count;
-      headerBadge.style.display = 'inline-flex';
-    } else {
-      headerBadge.style.display = 'none';
-      headerBadge.textContent = '0';
-    }
-  }
-
-  if (headerDot) {
-    headerDot.style.display = count > 0 ? 'block' : 'none';
   }
 }
 
@@ -3712,58 +3731,55 @@ function triggerMatchPopup(profile) {
   const input = document.getElementById('matchQuickInput');
   const chipsContainer = document.getElementById('matchIcebreakerChips');
 
-  const myImg = currentUser?.image || currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80';
+  const myImg = currentUser?.image || currentUser?.avatar || '';
   const themImg = profile.image || (Array.isArray(profile.photos) && profile.photos[0]) || '';
+  const fillAvatar = (el, img) => {
+    if (!el) return;
+    el.style.backgroundImage = img ? `url("${safeCssUrl(img)}")` : '';
+    el.innerHTML = img ? '' : '<svg class="i i-lg" aria-hidden="true"><use href="#i-user"/></svg>';
+  };
+  fillAvatar(mePhoto, myImg);
+  fillAvatar(themPhoto, themImg);
 
-  if (mePhoto) mePhoto.style.backgroundImage = `url("${safeCssUrl(myImg)}")`;
-  if (themPhoto) themPhoto.style.backgroundImage = `url("${safeCssUrl(themImg)}")`;
-
-  const pName = profile.name || 'Your Match';
+  const pName = profile.name || 'your match';
   if (matchName) matchName.textContent = pName;
-  if (matchDesc) matchDesc.textContent = `You and ${pName} liked each other!`;
-  if (chatBtn) chatBtn.textContent = `💬 Chat with ${pName}`;
+  if (matchDesc) matchDesc.textContent = `You and ${pName} liked each other.`;
+  if (chatBtn) chatBtn.textContent = 'Open chat';
   if (input) {
     input.value = '';
-    input.placeholder = `Say something nice to ${pName}...`;
+    input.placeholder = `Message ${pName}`;
   }
 
-  const compat = typeof calculateCompatibility === 'function'
-    ? calculateCompatibility(currentUser, profile)
-    : { score: 94, headline: 'Exceptional Chemistry 🔥', reasons: ['Shared positive vibes and lifestyle'], icebreakers: [] };
+  const compat = calculateCompatibility(currentUser, profile);
 
   if (compatBadge) {
-    compatBadge.textContent = `🔥 ${compat.score}% Compatibility • ${compat.reasons[0]}`;
+    const line = compat.reasons[0] || '';
+    compatBadge.textContent = line;
+    compatBadge.hidden = !line;
   }
 
   if (chipsContainer) {
     const icebreakers = (compat && compat.icebreakers && compat.icebreakers.length > 0)
       ? compat.icebreakers
       : (typeof generateIcebreakers === 'function' ? generateIcebreakers(profile) : [
-          `Hey ${pName}! Glad we matched 😊`,
-          `What's your go-to weekend plan in town? 🌴`,
-          `Tell me the story behind your favorite photo! 📸`
+          `Hi ${pName}, glad we matched.`,
+          'What is your go-to weekend plan?',
+          'What is the story behind your favourite photo?'
         ]);
     chipsContainer.innerHTML = icebreakers.map(line => `
-      <button type="button" class="match-icebreaker-chip" onclick="selectIcebreakerInMatch(this.textContent.trim())">
-        ${escHtml(line)}
-      </button>
+      <button type="button" class="chip" onclick="selectIcebreakerInMatch(this.textContent.trim())">${escHtml(String(line).replace(/^"|"$/g, ''))}</button>
     `).join('');
   }
 
   if (typeof haptic === 'function') haptic('match');
-  if (typeof launchMatchConfetti === 'function') launchMatchConfetti();
+  if (typeof launchMatchConfetti === 'function' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) launchMatchConfetti();
 
   try {
     const mc = parseInt(localStorage.getItem('hmbs_match_count') || '0', 10) + 1;
     localStorage.setItem('hmbs_match_count', mc.toString());
   } catch (_) {}
 
-  if (popup) {
-    popup.style.display = 'flex';
-    requestAnimationFrame(() => {
-      popup.classList.add('open');
-    });
-  }
+  if (popup) popup.style.display = 'flex';
 
   updateMatchesNotificationBadge();
 }
@@ -3772,11 +3788,8 @@ window.triggerMatchPopup = triggerMatchPopup;
 function closeMatchPopup() {
   const popup = document.getElementById('matchPopup');
   if (!popup) return;
-  popup.classList.remove('open');
-  setTimeout(() => {
-    popup.style.display = 'none';
-    appState.activeMatchProfile = null;
-  }, 240);
+  popup.style.display = 'none';
+  appState.activeMatchProfile = null;
 }
 window.closeMatchPopup = closeMatchPopup;
 
@@ -3795,12 +3808,12 @@ function selectIcebreakerInMatch(text) {
     input.value = text;
     input.focus();
     if (typeof haptic === 'function') haptic('light');
-    input.style.transform = 'scale(1.02)';
-    setTimeout(() => { input.style.transform = 'scale(1)'; }, 150);
   }
 }
 window.selectIcebreakerInMatch = selectIcebreakerInMatch;
 
+// Opens the chat with the new match and sends the typed line through the normal send path,
+// so it is delivered (or visibly fails) exactly like any other message.
 function sendQuickMessageFromMatch() {
   const input = document.getElementById('matchQuickInput');
   const text = input ? input.value.trim() : '';
@@ -3810,31 +3823,21 @@ function sendQuickMessageFromMatch() {
     closeMatchPopup();
     return;
   }
-
+  if (!text) {
+    input?.focus();
+    return;
+  }
   if (typeof haptic === 'function') haptic('medium');
 
-  if (text) {
-    if (!conversations[profile.id]) {
-      conversations[profile.id] = { messages: [] };
-    }
-    const msgId = 'msg_' + Date.now();
-    const newMsg = {
-      id: msgId,
-      sender: 'me',
-      text: text,
-      timestamp: Date.now(),
-      status: 'sent',
-      read: true
-    };
-    conversations[profile.id].messages.push(newMsg);
-    saveToStorage();
-    if (typeof showToast === 'function') showToast(`Sent to ${profile.name}! 💬`, 'success');
-  }
-
   closeMatchPopup();
-  if (typeof openChat === 'function') {
-    setTimeout(() => openChat(profile.id), 150);
-  }
+  if (typeof openChat !== 'function') return;
+  openChat(profile.id);
+  setTimeout(() => {
+    const chatInput = document.getElementById('chatInput');
+    if (!chatInput || appState.currentChatId !== profile.id) return;
+    chatInput.value = text;
+    sendMessage();
+  }, 150);
 }
 window.sendQuickMessageFromMatch = sendQuickMessageFromMatch;
 
@@ -3855,77 +3858,65 @@ function renderMatchesView() {
 function renderMatchesConnectionsGrid() {
   const grid = document.getElementById('matchesGrid');
   const countEl = document.getElementById('matchesCount');
-  if (countEl) {
-    countEl.textContent = (matchedUsers || []).length;
-  }
+  if (countEl) countEl.textContent = (matchedUsers || []).length;
   if (!grid) return;
 
   if (!matchedUsers || matchedUsers.length === 0) {
     grid.innerHTML = `
-      <div class="matches-empty-state">
-        <div class="matches-empty-icon">🔥</div>
-        <h3 class="matches-empty-title">No matches yet</h3>
-        <p class="matches-empty-desc">Swipe right on profiles you like in Discover. When they like you back, they'll appear here!</p>
-        <button class="matches-empty-cta" onclick="switchTab('discovery')">Start Swiping</button>
-      </div>
-    `;
+      <div class="empty">
+        <svg class="i" aria-hidden="true"><use href="#i-heart-handshake"/></svg>
+        <div class="empty-title">No matches yet</div>
+        <p class="empty-text">When you and someone else both like each other, they show up here and you can start talking.</p>
+        <button type="button" class="btn btn-primary" onclick="switchTab('discovery')">Go to Discover</button>
+      </div>`;
     return;
   }
 
   grid.innerHTML = matchedUsers.map(u => {
-    const userStatus = typeof getUserOnlineStatus === 'function' ? getUserOnlineStatus(u) : { isOnline: false };
-    const compat = typeof calculateCompatibility === 'function' ? calculateCompatibility(currentUser, u) : null;
-    const compatScore = (compat && compat.score) ? compat.score : 88;
-
-    const tags = Array.isArray(u.tags) ? u.tags : (Array.isArray(u.interests) ? u.interests : []);
-    const tagDisplay = tags.length > 0 ? tags[0] : (u.location || 'New connection');
-
+    const online = typeof getUserOnlineStatus === 'function' ? Boolean(getUserOnlineStatus(u).isOnline) : false;
+    const compat = calculateCompatibility(currentUser, u);
+    const inCommon = compat.sharedTags.length;
+    const idArg = escHtml(JSON.stringify(String(u.id)));
+    const subtitle = u.location || (Array.isArray(u.tags) && u.tags[0]) || '';
     return `
-      <div class="match-connection-card" onclick="openChat('${u.id}')">
-        <div class="match-card-media" style="background-image:url('${escHtml(u.image || '')}')">
-          <div class="match-card-gradient"></div>
-          ${userStatus.isOnline ? '<span class="match-card-online-badge"><span class="online-pulse-dot"></span> Active</span>' : ''}
-          <div class="match-card-compat-pill">
-            <span>✨ ${compatScore}%</span>
-          </div>
-        </div>
-        <div class="match-card-info">
-          <div class="match-card-name-row">
-            <h4 class="match-card-name">${escHtml(u.name)}${u.age ? `, ${u.age}` : ''}</h4>
-            ${u.verified ? '<svg class="verified-badge-mini" viewBox="0 0 24 24" width="14" height="14" fill="#3897f0" style="vertical-align:middle;flex-shrink:0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>' : ''}
-          </div>
-          <p class="match-card-sub">${escHtml(tagDisplay)}</p>
-          <button class="match-card-chat-btn" onclick="event.stopPropagation();openChat('${u.id}')">
-            <span>Say Hi 👋</span>
-          </button>
-        </div>
-      </div>
-    `;
+      <article class="match-card">
+        <button type="button" class="match-card-open" onclick="openChat(${idArg})" aria-label="Message ${escHtml(u.name)}">
+          <span class="match-card-photo">
+            ${u.image ? `<img src="${escHtml(u.image)}" alt="" loading="lazy">` : '<svg class="i" aria-hidden="true"><use href="#i-user"/></svg>'}
+            ${online ? '<span class="match-card-online"><span class="dot" aria-hidden="true"></span>Online</span>' : ''}
+          </span>
+          <span class="match-card-body">
+            <span class="match-card-name">${escHtml(u.name)}${u.age ? `, ${escHtml(u.age)}` : ''}${u.verified ? '<svg class="i verified-icon" role="img" aria-label="Verified"><use href="#i-badge-check"/></svg>' : ''}</span>
+            ${subtitle ? `<span class="match-card-sub">${escHtml(subtitle)}</span>` : ''}
+            ${inCommon ? `<span class="match-card-sub match-card-common">${inCommon} interest${inCommon === 1 ? '' : 's'} in common</span>` : ''}
+          </span>
+        </button>
+      </article>`;
+  }).join('');
+}
+
+function newMatchesTilesHtml() {
+  // People you matched with but have not messaged yet come first; everyone is reachable.
+  return matchedUsers.map(u => {
+    const idArg = escHtml(JSON.stringify(String(u.id)));
+    const unread = typeof getUnreadMessagesCount === 'function' ? getUnreadMessagesCount(u.id) > 0 : false;
+    return `
+      <button type="button" class="tile" role="listitem" onclick="openChat(${idArg})" aria-label="Message ${escHtml(u.name)}">
+        <span class="tile-avatar ${unread ? 'is-unseen' : 'is-seen'}">
+          ${u.image ? `<img src="${escHtml(u.image)}" alt="" loading="lazy">` : '<svg class="i" aria-hidden="true"><use href="#i-user"/></svg>'}
+        </span>
+        <span class="tile-name">${escHtml(u.name)}</span>
+      </button>`;
   }).join('');
 }
 
 function renderNewMatchesBubbles() {
-  // Render for both Matches screen and Chats Inbox
-  const rows = [
-    document.getElementById('newMatchesRow'),
-    document.getElementById('chatsNewMatchesRow')
-  ];
-
-  rows.forEach(row => {
-    if (!row) return;
-    if (matchedUsers.length === 0) {
-      row.innerHTML = `<p style="color:var(--txt-muted);font-size:0.82rem;padding:4px 0;">No matches yet — keep swiping! 🔥</p>`;
-      return;
-    }
-    row.innerHTML = matchedUsers.map(u => `
-      <div class="match-bubble" onclick="openChat('${u.id}')">
-        <div class="match-bubble-ring">
-          <div class="match-bubble-photo" style="background-image:url('${u.image}')"></div>
-        </div>
-        <span class="match-bubble-name">${escHtml(u.name)}</span>
-      </div>
-    `).join('');
-  });
+  const row = document.getElementById('chatsNewMatchesRow');
+  const section = document.getElementById('chatsNewMatchesSection');
+  if (!row) return;
+  const has = matchedUsers.length > 0;
+  if (section) section.hidden = !has;
+  row.innerHTML = has ? newMatchesTilesHtml() : '';
 }
 
 // ==========================================================
@@ -4078,10 +4069,10 @@ function syncMatchesPresenceListeners() {
               const status = getUserOnlineStatus(id);
               if (status.isOnline) {
                 statusEl.className = 'chat-partner-status is-online';
-                statusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+                statusEl.innerHTML = '<span class="presence-dot" aria-hidden="true"></span>Active now';
               } else {
                 statusEl.className = 'chat-partner-status';
-                statusEl.innerHTML = escHtml(status.label);
+                statusEl.textContent = status.label;
               }
             }
           }
@@ -4092,8 +4083,10 @@ function syncMatchesPresenceListeners() {
             const existingDot = convoWrapper.querySelector('.convo-online-dot');
             const status = getUserOnlineStatus(id);
             if (status.isOnline && !existingDot) {
-              const dot = document.createElement('div');
+              const dot = document.createElement('span');
               dot.className = 'convo-online-dot';
+              dot.setAttribute('role', 'img');
+              dot.setAttribute('aria-label', 'Online');
               convoWrapper.appendChild(dot);
             } else if (!status.isOnline && existingDot) {
               existingDot.remove();
@@ -4167,20 +4160,21 @@ window.getUserOnlineStatus = getUserOnlineStatus;
 function _buildConvoItemHtml(u, filterQuery) {
   const hist = conversations[u.id]?.messages || [];
   const last = hist[hist.length - 1];
-  let lastMsgRaw = 'Say hi! 👋';
+  let lastMsgRaw = 'No messages yet. Say hello.';
+  let previewIcon = '';
   if (last) {
     if (last.isCall) {
       const isVideo = last.callType === 'video';
       const isMissed = last.callStatus === 'missed' || last.callStatus === 'declined';
-      lastMsgRaw = isVideo
-        ? (isMissed ? '📹 Missed video call' : `📹 Video call ${last.duration ? `(${last.duration})` : ''}`)
-        : (isMissed ? '📞 Missed voice call' : `📞 Voice call ${last.duration ? `(${last.duration})` : ''}`);
+      previewIcon = isVideo ? 'video' : 'phone';
+      lastMsgRaw = `${isMissed ? 'Missed ' : ''}${isVideo ? 'video' : 'voice'} call${!isMissed && last.duration ? ` (${last.duration})` : ''}`;
+      lastMsgRaw = lastMsgRaw.charAt(0).toUpperCase() + lastMsgRaw.slice(1);
     } else if (last.isVoice) {
-      lastMsgRaw = '🎤 Voice note';
+      previewIcon = 'mic'; lastMsgRaw = 'Voice note';
     } else if (last.videoUrl || last.isVideo) {
-      lastMsgRaw = '📹 Video';
+      previewIcon = 'video'; lastMsgRaw = 'Video';
     } else if (last.imageUrl) {
-      lastMsgRaw = '📷 Photo';
+      previewIcon = 'image'; lastMsgRaw = 'Photo';
     } else {
       lastMsgRaw = last.text || '';
     }
@@ -4194,8 +4188,7 @@ function _buildConvoItemHtml(u, filterQuery) {
 
   const unreadCount = getUnreadMessagesCount(u.id);
   const isUnread = unreadCount > 0;
-  const userStatus = getUserOnlineStatus(u);
-  const isOnline = userStatus.isOnline;
+  const isOnline = getUserOnlineStatus(u).isOnline;
 
   let timeDisplay = '';
   let lastTimeMs = 0;
@@ -4207,48 +4200,56 @@ function _buildConvoItemHtml(u, filterQuery) {
   }
   if (lastTimeMs > 0) {
     const diffSec = Math.floor((Date.now() - lastTimeMs) / 1000);
-    if (diffSec < 60) timeDisplay = 'Just now';
+    if (diffSec < 60) timeDisplay = 'Now';
     else if (diffSec < 3600) timeDisplay = `${Math.floor(diffSec / 60)}m`;
     else if (diffSec < 86400) timeDisplay = `${Math.floor(diffSec / 3600)}h`;
     else timeDisplay = `${Math.floor(diffSec / 86400)}d`;
   } else if (hist.length > 0) {
-    timeDisplay = 'Just now';
+    timeDisplay = 'Now';
   }
 
   const isArchived = Boolean(archivedChatIds.has(u.id));
   const isMuted = Boolean(typeof mutedChatIds !== 'undefined' && mutedChatIds && mutedChatIds.has(u.id));
+  const idArg = escHtml(JSON.stringify(String(u.id)));
+  const nameArg = escHtml(JSON.stringify(String(u.name || '')));
+  const unreadLabel = unreadCount > 99 ? '99+' : String(unreadCount);
   return `
-    <div class="convo-swipe-wrapper" id="convoSwipe_${u.id}" data-partner-id="${u.id}">
+    <div class="convo-swipe-wrapper" id="convoSwipe_${escHtml(u.id)}" data-partner-id="${escHtml(u.id)}">
       <div class="convo-swipe-actions">
-        <button class="convo-action-btn convo-archive-btn" onclick="event.stopPropagation();toggleArchiveConversation('${u.id}')" title="${isArchived ? 'Unarchive' : 'Archive'}">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        <button type="button" class="convo-action-btn" onclick="event.stopPropagation();toggleArchiveConversation(${idArg})">
+          <svg class="i" aria-hidden="true"><use href="#i-${isArchived ? 'archive-restore' : 'archive'}"/></svg>
           <span>${isArchived ? 'Unarchive' : 'Archive'}</span>
         </button>
-        <button class="convo-action-btn convo-delete-btn" onclick="event.stopPropagation();confirmDeleteConversation('${u.id}', '${escHtml(u.name)}')" title="Delete">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        <button type="button" class="convo-action-btn is-danger" onclick="event.stopPropagation();confirmDeleteConversation(${idArg}, ${nameArg})">
+          <svg class="i" aria-hidden="true"><use href="#i-trash-2"/></svg>
           <span>Delete</span>
         </button>
       </div>
       <div class="convo-item ${isUnread ? 'convo-unread' : ''}"
-        data-partner-id="${u.id}"
-        onclick="handleConvoClick(event, '${u.id}')"
-        ontouchstart="handleConvoTouchStart(event, '${u.id}')"
-        ontouchmove="handleConvoTouchMove(event, '${u.id}')"
-        ontouchend="handleConvoTouchEnd(event, '${u.id}')"
-        onmousedown="handleConvoMouseDown(event, '${u.id}', '${escHtml(u.name)}')"
-        oncontextmenu="event.preventDefault();openConvoActionSheet('${u.id}', '${escHtml(u.name)}');">
-        <div class="convo-avatar-wrap">
-          <div class="convo-avatar" style="background-image:url('${u.image}')"></div>
-          ${isOnline ? '<div class="convo-online-dot"></div>' : ''}
-        </div>
-        <div class="convo-body">
-          <div class="convo-name ${isUnread ? 'convo-name-unread' : ''}">${escHtml(u.name)}</div>
-          <div class="convo-preview ${isUnread ? 'convo-preview-unread' : ''}">${escHtml(lastText).substring(0, 46)}${lastText.length > 46 ? '…' : ''}</div>
-        </div>
-        <div class="convo-meta">
-          <span class="convo-time ${isUnread ? 'convo-time-unread' : ''}">${isMuted ? '<span class="convo-muted-icon" style="opacity:0.6;font-size:11px;margin-right:3px;">🔇</span>' : ''}${timeDisplay}</span>
-          ${isUnread ? `<span class="convo-unread-pill">${unreadCount > 99 ? '99+' : unreadCount}</span>` : ''}
-        </div>
+        data-partner-id="${escHtml(u.id)}"
+        onclick="handleConvoClick(event, ${idArg})"
+        ontouchstart="handleConvoTouchStart(event, ${idArg})"
+        ontouchmove="handleConvoTouchMove(event, ${idArg})"
+        ontouchend="handleConvoTouchEnd(event, ${idArg})"
+        onmousedown="handleConvoMouseDown(event, ${idArg}, ${nameArg})"
+        oncontextmenu="event.preventDefault();openConvoActionSheet(${idArg}, ${nameArg});">
+        <button type="button" class="convo-open">
+          <span class="convo-avatar-wrap">
+            ${u.image ? `<img class="convo-avatar" src="${escHtml(u.image)}" alt="" loading="lazy">` : '<span class="convo-avatar convo-avatar-empty"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg></span>'}
+            ${isOnline ? '<span class="convo-online-dot" role="img" aria-label="Online"></span>' : ''}
+          </span>
+          <span class="convo-body">
+            <span class="convo-name ${isUnread ? 'convo-name-unread' : ''}">${escHtml(u.name)}</span>
+            <span class="convo-preview ${isUnread ? 'convo-preview-unread' : ''}">${previewIcon ? `<svg class="i" aria-hidden="true"><use href="#i-${previewIcon}"/></svg>` : ''}<span class="convo-preview-text">${escHtml(String(lastText).slice(0, 120))}</span></span>
+          </span>
+          <span class="convo-meta">
+            <span class="convo-time ${isUnread ? 'convo-time-unread' : ''}">${isMuted ? '<svg class="i" role="img" aria-label="Muted"><use href="#i-bell-off"/></svg>' : ''}${timeDisplay}</span>
+            ${isUnread ? `<span class="count-badge" aria-label="${unreadLabel} unread">${unreadLabel}</span>` : ''}
+          </span>
+        </button>
+        <button type="button" class="convo-more" aria-label="Options for ${escHtml(u.name)}" aria-haspopup="dialog" onclick="event.stopPropagation();openConvoActionSheet(${idArg}, ${nameArg})">
+          <svg class="i" aria-hidden="true"><use href="#i-ellipsis-vertical"/></svg>
+        </button>
       </div>
     </div>`;
 }
@@ -4279,6 +4280,7 @@ function handleConvoClick(e, partnerId) {
     e.stopPropagation();
     return;
   }
+  closeArchivedChatsModal();
   openChat(partnerId);
 }
 
@@ -4377,80 +4379,57 @@ function openConvoActionSheet(partnerId, partnerName) {
   const partner = matchedUsers.find(u => u.id === partnerId) || {};
   const isArchived = archivedChatIds.has(partnerId);
   const isMuted = Boolean(typeof mutedChatIds !== 'undefined' && mutedChatIds && mutedChatIds.has(partnerId));
-  const avatar = partner.image || '';
+  const name = partnerName || partner.name || 'Chat';
 
   const overlay = document.createElement('div');
   overlay.id = 'convoActionSheetOverlay';
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.65);z-index:99999;display:flex;align-items:flex-end;justify-content:center;animation:fadeIn 0.18s ease;';
-  overlay.onclick = (e) => {
-    if (e.target === overlay) closeConvoActionSheet();
-  };
-
+  overlay.className = 'sheet-overlay open';
+  overlay.style.display = 'flex';
   overlay.innerHTML = `
-    <div class="convo-action-sheet" onclick="event.stopPropagation()">
-      <div class="convo-sheet-header">
-        <div class="convo-sheet-avatar" style="${avatar ? `background-image:url('${avatar}')` : ''}"></div>
-        <div class="convo-sheet-info">
-          <div class="convo-sheet-name">${escHtml(partnerName || 'Chat')}</div>
-          <div class="convo-sheet-sub">Chat options</div>
-        </div>
-        <button class="convo-sheet-close" onclick="closeConvoActionSheet()">✕</button>
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="convoSheetTitle">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 class="sheet-title" id="convoSheetTitle"></h2>
+        <button type="button" class="btn btn-icon btn-ghost" data-act="close" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
       </div>
-
-      <div class="convo-sheet-list">
-        <button class="convo-sheet-item" onclick="closeConvoActionSheet();toggleArchiveConversation('${partnerId}')">
-          <div class="convo-sheet-icon" style="color:#8696a0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-          </div>
-          <div class="convo-sheet-label">${isArchived ? 'Unarchive chat' : 'Archive chat'}</div>
-        </button>
-
-        <button class="convo-sheet-item" onclick="closeConvoActionSheet();openChat('${partnerId}')">
-          <div class="convo-sheet-icon" style="color:#25D366">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          </div>
-          <div class="convo-sheet-label">Open chat</div>
-        </button>
-
-        <button class="convo-sheet-item" onclick="closeConvoActionSheet();toggleMuteConversation('${partnerId}')">
-          <div class="convo-sheet-icon" style="color:#8696a0">
-            ${isMuted ?
-              `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>` :
-              `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`
-            }
-          </div>
-          <div class="convo-sheet-label">${isMuted ? 'Unmute notifications' : 'Mute notifications'}</div>
-        </button>
-
-        <button class="convo-sheet-item" onclick="closeConvoActionSheet();confirmDeleteConversation('${partnerId}', '${escHtml(partnerName)}')">
-          <div class="convo-sheet-icon" style="color:#8696a0">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
-          </div>
-          <div class="convo-sheet-label" style="color:#cfd8dc">Delete conversation</div>
-        </button>
+      <div class="sheet-actions">
+        <button type="button" class="sheet-action" data-act="open"><svg class="i" aria-hidden="true"><use href="#i-message-circle"/></svg>Open chat</button>
+        <button type="button" class="sheet-action" data-act="mute"><svg class="i" aria-hidden="true"><use href="#i-${isMuted ? 'bell' : 'bell-off'}"/></svg>${isMuted ? 'Unmute notifications' : 'Mute notifications'}</button>
+        <button type="button" class="sheet-action" data-act="archive"><svg class="i" aria-hidden="true"><use href="#i-${isArchived ? 'archive-restore' : 'archive'}"/></svg>${isArchived ? 'Unarchive chat' : 'Archive chat'}</button>
+        <button type="button" class="sheet-action is-danger" data-act="delete"><svg class="i" aria-hidden="true"><use href="#i-trash-2"/></svg>Delete chat</button>
       </div>
-    </div>
-  `;
-
+    </div>`;
+  overlay.querySelector('#convoSheetTitle').textContent = name;
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) return closeConvoActionSheet();
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (!act) return;
+    closeConvoActionSheet();
+    if (act === 'open') openChat(partnerId);
+    else if (act === 'mute') toggleMuteConversation(partnerId);
+    else if (act === 'archive') toggleArchiveConversation(partnerId);
+    else if (act === 'delete') confirmDeleteConversation(partnerId, name);
+  });
   document.body.appendChild(overlay);
+  dialogOpened(overlay, { close: closeConvoActionSheet });
 }
 
 function closeConvoActionSheet() {
   const overlay = document.getElementById('convoActionSheetOverlay');
-  if (overlay) {
-    overlay.style.opacity = '0';
-    overlay.style.transition = 'opacity 0.16s ease';
-    setTimeout(() => overlay.remove(), 160);
-  }
+  if (!overlay) return;
+  dialogClosed(overlay);
+  overlay.remove();
 }
 
-function confirmDeleteConversation(partnerId, partnerName) {
+async function confirmDeleteConversation(partnerId, partnerName) {
   if (!partnerId) return;
   const name = partnerName || 'this chat';
-  if (confirm(`Delete conversation with ${name}?\n\nThis will remove the chat and delete all messages.`)) {
-    deleteConversation(partnerId);
-  }
+  const ok = await confirmDialog({
+    title: `Delete chat with ${name}?`,
+    message: 'This removes the match and all messages for both of you. It cannot be undone.',
+    confirmLabel: 'Delete chat', danger: true
+  });
+  if (ok) deleteConversation(partnerId);
 }
 
 async function deleteConversation(partnerId) {
@@ -4490,17 +4469,17 @@ async function deleteConversation(partnerId) {
   renderConversationList();
   renderChatsInbox();
   updateMatchesNotificationBadge();
-  showToast('Chat deleted 🗑️', 'info');
+  showToast('Chat deleted', 'info');
 }
 
 function toggleArchiveConversation(partnerId) {
   if (!partnerId) return;
   if (archivedChatIds.has(partnerId)) {
     archivedChatIds.delete(partnerId);
-    showToast('Chat unarchived 📥', 'info');
+    showToast('Chat moved back to Messages', 'info');
   } else {
     archivedChatIds.add(partnerId);
-    showToast('Chat archived 📦', 'info');
+    showToast('Chat archived', 'info');
   }
   try {
     localStorage.setItem('hmbs_archived_chats', JSON.stringify(Array.from(archivedChatIds)));
@@ -4508,6 +4487,7 @@ function toggleArchiveConversation(partnerId) {
   resetAllSwipedConvos();
   renderConversationList();
   renderChatsInbox();
+  if (document.getElementById('archivedChatsModal')) openArchivedChatsModal();
 }
 
 // Persisted muted chat IDs
@@ -4529,32 +4509,35 @@ function toggleMuteConversation(partnerId) {
   renderChatsInbox();
 }
 
+function closeArchivedChatsModal() {
+  const m = document.getElementById('archivedChatsModal');
+  if (!m) return;
+  dialogClosed(m);
+  m.remove();
+}
+
 function openArchivedChatsModal() {
-  document.getElementById('archivedChatsModal')?.remove();
+  closeArchivedChatsModal();
   const archivedUsers = matchedUsers.filter(u => archivedChatIds.has(u.id));
 
   const modal = document.createElement('div');
   modal.id = 'archivedChatsModal';
-  modal.className = 'whatsapp-dialog-overlay';
-  modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:var(--bg-main);z-index:99999;display:flex;flex-direction:column;';
-
+  modal.className = 'fullpage';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'archivedTitle');
   modal.innerHTML = `
-    <div class="chat-header" style="position:sticky;top:0;z-index:10;">
-      <button class="chat-back-btn" onclick="document.getElementById('archivedChatsModal')?.remove()">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-      </button>
-      <div class="chat-header-info">
-        <div class="chat-header-name">Archived chats (${archivedUsers.length})</div>
-      </div>
-    </div>
-    <div class="convo-list" style="flex:1;overflow-y:auto;padding-bottom:30px;">
+    <header class="fullpage-bar">
+      <button type="button" class="header-btn" onclick="closeArchivedChatsModal()" aria-label="Back to messages"><svg class="i" aria-hidden="true"><use href="#i-arrow-left"/></svg></button>
+      <h2 class="screen-header-title" id="archivedTitle">Archived chats (${archivedUsers.length})</h2>
+    </header>
+    <div class="fullpage-body convo-list">
       ${archivedUsers.length === 0
-        ? `<div style="text-align:center;padding:60px 16px;color:var(--txt-muted);">No archived chats.</div>`
-        : archivedUsers.map(u => _buildConvoItemHtml(u, '')).join('')
-      }
-    </div>
-  `;
+        ? '<div class="empty"><svg class="i" aria-hidden="true"><use href="#i-archive"/></svg><div class="empty-title">No archived chats</div></div>'
+        : archivedUsers.map(u => _buildConvoItemHtml(u, '')).join('')}
+    </div>`;
   document.body.appendChild(modal);
+  dialogOpened(modal, { close: closeArchivedChatsModal });
 }
 
 function renderConversationList() {
@@ -4562,11 +4545,7 @@ function renderConversationList() {
   if (!col) return;
 
   if (matchedUsers.length === 0) {
-    col.innerHTML = `
-      <div style="text-align:center;padding:40px 16px;color:var(--txt-muted);">
-        <div style="font-size:2.5rem;margin-bottom:12px">💬</div>
-        <p style="font-size:0.9rem;line-height:1.5">Match with someone to start a conversation!</p>
-      </div>`;
+    col.innerHTML = '<div class="empty"><div class="empty-title">No conversations yet</div></div>';
     return;
   }
 
@@ -4589,13 +4568,12 @@ function renderChatsInbox(filterQuery) {
     const col = document.getElementById('chatsConvoList');
     if (col && col.children.length === 0) {
       const skeletonItem = () => `
-        <div class="convo-skeleton-item">
-          <div class="convo-skeleton-avatar"></div>
+        <div class="convo-skeleton-item" aria-hidden="true">
+          <div class="convo-skeleton-avatar skeleton"></div>
           <div class="convo-skeleton-body">
-            <div class="convo-skeleton-line convo-skeleton-name"></div>
-            <div class="convo-skeleton-line convo-skeleton-preview"></div>
+            <div class="convo-skeleton-line convo-skeleton-name skeleton"></div>
+            <div class="convo-skeleton-line convo-skeleton-preview skeleton"></div>
           </div>
-          <div class="convo-skeleton-time"></div>
         </div>`;
       col.innerHTML = skeletonItem() + skeletonItem() + skeletonItem() + skeletonItem();
     }
@@ -4603,21 +4581,13 @@ function renderChatsInbox(filterQuery) {
   }
   // ---
 
-  // New matches row in inbox
+  // New matches row (hidden while searching, and when there are no matches)
   const matchesRow = document.getElementById('chatsNewMatchesRow');
+  const matchesSection = document.getElementById('chatsNewMatchesSection');
   if (matchesRow) {
-    if (matchedUsers.length === 0) {
-      matchesRow.innerHTML = `<p style="color:var(--txt-muted);font-size:0.82rem;padding:4px 0;">No matches yet — keep swiping! 🔥</p>`;
-    } else {
-      matchesRow.innerHTML = matchedUsers.map(u => `
-        <div class="match-bubble" onclick="openChat('${u.id}')">
-          <div class="match-bubble-ring">
-            <div class="match-bubble-photo" style="background-image:url('${u.image}')"></div>
-          </div>
-          <span class="match-bubble-name">${escHtml(u.name)}</span>
-        </div>
-      `).join('');
-    }
+    const show = matchedUsers.length > 0 && !filterQuery;
+    if (matchesSection) matchesSection.hidden = !show;
+    matchesRow.innerHTML = show ? newMatchesTilesHtml() : '';
   }
 
   // Conversations list in inbox
@@ -4626,10 +4596,11 @@ function renderChatsInbox(filterQuery) {
 
   if (matchedUsers.length === 0) {
     col.innerHTML = `
-      <div style="text-align:center;padding:40px 16px;color:var(--txt-muted);">
-        <div style="font-size:2.8rem;margin-bottom:14px">💬</div>
-        <p style="font-size:0.92rem;line-height:1.6;font-weight:600">No conversations yet</p>
-        <p style="font-size:0.8rem;margin-top:6px;color:var(--txt-muted)">Match with someone in Discover to start chatting!</p>
+      <div class="empty">
+        <svg class="i" aria-hidden="true"><use href="#i-message-circle"/></svg>
+        <div class="empty-title">No conversations yet</div>
+        <p class="empty-text">When you match with someone, you can message them here.</p>
+        <button type="button" class="btn btn-primary" onclick="switchTab('discovery')">Go to Discover</button>
       </div>`;
     return;
   }
@@ -4640,22 +4611,23 @@ function renderChatsInbox(filterQuery) {
   let archivedBannerHtml = '';
   if (archivedCount > 0 && !filterQuery) {
     archivedBannerHtml = `
-      <div class="wa-archived-banner" onclick="openArchivedChatsModal()">
-        <div class="wa-archived-left">
-          <div class="wa-archived-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-          </div>
-          <span class="wa-archived-title">Archived</span>
-        </div>
-        <span class="wa-archived-count">${archivedCount}</span>
-      </div>`;
+      <button type="button" class="convo-archived-row" onclick="openArchivedChatsModal()">
+        <svg class="i" aria-hidden="true"><use href="#i-archive"/></svg>
+        <span class="convo-archived-label">Archived</span>
+        <span class="count-badge count-badge-quiet">${archivedCount}</span>
+        <svg class="i" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+      </button>`;
   }
 
   const listToRender = filterQuery ? matchedUsers : unarchivedUsers;
   const rows = listToRender.map(u => _buildConvoItemHtml(u, filterQuery || '')).filter(Boolean);
 
   if (rows.length === 0 && !archivedBannerHtml) {
-    col.innerHTML = `<div style="text-align:center;padding:32px 16px;color:var(--txt-muted);font-size:0.88rem;">No conversations match your search.</div>`;
+    col.innerHTML = `
+      <div class="empty">
+        <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+        <div class="empty-title">${filterQuery ? 'No conversations match your search' : 'Nothing here'}</div>
+      </div>`;
   } else {
     col.innerHTML = archivedBannerHtml + rows.join('');
   }
@@ -5142,8 +5114,8 @@ const EMOJI_KEYWORDS = {
   '💎': 'gem stone diamond jewel sapphire precious crystal expensive rich sparkly jewelry luxury gem'
 };
 
-const SMILEY_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5 14.67 11 15.5 11zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>`;
-const KEYBOARD_SVG = `<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20 5H4c-1.1 0-1.99.9-1.99 2L2 17c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm-9 3h2v2h-2V8zm0 3h2v2h-2v-2zM8 8h2v2H8V8zm0 3h2v2H8v-2zm-1 2H5v-2h2v2zm0-3H5V8h2v2zm9 7H8v-2h8v2zm0-4h-2v-2h2v2zm0-3h-2V8h2v2zm3 3h-2v-2h2v2zm0-3h-2V8h2v2z"/></svg>`;
+const SMILEY_SVG = `<svg class="i" aria-hidden="true"><use href="#i-smile"/></svg>`;
+const KEYBOARD_SVG = `<svg class="i" aria-hidden="true"><use href="#i-keyboard"/></svg>`;
 
 let currentEmojiCategory = 'smileys';
 
@@ -5180,24 +5152,18 @@ function openChat(profileId, { fromHistory = false } = {}) {
 
   if (nameEl) nameEl.textContent = partner ? partner.name : 'Chat';
   if (avatarEl) {
-    if (photo) {
-      avatarEl.style.backgroundImage = `url('${photo}')`;
-      avatarEl.style.backgroundSize = 'cover';
-      avatarEl.style.backgroundPosition = 'center';
-      avatarEl.textContent = '';
-    } else {
-      avatarEl.style.backgroundImage = 'none';
-      avatarEl.textContent = partner ? partner.name.charAt(0) : '?';
-    }
+    avatarEl.innerHTML = photo
+      ? `<img src="${escHtml(photo)}" alt="">`
+      : escHtml(partner && partner.name ? partner.name.charAt(0).toUpperCase() : '?');
   }
   if (statusEl) {
     const currentStatus = getUserOnlineStatus(profileId);
     if (currentStatus.isOnline) {
       statusEl.className = 'chat-partner-status is-online';
-      statusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+      statusEl.innerHTML = '<span class="presence-dot" aria-hidden="true"></span>Active now';
     } else {
       statusEl.className = 'chat-partner-status';
-      statusEl.innerHTML = escHtml(currentStatus.label);
+      statusEl.textContent = currentStatus.label;
     }
   }
 
@@ -5224,10 +5190,10 @@ function openChat(profileId, { fromHistory = false } = {}) {
           if (currentStatusEl && appState.currentChatId === profileId) {
             if (updated.isOnline) {
               currentStatusEl.className = 'chat-partner-status is-online';
-              currentStatusEl.innerHTML = '<span class="status-online-dot">●</span> Active now';
+              currentStatusEl.innerHTML = '<span class="presence-dot" aria-hidden="true"></span>Active now';
             } else {
               currentStatusEl.className = 'chat-partner-status';
-              currentStatusEl.innerHTML = escHtml(updated.label);
+              currentStatusEl.textContent = updated.label;
             }
           }
         }
@@ -5431,190 +5397,11 @@ function viewCurrentMatchProfile() {
   const menu = document.getElementById('chatDropdownMenu');
   if (menu) menu.style.display = 'none';
   if (!appState.currentChatId) return;
-
-  const partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
-  if (!partner) return;
-
-  document.getElementById('whatsappProfileOverlay')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.className = 'whatsapp-profile-overlay';
-  overlay.id = 'whatsappProfileOverlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeWhatsAppProfile(); };
-
-  const allPhotos = [];
-  if (Array.isArray(partner.photos) && partner.photos.length > 0) {
-    partner.photos.forEach(u => { if (u) allPhotos.push(u); });
-  }
-  if (allPhotos.length === 0 && (partner.image || partner.photoUrl)) {
-    allPhotos.push(partner.image || partner.photoUrl);
-  }
-  const photo = allPhotos[0] || '';
-  const tagsHtml = (partner.tags || ['Positive vibes ✨', 'Music 🎵', 'Foodie 🍕']).map(t => `<span class="wa-interest-pill">${escHtml(t)}</span>`).join('');
-  const partnerName = escHtml(partner.name || 'User');
-  const partnerAge = partner.age || 24;
-  const partnerLoc = partner.location || partner.city || 'Lagos, Nigeria';
-  const partnerDistance = typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(partner) : (partner.distance || '3 km away');
-  const partnerBio = escHtml(partner.bio || 'Living life with good energy, positive vibes only! ✨');
-
-  let isMuted = false;
-  try {
-    const mutedList = JSON.parse(localStorage.getItem('hmbs_muted_matches') || '[]');
-    isMuted = mutedList.includes(partner.id);
-  } catch (_) {}
-
-  overlay.innerHTML = `
-    <div class="whatsapp-profile-sheet" id="whatsappProfileSheet">
-      <div class="wa-grab-bar-wrap" onclick="closeWhatsAppProfile()">
-        <div class="wa-grab-bar"></div>
-      </div>
-      
-      <!-- Top actions -->
-      <div class="wa-profile-top-bar">
-        <button class="wa-circle-btn" onclick="closeWhatsAppProfile()" aria-label="Close" title="Back">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-        <span class="wa-top-title">Contact Info</span>
-        <button class="wa-circle-btn" onclick="closeWhatsAppProfile();reportUser();" aria-label="Report or Block" title="Options">
-          <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
-        </button>
-      </div>
-
-      <div class="wa-profile-scroll-content">
-        <!-- Hero Photo & Details -->
-        <div class="wa-profile-hero">
-          <div class="wa-avatar-ring">
-            ${photo ? `<img src="${photo}" class="wa-avatar-img" alt="${partnerName}" onclick="openFullPhotoModal('${photo}')" title="Click to enlarge">` : `<div class="wa-avatar-fallback">${partnerName.charAt(0)}</div>`}
-          </div>
-          <div class="wa-name-row">
-            <h2 class="wa-profile-name">${partnerName}, ${partnerAge}</h2>
-            <span class="wa-verified-badge" title="Verified Profile">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-            </span>
-          </div>
-          <div class="wa-status-row">
-            <span class="wa-pulse-dot"></span>
-            <span class="wa-status-text">Active now • ${escHtml(partnerLoc)}</span>
-          </div>
-        </div>
-
-        <!-- WhatsApp Quick Action Icons -->
-        <div class="wa-quick-actions">
-          <button class="wa-action-btn" onclick="closeWhatsAppProfile();setTimeout(()=>{const inp=document.getElementById('chatInput');if(inp)inp.focus();},150);" title="Message">
-            <div class="wa-action-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
-            </div>
-            <span>Message</span>
-          </button>
-          <button class="wa-action-btn" onclick="closeWhatsAppProfile();startVoiceCall();" title="Audio Call">
-            <div class="wa-action-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-            </div>
-            <span>Audio</span>
-          </button>
-          <button class="wa-action-btn" onclick="closeWhatsAppProfile();startVideoCall();" title="Video Call">
-            <div class="wa-action-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-            </div>
-            <span>Video</span>
-          </button>
-          <button class="wa-action-btn" onclick="closeWhatsAppProfile();reportUser();" title="Report / Block">
-            <div class="wa-action-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-            </div>
-            <span>Report</span>
-          </button>
-        </div>
-
-        ${allPhotos.length > 0 ? `
-        <!-- Media Gallery -->
-        <div class="wa-card">
-          <div class="wa-card-header" style="display:flex;align-items:center;justify-content:space-between">
-            <span class="wa-card-label">Media, Links and Docs</span>
-            <span class="wa-media-count" style="font-size:0.78rem;color:#E3B34D;font-weight:700">${allPhotos.length} photo${allPhotos.length > 1 ? 's' : ''}</span>
-          </div>
-          <div class="wa-media-strip">
-            ${allPhotos.map((p, idx) => `
-              <div class="wa-media-thumb" style="background-image:url('${safeCssUrl(p)}')" onclick="openFullPhotoModal('${escHtml(p)}')" role="button" tabindex="0" title="View photo ${idx + 1}"></div>
-            `).join('')}
-          </div>
-        </div>
-        ` : ''}
-
-        <!-- Notifications Settings -->
-        <div class="wa-card">
-          <div class="wa-settings-row">
-            <div class="wa-settings-info">
-              <div class="wa-settings-title">Mute Notifications</div>
-              <div class="wa-settings-sub">Silence incoming messages & calls from this match</div>
-            </div>
-            <label class="wa-toggle-switch">
-              <input type="checkbox" id="waMuteToggle" onchange="toggleMuteMatch('${partner.id}', this.checked)" ${isMuted ? 'checked' : ''}>
-              <span class="wa-toggle-slider"></span>
-            </label>
-          </div>
-        </div>
-
-        <!-- WhatsApp Info Cards -->
-        <div class="wa-card">
-          <div class="wa-card-header">
-            <span class="wa-card-label">About</span>
-          </div>
-          <p class="wa-card-body">${partnerBio}</p>
-          <div class="wa-card-sub">Connected via hookmebysam match</div>
-        </div>
-
-        <div class="wa-card">
-          <div class="wa-card-header">
-            <span class="wa-card-label">Passions & Lifestyle</span>
-          </div>
-          <div class="wa-tags-wrap">${tagsHtml}</div>
-        </div>
-
-        <div class="wa-card">
-          <div class="wa-card-header">
-            <span class="wa-card-label">Location & Distance</span>
-          </div>
-          <div class="wa-info-row">
-            <span class="wa-info-icon">📍</span>
-            <div class="wa-info-text">
-              <div class="wa-info-main">${escHtml(partnerLoc)}</div>
-              <div class="wa-info-sub">${escHtml(partnerDistance)}</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- WhatsApp Privacy / Danger Actions -->
-        <div class="wa-card wa-danger-card">
-          <div class="wa-danger-item" onclick="closeWhatsAppProfile();blockUser('${partner.id}', '${partnerName}');">
-            <div class="wa-danger-icon">
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8 0-1.85.63-3.55 1.69-4.9L16.9 18.31C15.55 19.37 13.85 20 12 20zm6.31-3.1L7.1 5.69C8.45 4.63 10.15 4 12 4c4.42 0 8 3.58 8 8 0 1.85-.63 3.55-1.69 4.9z"/></svg>
-            </div>
-            <span>Block ${partnerName}</span>
-          </div>
-          <div class="wa-danger-item" onclick="closeWhatsAppProfile();reportUser();">
-            <div class="wa-danger-icon">
-              <svg width="19" height="19" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>
-            </div>
-            <span>Report ${partnerName}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
+  openProfileDetailSheet(appState.currentChatId, null, { hideActions: true });
 }
 
 function closeWhatsAppProfile() {
-  const overlay = document.getElementById('whatsappProfileOverlay');
-  if (!overlay) return;
-  const sheet = document.getElementById('whatsappProfileSheet');
-  if (sheet) {
-    sheet.style.transform = 'translateY(100%)';
-    sheet.style.transition = 'transform 0.22s cubic-bezier(0.4, 0, 0.2, 1)';
-  }
-  setTimeout(() => overlay.remove(), 220);
+  document.getElementById('whatsappProfileOverlay')?.remove();
 }
 
 function toggleMuteMatch(matchId, isMuted) {
@@ -5623,10 +5410,10 @@ function toggleMuteMatch(matchId, isMuted) {
     let mutedList = JSON.parse(localStorage.getItem('hmbs_muted_matches') || '[]');
     if (isMuted) {
       if (!mutedList.includes(matchId)) mutedList.push(matchId);
-      showToast('🔕 Notifications muted for this match', 'info');
+      showToast('Notifications muted for this match', 'info');
     } else {
       mutedList = mutedList.filter(id => id !== matchId);
-      showToast('🔔 Notifications unmuted', 'info');
+      showToast('Notifications unmuted', 'info');
     }
     localStorage.setItem('hmbs_muted_matches', JSON.stringify(mutedList));
   } catch (_) {}
@@ -5647,24 +5434,34 @@ function openFullPhotoModal(url) {
   if (!url) return;
   document.getElementById('fullPhotoModal')?.remove();
   const ov = document.createElement('div');
-  ov.className = 'whatsapp-dialog-overlay';
   ov.id = 'fullPhotoModal';
-  ov.style.zIndex = '10001';
-  ov.onclick = () => ov.remove();
+  ov.className = 'viewer viewer-fixed';
+  ov.setAttribute('role', 'dialog');
+  ov.setAttribute('aria-modal', 'true');
+  ov.setAttribute('aria-label', 'Photo');
   ov.innerHTML = `
-    <div style="position:relative;max-width:90vw;max-height:85vh;animation:popIn 0.2s cubic-bezier(0.16,1,0.3,1)">
-      <img src="${url}" style="width:100%;max-height:85vh;object-fit:contain;border-radius:18px;box-shadow:0 10px 40px rgba(0,0,0,0.8)">
-      <button onclick="document.getElementById('fullPhotoModal')?.remove()" style="position:absolute;top:-14px;right:-14px;width:38px;height:38px;border-radius:50%;background:#FF2E70;color:#fff;border:none;cursor:pointer;font-size:1.1rem;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(0,0,0,0.5)">✕</button>
+    <div class="viewer-bar">
+      <span class="viewer-title"></span>
+      <button type="button" class="viewer-btn" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
     </div>
-  `;
+    <div class="viewer-stage"><img alt="Photo"></div>`;
+  ov.querySelector('img').src = url;
+  const close = () => { dialogClosed(ov); ov.remove(); };
+  ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('.viewer-btn') || e.target.classList.contains('viewer-stage')) close(); });
   document.body.appendChild(ov);
+  dialogOpened(ov, { close, focus: '.viewer-btn' });
 }
 
-function clearCurrentChatHistory() {
+async function clearCurrentChatHistory() {
   const menu = document.getElementById('chatDropdownMenu');
   if (menu) menu.style.display = 'none';
   if (!appState.currentChatId) return;
-  if (confirm('Clear chat conversation?')) {
+  const okClear = await confirmDialog({
+    title: 'Clear this chat?',
+    message: 'All messages in this conversation are deleted for both of you. The match stays.',
+    confirmLabel: 'Clear chat', danger: true
+  });
+  if (okClear) {
     const chatId = appState.currentChatId;
     const now = Date.now();
     try {
@@ -5767,7 +5564,7 @@ function removeChatCustomBackground(chatId) {
 
   applyChatCustomBackground(id);
   if (hasBg) {
-    showToast('Chat background removed! Default wallpaper restored 🎨', 'gold');
+    showToast('Chat background removed! Default wallpaper restored', 'gold');
   } else {
     showToast('Default chat wallpaper is already active.', 'info');
   }
@@ -5793,32 +5590,29 @@ function renderChatThread() {
   const partnerPhoto = partner?.image || partner?.photoUrl || partner?.avatar || conversations[partnerId]?.partnerImage || '';
 
   if (hist.length === 0) {
+    const pid = escHtml(JSON.stringify(String(partnerId)));
+    const starters = [
+      `Hey ${partner?.name || ''}! How is your day going?`.replace('  ', ' '),
+      'What kind of music have you been playing lately?',
+      'Describe your perfect Sunday.'
+    ];
     container.innerHTML = `
-      <div class="chat-match-milestone" style="text-align:center;padding:28px 16px 36px;color:var(--txt-muted);">
-        <div style="width:64px;height:64px;border-radius:50%;margin:0 auto 12px;background:var(--grad-flame);display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 8px 24px rgba(255,46,112,0.3)">🔥</div>
-        <p style="font-weight:700;color:var(--txt-primary);font-size:1.05rem;margin-bottom:4px">You matched with ${partnerName}!</p>
-        <p style="font-size:0.82rem;line-height:1.45;max-width:260px;margin:0 auto 16px;color:rgba(255,255,255,0.6)">Break the ice with a conversation starter:</p>
+      <div class="chat-match-milestone">
+        <span class="avatar avatar-xl">${partnerPhoto ? `<img src="${escHtml(partnerPhoto)}" alt="">` : ''}</span>
+        <h2 class="chat-match-title">You matched with ${partnerName}</h2>
+        <p class="chat-match-sub">Say something first. A few ideas:</p>
         <div class="chat-empty-icebreakers">
-          <button class="chat-empty-ib-btn" onclick="sendChatEmptyStarter('${escHtml(partnerId)}', 'Hey ${partnerName}! How is your day going? ✨')">
-            👋 Hey ${partnerName}! How's your day going?
-          </button>
-          <button class="chat-empty-ib-btn" onclick="sendChatEmptyStarter('${escHtml(partnerId)}', 'Loved your vibe on your profile! What music are you listening to lately? 🎵')">
-            🎵 Loved your vibe! What music are you playing lately?
-          </button>
-          <button class="chat-empty-ib-btn" onclick="sendChatEmptyStarter('${escHtml(partnerId)}', 'Describe your perfect Sunday in Lagos 🌅')">
-            🌅 Describe your perfect Sunday in Lagos
-          </button>
+          ${starters.map(t => `<button type="button" class="chat-empty-ib-btn" onclick="sendChatEmptyStarter(${pid}, ${escHtml(JSON.stringify(t))})">${escHtml(t)}</button>`).join('')}
         </div>
-      </div>
-    `;
+      </div>`;
     return;
   }
 
+  const ic = (name, cls = '') => `<svg class="i ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
   let lastDateHeader = null;
   let html = '';
 
   hist.forEach((msg, idx) => {
-    const isLast = idx === hist.length - 1;
     let isSent = msg.sender === 'me';
     if (msg.isCall) {
       if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
@@ -5839,19 +5633,19 @@ function renderChatThread() {
     if (!msg.firestoreId && !String(msgId).startsWith('local_')) msg.firestoreId = msgId;
     const timeStr = formatWhatsAppTime(msg.timestamp, msg.time);
 
-    // Date separator pill (Today, Yesterday, or Month Day, Year)
+    // Date separator (Today, Yesterday, or a date)
     const dateHeader = getWhatsAppDateHeader(msg.timestamp, msg.time);
     if (dateHeader && dateHeader !== lastDateHeader) {
       lastDateHeader = dateHeader;
       html += `<div class="chat-date-separator" data-date="${escHtml(dateHeader)}"><span>${escHtml(dateHeader)}</span></div>`;
     }
 
-    // Build reaction bar
+    // Reactions
     const reactions = msg.reactions || {};
     const reactionKeys = Object.keys(reactions).filter(k => reactions[k]?.length > 0);
     const reactionBar = reactionKeys.length > 0
       ? `<div class="msg-reaction-bar">${reactionKeys.map(emoji =>
-          `<span class="msg-reaction-pill" onclick="event.stopPropagation();openReactionSheet('${matchId}','${msgId}','${emoji}')">${emoji} <span>${reactions[emoji].length}</span></span>`
+          `<button type="button" class="msg-reaction-pill" aria-label="${escHtml(emoji)} reacted ${reactions[emoji].length} time${reactions[emoji].length === 1 ? '' : 's'}" onclick="event.stopPropagation();openReactionSheet('${matchId}','${msgId}','${emoji}')">${emoji} <span>${reactions[emoji].length}</span></button>`
         ).join('')}</div>`
       : '';
 
@@ -5859,45 +5653,35 @@ function renderChatThread() {
 
     let bubbleHtml = '';
     const isRead = msg.read === true || hist.some(m => m.sender !== 'me' && (m.timestamp || 0) >= (msg.timestamp || 0));
-    const receiptHtml = isSent ? `<span class="msg-receipt-ticks ${isRead ? 'read' : ''}">✓✓</span>` : '';
-    const editedHtml = msg.edited ? `<span class="msg-edited">(edited)</span>` : '';
-    const forwardedHtml = msg.forwarded
-      ? `<div class="msg-forwarded-tag"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg> Forwarded</div>`
+    const receiptHtml = (isSent && !(msg._uploadFailed || msg._failed))
+      ? `<span class="msg-receipt-ticks ${isRead ? 'read' : ''}" role="img" aria-label="${isRead ? 'Read' : 'Sent'}">${ic('check-check')}</span>`
       : '';
+    const editedHtml = msg.edited ? `<span class="msg-edited">(edited)</span>` : '';
+    const forwardedHtml = msg.forwarded ? `<div class="msg-forwarded-tag">${ic('forward')}Forwarded</div>` : '';
 
-    // Quoted reply block inside the bubble
+    // Quoted reply inside the bubble
     let quoteHtml = '';
     if (msg.replyTo) {
       const qAuthor = escHtml(msg.replyTo.senderName || 'You');
       let qText = escHtml(msg.replyTo.text || '');
       const qId = msg.replyTo.id || '';
 
-      // Resolve thumbnail image from replyTo or by searching thread history
       let qImg = msg.replyTo.imageUrl || '';
       if (!qImg && qId) {
         const found = hist.find(m => m.firestoreId === qId || m.id === qId || (m.timestamp && ('msg_' + m.timestamp) === qId));
-        if (found && found.imageUrl) {
-          qImg = found.imageUrl;
-        }
-      }
-      if (!qImg && (qText.toLowerCase().includes('photo') || qText.includes('📷'))) {
-        const priorPhoto = [...hist].reverse().find(m => m.imageUrl && (m.timestamp || 0) <= (msg.timestamp || Date.now()));
-        if (priorPhoto && priorPhoto.imageUrl) {
-          qImg = priorPhoto.imageUrl;
-        }
+        if (found && found.imageUrl) qImg = found.imageUrl;
       }
 
       let qThumb = '';
       if (qImg) {
-        qThumb = `<div class="quote-thumb-wrap"><img src="${escHtml(qImg)}" class="quote-thumb-img" alt="Photo"></div>`;
-        if (qText === '📷 Photo' || qText === 'Photo' || !qText) {
-          qText = `<span class="quote-photo-label"><svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:middle;margin-right:3px"><path d="M12 15.2a3.2 3.2 0 100-6.4 3.2 3.2 0 000 6.4z"/><path d="M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></svg>Photo</span>`;
+        qThumb = `<span class="quote-thumb-wrap"><img src="${escHtml(qImg)}" class="quote-thumb-img" alt=""></span>`;
+        if (qText === 'Photo' || qText === '📷 Photo' || !qText) {
+          qText = `<span class="quote-photo-label">${ic('camera')}Photo</span>`;
         }
       }
 
       quoteHtml = `
-        <div class="msg-quote-preview ${qImg ? 'has-thumb' : ''}" onclick="scrollToQuotedMessage('${qId}')">
-          <div class="quote-stripe"></div>
+        <div class="msg-quote-preview ${qImg ? 'has-thumb' : ''}" onclick="event.stopPropagation();scrollToQuotedMessage(${escHtml(JSON.stringify(String(qId)))})">
           <div class="quote-text-col">
             <div class="quote-author">${qAuthor}</div>
             <div class="quote-content">${qText}</div>
@@ -5906,30 +5690,25 @@ function renderChatThread() {
         </div>`;
     }
 
-    const timeBadgeHtml = `<span class="msg-time-badge"><span class="msg-time">${timeStr}</span>${receiptHtml}</span>`;
+    const timeBadgeHtml = `<span class="msg-time-badge"><span class="msg-time">${escHtml(timeStr)}</span>${receiptHtml}</span>`;
 
-    // Detect if this message is a call
+    // Calls
     const rawText = typeof msg.text === 'string' ? msg.text : '';
-    const isCallMsg = msg.isCall || 
-      rawText.startsWith('Voice call') || 
-      rawText.startsWith('Video call') || 
-      rawText.startsWith('Missed') || 
-      rawText.startsWith('Declined') || 
-      rawText.startsWith('Cancelled') ||
-      rawText.toLowerCase().includes('voice call') ||
-      rawText.toLowerCase().includes('video call') ||
-      rawText.toLowerCase().includes('call (');
+    const lowerText = rawText.toLowerCase();
+    const isCallMsg = msg.isCall ||
+      rawText.startsWith('Voice call') || rawText.startsWith('Video call') ||
+      rawText.startsWith('Missed') || rawText.startsWith('Declined') || rawText.startsWith('Cancelled') ||
+      lowerText.includes('voice call') || lowerText.includes('video call') || lowerText.includes('call (');
 
     if (isCallMsg) {
-      const isVideo = msg.callType === 'video' || rawText.toLowerCase().includes('video');
-      const isDeclined = msg.callStatus === 'declined' || rawText.toLowerCase().includes('declined');
-      const isNoAnswer = msg.callStatus === 'no_answer' || msg.callStatus === 'cancelled' || rawText.toLowerCase().includes('cancelled') || rawText.toLowerCase().includes('no answer');
-      const isMissed = msg.callStatus === 'missed' || rawText.toLowerCase().includes('missed');
+      const isVideo = msg.callType === 'video' || lowerText.includes('video');
+      const isDeclined = msg.callStatus === 'declined' || lowerText.includes('declined');
+      const isNoAnswer = msg.callStatus === 'no_answer' || msg.callStatus === 'cancelled' || lowerText.includes('cancelled') || lowerText.includes('no answer');
+      const isMissed = msg.callStatus === 'missed' || lowerText.includes('missed');
       const isUnanswered = isDeclined || isNoAnswer || isMissed;
 
       let title = '';
       let subText = 'Tap to call back';
-
       if (isDeclined) {
         title = isSent ? 'No answer' : `Declined ${isVideo ? 'video' : 'voice'} call`;
       } else if (isNoAnswer || isMissed) {
@@ -5938,102 +5717,74 @@ function renderChatThread() {
         title = isVideo ? 'Video call' : 'Voice call';
         subText = msg.duration || (rawText.match(/\((.*?)\)/)?.[1]) || 'Completed';
       }
-
-      const phoneIconSvg = isUnanswered
-        ? `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-6-6 19.8 19.8 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><path d="m23 7-6 6"/><path d="m17 7h6v6"/></svg>`
-        : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/><path d="M16 3l5 5"/><path d="M21 3v5h-5"/></svg>`;
-
-      const videoIconSvg = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>`;
+      const callIcon = isUnanswered ? 'phone-off' : (isVideo ? 'video' : 'phone');
 
       bubbleHtml = `
-        <div class="msg-call-card ${isSent ? 'sent' : 'received'}" onclick="openCallConfirmDialog('${isVideo ? 'video' : 'voice'}')" title="Tap to call back" ${pressEvents}>
-          <div class="call-card-icon-circle ${isUnanswered ? 'missed' : 'normal'}">
-            ${isVideo ? videoIconSvg : phoneIconSvg}
-          </div>
-          <div class="call-card-body">
-            <div class="call-card-title ${isUnanswered ? 'missed' : ''}">${title}</div>
-            <div class="call-card-sub">${subText}</div>
-          </div>
-          <div class="call-card-meta">${timeStr}</div>
-        </div>`;
+        <button type="button" class="msg-call-card ${isSent ? 'sent' : 'received'}" onclick="openCallConfirmDialog('${isVideo ? 'video' : 'voice'}')" aria-label="${escHtml(title)}. Call back" ${pressEvents}>
+          <span class="call-card-icon-circle ${isUnanswered ? 'missed' : 'normal'}">${ic(callIcon)}</span>
+          <span class="call-card-body">
+            <span class="call-card-title ${isUnanswered ? 'missed' : ''}">${escHtml(title)}</span>
+            <span class="call-card-sub">${escHtml(subText)}</span>
+          </span>
+          <span class="call-card-meta">${escHtml(timeStr)}</span>
+        </button>`;
     } else if (msg.imageUrl || msg.videoUrl) {
       const isVideoMsg = Boolean(msg.videoUrl || msg.isVideo);
       const mediaSrc = msg.videoUrl || msg.imageUrl;
       const rawCap = typeof msg.text === 'string' ? msg.text.trim() : '';
       const hasCaption = Boolean(rawCap && rawCap !== 'Photo' && rawCap !== 'Video' && rawCap !== '📷 Photo' && rawCap !== '📹 Video');
       const captionText = hasCaption ? rawCap : '';
+      const fwdBtn = `<button type="button" class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" aria-label="Forward"><svg class="i" aria-hidden="true"><use href="#i-forward"/></svg></button>`;
 
       bubbleHtml = `
         <div class="msg-image-card-container ${isSent ? 'sent' : 'received'}">
-          ${isSent ? `<button class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg></button>` : ''}
-          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'} ${hasCaption ? 'has-caption' : ''}" onclick="openImageLightbox('${escHtml(mediaSrc)}', '${msgId}', ${isVideoMsg})" title="Tap to view ${isVideoMsg ? 'video' : 'photo'}" ${pressEvents}>
+          ${isSent ? fwdBtn : ''}
+          <div class="msg-bubble msg-image-bubble ${isSent ? 'sent' : 'received'} ${hasCaption ? 'has-caption' : ''}" role="button" tabindex="0" aria-label="Open ${isVideoMsg ? 'video' : 'photo'}" onclick="openImageLightbox('${escHtml(mediaSrc)}', '${msgId}', ${isVideoMsg})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}" ${pressEvents}>
             ${quoteHtml}
             <div class="msg-image-wrap">
-              ${isVideoMsg ?
-                `<video src="${escHtml(mediaSrc)}" class="msg-chat-img" playsinline preload="metadata" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:12px;"></video>
-                 <div class="msg-img-hd-badge">▶ Video</div>` :
-                `<img src="${escHtml(mediaSrc)}" class="msg-chat-img" loading="lazy" alt="Photo">
-                 <div class="msg-img-hd-badge">HD</div>`
-              }
-              ${!hasCaption ? `
-                <div class="msg-img-overlay-meta">
-                  ${timeBadgeHtml}
-                </div>
-              ` : ''}
+              ${isVideoMsg
+                ? `<video src="${escHtml(mediaSrc)}" class="msg-chat-img" playsinline preload="metadata"></video><span class="msg-media-tag">${ic('play')}Video</span>`
+                : `<img src="${escHtml(mediaSrc)}" class="msg-chat-img" loading="lazy" alt="Photo">`}
+              ${!hasCaption ? `<div class="msg-img-overlay-meta">${timeBadgeHtml}</div>` : ''}
             </div>
             ${hasCaption ? `
               <div class="msg-caption-wrap">
                 <div class="msg-caption-text">${escHtml(captionText)}</div>
-                <div class="msg-caption-meta">
-                  <span class="msg-caption-time">${timeStr}</span>
-                  ${receiptHtml}
-                </div>
-              </div>
-            ` : ''}
+                <div class="msg-caption-meta">${timeBadgeHtml}</div>
+              </div>` : ''}
           </div>
-          ${!isSent ? `<button class="msg-quick-forward-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}')" title="Forward"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5l7 7-7 7v-4.1c-5 0-8.5 1.6-11 5.1 1-5 4-10 11-11z"/></svg></button>` : ''}
+          ${!isSent ? fwdBtn : ''}
         </div>`;
     } else if (msg.isVoice) {
       const audioSrc = msg.audioUrl || '';
       const totalDuration = msg.duration || '0:05';
-      const playIconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
-      const waveformHtml = typeof renderVoiceWaveformHtml === 'function' 
-        ? renderVoiceWaveformHtml(msgId, msg.seed || msgId, 28) 
+      const waveformHtml = typeof renderVoiceWaveformHtml === 'function'
+        ? renderVoiceWaveformHtml(msgId, msg.seed || msgId, 28)
         : '';
       const avatarSrc = isSent ? (currentUser?.image || currentUser?.avatar || '') : (partnerPhoto || partner?.image || partner?.photoUrl || '');
-      const badgeHtml = avatarSrc 
-        ? `<div class="vn-avatar-badge"><img src="${escHtml(avatarSrc)}" alt="" onerror="this.style.display='none'"><span class="vn-mic-badge-icon">🎙️</span></div>`
-        : `<div class="vn-avatar-badge" style="background:linear-gradient(135deg,#FF5E8E,#FF2E70);color:#fff;font-size:14px;">🎙️</div>`;
 
       bubbleHtml = `
         <div class="msg-bubble audio-bubble ${isSent ? 'sent' : 'received'}" id="voiceBubble_${msgId}" data-audiosrc="${escHtml(audioSrc)}" data-duration="${escHtml(totalDuration)}" ${pressEvents}>
           ${quoteHtml}
           <div class="vn-player-wrap">
-            <div class="vn-avatar-speed-wrap">
-              ${badgeHtml}
-              <button type="button" class="vn-speed-btn" id="vnSpeed_${msgId}" onclick="event.stopPropagation();toggleVoicePlaybackSpeed(event, '${msgId}')" title="Playback speed">1x</button>
-            </div>
-            <button class="vn-play-btn" onclick="event.stopPropagation();toggleVoiceNotePlayback('${msgId}')" aria-label="Play voice note">
-              ${playIconSvg}
-            </button>
+            <button type="button" class="vn-play-btn" onclick="event.stopPropagation();toggleVoiceNotePlayback('${msgId}')" aria-label="Play voice note">${PLAY_ICON_SVG}</button>
             <div class="vn-content-col">
               ${waveformHtml || `
-                <div class="vn-track-wrap" onclick="event.stopPropagation();seekVoiceNote(event, '${msgId}')" title="Tap to seek">
-                  <div class="vn-track-fill" id="vnFill_${msgId}">
-                    <div class="vn-track-knob"></div>
-                  </div>
-                </div>
-              `}
+                <div class="vn-track-wrap" onclick="event.stopPropagation();seekVoiceNote(event, '${msgId}')">
+                  <div class="vn-track-fill" id="vnFill_${msgId}"><div class="vn-track-knob"></div></div>
+                </div>`}
               <div class="vn-meta-row">
                 <span class="vn-duration" id="vnTime_${msgId}">${escHtml(totalDuration)}</span>
+                <button type="button" class="vn-speed-btn" id="vnSpeed_${msgId}" onclick="event.stopPropagation();toggleVoicePlaybackSpeed(event, '${msgId}')" aria-label="Playback speed">1x</button>
                 ${timeBadgeHtml}
               </div>
             </div>
+            <span class="vn-avatar-badge">${avatarSrc ? `<img src="${escHtml(avatarSrc)}" alt="" onerror="this.style.display='none'">` : ''}${ic('mic')}</span>
           </div>
         </div>`;
     } else {
       bubbleHtml = `
-        <div class="msg-bubble ${isSent ? 'sent' : 'received'}" style="cursor:pointer" ${pressEvents}>
+        <div class="msg-bubble ${isSent ? 'sent' : 'received'}" ${pressEvents}>
           ${quoteHtml}
           <div class="msg-text-wrap">
             <span class="msg-text">${escHtml(msg.text)}${editedHtml}</span>
@@ -6044,10 +5795,9 @@ function renderChatThread() {
 
     const isFailed = Boolean(isSent && (msg._uploadFailed || msg._failed));
     const failedRetryHtml = isFailed ? `
-      <div class="msg-failed-retry-bar" onclick="event.stopPropagation();retryFailedMessage('${partnerId}', '${msgId}')" role="button" tabindex="0" title="Tap to retry sending">
-        <span class="msg-failed-retry-icon">⚠️</span>
-        <span class="msg-failed-retry-text">Couldn't send • Tap to retry</span>
-      </div>` : '';
+      <button type="button" class="msg-failed-retry-bar" onclick="event.stopPropagation();retryFailedMessage('${partnerId}', '${msgId}')">
+        ${ic('triangle-alert')}<span>Not sent. Tap to retry.</span>
+      </button>` : '';
 
     html += `
       <div class="msg-row ${isSent ? 'sent' : 'received'} ${isFailed ? 'is-failed-msg' : ''}" data-msg-id="${msgId}"
@@ -6055,16 +5805,14 @@ function renderChatThread() {
         ontouchmove="handleMsgTouchMove(event, '${msgId}')"
         ontouchend="handleMsgTouchEnd(event, '${msgId}')"
         onmousedown="handleMsgMouseDown(event, '${msgId}')"
-        ondblclick="startReplyToMessage('${msgId}')"
-        style="display:flex;flex-direction:column;align-self:${isSent ? 'flex-end' : 'flex-start'};align-items:${isSent ? 'flex-end' : 'flex-start'};max-width:78%;gap:3px">
-        <div class="swipe-reply-icon">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="9 14 4 9 9 4"/>
-            <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
-          </svg>
-        </div>
+        ondblclick="startReplyToMessage('${msgId}')">
+        <div class="swipe-reply-icon">${ic('reply')}</div>
         ${forwardedHtml}
-        ${bubbleHtml}
+        <div class="msg-line">
+          ${isSent ? `<button type="button" class="msg-more" aria-label="Message options" onclick="event.stopPropagation();showReactionPicker(event,'${matchId}','${msgId}')">${ic('ellipsis')}</button>` : ''}
+          ${bubbleHtml}
+          ${!isSent ? `<button type="button" class="msg-more" aria-label="Message options" onclick="event.stopPropagation();showReactionPicker(event,'${matchId}','${msgId}')">${ic('ellipsis')}</button>` : ''}
+        </div>
         ${reactionBar}
         ${failedRetryHtml}
       </div>`;
@@ -6130,7 +5878,7 @@ async function retryFailedMessage(partnerId, msgId) {
       delete msg._uploading;
       renderChatThread();
       saveToStorage();
-      showToast('Voice note sent! 🎤', 'gold');
+      showToast('Voice note sent!', 'gold');
     } else if (isVideo || isImage) {
       let mediaUrl = isVideo ? msg.videoUrl : msg.imageUrl;
       const isCloud = mediaUrl && typeof mediaUrl === 'string' && mediaUrl.startsWith('http');
@@ -6184,7 +5932,7 @@ async function retryFailedMessage(partnerId, msgId) {
       delete msg._uploading;
       renderChatThread();
       saveToStorage();
-      showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
+      showToast(isVideo ? 'Video sent!' : 'Photo sent!', 'gold');
     } else {
       // Standard text message
       if (typeof sendRealtimeMessage === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
@@ -6204,7 +5952,7 @@ async function retryFailedMessage(partnerId, msgId) {
       delete msg._uploading;
       renderChatThread();
       saveToStorage();
-      showToast('Message sent! ✨', 'info');
+      showToast('Message sent!', 'info');
     }
   } catch (err) {
     console.error('retryFailedMessage error:', err);
@@ -6238,7 +5986,7 @@ function getChatAiSuggestions(partnerId) {
   if (compat && Array.isArray(compat.icebreakers)) {
     compat.icebreakers.forEach(ib => {
       const clean = ib.replace(/^["']|["']$/g, '').trim();
-      if (clean) pool.push({ icon: '✨', text: clean });
+      if (clean) pool.push({ text: clean });
     });
   }
 
@@ -6249,7 +5997,6 @@ function getChatAiSuggestions(partnerId) {
     const a = promptObj.answer || '';
     if (a) {
       pool.push({
-        icon: '💬',
         text: `Your answer to "${q}" caught my eye! Tell me more about that?`
       });
     }
@@ -6260,23 +6007,19 @@ function getChatAiSuggestions(partnerId) {
   if (Array.isArray(tags) && tags.length > 0) {
     const tag = tags[0].replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}]/gu, '').trim();
     pool.push({
-      icon: '🎯',
       text: `I noticed you're into ${tag}. What got you passionate about it?`
     });
   }
 
   // 4. Fun playful starters
   pool.push({
-    icon: '☕',
     text: `Quick icebreaker: what does your ideal low-key Sunday look like?`
   });
   pool.push({
-    icon: '🎶',
     text: `If you had to pick one song that always puts you in a good mood, what is it?`
   });
   pool.push({
-    icon: '🍕',
-    text: `Spontaneous debate: best comfort food spot in the city?`
+    text: `Spontaneous debate: best comfort food spot in town?`
   });
 
   return pool;
@@ -6313,21 +6056,16 @@ function refreshChatAiSuggestions() {
 
   const partner = getPartnerProfileForChat(partnerId);
   const compat = typeof calculateCompatibility === 'function' ? calculateCompatibility(currentUser, partner) : null;
-  if (badgeEl && compat) {
-    badgeEl.textContent = `${compat.score}% Chemistry`;
+  if (badgeEl) {
+    badgeEl.textContent = compat && compat.headline ? compat.headline : '';
+    badgeEl.hidden = !badgeEl.textContent;
   }
 
   const allSuggestions = getChatAiSuggestions(partnerId);
   const shuffled = allSuggestions.sort(() => 0.5 - Math.random()).slice(0, 5);
 
-  let chipsHtml = '';
-  shuffled.forEach(s => {
-    chipsHtml += `
-      <div class="chat-ai-chip" onclick="selectChatAiSuggestion('${escHtml(s.text).replace(/'/g, "\\'")}')" role="button" tabindex="0">
-        <span class="chat-ai-chip-icon">${s.icon}</span>
-        <span class="chat-ai-chip-txt">${escHtml(s.text)}</span>
-      </div>`;
-  });
+  const chipsHtml = shuffled.map(sug => `
+    <button type="button" class="chat-ai-chip" data-text="${escHtml(sug.text)}" onclick="selectChatAiSuggestion(this.dataset.text)">${escHtml(sug.text)}</button>`).join('');
 
   listEl.innerHTML = chipsHtml;
 }
@@ -6414,7 +6152,7 @@ function handleMsgTouchEnd(e, msgId) {
 
 function handleMsgMouseDown(e, msgId) {
   if (e.button !== 0) return;
-  if (e.target.closest('.msg-reaction-pill, .msg-quote-preview, .audio-play-btn, button, a')) return;
+  if (e.target.closest('.msg-reaction-pill, .msg-quote-preview, button, a')) return;
 
   const row = e.currentTarget || document.querySelector(`.msg-row[data-msg-id="${msgId}"]`);
   _swipeState = {
@@ -6854,7 +6592,7 @@ function openImageLightbox(src, msgId, isVideo = false) {
                   conversations[appState.currentChatId]?.partner ||
                   {};
   let senderName = partner.name || document.getElementById('chatPartnerName')?.textContent?.trim() || 'Match';
-  let timeMeta = 'HD • ' + new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  let timeMeta = new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ', ' + new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
   if (msgId) {
     const { msg } = getMessageInfo(msgId);
@@ -6864,11 +6602,12 @@ function openImageLightbox(src, msgId, isVideo = false) {
       }
       const dateH = getWhatsAppDateHeader(msg.timestamp, msg.time);
       const timeS = formatWhatsAppTime(msg.timestamp, msg.time);
-      timeMeta = `HD • ${dateH || 'Today'}, ${timeS || ''}`.trim();
+      timeMeta = `${dateH || 'Today'}, ${timeS || ''}`.trim();
 
       const starBtn = document.getElementById('lightboxStarBtn');
       if (starBtn) {
-        starBtn.style.color = msg.starred ? '#F4C550' : '#fff';
+        starBtn.style.color = msg.starred ? 'var(--gold)' : '';
+        starBtn.querySelector('.i')?.classList.toggle('i-fill', Boolean(msg.starred));
       }
     }
   }
@@ -7103,7 +6842,7 @@ function downloadLightboxImage() {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  showToast('Photo saved to gallery 📥', 'gold');
+  showToast('Photo saved to gallery', 'gold');
 }
 window.downloadLightboxImage = downloadLightboxImage;
 
@@ -7127,7 +6866,7 @@ function toggleLightboxStar() {
     starBtn.style.color = msg.starred ? '#F4C550' : '#fff';
   }
   saveToStorage();
-  showToast(msg.starred ? 'Starred message ⭐' : 'Unstarred message', 'info');
+  showToast(msg.starred ? 'Starred message' : 'Unstarred message', 'info');
 }
 window.toggleLightboxStar = toggleLightboxStar;
 
@@ -7164,7 +6903,7 @@ function setLightboxAsChatBackground() {
   } catch (e) {}
 
   applyChatCustomBackground(currentChatId);
-  showToast('Chat background updated! 🖼️', 'gold');
+  showToast('Chat background updated!', 'gold');
 }
 window.setLightboxAsChatBackground = setLightboxAsChatBackground;
 
@@ -7219,14 +6958,14 @@ async function shareLightboxImage() {
 
   try {
     await navigator.clipboard.writeText(_lightboxCurrentSrc);
-    showToast('Media link copied to clipboard 📋', 'info');
+    showToast('Media link copied to clipboard', 'info');
   } catch (e) {
     downloadLightboxImage();
   }
 }
 window.shareLightboxImage = shareLightboxImage;
 
-function deleteLightboxImage() {
+async function deleteLightboxImage() {
   const menu = document.getElementById('lightboxDropdownMenu');
   if (menu) menu.style.display = 'none';
   if (!_lightboxCurrentMsgId) {
@@ -7234,7 +6973,7 @@ function deleteLightboxImage() {
     return;
   }
 
-  if (!confirm('Delete this media message?')) return;
+  if (!(await confirmDialog({ title: 'Delete this media message?', message: 'It is removed from the conversation.', confirmLabel: 'Delete', danger: true }))) return;
 
   const partnerId = appState.currentChatId;
   if (partnerId && conversations[partnerId]) {
@@ -7249,7 +6988,7 @@ function deleteLightboxImage() {
   }
 
   closeImageLightbox();
-  showToast('Media deleted 🗑️', 'info');
+  showToast('Media deleted', 'info');
 }
 window.deleteLightboxImage = deleteLightboxImage;
 
@@ -7484,7 +7223,7 @@ async function sendImageMessage(event) {
         }
         showToast(isVideo ? 'Video uploaded, but could not be delivered. Please try again.' : 'Photo uploaded, but could not be delivered. Please try again.', 'error');
       } else {
-        showToast(isVideo ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
+        showToast(isVideo ? 'Video sent!' : 'Photo sent!', 'gold');
       }
     }
   })();
@@ -7530,8 +7269,7 @@ function openMediaPreview() {
   // Set recipient name in title
   const recipEl = document.getElementById('mpxRecipientName');
   if (recipEl) {
-    const partner = PROFILES_DATA.concat(PREMIUM_MATCHES).find(p => p.id === appState.currentChatId)
-      || { name: 'Match' };
+    const partner = getPartnerProfileForChat(appState.currentChatId) || { name: 'your match' };
     recipEl.textContent = partner.name;
   }
 
@@ -7600,17 +7338,17 @@ function _mpxRenderFilmstrip() {
     if (!item.isVideo) {
       thumb.style.backgroundImage = `url("${item.objectUrl}")`;
     } else {
-      thumb.style.background = '#1a2633';
+      thumb.classList.add('mpx-thumb-video');
       const badge = document.createElement('span');
       badge.className = 'mpx-thumb-video-badge';
-      badge.textContent = '▶ VID';
+      badge.textContent = 'Video';
       thumb.appendChild(badge);
     }
 
     // Remove button
     const rmBtn = document.createElement('button');
     rmBtn.className = 'mpx-thumb-remove';
-    rmBtn.innerHTML = '✕';
+    rmBtn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-x"/></svg>';
     rmBtn.setAttribute('aria-label', 'Remove');
     rmBtn.onclick = (e) => { e.stopPropagation(); _mpxRemoveItem(idx); };
     thumb.appendChild(rmBtn);
@@ -7751,7 +7489,7 @@ async function confirmMediaSend() {
         renderConversationList();
         renderChatsInbox();
         saveToStorage();
-        showToast(isVideo2 ? 'Video sent! 🎬' : 'Photo sent! 📸', 'gold');
+        showToast(isVideo2 ? 'Video sent!' : 'Photo sent!', 'gold');
       }
 
       const partnerPayloadUrl = cloudUrl || (!isVideo2 && localDataUrl && localDataUrl.startsWith('data:') ? localDataUrl : '');
@@ -8260,7 +7998,7 @@ async function startPeerCall(type) {
           updateCallUi(type, 'No answer 📵');
           setTimeout(() => {
             endCall(false);
-            showToast((partner.name || 'Your match') + ' is currently unavailable. Leave a voice note! 🎙️', 'info');
+            showToast((partner.name || 'Your match') + ' is currently unavailable. Leave a voice note!', 'info');
           }, 1800);
         }
       }, 5500);
@@ -8348,7 +8086,7 @@ async function startPeerCall(type) {
       }
     }, err => console.warn('Call listener error:', err.message));
 
-    showToast('Calling ' + (partner.name || 'your match') + '... 📞', 'info');
+    showToast('Calling ' + (partner.name || 'your match') + '...', 'info');
   } catch (err) {
     console.warn('Start call failed:', err);
     showToast('Could not start the call. Please try again.', 'error');
@@ -8362,28 +8100,29 @@ function showIncomingCallPrompt(callId, data) {
   playRingtone();
   const partner = matchedUsers.find(u => u.id === data.callerId) || PROFILES_DATA.find(u => u.id === data.callerId);
   const name = partner?.name || 'Someone';
-  const overlay = document.createElement('div');
-  overlay.id = 'incomingCallPrompt';
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card" style="text-align:center;max-width:360px;">
-      <div style="font-size:2.5rem;margin-bottom:8px;">${data.type === 'video' ? '📹' : '📞'}</div>
-      <h3 class="wa-dialog-title">${escHtml(name)} is calling</h3>
-      <p class="wa-dialog-desc">${data.type === 'video' ? 'Incoming video call' : 'Incoming voice call'}</p>
-      <div class="wa-dialog-actions">
-        <button class="wa-dialog-btn wa-dialog-btn-danger" onclick="acceptIncomingCall()">Accept</button>
-        <button class="wa-dialog-btn wa-dialog-btn-secondary" onclick="declineIncomingCall()">Decline</button>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(overlay);
+  const isVideo = data.type === 'video';
+  const { overlay } = openSheetDialog({
+    id: 'incomingCallPrompt',
+    title: `${name} is calling`,
+    body: `<p class="dlg-text"><svg class="i" aria-hidden="true"><use href="#i-${isVideo ? 'video' : 'phone'}"/></svg> Incoming ${isVideo ? 'video' : 'voice'} call</p>`,
+    foot: '<button type="button" class="btn btn-secondary" data-call="decline">Decline</button><button type="button" class="btn btn-primary" data-call="accept">Accept</button>',
+    alert: true,
+    narrow: true,
+    focus: '[data-call="accept"]',
+    onEscape: () => declineIncomingCall()
+  });
+  overlay.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-call]')?.dataset.call;
+    if (act === 'accept') acceptIncomingCall();
+    else if (act === 'decline') declineIncomingCall();
+  });
 }
 
 async function acceptIncomingCall(incomingOverride) {
   const incoming = incomingOverride || pendingIncomingCall;
   stopRingtone();
   if (!incoming || !fbAuth?.currentUser || !fbDb) return;
-  document.getElementById('incomingCallPrompt')?.remove();
+  closeSheetDialog('incomingCallPrompt');
   pendingIncomingCall = null;
 
   const uid = fbAuth.currentUser.uid;
@@ -8407,9 +8146,14 @@ async function acceptIncomingCall(incomingOverride) {
 
     const overlay = document.getElementById(type === 'video' ? 'videoCallOverlay' : 'voiceCallOverlay');
     const nameEl = document.getElementById(type === 'video' ? 'videoCallName' : 'callName');
+    const avatarEl = document.getElementById('callAvatar');
     if (nameEl) nameEl.textContent = partner.name || 'Match';
+    if (avatarEl && type !== 'video') {
+      const photo = partner.image || partner.photos?.[0] || partner.avatar || '';
+      if (photo) avatarEl.src = photo; else avatarEl.removeAttribute('src');
+    }
     if (overlay) overlay.style.display = 'flex';
-    updateCallUi(type, 'Connecting...');
+    updateCallUi(type, 'Connecting…');
 
     await wireCallPeerConnection(type, pc, callRef);
     await pc.setRemoteDescription(new RTCSessionDescription(incoming.offer));
@@ -8438,7 +8182,7 @@ async function acceptIncomingCall(incomingOverride) {
 async function declineIncomingCall(incomingOverride) {
   const incoming = incomingOverride || pendingIncomingCall;
   stopRingtone();
-  document.getElementById('incomingCallPrompt')?.remove();
+  closeSheetDialog('incomingCallPrompt');
   pendingIncomingCall = null;
   if (!incoming) return;
 
@@ -8504,42 +8248,27 @@ function openCallConfirmDialog(type = 'voice') {
   const name = partner ? partner.name : 'your match';
   const isVideo = type === 'video';
 
-  document.getElementById('callConfirmDialog')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.id = 'callConfirmDialog';
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.68);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;animation:fadeIn 0.15s ease;';
-  overlay.onclick = (e) => {
-    if (e.target === overlay) closeCallConfirmDialog();
-  };
-
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card" style="text-align:center;max-width:320px;width:100%;border-radius:24px;padding:24px 20px;background:#1E1530;border:1px solid rgba(255,255,255,0.15);box-shadow:0 16px 40px rgba(0,0,0,0.85);">
-      <div style="width:58px;height:58px;border-radius:50%;background:rgba(209,58,99,0.18);color:#FF2E70;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:26px;">
-        ${isVideo ? '📹' : '📞'}
-      </div>
-      <h3 style="margin:0 0 6px;font-size:1.15rem;font-weight:700;color:#fff;">Call back ${escHtml(name)}?</h3>
-      <p style="margin:0 0 20px;font-size:0.85rem;color:rgba(255,255,255,0.65);line-height:1.4;">
-        Do you want to start a ${isVideo ? 'video' : 'voice'} call with ${escHtml(name)}?
-      </p>
-      <div style="display:flex;gap:10px;justify-content:center;">
-        <button onclick="closeCallConfirmDialog()" style="flex:1;padding:12px;border-radius:14px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#fff;font-weight:600;font-size:0.9rem;cursor:pointer;">
-          Cancel
-        </button>
-        <button onclick="executeCallFromConfirm('${isVideo ? 'video' : 'voice'}')" style="flex:1;padding:12px;border-radius:14px;background:linear-gradient(135deg,#D13A63,#E0567F);color:#fff;border:none;font-weight:700;font-size:0.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-          <span>${isVideo ? '📹 Call' : '📞 Call'}</span>
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
+  const { overlay } = openSheetDialog({
+    id: 'callConfirmDialog',
+    title: `Call ${name}?`,
+    body: `<p class="confirm-msg">Start a ${isVideo ? 'video' : 'voice'} call with ${escHtml(name)}.</p>`,
+    foot: `<button type="button" class="btn btn-secondary" data-call="cancel">Cancel</button><button type="button" class="btn btn-primary" data-call="start"><svg class="i" aria-hidden="true"><use href="#i-${isVideo ? 'video' : 'phone'}"/></svg>Call</button>`,
+    alert: true,
+    narrow: true,
+    focus: '[data-call="start"]',
+    onEscape: () => closeCallConfirmDialog()
+  });
+  overlay.addEventListener('click', (e) => {
+    const act = e.target.closest('[data-call]')?.dataset.call;
+    if (act === 'start') executeCallFromConfirm(isVideo ? 'video' : 'voice');
+    else if (act === 'cancel') closeCallConfirmDialog();
+    else if (e.target === overlay) closeCallConfirmDialog();
+  });
 }
 window.openCallConfirmDialog = openCallConfirmDialog;
 
 function closeCallConfirmDialog() {
-  document.getElementById('callConfirmDialog')?.remove();
+  closeSheetDialog('callConfirmDialog');
 }
 window.closeCallConfirmDialog = closeCallConfirmDialog;
 
@@ -8580,7 +8309,7 @@ function minimizeCall() {
     const nameEl = document.getElementById(activeCallType === 'video' ? 'videoCallName' : 'callName');
     const partnerName = partner.name || nameEl?.textContent || 'Match';
     const avatarEl = document.getElementById('callAvatar');
-    const partnerPhoto = partner.photos?.[0] || partner.photo || avatarEl?.src || 'default-avatar.png';
+    const partnerPhoto = partner.image || partner.photos?.[0] || partner.photo || partner.avatar || avatarEl?.getAttribute('src') || '';
 
     const fcbName = document.getElementById('fcbName');
     const fcbAvatar = document.getElementById('fcbAvatar');
@@ -8588,9 +8317,11 @@ function minimizeCall() {
     const fcbTimer = document.getElementById('fcbTimer');
 
     if (fcbName) fcbName.textContent = partnerName;
-    if (fcbAvatar) fcbAvatar.src = partnerPhoto;
+    if (fcbAvatar) {
+      if (partnerPhoto) fcbAvatar.src = partnerPhoto; else fcbAvatar.removeAttribute('src');
+    }
     if (fcbTypeIcon) {
-      fcbTypeIcon.className = activeCallType === 'video' ? 'fas fa-video fcb-type-icon' : 'fas fa-phone fcb-type-icon';
+      fcbTypeIcon.querySelector('use')?.setAttribute('href', activeCallType === 'video' ? '#i-video' : '#i-phone');
     }
     if (fcbTimer) {
       if (activeCallSeconds > 0) {
@@ -8720,24 +8451,21 @@ function endCall(showToastMessage = true, explicitStatus = null) {
   const callMuteBtn = document.getElementById('callMuteBtn');
   if (callMuteBtn) {
     callMuteBtn.classList.remove('muted');
-    callMuteBtn.style.background = '';
-    callMuteBtn.style.color = '';
+    callMuteBtn.setAttribute('aria-pressed', 'false');
     const label = callMuteBtn.parentElement?.querySelector('span');
     if (label) label.textContent = 'Mute';
   }
   const videoMuteBtn = document.getElementById('videoMuteBtn');
   if (videoMuteBtn) {
     videoMuteBtn.classList.remove('muted');
-    videoMuteBtn.style.background = '';
-    videoMuteBtn.style.color = '';
+    videoMuteBtn.setAttribute('aria-pressed', 'false');
     const label = document.getElementById('videoMuteLabel') || videoMuteBtn.parentElement?.querySelector('span');
     if (label) label.textContent = 'Mute';
   }
   const camBtn = document.getElementById('videoCamBtn');
   if (camBtn) {
     camBtn.classList.remove('muted');
-    camBtn.style.background = '';
-    camBtn.style.color = '';
+    camBtn.setAttribute('aria-pressed', 'false');
     const label = document.getElementById('videoCamLabel') || camBtn.parentElement?.querySelector('span');
     if (label) label.textContent = 'Camera';
   }
@@ -8746,7 +8474,7 @@ function endCall(showToastMessage = true, explicitStatus = null) {
 
   if (showToastMessage) {
     if (explicitStatus === 'declined') {
-      showToast('Call declined 📵', 'info');
+      showToast('Call declined', 'info');
     } else {
       showToast(seconds > 0 ? `Call ended (${Math.floor(seconds / 60)}m ${seconds % 60}s)` : 'Call ended', 'info');
     }
@@ -8781,8 +8509,7 @@ function toggleCallMute() {
   const callMuteBtn = document.getElementById('callMuteBtn');
   if (callMuteBtn) {
     callMuteBtn.classList.toggle('muted', isAudioMuted);
-    callMuteBtn.style.background = isAudioMuted ? 'rgba(255, 61, 0, 0.35)' : '';
-    callMuteBtn.style.color = isAudioMuted ? '#FF3D00' : '#fff';
+    callMuteBtn.setAttribute('aria-pressed', String(isAudioMuted));
     const label = callMuteBtn.parentElement?.querySelector('span');
     if (label) label.textContent = isAudioMuted ? 'Unmute' : 'Mute';
   }
@@ -8791,13 +8518,14 @@ function toggleCallMute() {
   const videoMuteBtn = document.getElementById('videoMuteBtn');
   if (videoMuteBtn) {
     videoMuteBtn.classList.toggle('muted', isAudioMuted);
-    videoMuteBtn.style.background = isAudioMuted ? 'rgba(255, 61, 0, 0.35)' : '';
-    videoMuteBtn.style.color = isAudioMuted ? '#FF3D00' : '#fff';
+    videoMuteBtn.setAttribute('aria-pressed', String(isAudioMuted));
     const label = document.getElementById('videoMuteLabel') || videoMuteBtn.parentElement?.querySelector('span');
     if (label) label.textContent = isAudioMuted ? 'Unmute' : 'Mute';
   }
 
-  showToast(isAudioMuted ? 'Microphone muted 🔇' : 'Microphone unmuted 🎙️', 'info');
+  const fcbMute = document.getElementById('fcbMuteBtn');
+  if (fcbMute) { fcbMute.classList.toggle('muted', isAudioMuted); fcbMute.setAttribute('aria-pressed', String(isAudioMuted)); }
+  showToast(isAudioMuted ? 'Microphone muted' : 'Microphone on', 'info');
 }
 
 function toggleVideoMute() {
@@ -8824,12 +8552,11 @@ function toggleCamera() {
   const camBtn = document.getElementById('videoCamBtn');
   if (camBtn) {
     camBtn.classList.toggle('muted', isVideoMuted);
-    camBtn.style.background = isVideoMuted ? 'rgba(255, 61, 0, 0.35)' : '';
-    camBtn.style.color = isVideoMuted ? '#FF3D00' : '#fff';
+    camBtn.setAttribute('aria-pressed', String(isVideoMuted));
     const label = document.getElementById('videoCamLabel') || camBtn.parentElement?.querySelector('span');
     if (label) label.textContent = isVideoMuted ? 'Turn on' : 'Camera';
   }
-  showToast(isVideoMuted ? 'Camera paused 📷' : 'Camera resumed 📹', 'info');
+  showToast(isVideoMuted ? 'Camera paused' : 'Camera on', 'info');
 }
 
 async function flipCamera() {
@@ -8961,7 +8688,7 @@ async function flipCamera() {
         } catch (_) {}
       }
 
-      showToast(currentFacingMode === 'user' ? 'Front camera 🤳' : 'Back camera 📸', 'info');
+      showToast(currentFacingMode === 'user' ? 'Front camera' : 'Back camera', 'info');
     }
   } catch (err) {
     console.warn('Flip camera error:', err);
@@ -8976,24 +8703,28 @@ async function flipCamera() {
 }
 
 async function toggleSpeaker() {
-  isSpeakerOn = !isSpeakerOn;
+  // Browsers can only switch the audio output where setSinkId and a second output device exist.
   const audio = document.getElementById('remoteCallAudio');
+  let speakers = [];
   if (audio && typeof audio.setSinkId === 'function') {
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const speakers = devices.filter(d => d.kind === 'audiooutput');
-      if (speakers.length > 1) {
-        await audio.setSinkId(isSpeakerOn ? speakers[1].deviceId : speakers[0].deviceId);
-      }
+      speakers = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audiooutput');
     } catch (_) {}
   }
-  const btn = document.getElementById('callSpeakerBtn');
-  if (btn) {
-    btn.classList.toggle('muted', isSpeakerOn);
-    btn.style.background = isSpeakerOn ? 'rgba(255, 45, 120, 0.3)' : '';
-    btn.style.color = isSpeakerOn ? '#FF2D78' : '';
+  if (speakers.length < 2) {
+    showToast('Your phone controls the speaker. Use the volume buttons.', 'info');
+    return;
   }
-  showToast(isSpeakerOn ? 'Speakerphone on 🔊' : 'Ear speaker on 🔈', 'info');
+  const next = !isSpeakerOn;
+  try {
+    await audio.setSinkId(next ? speakers[1].deviceId : speakers[0].deviceId);
+  } catch (_) {
+    showToast('Could not switch the speaker.', 'warning');
+    return;
+  }
+  isSpeakerOn = next;
+  const btn = document.getElementById('callSpeakerBtn');
+  if (btn) { btn.classList.toggle('muted', isSpeakerOn); btn.setAttribute('aria-pressed', String(isSpeakerOn)); }
 }
 
 // Window bindings for seamless inline onclick handlers
@@ -9047,7 +8778,7 @@ function sendMessage() {
     renderChatThread();
     renderConversationList();
     cancelEditMessage();
-    showToast('Message edited ✏️', 'info');
+    showToast('Message edited', 'info');
     return;
   }
 
@@ -9210,7 +8941,7 @@ function triggerAutoReply() {
 
     if (!isChatOpen) {
       playNotificationSound();
-      showToast(`💬 ${partner.name}: ${replyText.substring(0, 36)}...`, 'info');
+      showToast(`${partner.name}: ${replyText.substring(0, 36)}...`, 'info');
     }
   }, 1400 + Math.random() * 600);
 }
@@ -9237,8 +8968,8 @@ let _liveAudioCtx = null;
 let _liveAnalyser = null;
 let _liveAnimFrame = null;
 
-const PLAY_ICON_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>`;
-const PAUSE_ICON_SVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+const PLAY_ICON_SVG = `<svg class="i" aria-hidden="true"><use href="#i-play"/></svg>`;
+const PAUSE_ICON_SVG = `<svg class="i" aria-hidden="true"><use href="#i-pause"/></svg>`;
 
 function formatAudioTime(seconds) {
   if (isNaN(seconds) || seconds < 0) seconds = 0;
@@ -9656,7 +9387,7 @@ function handleMicPointerMove(e) {
     _isMicHolding = false;
     const lockEl = document.getElementById('voiceFloatingLock');
     if (lockEl) lockEl.style.display = 'none';
-    if (typeof showToast === 'function') showToast('Voice note canceled 🗑️', 'info');
+    if (typeof showToast === 'function') showToast('Voice note canceled', 'info');
     return;
   }
 
@@ -9671,7 +9402,7 @@ function handleMicPointerMove(e) {
     if (lockedStatus) lockedStatus.style.display = 'flex';
     const slideHint = document.getElementById('voiceSlideHint');
     if (slideHint) slideHint.style.display = 'none';
-    if (typeof showToast === 'function') showToast('Recording locked 🔒 Hands-free', 'gold');
+    if (typeof showToast === 'function') showToast('Recording locked, hands-free', 'gold');
   }
 }
 window.handleMicPointerMove = handleMicPointerMove;
@@ -9943,7 +9674,7 @@ async function sendVoiceNote() {
                 saveToStorage();
                 showToast('Voice note uploaded, but could not be delivered. Please try again.', 'error', 7000);
               } else {
-                showToast('Voice note sent 🎤', 'gold');
+                showToast('Voice note sent', 'gold');
 
                 // Trigger push notification to partner (fire-and-forget)
                 const myName = (typeof currentUser !== 'undefined' && currentUser?.name) ? currentUser.name : 'Your match';
@@ -9972,7 +9703,7 @@ async function sendVoiceNote() {
               PROFILES_DATA.concat(typeof PREMIUM_MATCHES !== 'undefined' ? PREMIUM_MATCHES : []).some(p => p.id === partnerId && !p.isRealUser);
 
             if (isMockPartner) {
-              showToast('Voice note sent 🎤', 'gold');
+              showToast('Voice note sent', 'gold');
               if (typeof triggerAutoReply === 'function') {
                 triggerAutoReply();
               }
@@ -9985,7 +9716,7 @@ async function sendVoiceNote() {
           }
         } else {
           // Local/demo mode or offline preview: audio is already saved as base64DataUrl
-          showToast('Voice note sent 🎤', 'gold');
+          showToast('Voice note sent', 'gold');
           if (typeof triggerAutoReply === 'function') {
             triggerAutoReply();
           }
@@ -10057,12 +9788,12 @@ function renderProfileScreen() {
   const promptQ1 = document.getElementById('editPromptQ1');
   const promptA1 = document.getElementById('editPromptA1');
 
-  if (intentInput) intentInput.value = currentUser.intent || 'relationship';
+  if (intentInput) intentInput.value = currentUser.intent || '';
   if (occInput) occInput.value = currentUser.occupation || currentUser.lifestyle?.occupation || '';
   if (eduInput) eduInput.value = currentUser.education || currentUser.lifestyle?.education || '';
-  if (workoutInput) workoutInput.value = currentUser.workout || currentUser.lifestyle?.workout || 'Active (Gym & Sports)';
-  if (drinkInput) drinkInput.value = currentUser.drinking || currentUser.lifestyle?.drinking || 'Socially on weekends';
-  if (smokeInput) smokeInput.value = currentUser.smoking || currentUser.lifestyle?.smoking || 'Non-smoker';
+  if (workoutInput) workoutInput.value = currentUser.workout || currentUser.lifestyle?.workout || '';
+  if (drinkInput) drinkInput.value = currentUser.drinking || currentUser.lifestyle?.drinking || '';
+  if (smokeInput) smokeInput.value = currentUser.smoking || currentUser.lifestyle?.smoking || '';
 
   const userPrompts = Array.isArray(currentUser.prompts) && currentUser.prompts.length > 0
     ? currentUser.prompts[0]
@@ -10075,11 +9806,11 @@ function renderProfileScreen() {
   const voicePlayBtn = document.getElementById('editVoicePlayBtn');
   const voiceDelBtn = document.getElementById('editVoiceDeleteBtn');
   if (currentUser.voiceIntro && currentUser.voiceIntro.duration) {
-    if (voiceStatus) voiceStatus.textContent = `✓ Voice intro recorded (${currentUser.voiceIntro.duration})`;
+    if (voiceStatus) voiceStatus.textContent = `Voice intro recorded (${currentUser.voiceIntro.duration})`;
     if (voicePlayBtn) voicePlayBtn.style.display = 'inline-flex';
     if (voiceDelBtn) voiceDelBtn.style.display = 'inline-flex';
   } else {
-    if (voiceStatus) voiceStatus.textContent = 'Add a short 10–15s voice intro to let matches hear your voice!';
+    if (voiceStatus) voiceStatus.textContent = 'Add a short voice intro so matches can hear you.';
     if (voicePlayBtn) voicePlayBtn.style.display = 'none';
     if (voiceDelBtn) voiceDelBtn.style.display = 'none';
   }
@@ -10102,19 +9833,21 @@ function renderProfileScreen() {
   if (fillEl) fillEl.style.width = pct + '%';
   if (pctEl) pctEl.textContent = pct + '%';
   if (tipEl) {
-    if (pct >= 95) tipEl.textContent = '🌟 All-star profile! You get maximum visibility in recommendations.';
-    else if (!currentUser.voiceIntro) tipEl.textContent = 'Tip: Add a voice introduction to reach 100% and get 3x more matches!';
-    else if (!currentUser.photos || currentUser.photos.length < 3) tipEl.textContent = 'Tip: Profiles with 3+ photos get 4x more mutual likes!';
-    else tipEl.textContent = 'Tip: Add your lifestyle preferences to unlock high-affinity match suggestions.';
+    if (pct >= 95) tipEl.textContent = 'Your profile is complete.';
+    else if (!currentUser.voiceIntro) tipEl.textContent = 'Tip: Add a voice introduction to reach 100%.';
+    else if (!currentUser.photos || currentUser.photos.length < 3) tipEl.textContent = 'Tip: Add a third photo so people see more of you.';
+    else tipEl.textContent = 'Tip: Add your lifestyle details so people know you better.';
   }
 
-  const displayName = currentUser.name || currentUser.displayName || 'User';
-  const displayAge = currentUser.age || 24;
-  const displayLoc = currentUser.location || 'Lagos, Nigeria';
-  const displayBio = currentUser.bio || 'Living life with good energy, positive vibes only! ✨';
-  const displayInterests = (currentUser.interests && currentUser.interests.length > 0)
-    ? currentUser.interests
-    : ['Tech 💻', 'Fitness 💪', 'Music 🎵'];
+  const iconSvg = (name) => `<svg class="i" aria-hidden="true"><use href="#i-${name}"/></svg>`;
+  const displayName = (currentUser.name || currentUser.displayName || '').trim() || 'Your name';
+  const rawAge = Number(currentUser.age);
+  const displayAge = Number.isFinite(rawAge) && rawAge >= 18 ? rawAge : null;
+  const displayLoc = String(currentUser.location || '').replace(/^[📍\s]+/, '').trim();
+  const displayBio = String(currentUser.bio || '').trim();
+  const displayInterests = Array.isArray(currentUser.interests)
+    ? currentUser.interests.filter(t => typeof t === 'string' && t.trim())
+    : [];
 
   // Robust photo resolution: checks photos array, image, avatar, photoURL, and localStorage
   let photos = Array.isArray(currentUser.photos) && currentUser.photos.length > 0
@@ -10149,71 +9882,28 @@ function renderProfileScreen() {
 
   if (avatar) {
     if (photo) {
-      avatar.style.backgroundImage = `url('${photo}')`;
-      avatar.style.backgroundSize = 'cover';
-      avatar.style.backgroundPosition = 'center';
-      if (initialEl) initialEl.style.display = 'none';
+      avatar.style.backgroundImage = `url('${safeCssUrl(photo)}')`;
+      if (initialEl) initialEl.innerHTML = '';
     } else {
       avatar.style.backgroundImage = 'none';
-      if (initialEl) {
-        initialEl.innerHTML = `<svg width="42" height="42" viewBox="0 0 24 24" fill="rgba(255,255,255,0.7)"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>`;
-        initialEl.style.display = 'flex';
-        initialEl.style.alignItems = 'center';
-        initialEl.style.justifyContent = 'center';
-      }
+      if (initialEl) initialEl.innerHTML = iconSvg('user');
     }
-    if (appState.isVip) avatar.classList.add('vip');
-    else avatar.classList.remove('vip');
+    avatar.classList.toggle('vip', Boolean(appState.isVip));
   }
 
-  if (nameEl) {
-    nameEl.textContent = String(displayName) + ', ' + String(displayAge);
-  }
-    // Photo Verification Prompt Card & Badge State
-  const verifiedBadge = document.getElementById('profileVerifiedBadge');
-  const vpcCard = document.getElementById('hkVerifyPromptCard');
-  const vpcBadge = document.getElementById('hkVerifyBadge');
-  const vpcTitle = document.getElementById('hkVerifyTitle');
-  const vpcDesc = document.getElementById('hkVerifyDesc');
-  const vpcBtn = document.getElementById('hkVerifyBtn');
-
-  const isVerified = currentUser.isVerified === true || localStorage.getItem('hmbs_verified') === 'true';
-  if (isVerified) {
-    currentUser.isVerified = true;
-    if (verifiedBadge) verifiedBadge.style.display = 'inline-flex';
-    if (vpcBadge) {
-      vpcBadge.textContent = 'Verified ✓';
-      vpcBadge.className = 'hk-vpc-badge verified';
-    }
-    if (vpcTitle) vpcTitle.textContent = 'Photo Verified Account';
-    if (vpcDesc) vpcDesc.textContent = 'Your selfie verification is active with official blue badge protection.';
-    if (vpcBtn) {
-      vpcBtn.textContent = 'Verified ✓';
-      vpcBtn.style.background = 'linear-gradient(135deg, #21B06B, #1B9B5C)';
-      vpcBtn.style.pointerEvents = 'none';
-    }
-  } else {
-    if (verifiedBadge) verifiedBadge.style.display = 'none';
-    if (vpcBadge) {
-      vpcBadge.textContent = 'Get Verified';
-      vpcBadge.className = 'hk-vpc-badge';
-    }
-    if (vpcTitle) vpcTitle.textContent = 'Photo Verification';
-    if (vpcDesc) vpcDesc.textContent = 'Prove you\'re really you with a quick selfie scan and unlock the official blue checkmark!';
-    if (vpcBtn) {
-      vpcBtn.textContent = 'Verify';
-      vpcBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
-      vpcBtn.style.pointerEvents = 'auto';
-    }
-  }
+  if (nameEl) nameEl.textContent = displayAge ? `${displayName}, ${displayAge}` : displayName;
 
   const vipBadge = document.getElementById('profileVipBadge');
-  if (vipBadge) {
-    vipBadge.style.display = appState.isVip ? 'inline-flex' : 'none';
-  }
+  if (vipBadge) vipBadge.style.display = appState.isVip ? 'inline-flex' : 'none';
 
-  if (locEl) locEl.textContent = '📍 ' + displayLoc.replace(/^[📍\s]+/, '');
-  if (bioEl) bioEl.textContent = displayBio;
+  if (locEl) {
+    locEl.hidden = !displayLoc;
+    locEl.innerHTML = displayLoc ? `${iconSvg('map-pin')}<span>${escHtml(displayLoc)}</span>` : '';
+  }
+  if (bioEl) {
+    bioEl.textContent = displayBio || 'Add a short bio so people know who you are.';
+    bioEl.classList.toggle('is-empty', !displayBio);
+  }
   if (interestsEl) {
     interestsEl.innerHTML = displayInterests.map(tag => `<span class="hk-passion-pill">${escHtml(tag)}</span>`).join('');
   }
@@ -10224,7 +9914,7 @@ function renderProfileScreen() {
     if (photos.length > 1) {
       strip.style.display = 'flex';
       strip.innerHTML = photos.map((url, i) => `
-        <div class="profile-strip-thumb ${i === 0 ? 'main' : ''}" style="background-image:url('${safeCssUrl(url)}')" onclick="openEditProfileModal()" title="${i === 0 ? 'Main Photo' : 'Photo ' + (i + 1)}"></div>
+        <div class="profile-strip-thumb ${i === 0 ? 'main' : ''}" style="background-image:url('${safeCssUrl(url)}')" onclick="openEditProfileModal()" title="${i === 0 ? 'Main photo' : 'Photo ' + (i + 1)}"></div>
       `).join('');
     } else {
       strip.style.display = 'none';
@@ -10232,101 +9922,58 @@ function renderProfileScreen() {
     }
   }
 
-  // Pre-fill form inputs in edit modal
-  if (nameInput) nameInput.value = displayName;
-  if (ageInput) ageInput.value = displayAge;
+  // Pre-fill the edit form with the user's real values only
+  if (nameInput) nameInput.value = (currentUser.name || currentUser.displayName || '');
+  if (ageInput) ageInput.value = displayAge || '';
   if (bioInput) bioInput.value = displayBio;
   if (locInput) locInput.value = displayLoc;
   if (interestsInput) interestsInput.value = displayInterests.join(', ');
 
-  // Dynamic Profile Strength Calculation
-  // Baseline (Name, Age, Location): 15%
-  let strength = 15;
-  if (photos.length >= 1) strength += 20; // Main photo
-  if (photos.length >= 2) strength += 15; // Additional photos
-  if (photos.length >= 3) strength += 10; // 3+ photos gallery
-  if (displayBio && displayBio.length > 15) strength += 15; // Engaging bio
-  if (displayInterests && displayInterests.length >= 2) strength += 10; // Passions
-  if (isVerified) strength += 15; // Photo verification blue badge bonus!
-  strength = Math.min(100, Math.max(15, strength));
+  // Profile strength: what is filled in, nothing else
+  let strength = 30;
+  if (photos.length >= 1) strength += 20;
+  if (photos.length >= 2) strength += 15;
+  if (photos.length >= 3) strength += 10;
+  if (displayBio.length > 15) strength += 15;
+  if (displayInterests.length >= 2) strength += 10;
+  strength = Math.min(100, strength);
 
   const strengthVal = document.getElementById('hkStrengthPercent');
   const strengthBar = document.getElementById('hkStrengthBar');
+  const strengthMeter = document.getElementById('hkStrengthMeter');
   const strengthHint = document.getElementById('hkStrengthHint');
   const strengthLink = document.querySelector('.hk-strength-link');
 
   if (strengthVal) strengthVal.textContent = strength + '%';
   if (strengthBar) strengthBar.style.width = strength + '%';
-  if (strengthLink) {
-    if (strength === 100) {
-      strengthLink.innerHTML = 'Superstar ⭐';
-      strengthLink.style.color = '#F4C550';
-    } else {
-      strengthLink.innerHTML = 'Complete Profile &rarr;';
-      strengthLink.style.color = '';
-    }
-  }
-
+  if (strengthMeter) strengthMeter.setAttribute('aria-valuenow', String(strength));
+  if (strengthLink) strengthLink.style.display = strength >= 100 ? 'none' : '';
   if (strengthHint) {
-    if (photos.length === 0) {
-      strengthHint.textContent = '📸 Add your first profile photo to start getting matches!';
-    } else if (photos.length < 2) {
-      strengthHint.textContent = '📸 Add at least 1 more photo to boost discovery visibility by 3.5×';
-    } else if (!isVerified) {
-      strengthHint.textContent = '🛡️ Complete selfie photo verification below to earn the Blue Badge & +15% boost!';
-    } else if (!displayBio || displayBio.length < 15) {
-      strengthHint.textContent = '✍️ Add an engaging personal bio to reach 100% Superstar status!';
-    } else if (displayInterests.length < 2) {
-      strengthHint.textContent = '🎵 Add passions and interests to get matched with like-minded people!';
-    } else {
-      strengthHint.textContent = '🌟 100% Superstar Profile Active! Your profile gets maximum priority matching.';
-    }
+    if (photos.length === 0) strengthHint.textContent = 'Add a photo so people can see who you are.';
+    else if (photos.length < 2) strengthHint.textContent = 'Add at least one more photo.';
+    else if (displayBio.length <= 15) strengthHint.textContent = 'Write a bio of at least 16 characters.';
+    else if (displayInterests.length < 2) strengthHint.textContent = 'Add a couple of interests.';
+    else strengthHint.textContent = 'Your profile is complete.';
   }
 
-  // HookMe Gold Promo Banner State
+  // Gold row
   const vipHeading = document.getElementById('hkVipHeading');
   const vipSub = document.getElementById('hkVipSub');
   const vipCtaBtn = document.getElementById('hkVipCtaBtn');
-  if (appState.isVip) {
-    if (vipHeading) vipHeading.textContent = 'HookMe Gold Active 👑';
-    if (vipSub) vipSub.textContent = 'Unlimited Swipes, Rewinds, and Priority Likes';
-    if (vipCtaBtn) {
-      vipCtaBtn.textContent = 'Manage';
-      vipCtaBtn.style.background = 'rgba(255,255,255,0.15)';
-      vipCtaBtn.style.color = '#FFF';
-    }
-  } else {
-    if (vipHeading) vipHeading.textContent = 'See Who Likes You & Unlimited Swipes';
-    if (vipSub) vipSub.textContent = '5 daily Super Likes • Free monthly Boost • Rewinds';
-    if (vipCtaBtn) {
-      vipCtaBtn.textContent = 'Upgrade';
-      vipCtaBtn.style.background = 'linear-gradient(135deg, #F4C550, #E5A93C)';
-      vipCtaBtn.style.color = '#120D1A';
-    }
+  const goldRow = document.getElementById('hkGoldRow');
+  if (goldRow) goldRow.disabled = Boolean(appState.isVip);
+  if (vipHeading) vipHeading.textContent = appState.isVip ? 'HookMe Gold is active' : 'HookMe Gold';
+  if (vipSub) vipSub.textContent = 'Unlimited likes, rewinds and AI portraits';
+  if (vipCtaBtn) {
+    vipCtaBtn.textContent = appState.isVip ? 'Active' : 'See plans';
+    vipCtaBtn.classList.toggle('btn-gold', !appState.isVip);
+    vipCtaBtn.classList.toggle('btn-secondary', Boolean(appState.isVip));
   }
 
-  // Power-Ups Vault Tokens
-  const vSuper = document.getElementById('vaultSuperLikesVal');
-  const vBoost = document.getElementById('vaultBoostsVal');
-  const vRewind = document.getElementById('vaultRewindVal');
-  const vRewindBtn = document.getElementById('vaultRewindBtn');
-
-  if (vSuper) vSuper.textContent = appState.isVip ? '5 Daily' : (appState.superLikesRemaining || 0) + ' Left';
-  if (vBoost) vBoost.textContent = appState.isBoostActive ? 'Active ⚡' : (appState.isVip ? '1 Ready' : 'Get Boost');
-  if (vRewind) vRewind.textContent = appState.isVip ? 'Unlimited' : (appState.rewindsLeft || 1) + ' Left';
-  if (vRewindBtn) vRewindBtn.textContent = appState.isVip ? 'VIP Active' : 'Unlock';
-
-  // Real stats based on actual user activity
+  // Matches count: real matches only
   const realMatches = Array.isArray(matchedUsers) ? matchedUsers.filter(u => u && !DUMMY_USER_IDS.includes(u.id)).length : 0;
-  const realLikes = parseInt(localStorage.getItem('hmbs_real_likes_count') || '0', 10);
-  const realSuper = parseInt(localStorage.getItem('hmbs_real_super_count') || '0', 10);
-
   const matchesCount = document.getElementById('statMatches');
   if (matchesCount) matchesCount.textContent = realMatches;
-  const likesCount = document.getElementById('statLikes');
-  if (likesCount) likesCount.textContent = realLikes;
-  const superCount = document.getElementById('statSuper');
-  if (superCount) superCount.textContent = realSuper;
 }
 
 let _editProfilePhotos = [null, null, null, null, null, null];
@@ -10360,6 +10007,8 @@ function openEditProfileModal() {
     if (locInput) locInput.value = currentUser.location || '';
     if (interestsInput) interestsInput.value = (currentUser.interests || []).join(', ');
 
+    const editErr = document.getElementById('editProfileError');
+    if (editErr) editErr.textContent = '';
     modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     document.body.classList.add('edit-profile-modal-open');
@@ -10397,7 +10046,7 @@ async function handleEditProfilePhotoUpload(event) {
     return;
   }
 
-  showToast('Processing photo... 📸', 'info');
+  showToast('Processing photo…', 'info');
   try {
     const dataUrl = await compressImage(file, 720, 0.85);
     _editProfilePhotos[_activeEditPhotoSlot] = dataUrl;
@@ -10428,10 +10077,22 @@ async function handleEditProfilePhotoUpload(event) {
       syncPublicProfileToFirestore().catch(err => console.warn('Could not sync public profile:', err));
     }
 
-    showToast(_activeEditPhotoSlot === 0 ? '✓ Main photo updated! ✨' : '✓ Photo added! ✨', 'success');
+    showToast(_activeEditPhotoSlot === 0 ? 'Main photo updated.' : 'Photo added.', 'success');
   } catch (err) {
     console.error('Edit photo upload error:', err);
     showToast('Could not process this image. Try another photo.', 'error');
+  }
+}
+
+function _syncEditPhotosToCloud() {
+  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
+      image: currentUser.image || '',
+      avatar: currentUser.avatar || '',
+      photos: currentUser.photos || [],
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true }).catch(() => {});
+    syncPublicProfileToFirestore().catch(() => {});
   }
 }
 
@@ -10439,29 +10100,27 @@ function _renderEditPhotoSlot(slotIndex, dataUrl) {
   const slotEl = document.getElementById('editSlot' + slotIndex);
   const innerEl = document.getElementById('editSlotInner' + slotIndex);
   if (!slotEl || !innerEl) return;
+  const emptyIcon = slotIndex === 0
+    ? '<svg class="i i-lg" aria-hidden="true"><use href="#i-image-plus"/></svg>'
+    : '<svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>';
+  const label = slotIndex === 0 ? 'main photo' : `photo ${slotIndex + 1}`;
 
   if (dataUrl) {
     slotEl.classList.add('filled');
-    innerEl.style.backgroundImage = `url('${dataUrl}')`;
-    innerEl.style.backgroundSize = 'cover';
-    innerEl.style.backgroundPosition = 'center';
+    innerEl.style.backgroundImage = `url('${safeCssUrl(dataUrl)}')`;
     innerEl.innerHTML = '';
+    innerEl.setAttribute('aria-label', `Replace ${label}`);
 
-    if (!slotEl.querySelector('.sps-remove')) {
+    if (!slotEl.querySelector('.photo-slot-remove')) {
       const removeBtn = document.createElement('button');
-      removeBtn.className = 'sps-remove';
-      removeBtn.innerHTML = '✕';
-      removeBtn.title = 'Remove photo';
+      removeBtn.type = 'button';
+      removeBtn.className = 'photo-slot-remove';
+      removeBtn.innerHTML = '<svg class="i i-sm" aria-hidden="true"><use href="#i-x"/></svg>';
+      removeBtn.setAttribute('aria-label', `Remove ${label}`);
       removeBtn.onclick = (e) => {
         e.stopPropagation();
         _editProfilePhotos[slotIndex] = null;
-        slotEl.classList.remove('filled');
-        innerEl.style.backgroundImage = 'none';
-        const plusSvg = slotIndex === 0
-          ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
-          : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
-        innerEl.innerHTML = plusSvg;
-        removeBtn.remove();
+        _renderEditPhotoSlot(slotIndex, null);
         currentUser.photos = _editProfilePhotos.filter(Boolean);
         if (slotIndex === 0) {
           currentUser.image = currentUser.photos[0] || null;
@@ -10469,27 +10128,16 @@ function _renderEditPhotoSlot(slotIndex, dataUrl) {
         }
         saveToStorage();
         renderProfileScreen();
-
-        if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-          fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
-            image: currentUser.image || '',
-            avatar: currentUser.avatar || '',
-            photos: currentUser.photos || [],
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true }).catch(() => {});
-          syncPublicProfileToFirestore().catch(() => {});
-        }
+        _syncEditPhotosToCloud();
       };
       slotEl.appendChild(removeBtn);
     }
   } else {
     slotEl.classList.remove('filled');
     innerEl.style.backgroundImage = 'none';
-    const plusSvg = slotIndex === 0
-      ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
-      : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
-    innerEl.innerHTML = plusSvg;
-    slotEl.querySelector('.sps-remove')?.remove();
+    innerEl.innerHTML = emptyIcon;
+    innerEl.setAttribute('aria-label', `Add ${label}`);
+    slotEl.querySelector('.photo-slot-remove')?.remove();
   }
 }
 
@@ -10502,7 +10150,7 @@ async function handleProfilePhotoUpload(event) {
     return;
   }
 
-  showToast('Processing photo... 📸', 'info');
+  showToast('Processing photo…', 'info');
   try {
     const dataUrl = await compressImage(file, 600, 0.82);
     currentUser.image = dataUrl;
@@ -10524,7 +10172,7 @@ async function handleProfilePhotoUpload(event) {
       }, { merge: true }).catch(err => console.warn('Could not sync photo to Firestore:', err));
        syncPublicProfileToFirestore({ image: dataUrl, avatar: dataUrl }).catch(err => console.warn('Could not sync public photo:', err));
     }
-    showToast('✓ Photo updated successfully! ✨', 'success');
+    showToast('Photo updated successfully!', 'success');
   } catch (err) {
     console.error('Profile photo upload error:', err);
     showToast('Could not process this image. Try another photo.', 'error');
@@ -10575,7 +10223,7 @@ async function handleProfilePhotoUpload(event) {
     return;
   }
 
-  showToast('Processing your photo... 📸', 'info');
+  showToast('Processing your photo...', 'info');
   try {
     const dataUrl = await compressImage(file, 600, 0.82);
     currentUser.image = dataUrl;
@@ -10605,7 +10253,7 @@ async function handleProfilePhotoUpload(event) {
        syncPublicProfileToFirestore({ image: dataUrl, avatar: dataUrl }).catch(err => console.warn('Could not sync public photo:', err));
     }
 
-    showToast('✓ Real profile photo updated! ✨', 'success');
+    showToast('Real profile photo updated!', 'success');
   } catch (err) {
     console.error('Photo upload error:', err);
     showToast('Could not process this image. Try another photo.', 'error');
@@ -10632,7 +10280,7 @@ async function handleSignupPhotoUpload(event) {
     return;
   }
 
-  showToast('Processing photo... 📸', 'info');
+  showToast('Processing photo…', 'info');
   try {
     const dataUrl = await compressImage(file, 720, 0.85);
     window._signupPhotos[_activePhotoSlot] = dataUrl;
@@ -10648,7 +10296,7 @@ async function handleSignupPhotoUpload(event) {
 
     const errEl = document.getElementById('signupError3');
     if (errEl) errEl.textContent = '';
-    showToast(_activePhotoSlot === 0 ? '✓ Main photo set! Looking great ✨' : '✓ Photo added!', 'success');
+    showToast(_activePhotoSlot === 0 ? 'Main photo set.' : 'Photo added.', 'success');
   } catch (err) {
     console.error('Signup photo upload error:', err);
     showToast('Could not process this image. Try another.', 'error');
@@ -10667,20 +10315,21 @@ function _renderSignupPhotoSlot(slotIndex, dataUrl) {
   innerEl.innerHTML = '';
 
   // Add remove button if not already there
-  if (!slotEl.querySelector('.sps-remove')) {
+  if (!slotEl.querySelector('.photo-slot-remove')) {
     const removeBtn = document.createElement('button');
-    removeBtn.className = 'sps-remove';
-    removeBtn.innerHTML = '✕';
+    removeBtn.className = 'photo-slot-remove';
+    removeBtn.type = 'button';
+    removeBtn.innerHTML = '<svg class="i i-sm" aria-hidden="true"><use href="#i-x"/></svg>';
     removeBtn.title = 'Remove photo';
+    removeBtn.setAttribute('aria-label', `Remove photo ${slotIndex + 1}`);
     removeBtn.onclick = (e) => {
       e.stopPropagation();
       window._signupPhotos[slotIndex] = null;
       slotEl.classList.remove('filled');
       innerEl.style.backgroundImage = 'none';
-      const plusSvg = slotIndex === 0
-        ? '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>'
-        : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>';
-      innerEl.innerHTML = plusSvg;
+      innerEl.innerHTML = slotIndex === 0
+        ? '<svg class="i i-lg" aria-hidden="true"><use href="#i-image-plus"/></svg>'
+        : '<svg class="i" aria-hidden="true"><use href="#i-plus"/></svg>';
       removeBtn.remove();
       if (slotIndex === 0) { currentUser.image = null; currentUser.avatar = null; }
     };
@@ -10689,41 +10338,38 @@ function _renderSignupPhotoSlot(slotIndex, dataUrl) {
 }
 
 function saveProfile() {
-  const name = document.getElementById('editName')?.value.trim();
-  const age = parseInt(document.getElementById('editAge')?.value);
-  const bio = document.getElementById('editBio')?.value.trim();
-  const location = document.getElementById('editLocation')?.value.trim();
+  const val = (id) => (document.getElementById(id)?.value || '').trim();
+  const name = val('editName');
+  const age = parseInt(val('editAge'), 10);
+  const bio = val('editBio');
+  const errEl = document.getElementById('editProfileError');
+  const setErr = (msg, fieldId) => {
+    if (errEl) errEl.textContent = msg;
+    ['editName', 'editAge', 'editBio'].forEach(id => document.getElementById(id)?.removeAttribute('aria-invalid'));
+    const f = document.getElementById(fieldId);
+    if (f) { f.setAttribute('aria-invalid', 'true'); f.focus(); }
+  };
 
-  if (!name || isNaN(age) || !bio) {
-    showToast('Please fill in all required fields.', 'error');
-    return;
-  }
+  if (!name) return setErr('Enter your name.', 'editName');
+  if (!Number.isFinite(age) || age < 18 || age > 80) return setErr('Enter an age between 18 and 80.', 'editAge');
+  if (!bio) return setErr('Write a short bio.', 'editBio');
+  setErr('', '');
 
   currentUser.name = name;
   currentUser.age = age;
   currentUser.bio = bio;
-  if (location) currentUser.location = location;
+  currentUser.location = val('editLocation');
+  currentUser.interests = val('editInterests').split(',').map(t => t.trim()).filter(Boolean).slice(0, 12);
 
-  const interestsVal = document.getElementById('editInterests')?.value.trim();
-  if (interestsVal) {
-    currentUser.interests = interestsVal.split(',').map(s => s.trim()).filter(Boolean);
-  }
-
-  const intentVal = document.getElementById('editIntent')?.value || 'relationship';
-  const occVal = document.getElementById('editOccupation')?.value.trim() || '';
-  const eduVal = document.getElementById('editEducation')?.value.trim() || '';
-  const workoutVal = document.getElementById('editWorkout')?.value || 'Active (Gym & Sports)';
-  const drinkVal = document.getElementById('editDrinking')?.value || 'Socially on weekends';
-  const smokeVal = document.getElementById('editSmoking')?.value || 'Non-smoker';
-  const q1Val = document.getElementById('editPromptQ1')?.value || 'My ideal Sunday looks like...';
-  const a1Val = document.getElementById('editPromptA1')?.value.trim() || '';
-
-  currentUser.intent = intentVal;
-  currentUser.occupation = occVal;
-  currentUser.education = eduVal;
-  currentUser.workout = workoutVal;
-  currentUser.drinking = drinkVal;
-  currentUser.smoking = smokeVal;
+  // Optional answers stay empty when the person leaves them blank; nothing is filled in for them.
+  currentUser.intent = val('editIntent');
+  currentUser.occupation = val('editOccupation');
+  currentUser.education = val('editEducation');
+  currentUser.workout = val('editWorkout');
+  currentUser.drinking = val('editDrinking');
+  currentUser.smoking = val('editSmoking');
+  const q1Val = val('editPromptQ1') || 'My ideal Sunday looks like...';
+  const a1Val = val('editPromptA1');
   currentUser.prompts = a1Val ? [{ question: q1Val, answer: a1Val }] : [];
 
   saveToStorage();
@@ -10758,13 +10404,8 @@ function saveProfile() {
     settingsAvatar.textContent = '';
   }
 
-  const feedback = document.getElementById('profileSaveFeedback');
-  if (feedback) {
-    feedback.style.opacity = '1';
-    setTimeout(() => { feedback.style.opacity = '0'; }, 3000);
-  }
-  showToast('✓ Profile saved successfully!', 'success');
-  setTimeout(() => { closeEditProfileModal(); }, 600);
+  showToast('Profile saved.', 'success');
+  closeEditProfileModal();
 }
 
 // ==========================================================
@@ -10863,7 +10504,7 @@ async function generateAiImage() {
     saveToStorage();
 
     if (statusEl) { statusEl.textContent = '✨ Portrait generated and applied!'; statusEl.style.color = 'var(--accent-green)'; }
-    showToast('AI Portrait generated successfully! ✨', 'success');
+    showToast('AI Portrait generated successfully!', 'success');
   } catch (err) {
     console.error('AI generation error:', err);
     if (statusEl) { statusEl.textContent = '⚠️ Error generating image. Try again!'; statusEl.style.color = 'var(--accent-pink)'; }
@@ -10942,8 +10583,9 @@ async function callImagenAPI(promptText) {
 function renderSettingsScreen() {
   const avatar = document.getElementById('settingsAvatar');
   const nameEl = document.getElementById('settingsProfileName');
-  if (avatar) avatar.style.backgroundImage = `url('${currentUser.image}')`;
-  if (nameEl) nameEl.textContent = currentUser.name;
+  const settingsPhoto = currentUser.image || currentUser.avatar || '';
+  if (avatar) avatar.style.backgroundImage = settingsPhoto ? `url('${safeCssUrl(settingsPhoto)}')` : 'none';
+  if (nameEl) nameEl.textContent = currentUser.name || currentUser.displayName || 'Your profile';
 
   const currentTheme = localStorage.getItem('hookmebysam_theme') || 'dark';
   setTheme(currentTheme);
@@ -10972,18 +10614,13 @@ function renderSettingsScreen() {
     if (el) el.checked = settings[key];
   }
 
-  // Safety & Stealth Mode toggles
-  const stealthToggle = document.getElementById('settingsStealthToggle');
-  if (stealthToggle) stealthToggle.checked = Boolean(appState.isStealthMode);
-  const safetyStealthToggle = document.getElementById('safetyStealthToggle');
-  if (safetyStealthToggle) safetyStealthToggle.checked = Boolean(appState.isStealthMode);
-
-  // VIP status
+  // Gold status
   const vipStatus = document.getElementById('vipStatusRow');
-  if (vipStatus) {
-    vipStatus.innerHTML = appState.isVip
-      ? '<span style="color:var(--gold-1);font-weight:700">👑 VIP Gold Active</span>'
-      : '<span style="color:var(--flame-1);font-weight:700;cursor:pointer" onclick="openPaywall(\'settings\')">Upgrade to VIP →</span>';
+  const goldCard = document.getElementById('settingsGoldCard');
+  if (vipStatus) vipStatus.textContent = appState.isVip ? 'HookMe Gold is active' : 'Upgrade to Gold';
+  if (goldCard) {
+    goldCard.disabled = Boolean(appState.isVip);
+    goldCard.classList.toggle('is-active', Boolean(appState.isVip));
   }
 
   // User email & verification status
@@ -10993,17 +10630,16 @@ function renderSettingsScreen() {
   const emailBadge = document.getElementById('settingsEmailBadge');
   if (emailBadge) {
     const isVerified = Boolean(typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.emailVerified);
+    emailBadge.hidden = !currentUser.email;
     if (isVerified) {
-      emailBadge.innerHTML = '&#10003; Verified';
-      emailBadge.style.background = 'rgba(33,176,107,0.15)';
-      emailBadge.style.color = '#21B06B';
-      emailBadge.style.cursor = 'default';
+      emailBadge.textContent = 'Verified';
+      emailBadge.className = 'badge badge-verified';
+      emailBadge.disabled = true;
       emailBadge.onclick = null;
     } else {
-      emailBadge.innerHTML = 'Unverified &bull; Tap to verify';
-      emailBadge.style.background = 'rgba(244,197,80,0.15)';
-      emailBadge.style.color = '#F4C550';
-      emailBadge.style.cursor = 'pointer';
+      emailBadge.textContent = 'Verify email';
+      emailBadge.className = 'btn btn-secondary btn-sm';
+      emailBadge.disabled = false;
       emailBadge.onclick = handleResendEmailVerification;
     }
   }
@@ -11022,11 +10658,11 @@ function renderSettingsScreen() {
   const phoneSub = document.getElementById('settingsPhoneSub');
   if (phoneSub) {
     if (currentUser.phone && (currentUser.phoneVerified || currentUser.isPhoneVerified)) {
-      phoneSub.innerHTML = `<span style="color:#21B06B;font-weight:600">+234 ${currentUser.phone} &#10003; Verified</span>`;
+      phoneSub.textContent = `+234 ${currentUser.phone} · Verified`;
     } else if (currentUser.phone) {
-      phoneSub.textContent = `+234 ${currentUser.phone} (Tap to verify)`;
+      phoneSub.textContent = `+234 ${currentUser.phone} · Not verified`;
     } else {
-      phoneSub.textContent = 'Tap to verify your number';
+      phoneSub.textContent = 'Add and verify your number';
     }
   }
 
@@ -11034,17 +10670,19 @@ function renderSettingsScreen() {
   const blockedSub = document.getElementById('settingsBlockedCountSub');
   if (blockedSub) {
     const count = blockedUsers.length;
-    blockedSub.textContent = count === 1 ? '1 contact blocked' : `${count} contacts blocked`;
+    blockedSub.textContent = count === 0 ? 'No one blocked' : (count === 1 ? '1 person blocked' : `${count} people blocked`);
   }
 
   // Video call streaming quality subtext
   const currentQuality = localStorage.getItem('videoCallQuality') || '1080p';
   const qualitySub = document.getElementById('videoQualitySubtext');
   if (qualitySub) {
-    if (currentQuality === '1080p') qualitySub.textContent = 'Ultra HD 1080p (Crystal Clear)';
-    else if (currentQuality === '720p') qualitySub.textContent = 'HD 720p (Balanced)';
-    else qualitySub.textContent = 'Standard 480p (Data Saver)';
+    if (currentQuality === '1080p') qualitySub.textContent = '1080p (uses more data)';
+    else if (currentQuality === '720p') qualitySub.textContent = '720p (balanced)';
+    else qualitySub.textContent = '480p (saves data)';
   }
+
+  renderNotifRow();
 
   // Device permissions subtext
   const permSub = document.getElementById('devicePermissionsSubtext');
@@ -11052,6 +10690,41 @@ function renderSettingsScreen() {
     updateDevicePermissionsSubtext(permSub);
   }
 }
+
+function renderNotifRow() {
+  const sub = document.getElementById('settingsNotifSub');
+  if (!sub) return;
+  if (!('Notification' in window)) {
+    sub.textContent = 'Not supported in this browser';
+  } else if (Notification.permission === 'granted') {
+    sub.textContent = 'On. You will be alerted to matches and messages.';
+  } else if (Notification.permission === 'denied') {
+    sub.textContent = 'Blocked. Allow notifications in your browser settings.';
+  } else {
+    sub.textContent = 'Off. Tap to turn on.';
+  }
+}
+
+function handleNotifRowClick() {
+  if (!('Notification' in window)) {
+    showToast('This browser does not support notifications.', 'info');
+    return;
+  }
+  if (Notification.permission === 'granted') {
+    showToast('Notifications are on. To turn them off, use your browser or phone settings.', 'info');
+  } else if (Notification.permission === 'denied') {
+    showToast('Notifications are blocked. Allow them in your browser or phone settings.', 'warning');
+  } else {
+    Notification.requestPermission().then(perm => {
+      if (perm === 'granted') {
+        if (typeof initPushNotifications === 'function') initPushNotifications();
+        showToast('Notifications are on.', 'success');
+      }
+      renderNotifRow();
+    }).catch(() => renderNotifRow());
+  }
+}
+window.handleNotifRowClick = handleNotifRowClick;
 
 async function handleResendEmailVerification() {
   if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
@@ -11065,11 +10738,11 @@ async function handleResendEmailVerification() {
       currentUser.emailVerified = true;
       saveToStorage();
       renderSettingsScreen();
-      showToast('✅ Your email address is verified!', 'gold');
+      showToast('Your email address is verified!', 'gold');
       return;
     }
     await user.sendEmailVerification();
-    showToast(`✉️ Verification link sent to ${user.email}. Check inbox & spam folder!`, 'info');
+    showToast(`Verification link sent to ${user.email}. Check inbox & spam folder!`, 'info');
   } catch (err) {
     if (err.code === 'auth/too-many-requests') {
       showToast('Please wait a moment before requesting another verification email.', 'gold');
@@ -11137,7 +10810,7 @@ async function saveCustomUsername() {
   }
 
   closeEditUsernameModal();
-  showToast(`Username updated to @${rawVal} ✨`, 'success');
+  showToast(`Username updated to @${rawVal}`, 'success');
 }
 window.saveCustomUsername = saveCustomUsername;
 
@@ -11169,19 +10842,7 @@ function updateAgeSetting() {
 function updateToggleSetting(key, el) {
   settings[key] = el.checked;
   saveToStorage();
-  if (key === 'verifiedOnly' && typeof applyDiscoveryFilters === 'function') {
-    applyDiscoveryFilters();
-  }
 }
-
-function updateVerifiedSetting(checked) {
-  settings.verifiedOnly = !!checked;
-  saveToStorage();
-  const filterToggle = document.getElementById('filterVerifiedOnly');
-  if (filterToggle) filterToggle.checked = !!checked;
-  if (typeof applyDiscoveryFilters === 'function') applyDiscoveryFilters();
-}
-window.updateVerifiedSetting = updateVerifiedSetting;
 
 function updateSliderGradient(slider) {
   const min = parseInt(slider.min) || 0;
@@ -11205,7 +10866,6 @@ function openDiscoveryFilterModal() {
   const maxDist = parseInt(settings.maxDistance || 50, 10);
   const minAge = parseInt(settings.minAge || 20, 10);
   const maxAge = parseInt(settings.maxAge || 35, 10);
-  const verifiedOnly = !!settings.verifiedOnly;
   _pendingFilterIntent = settings.intent || 'all';
 
   const distSlider = document.getElementById('filterDistanceSlider');
@@ -11215,7 +10875,6 @@ function openDiscoveryFilterModal() {
   const minAgeVal = document.getElementById('filterMinAgeVal');
   const maxAgeVal = document.getElementById('filterMaxAgeVal');
   const ageVal = document.getElementById('filterAgeVal');
-  const verifiedToggle = document.getElementById('filterVerifiedOnly');
   const intentVal = document.getElementById('filterIntentVal');
 
   if (distSlider) {
@@ -11236,10 +10895,10 @@ function openDiscoveryFilterModal() {
   if (maxAgeVal) maxAgeVal.textContent = maxAge;
   if (ageVal) ageVal.textContent = `${minAge} – ${maxAge}`;
 
-  if (verifiedToggle) verifiedToggle.checked = verifiedOnly;
-
   document.querySelectorAll('#filterIntentChips .filter-chip').forEach(chip => {
-    chip.classList.toggle('active', chip.dataset.intent === _pendingFilterIntent);
+    const on = chip.dataset.intent === _pendingFilterIntent;
+    chip.classList.toggle('active', on);
+    chip.setAttribute('aria-pressed', String(on));
   });
   if (intentVal) {
     const labels = { all: 'Open to all', relationship: 'Long-term', dating: 'Dating', friends: 'Friends' };
@@ -11249,7 +10908,6 @@ function openDiscoveryFilterModal() {
   updateFilterCountPreview();
 
   modal.style.display = 'flex';
-  modal.classList.add('open');
   if (typeof haptic === 'function') haptic('light');
 }
 window.openDiscoveryFilterModal = openDiscoveryFilterModal;
@@ -11297,15 +10955,10 @@ function onFilterAgeChange() {
 }
 window.onFilterAgeChange = onFilterAgeChange;
 
-function onFilterVerifiedToggle(checked) {
-  updateFilterCountPreview();
-}
-window.onFilterVerifiedToggle = onFilterVerifiedToggle;
-
 function selectFilterIntent(intent, btn) {
   _pendingFilterIntent = intent;
-  document.querySelectorAll('#filterIntentChips .filter-chip').forEach(c => c.classList.remove('active'));
-  if (btn) btn.classList.add('active');
+  document.querySelectorAll('#filterIntentChips .filter-chip').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); });
+  if (btn) { btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true'); }
   const intentVal = document.getElementById('filterIntentVal');
   if (intentVal) {
     const labels = { all: 'Open to all', relationship: 'Long-term', dating: 'Dating', friends: 'Friends' };
@@ -11328,7 +10981,6 @@ function getMatchingProfilesCount(criteria) {
     const dist = parseInt(String(p.distance || '').replace(/[^0-9]/g, ''), 10);
     if (!isNaN(dist) && dist > criteria.maxDistance) return false;
 
-    if (criteria.verifiedOnly && !(p.isVerified || p.verified)) return false;
 
     if (criteria.intent && criteria.intent !== 'all') {
       const pIntent = (p.intent || '').toLowerCase();
@@ -11343,13 +10995,12 @@ function updateFilterCountPreview() {
   const dist = parseInt(document.getElementById('filterDistanceSlider')?.value || settings.maxDistance || 50, 10);
   const minAge = parseInt(document.getElementById('filterMinAgeSlider')?.value || settings.minAge || 20, 10);
   const maxAge = parseInt(document.getElementById('filterMaxAgeSlider')?.value || settings.maxAge || 35, 10);
-  const verifiedOnly = !!document.getElementById('filterVerifiedOnly')?.checked;
   const intent = _pendingFilterIntent || 'all';
 
-  const count = getMatchingProfilesCount({ maxDistance: dist, minAge, maxAge, verifiedOnly, intent });
+  const count = getMatchingProfilesCount({ maxDistance: dist, minAge, maxAge, intent });
   const preview = document.getElementById('filterCountPreview');
   if (preview) {
-    preview.textContent = `(${count} profile${count === 1 ? '' : 's'})`;
+    preview.textContent = `· ${count} profile${count === 1 ? '' : 's'}`;
   }
 }
 
@@ -11357,12 +11008,10 @@ function applyDiscoveryFiltersAndClose() {
   const dist = parseInt(document.getElementById('filterDistanceSlider')?.value || 50, 10);
   const minAge = parseInt(document.getElementById('filterMinAgeSlider')?.value || 20, 10);
   const maxAge = parseInt(document.getElementById('filterMaxAgeSlider')?.value || 35, 10);
-  const verifiedOnly = !!document.getElementById('filterVerifiedOnly')?.checked;
 
   settings.maxDistance = dist;
   settings.minAge = minAge;
   settings.maxAge = maxAge;
-  settings.verifiedOnly = verifiedOnly;
   settings.intent = _pendingFilterIntent || 'all';
 
   // Sync with Settings screen controls if present
@@ -11386,14 +11035,12 @@ function applyDiscoveryFiltersAndClose() {
   }
   if (ageLabel) ageLabel.textContent = `${minAge}–${maxAge}`;
 
-  const verifiedSettingToggle = document.getElementById('settingsVerifiedOnlyToggle');
-  if (verifiedSettingToggle) verifiedSettingToggle.checked = verifiedOnly;
 
   saveToStorage();
   applyDiscoveryFilters();
   closeDiscoveryFilterModal();
 
-  showToast('Preferences updated! Discovering matches ⚡', 'success');
+  showToast('Preferences updated.', 'success');
   if (typeof haptic === 'function') haptic('medium');
 }
 window.applyDiscoveryFiltersAndClose = applyDiscoveryFiltersAndClose;
@@ -11402,7 +11049,6 @@ function resetDiscoveryFilters() {
   settings.maxDistance = 100;
   settings.minAge = 18;
   settings.maxAge = 60;
-  settings.verifiedOnly = false;
   settings.intent = 'all';
   _pendingFilterIntent = 'all';
 
@@ -11423,11 +11069,10 @@ function resetDiscoveryFilters() {
   if (maxAgeVal) maxAgeVal.textContent = '60';
   if (ageVal) ageVal.textContent = '18 – 60';
 
-  const verifiedToggle = document.getElementById('filterVerifiedOnly');
-  if (verifiedToggle) verifiedToggle.checked = false;
-
   document.querySelectorAll('#filterIntentChips .filter-chip').forEach(c => {
-    c.classList.toggle('active', c.dataset.intent === 'all');
+    const on = c.dataset.intent === 'all';
+    c.classList.toggle('active', on);
+    c.setAttribute('aria-pressed', String(on));
   });
 
   // Sync settings screen
@@ -11440,8 +11085,6 @@ function resetDiscoveryFilters() {
   if (minSlider2) minSlider2.value = 18;
   if (maxSlider2) maxSlider2.value = 60;
   if (ageLabel2) ageLabel2.textContent = '18–60';
-  const verifiedSettingToggle = document.getElementById('settingsVerifiedOnlyToggle');
-  if (verifiedSettingToggle) verifiedSettingToggle.checked = false;
 
   // Clear swiped in session so all profiles can be seen again
   if (window._swipedProfileIds) window._swipedProfileIds.clear();
@@ -11449,7 +11092,7 @@ function resetDiscoveryFilters() {
   saveToStorage();
   applyDiscoveryFilters();
   closeDiscoveryFilterModal();
-  showToast('Filters reset to default 🔄', 'info');
+  showToast('Filters reset.', 'info');
   if (typeof haptic === 'function') haptic('light');
 }
 window.resetDiscoveryFilters = resetDiscoveryFilters;
@@ -11461,7 +11104,6 @@ function updateFilterActiveDot() {
     (settings.maxDistance && settings.maxDistance < 80) ||
     (settings.minAge && settings.minAge > 18) ||
     (settings.maxAge && settings.maxAge < 50) ||
-    !!settings.verifiedOnly ||
     (settings.intent && settings.intent !== 'all')
   );
   dot.style.display = isCustom ? 'block' : 'none';
@@ -11477,15 +11119,14 @@ function updateEmptyStateFeedback() {
     (settings.maxDistance && settings.maxDistance < 80) ||
     (settings.minAge && settings.minAge > 18) ||
     (settings.maxAge && settings.maxAge < 50) ||
-    !!settings.verifiedOnly ||
     (settings.intent && settings.intent !== 'all')
   );
 
   if (isCustom) {
-    if (titleEl) titleEl.textContent = 'No profiles match your filters 🔍';
+    if (titleEl) titleEl.textContent = 'No profiles match your filters';
     if (subEl) subEl.textContent = 'Try expanding your maximum distance, age range, or turning off Verified Only to discover more people.';
   } else {
-    if (titleEl) titleEl.textContent = "You've seen everyone nearby! 🌍";
+    if (titleEl) titleEl.textContent = "You've seen everyone nearby";
     if (subEl) subEl.textContent = 'Expand your search radius or check back later for new profiles.';
   }
 }
@@ -11495,7 +11136,6 @@ function applyDiscoveryFilters(options = {}) {
   const minAge = parseInt(curSettings.minAge || 18, 10);
   const maxAge = parseInt(curSettings.maxAge || 60, 10);
   const maxDistance = parseInt(curSettings.maxDistance || 100, 10);
-  const verifiedOnly = !!curSettings.verifiedOnly;
   const intent = curSettings.intent || 'all';
 
   if (!window._masterDiscoveryPool || window._masterDiscoveryPool.length === 0) {
@@ -11522,7 +11162,6 @@ function applyDiscoveryFilters(options = {}) {
       if (dist > maxDistance) return false;
     }
 
-    if (verifiedOnly && !(p.isVerified || p.verified)) return false;
 
     if (intent && intent !== 'all') {
       const pIntent = (p.intent || '').toLowerCase();
@@ -11543,7 +11182,7 @@ window.applyDiscoveryFilters = applyDiscoveryFilters;
 // DEEP PROFILE DETAIL SHEET (Hinge/Tinder Expansion)
 // ==========================================================
 
-function openProfileDetailSheet(profileId, event) {
+function openProfileDetailSheet(profileId, event, opts = {}) {
   if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
 
   // Find the profile from stack, pool, data, or matches
@@ -11561,260 +11200,111 @@ function openProfileDetailSheet(profileId, event) {
   }
 
   appState.activeDetailProfileId = profile.id;
-  const compat = typeof calculateCompatibility === 'function'
-    ? calculateCompatibility(currentUser, profile)
-    : { score: 92, headline: 'High Chemistry', reasons: ['High chemistry and compatible vibes'], icebreakers: [] };
+  const compat = calculateCompatibility(currentUser, profile);
 
   const modal = document.getElementById('profileDetailModal');
   const sheet = modal?.querySelector('.profile-detail-sheet');
   const content = document.getElementById('detailSheetContent');
   if (!modal || !content) return;
 
-  // Extract photos
+  // Photos: only what the person uploaded.
   const photos = [];
-  if (Array.isArray(profile.photos) && profile.photos.length > 0) {
-    profile.photos.forEach(u => { if (u) photos.push(u); });
-  }
+  if (Array.isArray(profile.photos)) profile.photos.forEach(u => { if (u) photos.push(u); });
   if (photos.length === 0 && profile.image) photos.push(profile.image);
   if (photos.length === 0 && profile.avatar) photos.push(profile.avatar);
-  if (photos.length === 0) photos.push('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=700&q=80');
 
-  // Intent badge text and style
-  const intentMap = {
-    relationship: { label: '💍 Long-term partner', bg: 'rgba(255, 94, 142, 0.16)', color: '#FF5E8E' },
-    dating: { label: '🥂 Casual dating', bg: 'rgba(255, 171, 0, 0.16)', color: '#FFAB00' },
-    friends: { label: '☕ New friends', bg: 'rgba(56, 151, 240, 0.16)', color: '#3897F0' }
-  };
-  const intentInfo = intentMap[profile.intent] || { label: '✨ Open to explore', bg: 'rgba(255, 255, 255, 0.1)', color: '#ffffff' };
+  const intentKey = ({ dating: 'casual dating', friends: 'friendship' })[profile.intent] || profile.intent;
+  const intentLabel = INTENT_LABELS[intentKey] ? `Looking for ${INTENT_LABELS[intentKey]}` : '';
+  const distanceStr = typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(profile) : (profile.distance || '');
+  const location = profile.location || profile.city || '';
+  const isVerified = Boolean(profile.isVerified || profile.verified);
+  const icon = (name, cls = 'i-sm') => `<svg class="i ${cls}" aria-hidden="true"><use href="#i-${name}"/></svg>`;
 
-  // Dynamic distance string
-  const distanceStr = typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(profile) : (profile.distance || '2 km away');
+  // Details: shown only when the person filled them in. Nothing is guessed.
+  const detailRows = [
+    ['briefcase', 'Work', profile.occupation || profile.job],
+    ['graduation-cap', 'Education', profile.education || profile.school],
+    ['ruler', 'Height', profile.height],
+    ['dumbbell', 'Exercise', profile.workout],
+    ['wine', 'Drinking', profile.drinking],
+    ['cigarette', 'Smoking', profile.smoking]
+  ].filter(row => row[2] && String(row[2]).trim());
+  const detailsHTML = detailRows.map(([ic, label, val]) => `
+    <div class="detail-fact">
+      ${icon(ic, '')}
+      <span class="detail-fact-label">${label}</span>
+      <span class="detail-fact-val">${escHtml(val)}</span>
+    </div>`).join('');
 
-  // Lifestyle attributes with safe fallbacks
-  const occupation = profile.occupation || profile.job || (profile.bio && profile.bio.includes('developer') ? 'Software Developer' : 'Creative Professional');
-  const education = profile.education || profile.school || 'University Graduate';
-  const location = profile.location || profile.city || 'Lagos, Nigeria';
-  const height = profile.height || '5\'8" (173 cm)';
-  const zodiac = profile.zodiac || 'Star Sign ✨';
-  const drinking = profile.drinking || 'Socially 🍷';
-  const smoking = profile.smoking || 'Non-smoker 🚭';
-  const workout = profile.workout || 'Active lifestyle 🏋️';
-
-  // Prompts
-  const prompts = Array.isArray(profile.prompts) && profile.prompts.length > 0 ? profile.prompts : [
-    { question: 'My simple pleasures...', answer: profile.bio || 'Warm cinnamon rolls, late-night driving playlists, and good banter.' },
-    { question: 'Together, we could...', answer: 'Try out new aesthetic food spots, exchange playlists, and plan spontaneous getaways.' }
-  ];
-
-  // Tags HTML
-  const tagsHTML = (Array.isArray(profile.tags) ? profile.tags : ['Music 🎵', 'Travel ✈️', 'Foodie 🍜'])
-    .map(t => `<span class="detail-tag-chip">${escHtml(t)}</span>`).join('');
-
-  // Build Prompts + Photos interwoven stream
-  let promptsAndPhotosHTML = '';
+  // The person's own prompts, with further photos between them.
+  const prompts = Array.isArray(profile.prompts) ? profile.prompts.filter(pr => pr && pr.answer) : [];
+  let streamHTML = '';
   prompts.forEach((pr, pIdx) => {
-    promptsAndPhotosHTML += `
-      <div class="detail-prompt-card">
-        <div class="prompt-card-badge">PROMPT</div>
-        <div class="prompt-question">${escHtml(pr.question)}</div>
-        <div class="prompt-answer">${escHtml(pr.answer)}</div>
-      </div>
-    `;
-    // Interleave photos if available
-    const nextPhoto = photos[pIdx + 1];
-    if (nextPhoto) {
-      promptsAndPhotosHTML += `
-        <div class="detail-photo-card">
-          <img src="${escHtml(nextPhoto)}" alt="${escHtml(profile.name || 'User')}" class="detail-stream-img" loading="lazy">
-        </div>
-      `;
-    }
+    streamHTML += `
+      <figure class="detail-prompt-card">
+        <figcaption class="prompt-question">${escHtml(pr.question || '')}</figcaption>
+        <p class="prompt-answer">${escHtml(pr.answer)}</p>
+      </figure>`;
+    if (photos[pIdx + 1]) streamHTML += `<img src="${escHtml(photos[pIdx + 1])}" alt="Photo of ${escHtml(profile.name || 'this person')}" class="detail-stream-img" loading="lazy">`;
   });
-
-  // Remaining photos if any
-  if (photos.length > prompts.length + 1) {
-    for (let pi = prompts.length + 1; pi < photos.length; pi++) {
-      promptsAndPhotosHTML += `
-        <div class="detail-photo-card">
-          <img src="${escHtml(photos[pi])}" alt="${escHtml(profile.name || 'User')}" class="detail-stream-img" loading="lazy">
-        </div>
-      `;
-    }
+  for (let pi = prompts.length + 1; pi < photos.length; pi++) {
+    streamHTML += `<img src="${escHtml(photos[pi])}" alt="Photo of ${escHtml(profile.name || 'this person')}" class="detail-stream-img" loading="lazy">`;
   }
 
+  const tags = Array.isArray(profile.tags) ? profile.tags : (Array.isArray(profile.interests) ? profile.interests : []);
+  const sharedSet = new Set(compat.sharedTags.map(t => t));
+  const tagsHTML = tags.map(t => `<span class="chip ${sharedSet.has(t) ? 'is-selected' : 'chip-static'}">${escHtml(t)}</span>`).join('');
+
+  const section = (title, body) => body ? `<section class="detail-section"><h2 class="detail-section-title">${title}</h2>${body}</section>` : '';
+
   content.innerHTML = `
-    <!-- Hero Photo Container -->
-    <div class="detail-hero-photo-wrap">
-      <img src="${escHtml(photos[0])}" alt="${escHtml(profile.name || 'Profile')}" class="detail-hero-photo">
-      <div class="detail-hero-gradient"></div>
-      <div class="detail-hero-badges">
-        <div class="detail-distance-badge">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-          <span>${escHtml(distanceStr)}</span>
-        </div>
-        ${photos.length > 1 ? `<div class="detail-photo-count-badge">📷 ${photos.length} photos</div>` : ''}
-      </div>
+    <div class="detail-hero-photo-wrap${photos.length ? '' : ' no-photo'}">
+      ${photos.length ? `<img src="${escHtml(photos[0])}" alt="Photo of ${escHtml(profile.name || 'this person')}" class="detail-hero-photo">` : ''}
+      ${photos.length > 1 ? `<span class="detail-photo-count-badge">${icon('images')}${photos.length} photos</span>` : ''}
     </div>
 
-    <!-- Name, Verification, and Intent Header -->
     <div class="detail-header-info">
       <div class="detail-name-row">
-        <h1 class="detail-profile-name" id="detailSheetName">
-          ${escHtml(profile.name || 'User')}, ${escHtml(profile.age ?? '')}
-        </h1>
-        ${(profile.isVerified || profile.verified) ? `
-          <span class="verified-icon detail-verified-badge" title="Photo Verified Profile">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-          </span>
-        ` : ''}
+        <h1 class="detail-profile-name" id="detailSheetName">${escHtml(profile.name || 'User')}${profile.age ? `, ${escHtml(profile.age)}` : ''}</h1>
+        ${isVerified ? `<span class="badge badge-verified">${icon('badge-check')}Verified</span>` : ''}
       </div>
-
       <div class="detail-pills-row">
-        <div class="detail-intent-pill" style="background:${intentInfo.bg};color:${intentInfo.color}">
-          ${escHtml(intentInfo.label)}
-        </div>
-        <div class="detail-location-pill">
-          📍 ${escHtml(location)}
-        </div>
+        ${intentLabel ? `<span class="detail-meta">${icon('heart')}${escHtml(intentLabel)}</span>` : ''}
+        ${location ? `<span class="detail-meta">${icon('map-pin')}${escHtml(location)}</span>` : ''}
+        ${distanceStr ? `<span class="detail-meta">${icon('compass')}${escHtml(distanceStr)}</span>` : ''}
       </div>
     </div>
 
-    <!-- Matchmaking Insights Card: Why You Two Click -->
-    <div class="detail-section detail-compat-section">
-      <div class="detail-compat-card">
-        <div class="compat-card-top">
-          <div class="compat-score-circle">
-            <div class="compat-score-val">${compat.score}%</div>
-            <div class="compat-score-lbl">MATCH</div>
-          </div>
-          <div class="compat-card-text">
-            <div class="compat-headline">${escHtml(compat.headline)}</div>
-            <div class="compat-subhead">Matchmaking insights &amp; lifestyle alignment</div>
-          </div>
-        </div>
-        <div class="compat-reasons-list">
-          ${compat.reasons.map(r => `
-            <div class="compat-reason-item">
-              <span class="compat-reason-check">✓</span>
-              <span class="compat-reason-txt">${escHtml(r)}</span>
-            </div>
-          `).join('')}
-        </div>
-        ${profile.voiceIntro ? `
-          <div class="detail-voice-intro-box">
-            <div class="voice-intro-header">
-              <span class="voice-intro-icon">🎙️</span>
-              <span class="voice-intro-title">Voice Introduction (${escHtml(profile.voiceIntro.duration || '0:15')})</span>
-            </div>
-            <button type="button" class="voice-intro-play-pill" id="detailVoicePlayPill_${profile.id}" onclick="playProfileVoiceIntro('${profile.id}', event)">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-              <span id="detailVoiceBtnText_${profile.id}">Listen to ${escHtml(profile.name)}</span>
-              <span class="voice-mini-waves" id="detailVoiceWaves_${profile.id}"><span></span><span></span><span></span><span></span></span>
-            </button>
-          </div>
-        ` : ''}
-        <div class="compat-icebreakers-box">
-          <div class="compat-icebreakers-header">✨ Recommended Icebreakers:</div>
-          <div class="compat-icebreaker-chips">
-            ${compat.icebreakers.map(ib => `
-              <button type="button" class="compat-icebreaker-chip" onclick="startChatWithIcebreaker('${profile.id}', ${JSON.stringify(ib)})">
-                ${escHtml(ib)}
-              </button>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    </div>
+    ${section('In common', compat.reasons.length ? `<ul class="detail-common-list">${compat.reasons.map(r => `<li>${icon('check')}${escHtml(r)}</li>`).join('')}</ul>` : '')}
 
-    <!-- About Me / Bio Section -->
-    <div class="detail-section">
-      <div class="detail-section-title">About Me</div>
-      <div class="detail-bio-card">
-        <p class="detail-bio-text">${escHtml(profile.bio || 'Hey there! Looking to meet genuine, kind people to create great memories with.')}</p>
-      </div>
-    </div>
+    ${profile.voiceIntro ? section('Voice intro', `
+      <button type="button" class="btn btn-secondary voice-intro-play-pill" id="detailVoicePlayPill_${profile.id}" onclick="playProfileVoiceIntro('${profile.id}', event)">
+        ${icon('play', '')}
+        <span id="detailVoiceBtnText_${profile.id}">Listen to ${escHtml(profile.name || 'them')}</span>
+        <span class="muted-dur">${escHtml(profile.voiceIntro.duration || '')}</span>
+      </button>`) : ''}
 
-    <!-- The Basics / Lifestyle Grid -->
-    <div class="detail-section">
-      <div class="detail-section-title">The Basics & Lifestyle</div>
-      <div class="detail-basics-grid">
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">💼</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Work</span>
-            <strong class="basic-chip-val">${escHtml(occupation)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">🎓</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Education</span>
-            <strong class="basic-chip-val">${escHtml(education)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">📏</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Height</span>
-            <strong class="basic-chip-val">${escHtml(height)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">♈</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Zodiac</span>
-            <strong class="basic-chip-val">${escHtml(zodiac)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">🏋️</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Workout</span>
-            <strong class="basic-chip-val">${escHtml(workout)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">🍷</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Drinking</span>
-            <strong class="basic-chip-val">${escHtml(drinking)}</strong>
-          </div>
-        </div>
-        <div class="detail-basic-chip">
-          <div class="basic-chip-icon">🚭</div>
-          <div class="basic-chip-info">
-            <span class="basic-chip-label">Smoking</span>
-            <strong class="basic-chip-val">${escHtml(smoking)}</strong>
-          </div>
-        </div>
-      </div>
-    </div>
+    ${section('About', profile.bio ? `<p class="detail-bio-text">${escHtml(profile.bio)}</p>` : '')}
+    ${section('Details', detailsHTML ? `<div class="detail-facts">${detailsHTML}</div>` : '')}
+    ${section('Prompts and photos', streamHTML)}
+    ${section('Interests', tagsHTML ? `<div class="detail-tags-cloud">${tagsHTML}</div>` : '')}
 
-    <!-- Prompts and Secondary Photos Flow -->
-    <div class="detail-section">
-      <div class="detail-section-title">Prompts & Moments</div>
-      ${promptsAndPhotosHTML}
-    </div>
+    ${section('Say hello', compat.icebreakers.length ? `
+      <div class="compat-icebreaker-chips">
+        ${compat.icebreakers.map(ib => `<button type="button" class="compat-icebreaker-chip" onclick="startChatWithIcebreaker('${profile.id}', ${escHtml(JSON.stringify(ib))})">${escHtml(ib)}</button>`).join('')}
+      </div>` : '')}
 
-    <!-- Passions & Interests -->
-    <div class="detail-section">
-      <div class="detail-section-title">Passions & Interests</div>
-      <div class="detail-tags-cloud">
-        ${tagsHTML}
-      </div>
-    </div>
-
-    <!-- Safety & Report Footer -->
     <div class="detail-report-section">
-      <button type="button" class="detail-report-link-btn" onclick="openReportFromDetailSheet('${profile.id}')">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <span>Report or Block ${escHtml(profile.name || 'User')}</span>
+      <button type="button" class="btn btn-ghost detail-report-link-btn" onclick="openReportFromDetailSheet('${profile.id}')">
+        ${icon('flag')}Report or block ${escHtml(profile.name || 'this person')}
       </button>
     </div>
   `;
 
   // Reset scroll to top
   content.scrollTop = 0;
+  const detailActions = document.getElementById('detailSheetActionsBar');
+  if (detailActions) detailActions.hidden = Boolean(opts.hideActions);
 
   // Open modal
   modal.style.display = 'flex';
@@ -11822,6 +11312,7 @@ function openProfileDetailSheet(profileId, event) {
     modal.classList.add('open');
     if (sheet) sheet.classList.add('open');
   });
+  dialogOpened(modal, { close: closeProfileDetailSheet, focus: '.detail-sheet-close-btn' });
 
   document.body.style.overflow = 'hidden';
   if (typeof haptic === 'function') haptic('light');
@@ -11835,6 +11326,7 @@ function closeProfileDetailSheet() {
 
   if (sheet) sheet.classList.remove('open');
   modal.classList.remove('open');
+  dialogClosed(modal);
 
   setTimeout(() => {
     modal.style.display = 'none';
@@ -11868,8 +11360,8 @@ function openReportFromDetailSheet(profileId) {
 }
 window.openReportFromDetailSheet = openReportFromDetailSheet;
 
-async function handleLogout() {
-  if (!confirm('Are you sure you want to log out?')) return;
+async function handleLogout(skipConfirm) {
+  if (skipConfirm !== true && !(await confirmDialog({ title: 'Log out?', message: 'You will need to sign in again to use your account.', confirmLabel: 'Log out' }))) return;
 
   // Back up profile data before clearing session so returning sign-ins are instant
   if (currentUser && currentUser.email && currentUser.name && !currentUser.name.includes('@')) {
@@ -11906,7 +11398,7 @@ async function handleLogout() {
 }
 
 async function handleDeleteAccount() {
-  if (!confirm('⚠️ Are you sure you want to permanently delete your account and all associated data? This action cannot be undone.')) return;
+  if (!(await confirmDialog({ title: 'Delete your account?', message: 'Your profile, matches and messages are permanently deleted. This cannot be undone.', confirmLabel: 'Delete account', danger: true }))) return;
 
   if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
     showToast('Please sign in before deleting your account.', 'error');
@@ -11945,9 +11437,15 @@ async function handleDeleteAccount() {
 // VIP / PAYWALL
 // ==========================================================
 
+const PAYWALL_PLANS = {
+  1: { price: 2500,  label: '₦2,500',  name: '1 Week VIP Gold' },
+  2: { price: 7500,  label: '₦7,500',  name: '1 Month VIP Gold' },
+  3: { price: 25000, label: '₦25,000', name: 'Lifetime VIP Gold' }
+};
+
 function openPaywall(context) {
   if (appState.isVip) {
-    showToast('👑 VIP Gold Active: Unlimited access is unlocked!', 'gold');
+    showToast('Gold is active on your account.', 'success');
     return;
   }
 
@@ -11955,23 +11453,20 @@ function openPaywall(context) {
   const reasonEl = document.getElementById('paywallReason');
   if (!modal) return;
 
+  // Only name limits that Gold really lifts.
   const reasons = {
-    rewind: 'Out of free rewinds! Upgrade for unlimited.',
-    ai_gen: 'Out of free AI generations! Upgrade for unlimited.',
-    bulk_ai: 'Bulk AI generation requires VIP Gold.',
-    likes_you: 'See who swiped right on you instantly with VIP Gold.',
-    settings: 'Unlock all premium features with VIP Gold.',
-    boost: 'Upgrade to VIP Gold for unlimited profile boosts.',
-    super_like: 'Send unlimited Super Likes with VIP Gold.',
-    profile_upgrade: 'Unlock all premium features with VIP Gold.',
-    swipe_limit: "You’ve used all your free likes today 🔥 Upgrade VIP Gold for unlimited swipes.",
-    default: 'Unlock all VIP features and match instantly.'
+    rewind: 'You have used your free rewind. Gold gives you unlimited rewinds.',
+    ai_gen: 'You have used your free AI portrait. Gold gives you unlimited AI portraits.',
+    bulk_ai: 'Generating several AI portraits at once needs Gold.',
+    swipe_limit: 'You have reached the daily like limit. Gold removes it.',
+    default: 'Gold removes the daily limits on likes, rewinds and AI portraits.'
   };
   if (reasonEl) reasonEl.textContent = reasons[context] || reasons.default;
 
+  modal.style.display = 'flex';
   modal.classList.add('open');
   selectPricingTier(appState.selectedPricingTier || 2);
-  startTgCountdownTimer();
+  dialogOpened(modal, { close: closePaywall, focus: '.plan.is-selected' });
 }
 
 function triggerSuperLike() {
@@ -11979,116 +11474,58 @@ function triggerSuperLike() {
     openPaywall('super_like');
     return;
   }
-  showToast('⭐ Super Like sent! You will appear at the top of their matches!', 'gold');
+  showToast('Like sent', 'gold');
   triggerManualSwipe('right');
 }
 
 function closePaywall() {
   const modal = document.getElementById('paywallModal');
-  if (modal) modal.classList.remove('open');
-  if (_tgTimerInterval) { clearInterval(_tgTimerInterval); _tgTimerInterval = null; }
-}
-
-let _tgTimerInterval = null;
-let _tgSecondsRemaining = 29 * 60 + 49; // 00:29:49
-
-function startTgCountdownTimer() {
-  if (_tgTimerInterval) clearInterval(_tgTimerInterval);
-  const timerEl = document.getElementById('tgCountdownTimer');
-  if (!timerEl) return;
-
-  const update = () => {
-    if (_tgSecondsRemaining <= 0) {
-      _tgSecondsRemaining = 30 * 60;
-    }
-    const hrs = Math.floor(_tgSecondsRemaining / 3600);
-    const mins = Math.floor((_tgSecondsRemaining % 3600) / 60);
-    const secs = _tgSecondsRemaining % 60;
-    timerEl.textContent =
-      String(hrs).padStart(2, '0') + ':' +
-      String(mins).padStart(2, '0') + ':' +
-      String(secs).padStart(2, '0');
-    _tgSecondsRemaining--;
-  };
-  update();
-  _tgTimerInterval = setInterval(update, 1000);
+  if (!modal) return;
+  modal.classList.remove('open');
+  modal.style.display = 'none';
+  dialogClosed(modal);
 }
 
 function selectPricingTier(n) {
-  appState.selectedPricingTier = n;
+  const plan = PAYWALL_PLANS[n] || PAYWALL_PLANS[2];
+  appState.selectedPricingTier = PAYWALL_PLANS[n] ? n : 2;
 
-  // Toggle tier items for Tinder Gold layout
-  document.querySelectorAll('.tg-tier-item').forEach((item, i) => {
-    item.classList.toggle('selected', (i + 1) === n);
+  [1, 2, 3].forEach((i) => {
+    const card = document.getElementById(`pricingCard${i}`);
+    if (!card) return;
+    const on = i === appState.selectedPricingTier;
+    card.classList.toggle('is-selected', on);
+    card.setAttribute('aria-checked', String(on));
   });
-  document.querySelectorAll('.pricing-card').forEach((card, i) => {
-    card.classList.toggle('selected', (i + 1) === n);
-  });
 
-  const tierPrices = { 1: '₦2,500', 2: '₦7,500', 3: '₦25,000' };
-  const tierNames  = { 1: '1 Week VIP Gold', 2: '1 Month VIP Gold', 3: 'Lifetime VIP Gold' };
-  const nameEl  = document.getElementById('renewalPlanName');
-  const priceEl = document.getElementById('renewalPrice');
-  const ctaEl   = document.getElementById('paywallCtaLabel');
-  if (nameEl)  nameEl.textContent  = tierNames[n]  || '1 Month VIP Gold';
-  if (priceEl) priceEl.textContent = tierPrices[n] || '₦7,500';
-  if (ctaEl)   ctaEl.textContent   = `Continue — ${tierNames[n] || 'VIP Gold'}`;
-
-  // Update Tinder Gold hero card text dynamically
-  const titleEl = document.getElementById('paywallTitle');
-  const pricePrimary = document.getElementById('tgPricePrimary');
-  const priceStruck = document.getElementById('tgPriceStruck');
-  const renewalNotice = document.getElementById('tgRenewalNotice');
-
-  if (n === 1) {
-    if (titleEl) titleEl.textContent = 'Get 30% Off your first week of HookMe Gold®';
-    if (pricePrimary) pricePrimary.textContent = 'First week ₦2,500';
-    if (priceStruck) priceStruck.textContent = '₦3,500/wk';
-    if (renewalNotice) renewalNotice.innerHTML = 'Renews at ₦2,500/week after first week. Your payment will be processed securely via Paystack. Cancel anytime in Settings. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.';
-  } else if (n === 2) {
-    if (titleEl) titleEl.textContent = 'Get 50% Off your first month of HookMe Gold®';
-    if (pricePrimary) pricePrimary.textContent = 'First month ₦7,500';
-    if (priceStruck) priceStruck.textContent = '₦15,000/mo';
-    if (renewalNotice) renewalNotice.innerHTML = 'Renews at ₦15,000 after first month. Your payment will be processed securely via Paystack. Cancel anytime in Settings. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.';
-  } else if (n === 3) {
-    if (titleEl) titleEl.textContent = 'Get Lifetime Unlimited Access to HookMe Gold®';
-    if (pricePrimary) pricePrimary.textContent = 'Lifetime VIP ₦25,000';
-    if (priceStruck) priceStruck.textContent = '₦45,000';
-    if (renewalNotice) renewalNotice.innerHTML = 'One-time payment for permanent VIP access. Your payment will be processed securely via Paystack. No renewals. By tapping Continue, you agree to our <span style="text-decoration:underline;cursor:pointer" onclick="openTermsModal()">Terms</span>.';
-  }
+  const ctaEl = document.getElementById('paywallCtaLabel');
+  if (ctaEl) ctaEl.textContent = `Pay ${plan.label} with Paystack`;
 }
 
 function simulatePurchase() {
   const btn = document.getElementById('paywallCta');
   const label = document.getElementById('paywallCtaLabel');
-
-  // Calculate price based on selected tier matching HTML pricing cards
-  const tierPrices = { 1: 2500, 2: 7500, 3: 25000 };
-  const tierNames  = { 1: '1 Week VIP Gold', 2: '1 Month VIP Gold', 3: 'Lifetime VIP Gold' };
-  const tier  = appState.selectedPricingTier || 2;
-  const price = tierPrices[tier] || 7500;
-  const name  = tierNames[tier]  || '1 Month VIP Gold';
+  const tier = PAYWALL_PLANS[appState.selectedPricingTier] ? appState.selectedPricingTier : 2;
+  const { price, name } = PAYWALL_PLANS[tier];
+  const resetCta = () => { selectPricingTier(tier); if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); } };
 
   if (typeof triggerPaystackPayment === "function") {
     triggerPaystackPayment(name, price, async (response) => {
       // Paystack's popup saying "success" is just JS running in this
       // browser — it proves nothing by itself. Don't grant VIP until the
       // backend has independently confirmed the payment with Paystack.
-      if (btn) { btn.disabled = true; }
+      if (btn) { btn.disabled = true; btn.setAttribute('aria-busy', 'true'); }
       if (label) { label.textContent = 'Confirming payment…'; }
 
       const result = await verifyPaymentOnBackend(response.reference, tier);
 
-      if (btn) { btn.disabled = false; }
-      if (label) { label.textContent = 'Subscribe Now — Unlock VIP Gold'; }
-
+      resetCta();
       if (result.success) {
         completeVipUpgrade();
       }
     });
   } else {
-    if (btn) { btn.disabled = false; }
-    if (label) { label.textContent = 'Subscribe Now — Unlock VIP Gold'; }
+    resetCta();
     showToast('Payment service is unavailable. Please try again.', 'error');
   }
 }
@@ -12099,13 +11536,12 @@ function completeVipUpgrade() {
   saveToStorage();
   closePaywall();
 
-  showToast('👑 VIP GOLD ACTIVATED!', 'gold');
+  showToast('Gold is active. Your limits are lifted.', 'success');
 
   // Persistent VIP state is granted by the backend after verified payment.
 
   updateMatchesNotificationBadge();
   renderMatchesView();
-  revealBlurredMatches();
   renderProfileScreen();
   renderSettingsScreen();
   saveToStorage();
@@ -12139,141 +11575,63 @@ function applyVipUI() {
     boostBtn.title = 'Profile Boost (VIP Unlimited)';
   }
 
-  // 7. Matches screen: Blurred Likes card
-  const blurCard = document.querySelector('.vip-blur-card');
-  if (blurCard) {
-    if (isVip) {
-      blurCard.onclick = () => showToast('👑 VIP Unlocked: You can see everyone who likes you!', 'gold');
-      const cardTitle = blurCard.querySelector('.vip-card-title');
-      const cardBadge = blurCard.querySelector('.vip-card-badge');
-      const cardSub = blurCard.querySelector('.vip-card-sub');
-      if (cardTitle) {
-        cardTitle.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:6px;filter:drop-shadow(0 0 4px rgba(244,197,80,0.8))"><path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="#F4C550"/></svg> People Who Liked You`;
-      }
-      if (cardBadge) {
-        cardBadge.textContent = '👑 VIP UNLOCKED';
-        cardBadge.style.background = 'var(--gold-gradient)';
-        cardBadge.style.color = '#1A0E04';
-      }
-      if (cardSub) {
-        cardSub.textContent = 'VIP Gold active — all secret likes revealed!';
-      }
-      revealBlurredMatches();
-    }
-  }
-
-  // 8. Profile screen: Upgrade banner
-  const profileBanner = document.querySelector('.profile-upgrade-banner');
-  if (profileBanner) {
-    if (isVip) {
-      profileBanner.style.background = 'linear-gradient(135deg, rgba(244, 197, 80, 0.22) 0%, rgba(184, 132, 43, 0.12) 100%)';
-      profileBanner.style.border = '1.5px solid rgba(244, 197, 80, 0.45)';
-      profileBanner.innerHTML = `
-        <div class="upgrade-crown-wrap">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" style="filter:drop-shadow(0 0 16px rgba(244,197,80,0.9))">
-            <path d="M12 2L9.5 8.5L3 6.5L7.5 12L3 17.5L9.5 15.5L12 22L14.5 15.5L21 17.5L16.5 12L21 6.5L14.5 8.5L12 2Z" fill="#F4C550"/>
-          </svg>
-        </div>
-        <div class="upgrade-vip-title" style="color:var(--gold-1)">👑 VIP Gold Member Active</div>
-        <p class="upgrade-vip-sub">You have unlimited rewinds, infinite AI dream portraits, and priority matching unlocked.</p>
-        <button class="accent-btn" style="background:var(--gold-grad);color:#2E1A08;box-shadow:var(--shadow-gold);max-width:240px;margin:0 auto;font-weight:800" onclick="event.stopPropagation();showToast('👑 VIP Gold status is active on your account!', 'gold')">✓ Perks Active</button>
-      `;
-      profileBanner.onclick = () => showToast('👑 You are currently enjoying full VIP Gold access!', 'gold');
-    }
-  }
-
-  // 9. Settings screen: VIP Banner & Row
-  const settingsBanner = document.querySelector('.settings-vip-banner');
-  if (settingsBanner) {
-    if (isVip) {
-      settingsBanner.style.borderColor = 'rgba(244, 197, 80, 0.5)';
-      settingsBanner.style.background = 'linear-gradient(135deg, rgba(244, 197, 80, 0.15) 0%, rgba(20, 10, 30, 0.6) 100%)';
-      const title = settingsBanner.querySelector('.settings-vip-title');
-      const sub = settingsBanner.querySelector('.settings-vip-sub');
-      const arrow = settingsBanner.querySelector('.settings-vip-arrow');
-      if (title) title.innerHTML = '<span style="color:var(--gold-1)">👑 VIP Gold Active</span>';
-      if (sub) sub.textContent = 'Unlimited Rewinds · Infinite AI · Secret Likes Unlocked';
-      if (arrow) arrow.innerHTML = '✓';
-      settingsBanner.onclick = () => showToast('👑 Your VIP Gold subscription is active!', 'gold');
-    }
-  }
-
-  const vipStatus = document.getElementById('vipStatusRow');
-  if (vipStatus) {
-    vipStatus.innerHTML = isVip
-      ? '<span style="color:var(--gold-1);font-weight:700">👑 VIP Gold Active (Unlimited)</span>'
-      : '<span style="color:var(--flame-1);font-weight:700;cursor:pointer" onclick="openPaywall(\'settings\')">Upgrade to VIP →</span>';
-  }
 }
 
 function updateLimitBadges() {
   const isVip = Boolean(appState.isVip);
-  const rewindBadge = document.getElementById('rewindBadge');
-  if (rewindBadge) {
-    rewindBadge.textContent = isVip ? '∞' : String(appState.freeRewinds);
-    rewindBadge.style.background = isVip ? 'var(--gold-gradient)' : (appState.freeRewinds <= 0 ? 'var(--accent-pink)' : 'var(--gold-gradient)');
-  }
-
-  const aiBadge = document.getElementById('aiLimitBadge');
-  if (aiBadge) {
-    aiBadge.textContent = isVip ? '∞' : String(appState.freeAiGens);
-    aiBadge.style.background = isVip ? 'var(--gold-gradient)' : (appState.freeAiGens <= 0 ? 'var(--accent-pink)' : 'var(--gold-gradient)');
-  }
-}
-
-function revealBlurredMatches() {
-  for (let i = 1; i <= 4; i++) {
-    const item = document.getElementById(`blurItem${i}`);
-    const lock = document.getElementById(`blurLock${i}`);
-    if (item) item.classList.add('revealed');
-    if (lock) {
-      lock.textContent = '⭐';
-      lock.style.background = 'rgba(244,197,80,0.85)';
-      lock.style.color = '#1A0E04';
-    }
-  }
+  const setBadge = (id, remaining) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = isVip ? '∞' : String(remaining);
+    el.style.background = '';
+    el.classList.toggle('is-empty', !isVip && remaining <= 0);
+  };
+  setBadge('rewindBadge', appState.freeRewinds);
+  setBadge('aiLimitBadge', appState.freeAiGens);
 }
 
 // ==========================================================
 // UTILITIES
 // ==========================================================
 
+let _toastTimer = null;
 function showToast(msg, type = 'gold') {
   let toast = document.getElementById('toastNotification');
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'toastNotification';
     toast.className = 'toast-notification';
-    document.querySelector('.app-shell')?.appendChild(toast);
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    (document.querySelector('.app-shell') || document.body).appendChild(toast);
   }
 
+  // Style comes from classes (css/shell.css); "gold" is the legacy default name for a neutral/positive toast.
+  const kind = ['error', 'info', 'success', 'warning'].includes(type) ? type : 'neutral';
+  toast.className = `toast-notification toast-${kind}`;
+  toast.style.cssText = '';
   toast.textContent = msg;
-  if (type === 'error') {
-    toast.style.background = 'linear-gradient(135deg, #D13A63 0%, #8C1F45 100%)';
-    toast.style.color = '#FFFFFF';
-    toast.style.border = '1px solid rgba(255,255,255,0.3)';
-  } else if (type === 'info') {
-    toast.style.background = 'linear-gradient(135deg, #2C183B 0%, #150B20 100%)';
-    toast.style.color = '#FFFFFF';
-    toast.style.border = '1px solid rgba(209, 58, 99, 0.45)';
-  } else {
-    toast.style.background = 'linear-gradient(135deg, #F7D374 0%, #B8842B 100%)';
-    toast.style.color = '#1A0E04';
-    toast.style.border = '1px solid rgba(255,255,255,0.4)';
-  }
 
+  if (_toastTimer) clearTimeout(_toastTimer);
+  // Force a reflow so the entrance transition replays when toasts follow each other.
+  void toast.offsetWidth;
   toast.classList.add('visible');
-  setTimeout(() => toast.classList.remove('visible'), 2800);
+  _toastTimer = setTimeout(() => toast.classList.remove('visible'), kind === 'error' ? 4500 : 2800);
 }
 
 function delay(ms) {
   return new Promise(res => setTimeout(res, ms));
 }
 
+// Escapes text for use in HTML text AND double/single-quoted attribute values.
+// (The previous version left quotes alone, so a name containing " could break out of alt="...".)
 function escHtml(str) {
-  const div = document.createElement('div');
-  div.appendChild(document.createTextNode(str));
-  return div.innerHTML;
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function safeCssUrl(value) {
@@ -12286,7 +11644,7 @@ function safeCssUrl(value) {
 
 function handleSignupComplete() {
   showScreen('discovery');
-  showToast('🎉 Welcome to hookmebysam! Start swiping!');
+  showToast('Welcome to hookmebysam');
 }
 
 // ==========================================================
@@ -12410,94 +11768,43 @@ function renderStoriesRow() {
   if (!scroll) return;
 
   const isUploading = Boolean(window._isUploadingStory);
-  const uploadPreview = window._uploadingStoryPreview;
   const hasStory = (typeof userStories !== 'undefined' && Array.isArray(userStories) && userStories.length > 0);
-  const userAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80';
-  const latestUserStory = hasStory ? userStories[userStories.length - 1] : null;
+  const myAvatar = currentUser.avatar || currentUser.image || '';
+
+  const tile = ({ onclick, label, avatar, ring, extra = '', aria }) => `
+    <button type="button" class="tile" role="listitem" onclick="${onclick}" aria-label="${escHtml(aria || label)}">
+      <span class="tile-avatar ${ring}">
+        ${avatar ? `<img src="${escHtml(avatar)}" alt="" loading="lazy">` : '<svg class="i" aria-hidden="true"><use href="#i-user"/></svg>'}
+        ${extra}
+      </span>
+      <span class="tile-name">${escHtml(label)}</span>
+    </button>`;
 
   let html = '';
 
-  // 1. User Status Card (WhatsApp Style)
+  // 1. Your own status
   if (isUploading) {
-    html += `
-      <div class="wa-status-card your-status-card uploading" onclick="event.stopPropagation()">
-        <div class="wa-status-card-bg" style="background-image:url('${uploadPreview || userAvatar}')"></div>
-        <div class="wa-status-card-overlay"></div>
-        <div class="wa-status-avatar-wrap">
-          <div class="wa-status-avatar" style="background-image:url('${userAvatar}')"></div>
-          <div class="wa-status-upload-ring">
-            <svg viewBox="0 0 44 44" class="wa-status-spinner-svg">
-              <circle class="wa-status-spinner-track" cx="22" cy="22" r="19" fill="none" stroke-width="3.5"/>
-              <circle class="wa-status-spinner-circle" cx="22" cy="22" r="19" fill="none" stroke-width="3.5"/>
-            </svg>
-          </div>
-        </div>
-        <div class="wa-status-card-info">
-          <span class="wa-status-card-name">Sending...</span>
-        </div>
-      </div>`;
-  } else if (hasStory && latestUserStory) {
-    const isMyVid = Boolean(latestUserStory.isVideo || latestUserStory.video);
-    const myMedia = latestUserStory.video || latestUserStory.thumb || latestUserStory.image;
-    html += `
-      <div class="wa-status-card your-status-card has-story" onclick="viewYourStory(0)">
-        ${isMyVid && myMedia
-          ? `<video class="wa-status-card-video" src="${escHtml(myMedia)}#t=0.5" preload="metadata" muted playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;"></video>`
-          : `<div class="wa-status-card-bg" style="background-image:url('${latestUserStory.thumb || latestUserStory.image}')"></div>`
-        }
-        <div class="wa-status-card-overlay"></div>
-        <div class="wa-status-avatar-wrap">
-          <div class="wa-status-avatar active-ring" style="background-image:url('${userAvatar}')"></div>
-          <span class="wa-status-add-badge" onclick="event.stopPropagation();openYourStoryUpload(event);" title="Add status">+</span>
-        </div>
-        <div class="wa-status-card-info">
-          <span class="wa-status-card-name">${escHtml(currentUser.name || 'My status')}</span>
-        </div>
-      </div>`;
+    html += tile({ onclick: 'event.stopPropagation()', label: 'Sending…', avatar: myAvatar, ring: 'is-busy',
+      extra: '<span class="tile-badge" aria-hidden="true"><svg class="i spin"><use href="#i-loader-circle"/></svg></span>' });
+  } else if (hasStory) {
+    html += tile({ onclick: 'viewYourStory(0)', label: 'Your status', avatar: myAvatar, ring: 'is-unseen',
+      extra: '<span class="tile-badge" role="presentation" onclick="event.stopPropagation();openYourStoryUpload(event);" title="Add to your status"><svg class="i"><use href="#i-plus"/></svg></span>' });
   } else {
-    html += `
-      <div class="wa-status-card your-status-card empty" onclick="openYourStoryUpload(event)">
-        <div class="wa-status-card-bg empty-bg"></div>
-        <div class="wa-status-card-overlay"></div>
-        <div class="wa-status-avatar-wrap empty-avatar-wrap">
-          <div class="wa-status-avatar" style="background-image:url('${userAvatar}')"></div>
-          <span class="wa-status-add-badge" title="Add status">+</span>
-        </div>
-        <div class="wa-status-card-info">
-          <span class="wa-status-card-name">Add status</span>
-        </div>
-      </div>`;
+    html += tile({ onclick: 'openYourStoryUpload(event)', label: 'Add status', avatar: myAvatar, ring: 'is-empty',
+      extra: '<span class="tile-badge" aria-hidden="true"><svg class="i"><use href="#i-plus"/></svg></span>' });
   }
 
-  // 2. Contact Status Cards (WhatsApp Style)
-  const list = getAllCommunityStories();
-  html += list.map((s) => {
+  // 2. Other people's statuses (real, unexpired, from Firestore)
+  html += getAllCommunityStories().map((s) => {
     const seen = seenStories.has(s.id);
-    const contactAvatar = s.avatar || s.thumb || s.image;
+    const avatar = s.avatar || s.thumb || s.image || '';
     const isVid = Boolean(s.isVideo || s.video);
-    const mediaUrl = s.video || s.image || '';
-
-    let mediaBgHtml = '';
-    if (isVid && mediaUrl) {
-      mediaBgHtml = `<video class="wa-status-card-video" src="${escHtml(mediaUrl)}#t=0.5" preload="metadata" muted playsinline style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none;"></video>`;
-    } else if (mediaUrl) {
-      mediaBgHtml = `<div class="wa-status-card-bg" style="background-image:url('${escHtml(mediaUrl)}')"></div>`;
-    } else {
-      mediaBgHtml = `<div class="wa-status-card-bg" style="background-image:url('${escHtml(contactAvatar)}')"></div>`;
-    }
-
-    return `
-      <div class="wa-status-card contact-status-card ${seen ? 'seen' : ''}" onclick="viewStory('${s.id}')">
-        ${mediaBgHtml}
-        <div class="wa-status-card-overlay"></div>
-        <div class="wa-status-avatar-wrap">
-          <div class="wa-status-avatar ${seen ? 'seen-ring' : 'active-ring'}" style="background-image:url('${contactAvatar}')"></div>
-          ${isVid ? `<span class="wa-status-vid-icon" style="position:absolute;bottom:-2px;right:-2px;background:#111b21;border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:9px;">📹</span>` : ''}
-        </div>
-        <div class="wa-status-card-info">
-          <span class="wa-status-card-name">${escHtml(s.name)}</span>
-        </div>
-      </div>`;
+    return tile({
+      onclick: `viewStory(${escHtml(JSON.stringify(String(s.id)))})`,
+      label: s.name || 'Member', avatar, ring: seen ? 'is-seen' : 'is-unseen',
+      aria: `${s.name || 'Member'}'s status${isVid ? ' (video)' : ''}${seen ? ', viewed' : ''}`,
+      extra: isVid ? '<span class="tile-badge tile-badge-media" aria-hidden="true"><svg class="i"><use href="#i-video"/></svg></span>' : ''
+    });
   }).join('');
 
   scroll.innerHTML = html;
@@ -12734,8 +12041,8 @@ function closeStoryViewer() {
   _viewingUserStory = false;
 }
 
-function deleteCurrentUserStory() {
-  if (!confirm('Are you sure you want to delete this status?')) return;
+async function deleteCurrentUserStory() {
+  if (!(await confirmDialog({ title: 'Delete this status?', confirmLabel: 'Delete', danger: true }))) return;
   const activeList = _viewingUserStory ? userStories : getAllCommunityStories();
   const storyToDelete = activeList && activeList[currentStoryIndex];
   if (!storyToDelete) return;
@@ -12787,7 +12094,7 @@ function deleteCurrentUserStory() {
     }
   }
 
-  showToast('Status deleted 🗑️', 'info');
+  showToast('Status deleted', 'info');
   renderStoriesRow();
 
   const nextList = _viewingUserStory ? userStories : getAllCommunityStories();
@@ -12876,7 +12183,7 @@ function likeStoryProfile() {
   if (!story) return;
 
   sendStoryDirectMessage(story, '❤️');
-  showToast(`Liked ${story.name}'s status ❤️`, 'pink');
+  showToast(`Liked ${story.name}'s status`, 'pink');
   closeStoryViewer();
 }
 
@@ -12892,7 +12199,7 @@ function sendStoryReply() {
   if (!story) return;
 
   sendStoryDirectMessage(story, val);
-  showToast(`Reply sent to ${story.name} 💬`, 'gold');
+  showToast(`Reply sent to ${story.name}`, 'gold');
   closeStoryViewer();
 }
 
@@ -12919,7 +12226,7 @@ function showTypingIndicator() {
       statusEl.dataset.prevStatus = statusEl.textContent;
     }
     statusEl.textContent = `${pName} is typing...`;
-    statusEl.style.color = '#21B06B';
+    statusEl.style.color = 'var(--success)';
   }
 
   // Bubble in thread
@@ -12971,7 +12278,7 @@ function startBoost() {
   if (btn) btn.classList.add('boosting');
   if (timer) timer.style.display = 'block';
 
-  showToast('⚡ Profile Boost activated for 30 min!');
+  showToast('Boost is on for 30 minutes.', 'success');
 
   appState.boostInterval = setInterval(() => {
     appState.boostSecondsLeft--;
@@ -13001,6 +12308,15 @@ function formatBoostTime(seconds) {
 // REPORT & BLOCK USER
 // ==========================================================
 
+// Values must all be accepted by POST /reports (checked in tests/security.test.js).
+const REPORT_REASON_OPTIONS = [
+  ['inappropriate', 'Inappropriate messages or photos'],
+  ['spam', 'Spam, advertising or a scam'],
+  ['fake', 'Fake profile or impersonation'],
+  ['harassment', 'Harassment, hate speech or abuse'],
+  ['other', 'Something else']
+];
+
 function reportUser() {
   let partner = null;
   if (appState.currentScreen === 'chat' && appState.currentChatId) {
@@ -13016,91 +12332,50 @@ function reportUser() {
   if (!partner && appState.currentChatId) {
     partner = matchedUsers.find(u => u.id === appState.currentChatId) || PROFILES_DATA.find(u => u.id === appState.currentChatId);
   }
-  const name = partner ? escHtml(partner.name) : 'this user';
+  const name = partner?.name || 'this person';
   const userId = partner?.id || '';
 
-  document.getElementById('reportModalOverlay')?.remove();
+  const reasons = REPORT_REASON_OPTIONS;
+  const body = document.createElement('div');
+  body.className = 'dlg-stack';
+  const intro = document.createElement('p');
+  intro.className = 'dlg-text';
+  intro.textContent = `Blocking ${name} removes your match and stops them from messaging or calling you. They are not told. Reporting also sends your reason to our moderators.`;
+  const group = document.createElement('div');
+  group.className = 'choice-list';
+  group.setAttribute('role', 'radiogroup');
+  group.setAttribute('aria-label', 'Reason for reporting');
+  reasons.forEach(([value, label], i) => {
+    const row = document.createElement('label');
+    row.className = 'choice choice-radio';
+    const input = document.createElement('input');
+    input.type = 'radio'; input.name = 'reportReason'; input.value = value;
+    if (i === 0) input.checked = true;
+    const text = document.createElement('span');
+    text.textContent = label;
+    row.append(input, text);
+    group.appendChild(row);
+  });
+  body.append(intro, group);
 
-  const overlay = document.createElement('div');
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.id = 'reportModalOverlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeReportModal(); };
-
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card">
-      <button class="wa-dialog-close-btn" onclick="closeReportModal()" aria-label="Close" title="Close">✕</button>
-      <div class="wa-dialog-badge">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FF2E70" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          <line x1="12" y1="8" x2="12" y2="12"/>
-          <line x1="12" y1="16" x2="12.01" y2="16"/>
-        </svg>
-      </div>
-
-      <h3 class="wa-dialog-title">Report or Block ${name}?</h3>
-      <p class="wa-dialog-desc">Blocked contacts will no longer be able to message or call you on hookmebysam. Select a reason:</p>
-
-      <div class="wa-report-reasons" id="waReportReasons">
-        <label class="wa-reason-option active" onclick="selectReportReason(this)">
-          <input type="radio" name="reportReason" value="inappropriate" checked>
-          <span class="wa-reason-radio"></span>
-          <span class="wa-reason-text">🔞 Inappropriate messages or media</span>
-        </label>
-        <label class="wa-reason-option" onclick="selectReportReason(this)">
-          <input type="radio" name="reportReason" value="spam">
-          <span class="wa-reason-radio"></span>
-          <span class="wa-reason-text">🚫 Spam, commercial ads, or scam</span>
-        </label>
-        <label class="wa-reason-option" onclick="selectReportReason(this)">
-          <input type="radio" name="reportReason" value="fake">
-          <span class="wa-reason-radio"></span>
-          <span class="wa-reason-text">🎭 Fake profile or impersonation</span>
-        </label>
-        <label class="wa-reason-option" onclick="selectReportReason(this)">
-          <input type="radio" name="reportReason" value="harassment">
-          <span class="wa-reason-radio"></span>
-          <span class="wa-reason-text">⚠️ Harassment, hate speech, or abuse</span>
-        </label>
-        <label class="wa-reason-option" onclick="selectReportReason(this)">
-          <input type="radio" name="reportReason" value="other">
-          <span class="wa-reason-radio"></span>
-          <span class="wa-reason-text">⚡ I'm just not interested / Other</span>
-        </label>
-      </div>
-
-      <div class="wa-dialog-actions">
-        <button class="wa-dialog-btn wa-dialog-btn-danger" onclick="executeReportAndBlock('${userId}', '${name}')">
-          <span>Report &amp; Block</span>
-        </button>
-        <div class="wa-dialog-btn-row" style="display:flex;gap:8px;width:100%;">
-          <button class="wa-dialog-btn wa-dialog-btn-secondary" style="flex:1;" onclick="blockUser('${userId}', '${name}')">
-            <span>Block Only</span>
-          </button>
-          <button class="wa-dialog-btn wa-dialog-btn-cancel" style="flex:1;" onclick="closeReportModal()">
-            <span>Cancel</span>
-          </button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
-}
-
-function selectReportReason(el) {
-  document.querySelectorAll('.wa-reason-option').forEach(o => o.classList.remove('active'));
-  el.classList.add('active');
-  const radio = el.querySelector('input[type="radio"]');
-  if (radio) radio.checked = true;
+  const { close } = openSheetDialog({
+    id: 'reportModalOverlay',
+    title: `Report or block ${name}?`,
+    body,
+    foot: '<div class="dlg-actions"><button type="button" class="btn btn-danger-fill btn-block" data-act="report">Report and block</button><div class="dlg-grid-2"><button type="button" class="btn btn-secondary" data-act="block">Block only</button><button type="button" class="btn btn-ghost" data-act="cancel">Cancel</button></div></div>'
+  });
+  const ov = document.getElementById('reportModalOverlay');
+  ov.querySelector('.sheet-foot').addEventListener('click', (e) => {
+    const act = e.target.closest('[data-act]')?.dataset.act;
+    if (!act) return;
+    if (act === 'report') executeReportAndBlock(userId, name);
+    else if (act === 'block') blockUser(userId, name);
+    else close();
+  });
 }
 
 function closeReportModal() {
-  document.getElementById('reportModalOverlay')?.remove();
-}
-
-function submitReport(reason, name) {
-  closeReportModal();
-  showToast(`✅ Report submitted. We'll review ${name}'s account.`, 'info');
+  closeSheetDialog('reportModalOverlay');
 }
 
 async function persistBlockToFirestore(userId) {
@@ -13174,7 +12449,7 @@ async function blockUser(userId, name) {
       name: userObj.name || name || 'User',
       image: userObj.image || userObj.photoUrl || '',
       bio: userObj.bio || '',
-      age: userObj.age || 24,
+      age: userObj.age || null,
       blockedAt: Date.now()
     });
   }
@@ -13237,7 +12512,7 @@ async function executeReportAndBlock(userId, name) {
         name: userObj.name || name || 'User',
         image: userObj.image || userObj.photoUrl || '',
         bio: userObj.bio || '',
-        age: userObj.age || 24,
+        age: userObj.age || null,
         blockedAt: Date.now()
       });
     }
@@ -13249,7 +12524,7 @@ async function executeReportAndBlock(userId, name) {
     renderMatchesView();
     renderSettingsScreen();
     updateMatchesNotificationBadge();
-    showToast(`🛡️ ${name || 'User'} was reported and blocked.`, 'gold');
+    showToast(`${name || 'This person'} was reported and blocked.`, 'success');
     showScreen('matches');
   } catch (err) {
     console.warn('Report/block failed:', err);
@@ -13260,34 +12535,6 @@ async function executeReportAndBlock(userId, name) {
 // ==========================================================
 // SAFETY TOOLKIT, GENTLE UNMATCH & PRIVACY CONTROLS (STEP 5)
 // ==========================================================
-
-function toggleStealthMode(enabled) {
-  appState.isStealthMode = Boolean(enabled);
-  try {
-    localStorage.setItem('hmbs_stealth_mode', String(appState.isStealthMode));
-  } catch (_) {}
-
-  // Sync toggle inputs across screens
-  const sToggle = document.getElementById('settingsStealthToggle');
-  if (sToggle) sToggle.checked = appState.isStealthMode;
-  const safeToggle = document.getElementById('safetyStealthToggle');
-  if (safeToggle) safeToggle.checked = appState.isStealthMode;
-
-  // Sync discovery badge
-  const badge = document.getElementById('stealthModeHeaderBadge');
-  if (badge) {
-    badge.style.display = (appState.currentScreen === 'discovery' && appState.isStealthMode) ? 'inline-flex' : 'none';
-  }
-
-  if (typeof haptic === 'function') haptic('light');
-
-  if (appState.isStealthMode) {
-    showToast('🕵️ Stealth Mode on: Only people you like can see your profile.', 'gold');
-  } else {
-    showToast('👀 Stealth Mode off: You are visible to nearby matches.', 'info');
-  }
-}
-window.toggleStealthMode = toggleStealthMode;
 
 function openSafetyToolkit(targetProfileId) {
   const partnerId = targetProfileId || appState.currentChatId || appState.activeMatchProfile?.id || appState.activeDetailProfileId || null;
@@ -13303,36 +12550,31 @@ function openSafetyToolkit(targetProfileId) {
   const contextEl = document.getElementById('safetyToolkitContext');
 
   if (partner && titleEl && contextEl) {
-    titleEl.textContent = 'Safety & Control';
-    contextEl.textContent = `Manage interaction & privacy with ${partner.name}`;
+    titleEl.textContent = 'Safety centre';
+    contextEl.textContent = `Actions for ${partner.name}`;
   } else if (titleEl && contextEl) {
-    titleEl.textContent = 'Safety Center & Privacy';
-    contextEl.textContent = 'Your privacy, control & peace of mind';
+    titleEl.textContent = 'Safety centre';
+    contextEl.textContent = 'Tools and tips for staying safe';
   }
 
-  const sToggle = document.getElementById('safetyStealthToggle');
-  if (sToggle) sToggle.checked = Boolean(appState.isStealthMode);
+  // Actions about a person only make sense when the centre was opened for one
+  const personHeading = document.getElementById('safetyPersonHeading');
+  const personList = document.getElementById('safetyQuickActionCards');
+  if (personHeading) personHeading.hidden = !partner;
+  if (personList) personList.hidden = !partner;
 
   if (typeof hideChatDropdown === 'function') hideChatDropdown();
 
   const modal = document.getElementById('safetyToolkitModal');
   if (modal) {
     modal.style.display = 'flex';
-    requestAnimationFrame(() => modal.classList.add('active'));
   }
 }
 window.openSafetyToolkit = openSafetyToolkit;
 
 function closeSafetyToolkit() {
   const modal = document.getElementById('safetyToolkitModal');
-  if (modal) {
-    modal.classList.remove('active');
-    setTimeout(() => {
-      if (!modal.classList.contains('active')) {
-        modal.style.display = 'none';
-      }
-    }, 280);
-  }
+  if (modal) modal.style.display = 'none';
 }
 window.closeSafetyToolkit = closeSafetyToolkit;
 
@@ -13350,49 +12592,19 @@ function openGentleUnmatchModal(targetProfileId) {
 
   const titleEl = document.getElementById('unmatchModalTitle');
   if (titleEl && partner) {
-    titleEl.textContent = `Unmatch with ${partner.name}?`;
+    titleEl.textContent = `Unmatch ${partner.name}?`;
   }
-
-  // Reset reason selection to default
-  const chips = document.querySelectorAll('.unmatch-reason-chip');
-  chips.forEach((c, idx) => {
-    if (idx === 0) {
-      c.classList.add('active');
-      const radio = c.querySelector('input[type="radio"]');
-      if (radio) radio.checked = true;
-    } else {
-      c.classList.remove('active');
-    }
-  });
 
   const modal = document.getElementById('unmatchReasonModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    requestAnimationFrame(() => modal.classList.add('active'));
-  }
+  if (modal) modal.style.display = 'flex';
 }
 window.openGentleUnmatchModal = openGentleUnmatchModal;
 
 function closeGentleUnmatchModal() {
   const modal = document.getElementById('unmatchReasonModal');
-  if (modal) {
-    modal.classList.remove('active');
-    setTimeout(() => {
-      if (!modal.classList.contains('active')) {
-        modal.style.display = 'none';
-      }
-    }, 280);
-  }
+  if (modal) modal.style.display = 'none';
 }
 window.closeGentleUnmatchModal = closeGentleUnmatchModal;
-
-function selectUnmatchReason(el) {
-  document.querySelectorAll('.unmatch-reason-chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  const radio = el.querySelector('input[type="radio"]');
-  if (radio) radio.checked = true;
-}
-window.selectUnmatchReason = selectUnmatchReason;
 
 function confirmUnmatch() {
   const partner = appState.activeSafetyPartner ||
@@ -13440,7 +12652,7 @@ function confirmUnmatch() {
   }
 
   if (typeof haptic === 'function') haptic('light');
-  showToast(`💔 You have unmatched with ${partnerName}.`, 'info');
+  showToast(`You unmatched ${partnerName}.`, 'info');
 }
 window.confirmUnmatch = confirmUnmatch;
 
@@ -13458,8 +12670,11 @@ window.promptBlockActiveUser = promptBlockActiveUser;
 
 function openEmergencyHelp() {
   closeSafetyToolkit();
-  const msg = '🚨 Emergency Support:\n• Nigeria Emergency: 112\n• US / Intl Emergency: 911 / 999\n• Crisis Text Line: Text HOME to 741741\n• 24/7 Support: support@hookmebysam.com';
-  alert(msg);
+  confirmDialog({
+    title: 'If you are in danger',
+    message: 'Call your local emergency number now. In Nigeria that is 112.\n\nTo report a person or a safety problem to us, email support@hookmebysam.com.',
+    confirmLabel: 'Close', cancelLabel: null
+  });
 }
 window.openEmergencyHelp = openEmergencyHelp;
 
@@ -13468,52 +12683,18 @@ window.openEmergencyHelp = openEmergencyHelp;
 // ==========================================================
 
 function openBlockedUsersModal() {
-  document.getElementById('blockedUsersModalOverlay')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.id = 'blockedUsersModalOverlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeBlockedUsersModal(); };
-
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card" style="max-width:480px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:38px;height:38px;border-radius:50%;background:rgba(255,46,112,0.14);display:flex;align-items:center;justify-content:center;color:#FF2E70;flex-shrink:0;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM4 12c0-4.42 3.58-8 8-8 1.85 0 3.55.63 4.9 1.69L5.69 16.9C4.63 15.55 4 13.85 4 12zm8 8c-1.85 0-3.55-.63-4.9-1.69L18.31 7.1c1.06 1.35 1.69 3.05 1.69 4.9 0 4.42-3.58 8-8 8z"/>
-            </svg>
-          </div>
-          <div>
-            <h3 class="wa-dialog-title" style="margin:0;font-size:1.15rem;text-align:left;">Blocked Contacts</h3>
-            <span style="font-size:0.75rem;color:var(--txt-muted);display:block;margin-top:2px;">Manage contacts you've blocked</span>
-          </div>
-        </div>
-        <button onclick="closeBlockedUsersModal()" style="background:none;border:none;color:var(--txt-muted);cursor:pointer;font-size:1.3rem;padding:4px 8px;">✕</button>
-      </div>
-
-      <p class="wa-dialog-desc" style="text-align:left;font-size:0.83rem;margin-bottom:6px;">
-        Blocked contacts cannot message or call you. Tap <strong>Unblock</strong> beside any contact to restore them.
-      </p>
-
-      <div class="blocked-users-list" id="blockedUsersContainer">
-        <!-- Rendered dynamically -->
-      </div>
-
-      <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
-        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeBlockedUsersModal()" style="width:auto;padding:8px 24px;">
-          <span>Done</span>
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
+  openSheetDialog({
+    id: 'blockedUsersModalOverlay',
+    title: 'Blocked people',
+    sub: 'They cannot message or call you.',
+    body: '<div id="blockedUsersContainer" class="list"></div>',
+    foot: '<button type="button" class="btn btn-secondary btn-block" data-sheet-close>Done</button>'
+  });
   renderBlockedUsersListInModal();
 }
 
 function closeBlockedUsersModal() {
-  document.getElementById('blockedUsersModalOverlay')?.remove();
+  closeSheetDialog('blockedUsersModalOverlay');
 }
 
 function renderBlockedUsersListInModal() {
@@ -13521,38 +12702,31 @@ function renderBlockedUsersListInModal() {
   if (!container) return;
 
   if (blockedUsers.length === 0) {
-    container.innerHTML = `
-      <div class="blocked-empty-box">
-        <div class="blocked-empty-icon">🛡️</div>
-        <div class="blocked-empty-text" style="font-weight:600;color:var(--txt-primary);font-size:0.95rem;">No Blocked Contacts</div>
-        <div class="blocked-empty-text" style="font-size:0.8rem;margin-top:4px;color:var(--txt-muted);">You haven't blocked any contacts. Profiles you block will appear here.</div>
-      </div>
-    `;
+    container.innerHTML = `<div class="empty"><svg class="i" aria-hidden="true"><use href="#i-shield-check"/></svg><div class="empty-title">No one is blocked</div><p class="empty-text">People you block will be listed here, and you can unblock them at any time.</p></div>`;
     return;
   }
 
   container.innerHTML = blockedUsers.map(u => {
     const photo = u.image || '';
-    const initial = u.name ? u.name.charAt(0) : '?';
-    const dateStr = u.blockedAt ? new Date(u.blockedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Recently';
-
+    const dateStr = u.blockedAt ? new Date(u.blockedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
     return `
-      <div class="blocked-user-item">
-        <div class="blocked-user-left">
-          <div class="blocked-avatar" style="${photo ? `background-image:url('${photo}')` : ''}">
-            ${!photo ? initial : ''}
-          </div>
-          <div class="blocked-user-meta">
-            <div class="blocked-user-name">${escHtml(u.name)}</div>
-            <div class="blocked-user-date">Blocked • ${dateStr}</div>
-          </div>
-        </div>
-        <button class="unblock-action-btn" onclick="unblockUser('${u.id}', '${u.name.replace(/'/g, "\\'")}')">
-          Unblock
-        </button>
-      </div>
-    `;
+      <div class="row">
+        <span class="avatar">${photo ? `<img src="${escHtml(photo)}" alt="" loading="lazy">` : `<span class="avatar-initial" aria-hidden="true">${escHtml((u.name || '?').charAt(0).toUpperCase())}</span>`}</span>
+        <span class="row-body">
+          <span class="row-title">${escHtml(u.name || 'Unknown')}</span>
+          ${dateStr ? `<span class="row-sub">Blocked ${escHtml(dateStr)}</span>` : ''}
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm" data-unblock="${escHtml(String(u.id))}">Unblock</button>
+      </div>`;
   }).join('');
+  container.onclick = (e) => {
+    const btn = e.target.closest('[data-unblock]');
+    if (!btn) return;
+    const id = btn.dataset.unblock;
+    const u = blockedUsers.find(b => String(b.id) === id);
+    btn.disabled = true;
+    unblockUser(id, u?.name).finally(() => { btn.disabled = false; });
+  };
 }
 
 async function unblockUser(userId, name) {
@@ -13581,11 +12755,11 @@ async function unblockUser(userId, name) {
     matchedUsers.unshift({
       id: restoredProfile.id,
       name: restoredProfile.name || userName,
-      age: restoredProfile.age || 24,
+      age: restoredProfile.age || null,
       image: restoredProfile.image || '',
       bio: restoredProfile.bio || '',
-      tags: restoredProfile.tags || ['Music 🎵', 'Positive vibes ✨'],
-      distance: restoredProfile.distance || '2 km'
+      tags: restoredProfile.tags || [],
+      distance: restoredProfile.distance || ''
     });
   }
 
@@ -13593,7 +12767,7 @@ async function unblockUser(userId, name) {
   renderMatchesView();
   renderSettingsScreen();
   updateMatchesNotificationBadge();
-  showToast(`✨ ${userName} has been unblocked!`, 'gold');
+  showToast(`${userName} was unblocked.`, 'success');
   renderBlockedUsersListInModal();
 }
 
@@ -13602,33 +12776,39 @@ async function unblockUser(userId, name) {
 // NOTIFICATION PERMISSION PROMPT
 // ==========================================================
 
+const NOTIF_PROMPT_SNOOZE_KEY = 'hm_notif_prompt_snoozed_until';
+
 function requestNotificationPermission() {
   // Don't show if already granted/denied or if on unsupported browser
   if (!('Notification' in window)) return;
   if (Notification.permission === 'granted' || Notification.permission === 'denied') return;
-
-  // Don't show if already shown
+  // Respect "Not now" for a week
+  try {
+    if (Number(localStorage.getItem(NOTIF_PROMPT_SNOOZE_KEY) || 0) > Date.now()) return;
+  } catch (_) {}
   if (document.getElementById('notifPermBanner')) return;
+  // Sample-profile mode has no real matches or messages to notify about.
+  if (String(currentUser?.id || '').startsWith('demo_guest_')) return;
+
+  const slot = document.getElementById('shellNotices');
+  if (!slot) return;
 
   const banner = document.createElement('div');
-  banner.className = 'notif-permission-banner';
+  banner.className = 'notice';
   banner.id = 'notifPermBanner';
+  banner.setAttribute('role', 'region');
+  banner.setAttribute('aria-label', 'Notifications');
   banner.innerHTML = `
-    <div class="notif-perm-icon">🔔</div>
-    <div class="notif-perm-text">
-      <strong>Stay in the loop</strong>
-      Get notified when you get a new match or message!
-    </div>
-    <div class="notif-perm-actions">
-      <button class="notif-perm-allow" onclick="allowNotifications()">Allow</button>
-      <button class="notif-perm-dismiss" onclick="dismissNotifBanner()" aria-label="Dismiss">✕</button>
+    <svg class="i" aria-hidden="true"><use href="#i-bell"/></svg>
+    <div class="notice-body">
+      <div class="notice-title">Get notified about matches and messages</div>
+      <div class="notice-actions">
+        <button type="button" class="btn btn-primary btn-sm" onclick="allowNotifications()">Turn on</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="dismissNotifBanner(true)">Not now</button>
+      </div>
     </div>
   `;
-
-  document.querySelector('.app-shell')?.appendChild(banner);
-
-  // Auto-dismiss after 8 seconds
-  setTimeout(dismissNotifBanner, 8000);
+  slot.appendChild(banner);
 }
 
 function allowNotifications() {
@@ -13636,22 +12816,21 @@ function allowNotifications() {
   if (!('Notification' in window)) return;
   Notification.requestPermission().then(perm => {
     if (perm === 'granted') {
-      showToast('🔔 Notifications enabled!', 'gold');
+      showToast('Notifications are on.', 'success');
       if (typeof initPushNotifications === 'function') {
         initPushNotifications();
       }
-      triggerSystemNotification('hookmebysam 💕', {
-        body: 'Notifications active! You will be alerted for matches and messages.'
+      triggerSystemNotification('hookmebysam', {
+        body: 'Notifications are on. You will be alerted to new matches and messages.'
       });
     }
   });
 }
 
-function dismissNotifBanner() {
-  const banner = document.getElementById('notifPermBanner');
-  if (banner) {
-    banner.style.animation = 'slideDown 0.25s ease reverse both';
-    setTimeout(() => banner.remove(), 250);
+function dismissNotifBanner(snooze) {
+  document.getElementById('notifPermBanner')?.remove();
+  if (snooze === true) {
+    try { localStorage.setItem(NOTIF_PROMPT_SNOOZE_KEY, String(Date.now() + 7 * 24 * 3600 * 1000)); } catch (_) {}
   }
 }
 
@@ -13722,13 +12901,31 @@ if ('serviceWorker' in navigator) {
 
 let searchDebounceTimer = null;
 
+// One search hit: avatar, name, short bio (never an email address), Message button.
+function userSearchRowHtml(u, closeFirst) {
+  const img = u.image || u.avatar || '';
+  const a = (v) => escHtml(JSON.stringify(String(v == null ? '' : v)));
+  const sub = u.bio || u.location || '';
+  return `
+    <div class="row search-hit">
+      <span class="avatar">${img ? `<img src="${escHtml(img)}" alt="" loading="lazy">` : ''}</span>
+      <span class="row-body">
+        <span class="row-title">${escHtml(u.name)}${u.age ? `, ${escHtml(u.age)}` : ''}</span>
+        ${sub ? `<span class="row-sub">${escHtml(sub)}</span>` : ''}
+      </span>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="${closeFirst ? 'closeSearchModal();' : ''}connectAndChatWithUser(${a(u.id)}, ${a(u.name)}, ${a(img)})">
+        <svg class="i" aria-hidden="true"><use href="#i-message-circle"/></svg>Message
+      </button>
+    </div>`;
+}
+
 async function handleUserSearchInput(e) {
   const query = e.target.value.trim();
   const clearBtn = document.getElementById('clearSearchBtn');
   const resultsContainer = document.getElementById('searchResultsContainer');
   const resultsList = document.getElementById('searchResultsList');
   const resultsCount = document.getElementById('searchResultsCount');
-  const mainContentSections = document.querySelectorAll('#storiesSection, .vip-blur-card, .ad-banner-slot');
+  const mainContentSections = [];
 
   if (clearBtn) clearBtn.style.display = query.length > 0 ? 'block' : 'none';
 
@@ -13745,7 +12942,7 @@ async function handleUserSearchInput(e) {
   clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(async () => {
     if (resultsContainer) resultsContainer.style.display = 'block';
-    if (resultsList) resultsList.innerHTML = `<p style="color:var(--text-muted,#888);padding:12px;font-size:0.85rem;text-align:center">Searching registered users... 🔍</p>`;
+    if (resultsList) resultsList.innerHTML = `<p class="empty-text search-status">Searching…</p>`;
 
     let matches = [];
 
@@ -13761,8 +12958,7 @@ async function handleUserSearchInput(e) {
       !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
     ).filter(u =>
       (u.name && u.name.toLowerCase().includes(qLower)) ||
-      (u.bio && u.bio.toLowerCase().includes(qLower)) ||
-      (u.email && u.email.toLowerCase().includes(qLower))
+      (u.bio && u.bio.toLowerCase().includes(qLower))
     );
 
     // Merge without duplicates
@@ -13779,27 +12975,17 @@ async function handleUserSearchInput(e) {
     if (matches.length === 0) {
       if (resultsList) {
         resultsList.innerHTML = `
-          <div style="text-align:center;padding:24px 12px;color:var(--text-muted,#888)">
-            <div style="font-size:2rem;margin-bottom:6px">🔍</div>
-            <p style="font-size:0.88rem">No users found matching "${escHtml(query)}"</p>
+          <div class="empty">
+            <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+            <div class="empty-title">No one found</div>
+            <p class="empty-text">Nobody matches “${escHtml(query)}”.</p>
           </div>`;
       }
       return;
     }
 
     if (resultsList) {
-      resultsList.innerHTML = matches.map(u => `
-        <div class="convo-item" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);padding:10px 14px;border-radius:16px;display:flex;align-items:center;gap:12px">
-          <div class="convo-avatar" style="background-image:url('${u.image || u.avatar}');width:48px;height:48px;border-radius:50%;border:2px solid #FF2D78;background-size:cover;background-position:center;flex-shrink:0"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:0.95rem;color:var(--txt-primary,#fff)">${escHtml(u.name)}${u.age ? `, ${u.age}` : ''}</div>
-            <div style="font-size:0.78rem;color:var(--txt-secondary,#aaa);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.bio || u.email || '')}</div>
-          </div>
-          <button class="accent-btn" onclick="connectAndChatWithUser('${u.id}', '${escHtml(u.name)}', '${u.image || u.avatar || ''}')" style="padding:7px 14px;font-size:0.8rem;border-radius:20px;flex-shrink:0;background:var(--flame-grad,#ff2d78)">
-            Chat 💬
-          </button>
-        </div>
-      `).join('');
+      resultsList.innerHTML = matches.map(u => userSearchRowHtml(u, false)).join('');
     }
   }, 250);
 }
@@ -13816,7 +13002,7 @@ async function connectAndChatWithUser(userId, userName, userImage) {
     partner = {
       id: userId,
       name: userName,
-      image: userImage || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=500&q=80',
+      image: userImage || '',
       isRealUser: true
     };
     matchedUsers.push(partner);
@@ -13846,7 +13032,7 @@ async function connectAndChatWithUser(userId, userName, userImage) {
   saveToStorage();
   renderMatchesView();
   openChat(userId);
-  showToast(`Connected with ${userName}! Say hi 👋`, 'gold');
+  showToast(`Chat opened with ${userName}.`, 'success');
 }
 
 function openSearchModal() {
@@ -13875,13 +13061,14 @@ async function handleModalSearchInput(e) {
   const clearBtn = document.getElementById('clearModalSearchBtn');
   const resultsBody = document.getElementById('searchModalResults');
 
-  if (clearBtn) clearBtn.style.display = query.length > 0 ? 'block' : 'none';
+  if (clearBtn) clearBtn.style.display = query.length > 0 ? '' : 'none';
 
   if (!query) {
     if (resultsBody) {
       resultsBody.innerHTML = `
-        <div style="text-align:center;padding:32px 16px;color:rgba(255,255,255,0.5);font-size:0.88rem">
-          Type a name or email above to search registered accounts 🔍
+        <div class="empty">
+          <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+          <p class="empty-text">Type a name to find people on hookmebysam.</p>
         </div>`;
     }
     return;
@@ -13890,7 +13077,7 @@ async function handleModalSearchInput(e) {
   clearTimeout(modalSearchDebounce);
   modalSearchDebounce = setTimeout(async () => {
     if (resultsBody) {
-      resultsBody.innerHTML = `<p style="color:rgba(255,255,255,0.6);padding:16px;font-size:0.88rem;text-align:center">Searching registered users... 🔍</p>`;
+      resultsBody.innerHTML = `<p class="empty-text search-status">Searching…</p>`;
     }
 
     let matches = [];
@@ -13907,8 +13094,7 @@ async function handleModalSearchInput(e) {
       !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
     ).filter(u =>
       (u.name && u.name.toLowerCase().includes(qLower)) ||
-      (u.bio && u.bio.toLowerCase().includes(qLower)) ||
-      (u.email && u.email.toLowerCase().includes(qLower))
+      (u.bio && u.bio.toLowerCase().includes(qLower))
     );
 
     const seenIds = new Set(matches.map(m => m.id));
@@ -13922,27 +13108,17 @@ async function handleModalSearchInput(e) {
     if (matches.length === 0) {
       if (resultsBody) {
         resultsBody.innerHTML = `
-          <div style="text-align:center;padding:28px 12px;color:rgba(255,255,255,0.5)">
-            <div style="font-size:2rem;margin-bottom:6px">🔍</div>
-            <p style="font-size:0.88rem">No users found matching "${escHtml(query)}"</p>
+          <div class="empty">
+            <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
+            <div class="empty-title">No one found</div>
+            <p class="empty-text">Nobody matches “${escHtml(query)}”.</p>
           </div>`;
       }
       return;
     }
 
     if (resultsBody) {
-      resultsBody.innerHTML = matches.map(u => `
-        <div class="convo-item" style="background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);padding:12px 14px;border-radius:18px;display:flex;align-items:center;gap:12px">
-          <div class="convo-avatar" style="background-image:url('${u.image || u.avatar}');width:48px;height:48px;border-radius:50%;border:2px solid #FF2D78;background-size:cover;background-position:center;flex-shrink:0"></div>
-          <div style="flex:1;min-width:0">
-            <div style="font-weight:700;font-size:0.95rem;color:#fff">${escHtml(u.name)}${u.age ? `, ${u.age}` : ''}</div>
-            <div style="font-size:0.78rem;color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(u.bio || u.email || '')}</div>
-          </div>
-          <button class="accent-btn" onclick="closeSearchModal();connectAndChatWithUser('${u.id}', '${escHtml(u.name)}', '${u.image || u.avatar || ''}')" style="padding:8px 16px;font-size:0.82rem;border-radius:20px;flex-shrink:0;background:var(--flame-grad,#ff2d78)">
-            Chat 💬
-          </button>
-        </div>
-      `).join('');
+      resultsBody.innerHTML = matches.map(u => userSearchRowHtml(u, true)).join('');
     }
   }, 220);
 }
@@ -14088,67 +13264,39 @@ function showReactionPicker(event, matchId, msgId) {
   let idealTop = (relY > shellRect.height * 0.52) ? (relY - pickerH - 12) : (relY + 12);
   const top = Math.max(minTop, Math.min(idealTop, maxTop));
 
-  picker.style.cssText = `
-    position:absolute;z-index:99999;
-    left:${Math.round(left)}px;top:${Math.round(top)}px;
-    width:${pickerW}px;max-width:calc(100% - 24px);
-    background:#1E1530;border:1px solid rgba(255,255,255,0.18);
-    border-radius:20px;padding:8px;
-    display:flex;flex-direction:column;gap:6px;
-    box-shadow:0 18px 50px rgba(0,0,0,0.85);
-    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
-    animation:reactionPickerIn 0.18s cubic-bezier(0.175,0.885,0.32,1.275);
-    box-sizing:border-box;
-  `;
+  picker.setAttribute('role', 'menu');
+  picker.setAttribute('aria-label', 'Message options');
+  picker.style.left = `${Math.round(left)}px`;
+  picker.style.top = `${Math.round(top)}px`;
+  picker.style.width = `${pickerW}px`;
 
-  // Top: Emojis Row
+  const ic = (n) => `<svg class="i" aria-hidden="true"><use href="#i-${n}"/></svg>`;
+
+  // Reactions
   const emojiRow = document.createElement('div');
-  emojiRow.style.cssText = 'display:flex;justify-content:space-around;padding-bottom:6px;border-bottom:1px solid rgba(255,255,255,0.08);';
+  emojiRow.className = 'reaction-row';
   emojiRow.innerHTML = REACTION_EMOJIS_SET.map(emoji =>
-    `<button onclick="event.stopPropagation();toggleMsgReaction('${matchId}','${msgId}','${emoji}');closeReactionPicker();"
-      style="background:none;border:none;font-size:1.45rem;cursor:pointer;transition:transform 0.15s;padding:2px"
-      onmouseenter="this.style.transform='scale(1.3)'" onmouseleave="this.style.transform='scale(1)'">${emoji}</button>`
+    `<button type="button" class="reaction-btn" aria-label="React ${emoji}" onclick="event.stopPropagation();toggleMsgReaction('${matchId}','${msgId}','${emoji}');closeReactionPicker();">${emoji}</button>`
   ).join('');
   picker.appendChild(emojiRow);
 
-  // Bottom: Actions list (Edit, Forward, Share to User, Copy, Delete)
+  // Actions
   const actionsList = document.createElement('div');
-  actionsList.style.cssText = 'display:flex;flex-direction:column;gap:2px;padding-top:2px;';
+  actionsList.className = 'reaction-actions';
 
   let actionsHtml = `
-    <button class="msg-menu-btn" onclick="event.stopPropagation();startReplyToMessage('${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="9 14 4 9 9 4"/>
-        <path d="M20 20v-7a4 4 0 0 0-4-4H4"/>
-      </svg>
-      <span>Reply</span>
-    </button>`;
+    <button type="button" class="menu-item" role="menuitem" onclick="event.stopPropagation();startReplyToMessage('${msgId}');closeReactionPicker();">${ic('reply')}Reply</button>`;
 
   if (isSent && isText) {
     actionsHtml += `
-      <button class="msg-menu-btn" onclick="event.stopPropagation();startEditMessage('${matchId}','${msgId}');closeReactionPicker();">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-        <span>Edit Message</span>
-      </button>`;
+      <button type="button" class="menu-item" role="menuitem" onclick="event.stopPropagation();startEditMessage('${matchId}','${msgId}');closeReactionPicker();">${ic('pencil')}Edit message</button>`;
   }
 
   actionsHtml += `
-    <button class="msg-menu-btn" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
-      <span>Forward</span>
-    </button>
-    <button class="msg-menu-btn" onclick="event.stopPropagation();shareMessageToUserPrompt('${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/></svg>
-      <span>Share to User</span>
-    </button>
-    <button class="msg-menu-btn" onclick="event.stopPropagation();copyMessageText('${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
-      <span>Copy Text</span>
-    </button>
-    <button class="msg-menu-btn msg-menu-btn-danger" onclick="event.stopPropagation();deleteMessagePrompt('${matchId}','${msgId}');closeReactionPicker();">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="#FF2E70"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-      <span style="color:#FF2E70">Delete</span>
-    </button>
+    <button type="button" class="menu-item" role="menuitem" onclick="event.stopPropagation();forwardMessagePrompt('${msgId}');closeReactionPicker();">${ic('forward')}Forward</button>
+    <button type="button" class="menu-item" role="menuitem" onclick="event.stopPropagation();shareMessageToUserPrompt('${msgId}');closeReactionPicker();">${ic('share-2')}Send to someone</button>
+    <button type="button" class="menu-item" role="menuitem" onclick="event.stopPropagation();copyMessageText('${msgId}');closeReactionPicker();">${ic('copy')}Copy text</button>
+    <button type="button" class="menu-item is-danger" role="menuitem" onclick="event.stopPropagation();deleteMessagePrompt('${matchId}','${msgId}');closeReactionPicker();">${ic('trash-2')}Delete</button>
   `;
   actionsList.innerHTML = actionsHtml;
   picker.appendChild(actionsList);
@@ -14220,7 +13368,7 @@ function cancelEditMessage() {
 }
 
 async function deleteMessagePrompt(matchId, msgId) {
-  if (!confirm('Delete this message?')) return;
+  if (!(await confirmDialog({ title: 'Delete this message?', message: 'It is removed for both of you.', confirmLabel: 'Delete', danger: true }))) return;
 
   const { msg, idx, hist } = getMessageInfo(msgId);
 
@@ -14247,7 +13395,7 @@ async function deleteMessagePrompt(matchId, msgId) {
   saveToStorage();
   renderChatThread();
   renderConversationList();
-  showToast('Message deleted 🗑️', 'info');
+  showToast('Message deleted', 'info');
 }
 
 function copyMessageText(msgId) {
@@ -14257,12 +13405,12 @@ function copyMessageText(msgId) {
 
   if (navigator.clipboard) {
     navigator.clipboard.writeText(shareText).then(() => {
-      showToast('Copied to clipboard! 📋', 'info');
+      showToast('Copied to clipboard!', 'info');
     }).catch(() => {
-      showToast('Copied! 📋', 'info');
+      showToast('Copied!', 'info');
     });
   } else {
-    showToast('Copied! 📋', 'info');
+    showToast('Copied!', 'info');
   }
 }
 
@@ -14274,38 +13422,34 @@ function populateForwardModalList(actionLabel = 'Forward') {
   const list = document.getElementById('forwardMatchesList');
   if (!list) return;
 
+  // Only people you are actually matched with
   const currentId = appState.currentChatId;
-  const candidates = [...matchedUsers, ...PROFILES_DATA]
-    .filter(u => u.id !== currentId)
+  const candidates = matchedUsers
+    .filter(u => u && u.id !== currentId)
     .filter((u, index, self) => index === self.findIndex(t => t.id === u.id));
 
   if (candidates.length === 0) {
-    list.innerHTML = `<div style="text-align:center;padding:24px;color:rgba(255,255,255,0.5)">No other contacts available.</div>`;
-  } else {
-    list.innerHTML = candidates.map(c => `
-      <div onclick="forwardMessageToUser('${c.id}')" style="
-        display:flex;align-items:center;gap:12px;padding:10px 14px;
-        background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);
-        border-radius:14px;cursor:pointer;transition:background 0.15s"
-        onmouseenter="this.style.background='rgba(255,255,255,0.1)'"
-        onmouseleave="this.style.background='rgba(255,255,255,0.05)'"
-      >
-        <div style="width:42px;height:42px;border-radius:50%;background-image:url('${c.image || c.avatar}');background-size:cover;background-position:center;border:2px solid #FF2D78;flex-shrink:0"></div>
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:0.92rem;color:#FFF">${escHtml(c.name)}${c.age ? `, ${c.age}` : ''}</div>
-          <div style="font-size:0.78rem;color:rgba(255,255,255,0.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escHtml(c.bio || '')}</div>
-        </div>
-        <button style="background:var(--flame-grad,#ff2d78);border:none;color:#FFF;border-radius:14px;padding:6px 14px;font-size:0.78rem;font-weight:700;cursor:pointer">${actionLabel} ➡️</button>
-      </div>
-    `).join('');
+    list.innerHTML = `<div class="empty"><div class="empty-title">No one to send to yet</div><p class="empty-text">Your matches will appear here.</p></div>`;
+    return;
   }
+  list.innerHTML = candidates.map(c => {
+    const img = c.image || c.avatar || '';
+    return `
+      <button type="button" class="row" onclick="forwardMessageToUser(${escHtml(JSON.stringify(String(c.id)))})">
+        <span class="avatar">${img ? `<img src="${escHtml(img)}" alt="" loading="lazy">` : ''}</span>
+        <span class="row-body">
+          <span class="row-title">${escHtml(c.name)}${c.age ? `, ${escHtml(c.age)}` : ''}</span>
+        </span>
+        <span class="btn btn-secondary btn-sm" aria-hidden="true">${escHtml(actionLabel)}</span>
+      </button>`;
+  }).join('');
 }
 
 function forwardMessagePrompt(msgId) {
   _pendingForwardMsgId = msgId;
   const modal = document.getElementById('forwardModal');
-  const title = modal?.querySelector('h3') || modal?.querySelector('.modal-title');
-  if (title) title.textContent = 'Forward to Contact';
+  const title = document.getElementById('forwardModalTitle');
+  if (title) title.textContent = 'Forward to a match';
   populateForwardModalList('Forward');
   if (modal) modal.style.display = 'flex';
 }
@@ -14313,8 +13457,8 @@ function forwardMessagePrompt(msgId) {
 function shareMessageToUserPrompt(msgId) {
   _pendingForwardMsgId = msgId;
   const modal = document.getElementById('forwardModal');
-  const title = modal?.querySelector('h3') || modal?.querySelector('.modal-title');
-  if (title) title.textContent = 'Share to User';
+  const title = document.getElementById('forwardModalTitle');
+  if (title) title.textContent = 'Send to a match';
   populateForwardModalList('Share');
   if (modal) modal.style.display = 'flex';
 }
@@ -14334,7 +13478,7 @@ async function forwardMessageToUser(targetUserId) {
     return;
   }
 
-  const targetUser = matchedUsers.find(u => u.id === targetUserId) || PROFILES_DATA.find(u => u.id === targetUserId);
+  const targetUser = matchedUsers.find(u => u.id === targetUserId);
   const targetName = targetUser ? targetUser.name : 'contact';
 
   if (!conversations[targetUserId]) {
@@ -14368,7 +13512,7 @@ async function forwardMessageToUser(targetUserId) {
   if (appState.currentChatId === targetUserId) {
     renderChatThread();
   }
-  showToast(`Sent to ${targetName} ➡️`, 'gold');
+  showToast(`Sent to ${targetName}`, 'gold');
 }
 
 async function toggleMsgReaction(matchId, msgId, emoji) {
@@ -14427,30 +13571,7 @@ function openReactionSheet(matchId, msgId, defaultEmojiFilter = 'all') {
 
   renderReactionSheetContent();
   const modal = document.getElementById('reactionInfoModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    const sheet = modal.querySelector('.reaction-sheet-modal');
-    if (sheet && !sheet._swipeBound) {
-      sheet._swipeBound = true;
-      let sY = 0;
-      sheet.addEventListener('touchstart', (e) => {
-        sY = e.touches[0].clientY;
-      }, { passive: true });
-      sheet.addEventListener('touchmove', (e) => {
-        const diffY = e.touches[0].clientY - sY;
-        if (diffY > 8) {
-          sheet.style.transform = `translateY(${Math.min(180, diffY)}px)`;
-        }
-      }, { passive: true });
-      sheet.addEventListener('touchend', (e) => {
-        const diffY = e.changedTouches[0].clientY - sY;
-        if (diffY > 55) {
-          closeReactionSheet();
-        }
-        sheet.style.transform = '';
-      }, { passive: true });
-    }
-  }
+  if (modal) modal.style.display = 'flex';
 }
 
 function filterReactionSheet(emoji) {
@@ -14477,28 +13598,21 @@ function renderReactionSheetContent() {
 
   const countEl = document.getElementById('reactionSheetCount');
   if (countEl) {
-    countEl.textContent = `${totalCount} reaction${totalCount !== 1 ? 's' : ''}`;
+    countEl.textContent = `${totalCount} ${totalCount !== 1 ? 'reactions' : 'reaction'}`;
   }
 
-  // Render Tabs
+  // Render tabs
   const tabsEl = document.getElementById('reactionSheetTabs');
   if (tabsEl) {
-    let tabsHtml = `
-      <button class="reaction-tab-chip ${activeFilter === 'all' ? 'active' : ''}" onclick="filterReactionSheet('all')">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-        <span>All</span> <span>${totalCount}</span>
-      </button>`;
-    reactionKeys.forEach(emoji => {
-      const count = reactions[emoji].length;
-      tabsHtml += `
-        <button class="reaction-tab-chip ${activeFilter === emoji ? 'active' : ''}" onclick="filterReactionSheet('${emoji}')">
-          <span>${emoji}</span> <span>${count}</span>
-        </button>`;
-    });
-    tabsEl.innerHTML = tabsHtml;
+    const tab = (value, label, count) => `<button type="button" class="chip${activeFilter === value ? ' active' : ''}" aria-pressed="${activeFilter === value}" data-filter="${escHtml(value)}">${escHtml(label)} ${count}</button>`;
+    tabsEl.innerHTML = tab('all', 'All', totalCount) + reactionKeys.map(emoji => tab(emoji, emoji, reactions[emoji].length)).join('');
+    tabsEl.onclick = (e) => {
+      const b = e.target.closest('[data-filter]');
+      if (b) filterReactionSheet(b.dataset.filter);
+    };
   }
 
-  // Render Reactors List
+  // Render reactors
   const listEl = document.getElementById('reactionSheetList');
   if (listEl) {
     const myId = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : 'local_me';
@@ -14506,36 +13620,34 @@ function renderReactionSheetContent() {
                     PROFILES_DATA.find(u => u.id === appState.currentChatId) ||
                     conversations[appState.currentChatId]?.partner || {};
     const partnerName = partner.name || document.getElementById('chatPartnerName')?.textContent?.trim() || 'Match';
-    const partnerAvatar = partner.avatar || partner.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
-    const myAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80';
+    const partnerAvatar = partner.avatar || partner.image || '';
+    const myAvatar = currentUser.avatar || currentUser.image || '';
 
     const emojisToShow = activeFilter === 'all' ? reactionKeys : [activeFilter];
     let rowsHtml = '';
 
     emojisToShow.forEach(emoji => {
-      const reactors = reactions[emoji] || [];
-      reactors.forEach(reactorId => {
+      (reactions[emoji] || []).forEach(reactorId => {
         const isMe = (reactorId === myId || reactorId === 'local_me' || reactorId === 'me');
-        const name = isMe ? 'You' : partnerName;
-        const sub = isMe ? 'Tap to remove' : '';
         const avatar = isMe ? myAvatar : partnerAvatar;
-        const clickAttr = isMe ? `onclick="removeMyReaction('${matchId}','${msgId}','${emoji}')"` : '';
-
-        rowsHtml += `
-          <div class="reaction-reactor-row" ${clickAttr}>
-            <div class="reaction-reactor-left">
-              <div class="reaction-reactor-avatar" style="background-image:url('${avatar}')"></div>
-              <div class="reaction-reactor-info">
-                <span class="reaction-reactor-name">${name}</span>
-                ${sub ? `<span class="reaction-reactor-sub">${sub}</span>` : ''}
-              </div>
-            </div>
-            <span class="reaction-reactor-emoji">${emoji}</span>
-          </div>`;
+        const inner = `
+          <span class="avatar">${avatar ? `<img src="${escHtml(avatar)}" alt="" loading="lazy">` : ''}</span>
+          <span class="row-body">
+            <span class="row-title">${isMe ? 'You' : escHtml(partnerName)}</span>
+            ${isMe ? '<span class="row-sub">Tap to remove</span>' : ''}
+          </span>
+          <span class="reaction-emoji" aria-label="Reacted with ${escHtml(emoji)}">${escHtml(emoji)}</span>`;
+        rowsHtml += isMe
+          ? `<button type="button" class="row" data-remove="${escHtml(emoji)}">${inner}</button>`
+          : `<div class="row">${inner}</div>`;
       });
     });
 
-    listEl.innerHTML = rowsHtml || '<div style="padding:16px;color:#8696a0;text-align:center;font-size:13px">No reactions</div>';
+    listEl.innerHTML = rowsHtml || '<div class="empty"><p class="empty-text">No reactions</p></div>';
+    listEl.onclick = (e) => {
+      const b = e.target.closest('[data-remove]');
+      if (b && _currentReactionSheetData) removeMyReaction(_currentReactionSheetData.matchId, _currentReactionSheetData.msgId, b.dataset.remove);
+    };
   }
 }
 
@@ -14600,7 +13712,7 @@ async function submitForgotPassword() {
   if (typeof fbAuth !== 'undefined' && fbAuth) {
     try {
       await fbAuth.sendPasswordResetEmail(email);
-      showToast('✉️ Password reset email sent! Check your inbox and spam folder.', 'info');
+      showToast('Password reset email sent! Check your inbox and spam folder.', 'info');
       closeForgotPasswordModal();
     } catch (err) {
       console.warn("Forgot password error:", err.code, err.message);
@@ -14667,7 +13779,7 @@ async function submitForgotPasswordPhone() {
         setTimeout(() => otpInp.focus(), 150);
       }
       if (!window._devPhoneOtp) {
-        showToast('📱 SMS code sent to +234 ' + phone, 'info');
+        showToast('SMS code sent to +234 ' + phone, 'info');
       }
     } else {
       if (errEl) errEl.textContent = 'Could not send SMS code. Please try again.';
@@ -14695,7 +13807,7 @@ async function submitForgotPasswordPhone() {
 
   if (verified) {
     _fpPhoneOtpSent = false;
-    showToast('✅ Phone identity verified! Please create your new password.', 'gold');
+    showToast('Phone identity verified! Please create your new password.', 'gold');
     closeForgotPasswordModal();
   } else {
     if (errEl) errEl.textContent = 'Invalid verification code. Please try again.';
@@ -14715,7 +13827,7 @@ function openPhoneVerificationModal() {
   const saved = currentUser.phone || '';
   const sub = document.getElementById('settingsPhoneSub');
   if (saved && (currentUser.phoneVerified || currentUser.isPhoneVerified) && sub) {
-    sub.innerHTML = `<span style="color:#21B06B;font-weight:600">+234 ${saved} &#10003; Verified</span>`;
+    sub.textContent = `+234 ${saved} · Verified`;
   }
   modal.style.display = 'flex';
   const inp = document.getElementById('phoneNumberInput');
@@ -14730,7 +13842,7 @@ function closePhoneVerificationModal() {
 function showPhoneStep1() {
   const s1 = document.getElementById('phoneStep1');
   const s2 = document.getElementById('phoneStep2');
-  if (s1) s1.style.display = 'block';
+  if (s1) s1.style.display = 'flex';
   if (s2) s2.style.display = 'none';
   const err = document.getElementById('phoneStep1Error');
   if (err) err.textContent = '';
@@ -14767,7 +13879,7 @@ async function sendPhoneOtp() {
     const s1 = document.getElementById('phoneStep1');
     const s2 = document.getElementById('phoneStep2');
     if (s1) s1.style.display = 'none';
-    if (s2) s2.style.display = 'block';
+    if (s2) s2.style.display = 'flex';
     const sentTo = document.getElementById('phoneOtpSentTo');
     if (sentTo) sentTo.textContent = 'Code sent to +234 ' + _pendingPhoneNumber;
 
@@ -14824,65 +13936,11 @@ async function verifyPhoneOtp() {
     saveToStorage();
     // Backend already marks the authenticated account as phoneVerified.
     renderSettingsScreen();
-    showToast('✅ Phone number verified!', 'gold');
+    showToast('Phone number verified!', 'gold');
     closePhoneVerificationModal();
   } else {
     if (errEl) errEl.textContent = 'Incorrect code. Please try again.';
   }
-}
-
-// ==========================================================
-// LANGUAGE SELECTOR MODAL
-// ==========================================================
-
-const LANGUAGES = [
-  { code: 'en-UK', label: 'English (UK)', flag: '🇬🇧' },
-  { code: 'en-US', label: 'English (US)', flag: '🇺🇸' },
-  { code: 'en-NG', label: 'English (Nigeria)', flag: '🇳🇬' }
-];
-
-let currentLanguage = localStorage.getItem('hmbs_language') || 'en-UK';
-
-function openLanguageModal() {
-  const modal = document.getElementById('languageModal');
-  const list = document.getElementById('languageOptionsList');
-  if (!modal || !list) return;
-
-  list.innerHTML = LANGUAGES.map(lang => {
-    const isSelected = currentLanguage === lang.code;
-    return `
-      <div onclick="selectLanguage('${lang.code}', '${escHtml(lang.label)}')" style="
-        display:flex;align-items:center;gap:14px;padding:14px 16px;
-        background:${isSelected ? 'rgba(209,58,99,0.15)' : 'rgba(255,255,255,0.04)'};
-        border:1px solid ${isSelected ? 'rgba(209,58,99,0.5)' : 'rgba(255,255,255,0.08)'};
-        border-radius:14px;cursor:pointer;transition:all 0.2s"
-        onmouseenter="this.style.background='rgba(209,58,99,0.1)'" 
-        onmouseleave="this.style.background='${isSelected ? 'rgba(209,58,99,0.15)' : 'rgba(255,255,255,0.04)'}'"
-      >
-        <span style="font-size:1.5rem">${lang.flag}</span>
-        <span style="flex:1;font-size:0.95rem;font-weight:${isSelected ? '700' : '500'};color:#FFF">${lang.label}</span>
-        ${isSelected ? '<svg width="18" height="18" viewBox="0 0 24 24" fill="#D13A63"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>' : ''}
-      </div>`;
-  }).join('');
-
-  modal.style.display = 'flex';
-}
-
-function closeLanguageModal() {
-  const modal = document.getElementById('languageModal');
-  if (modal) modal.style.display = 'none';
-}
-
-function selectLanguage(code, label) {
-  currentLanguage = code;
-  localStorage.setItem('hmbs_language', code);
-  const sub = document.getElementById('settingsLanguageSub');
-  if (sub) sub.textContent = label;
-  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) {
-    fbDb.collection('users').doc(fbAuth.currentUser.uid).update({ language: code }).catch(() => {});
-  }
-  showToast(`\uD83C\uDF10 Language set to ${label}`, 'info');
-  closeLanguageModal();
 }
 
 // ==========================================================
@@ -14975,7 +14033,7 @@ async function handleStoryPhotoSelected(event) {
   window._isUploadingStory = true;
   window._uploadingStoryPreview = previewUrl;
   renderStoriesRow();
-  showToast(isVideo ? 'Uploading video status... 🎬' : 'Posting status update... 📸', 'info');
+  showToast(isVideo ? 'Uploading video status...' : 'Posting status update...', 'info');
 
   try {
     let finalUrl = '';
@@ -15075,7 +14133,7 @@ async function handleStoryPhotoSelected(event) {
     window._isUploadingStory = false;
     window._uploadingStoryPreview = null;
     renderStoriesRow();
-    showToast(isVideo ? 'Video status posted! 🎬' : 'Status posted! ✨', 'gold');
+    showToast(isVideo ? 'Video status posted!' : 'Status posted!', 'gold');
 
     // 5. View story smoothly
     setTimeout(() => {
@@ -15091,21 +14149,34 @@ async function handleStoryPhotoSelected(event) {
 }
 
 // ==========================================================
-// LEGAL MODALS � Terms, Privacy Policy, DMCA (compliance)
+// LEGAL MODALS: Terms, Privacy Policy, DMCA
 // ==========================================================
 
 const LEGAL_CONTENT = {
   terms: {
     title: 'Terms of Service',
-    body: `<p><strong style="color:#FFF">Effective: January 2025</strong></p><p><strong style="color:#FFF">1. Eligibility</strong><br>You must be at least <strong>18 years old</strong> to use hookmebysam. Underage accounts are terminated immediately.</p><p><strong style="color:#FFF">2. Acceptable Use</strong><br>No illegal, abusive, or harassing content. No spam. Violations result in a permanent ban.</p><p><strong style="color:#FFF">3. VIP Subscriptions</strong><br>VIP Gold plans are <strong>one-time purchases and do not auto-renew</strong>. Refunds within 24 hours via <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a>.</p><p><strong style="color:#FFF">4. Limitation of Liability</strong><br>App provided as-is. We are not liable for damages from use of the app.</p><p>hookmebysam � Lagos, Nigeria � <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a></p>`
+    body: `<p class="prose-meta">Effective January 2025</p>
+<h3>1. Eligibility</h3><p>You must be at least <strong>18 years old</strong> to use hookmebysam. Underage accounts are terminated immediately.</p>
+<h3>2. Acceptable use</h3><p>No illegal, abusive, or harassing content. No spam. Violations result in a permanent ban.</p>
+<h3>3. VIP plans</h3><p>VIP Gold plans are <strong>one-time purchases and do not auto-renew</strong>. Refunds within 24 hours via <a href="mailto:contact@hookmebysam.com">contact@hookmebysam.com</a>.</p>
+<h3>4. Limitation of liability</h3><p>The app is provided as-is. We are not liable for damages from use of the app.</p>
+<p class="prose-meta">hookmebysam · Lagos, Nigeria · <a href="mailto:contact@hookmebysam.com">contact@hookmebysam.com</a></p>`
   },
   privacy: {
     title: 'Privacy Policy',
-    body: `<p><strong style="color:#FFF">NDPR &amp; GDPR aligned � Effective January 2025</strong></p><p><strong style="color:#FFF">We collect:</strong> Name, age, gender, photo, email, and messages between matched users.</p><p><strong style="color:#FFF">We do NOT:</strong> Use session-recording tools, sell your data, log keystrokes, or track location without consent.</p><p><strong style="color:#FFF">Payments:</strong> Processed by Paystack � payment data is never stored on our servers.</p><p><strong style="color:#FFF">Delete account:</strong> Settings ? Delete Account removes all data within 30 days.</p><p><strong style="color:#FFF">Unsubscribe:</strong> Email <a href="mailto:contact@hookmebysam.com?subject=Unsubscribe" style="color:#FF2D78">contact@hookmebysam.com</a> with subject "Unsubscribe".</p><p>hookmebysam � Lagos, Nigeria � contact@hookmebysam.com</p>`
+    body: `<p class="prose-meta">Aligned with NDPR and GDPR · Effective January 2025</p>
+<h3>What we collect</h3><p>Name, age, gender, photos, email, and messages between matched users.</p>
+<h3>What we do not do</h3><p>We do not use session-recording tools, sell your data, log keystrokes, or track location without your consent.</p>
+<h3>Payments</h3><p>Payments are processed by Paystack. Payment details are never stored on our servers.</p>
+<h3>Deleting your account</h3><p>Settings, then Delete account, removes your data within 30 days.</p>
+<h3>Unsubscribe</h3><p>Email <a href="mailto:contact@hookmebysam.com?subject=Unsubscribe">contact@hookmebysam.com</a> with the subject “Unsubscribe”.</p>
+<p class="prose-meta">hookmebysam · Lagos, Nigeria · contact@hookmebysam.com</p>`
   },
   dmca: {
-    title: 'DMCA Takedown Policy',
-    body: `<p>hookmebysam complies with the DMCA. Our designated agent:</p><div style="background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;margin:10px 0"><strong style="color:#FFF">DMCA Agent: hookmebysam</strong><br>Email: <a href="mailto:contact@hookmebysam.com" style="color:#FF2D78">contact@hookmebysam.com</a><br>Address: Lagos, Nigeria</div><p>To file a notice, email the agent with: (1) description of infringing work, (2) location of content, (3) your contact info, (4) good-faith statement, (5) accuracy statement under penalty of perjury, (6) your signature. We act promptly. Repeat infringers lose access.</p>`
+    title: 'DMCA takedown policy',
+    body: `<p>hookmebysam complies with the DMCA. Our designated agent:</p>
+<div class="notice"><div><strong>DMCA agent: hookmebysam</strong><br>Email: <a href="mailto:contact@hookmebysam.com">contact@hookmebysam.com</a><br>Address: Lagos, Nigeria</div></div>
+<p>To file a notice, email the agent with: (1) a description of the infringing work, (2) the location of the content, (3) your contact information, (4) a good-faith statement, (5) an accuracy statement under penalty of perjury, and (6) your signature. We act promptly. Repeat infringers lose access.</p>`
   }
 };
 
@@ -15116,15 +14187,13 @@ function showLegalModal(type) {
   const content = LEGAL_CONTENT[type] || LEGAL_CONTENT.terms;
   if (!modal) return;
   if (titleEl) titleEl.textContent = content.title;
-  if (bodyEl)  bodyEl.innerHTML    = content.body;
+  if (bodyEl)  { bodyEl.innerHTML = content.body; bodyEl.scrollTop = 0; }
   modal.style.display = 'flex';
-  document.body.style.overflow = 'hidden';
 }
 
 function closeLegalModal() {
   const modal = document.getElementById('legalModal');
   if (modal) modal.style.display = 'none';
-  document.body.style.overflow = '';
 }
 
 function openTermsModal() {
@@ -15245,8 +14314,8 @@ function openProfileCardPreview() {
   if (!modal) return;
 
   _hkPreviewPhotosList = Array.isArray(currentUser.photos) && currentUser.photos.length > 0
-    ? currentUser.photos.slice()
-    : (currentUser.image ? [currentUser.image] : ['https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800']);
+    ? currentUser.photos.filter(Boolean)
+    : (currentUser.image ? [currentUser.image] : []);
 
   _hkPreviewPhotoIndex = 0;
 
@@ -15256,25 +14325,21 @@ function openProfileCardPreview() {
   const tagsEl = document.getElementById('hkPreviewTags');
 
   const displayName = currentUser.name || currentUser.displayName || 'You';
-  const displayAge = currentUser.age || 24;
-  const displayLoc = currentUser.location || 'Lagos, Nigeria';
-  const displayBio = currentUser.bio || 'Living life with good energy, positive vibes only! ✨';
-  const displayInterests = (currentUser.interests && currentUser.interests.length > 0)
-    ? currentUser.interests
-    : ['Tech 💻', 'Fitness 💪', 'Music 🎵'];
+  const rawAge = Number(currentUser.age);
+  const displayAge = Number.isFinite(rawAge) && rawAge >= 18 ? rawAge : null;
+  const displayLoc = String(currentUser.location || '').replace(/^[📍\s]+/, '').trim();
+  const displayBio = String(currentUser.bio || '').trim();
+  const displayInterests = Array.isArray(currentUser.interests)
+    ? currentUser.interests.filter(t => typeof t === 'string' && t.trim())
+    : [];
 
-  if (nameEl) nameEl.textContent = displayName + ', ' + displayAge;
-  if (locEl) locEl.textContent = '📍 ' + displayLoc.replace(/^[📍\s]+/, '');
-  if (bioEl) bioEl.textContent = displayBio;
+  if (nameEl) nameEl.textContent = displayAge ? displayName + ', ' + displayAge : displayName;
+  if (locEl) { locEl.textContent = displayLoc; locEl.style.display = displayLoc ? '' : 'none'; }
+  if (bioEl) { bioEl.textContent = displayBio; bioEl.style.display = displayBio ? '' : 'none'; }
   if (tagsEl) {
-    tagsEl.innerHTML = displayInterests.map(t => `<span class="hk-preview-tag">${escHtml(t)}</span>`).join('');
+    tagsEl.innerHTML = displayInterests.map(t => `<span class="preview-tag">${escHtml(t)}</span>`).join('');
   }
 
-  const previewBadge = document.getElementById('hkPreviewVerifiedBadge');
-  const isVerifiedUser = currentUser.isVerified === true || localStorage.getItem('hmbs_verified') === 'true';
-  if (previewBadge) {
-    previewBadge.style.display = isVerifiedUser ? 'inline-flex' : 'none';
-  }
 
   _renderPreviewCardPhoto();
   modal.style.display = 'flex';
@@ -15288,17 +14353,23 @@ function closeProfileCardPreview() {
 function _renderPreviewCardPhoto() {
   const imgEl = document.getElementById('hkPreviewPhotoImg');
   const barsEl = document.getElementById('hkPreviewBars');
+  const emptyEl = document.getElementById('hkPreviewEmpty');
+  const hasPhotos = _hkPreviewPhotosList.length > 0;
 
-  if (imgEl && _hkPreviewPhotosList.length > 0) {
+  if (imgEl && !hasPhotos) imgEl.removeAttribute('src');
+  if (imgEl && hasPhotos) {
     const currentUrl = _hkPreviewPhotosList[_hkPreviewPhotoIndex] || _hkPreviewPhotosList[0];
     imgEl.src = currentUrl;
   }
+  if (imgEl) imgEl.hidden = !hasPhotos;
+  if (emptyEl) emptyEl.hidden = hasPhotos;
+  document.querySelectorAll('#hkPreviewPhotoWrap .preview-tap').forEach(b => { b.hidden = _hkPreviewPhotosList.length < 2; });
 
   if (barsEl) {
     if (_hkPreviewPhotosList.length > 1) {
       barsEl.style.display = 'flex';
       barsEl.innerHTML = _hkPreviewPhotosList.map((_, i) => `
-        <div class="hk-preview-bar-dash ${i === _hkPreviewPhotoIndex ? 'active' : ''}"></div>
+        <span class="preview-bar${i === _hkPreviewPhotoIndex ? ' active' : ''}"></span>
       `).join('');
     } else {
       barsEl.style.display = 'none';
@@ -15341,23 +14412,6 @@ function closeSafetyToolkitModal() {
 }
 window.closeSafetyToolkitModal = closeSafetyToolkitModal;
 
-function triggerProfileBoost() {
-  if (appState.isBoostActive) {
-    showToast('⚡ Profile Boost is currently ACTIVE!');
-    return;
-  }
-  if (!appState.isVip) {
-    openPaywall('boost_upgrade');
-    return;
-  }
-  if (typeof startBoost === 'function') {
-    startBoost();
-    renderProfileScreen();
-  } else {
-    showToast('⚡ Profile Boost activated for 30 minutes!');
-  }
-}
-
 // ==========================================================
 // DEVICE PERMISSIONS & VIDEO CALL QUALITY MODALS
 // ==========================================================
@@ -15365,7 +14419,7 @@ function triggerProfileBoost() {
 function updateDevicePermissionsSubtext(el) {
   if (!el) return;
   if (!navigator.permissions) {
-    el.textContent = 'Camera, Mic & Location: Manage';
+    el.textContent = 'Manage camera, microphone and location';
     return;
   }
   Promise.all([
@@ -15373,206 +14427,79 @@ function updateDevicePermissionsSubtext(el) {
     navigator.permissions.query({ name: 'microphone' }).catch(() => null)
   ]).then(([cam, mic]) => {
     if (cam?.state === 'granted' && mic?.state === 'granted') {
-      el.innerHTML = '<span style="color:#21B06B;font-weight:600">Camera &amp; Mic active ✓</span>';
+      el.textContent = 'Camera and microphone are allowed';
     } else if (cam?.state === 'denied' || mic?.state === 'denied') {
-      el.innerHTML = '<span style="color:#FF3B30;font-weight:600">Permissions restricted ⚠️</span>';
+      el.textContent = 'Blocked. Allow them in your browser settings.';
     } else {
-      el.textContent = 'Check &amp; grant permissions';
+      el.textContent = 'Tap to check and allow';
     }
   }).catch(() => {
-    el.textContent = 'Device permissions &amp; status';
+    el.textContent = 'Tap to check permissions';
   });
 }
 window.updateDevicePermissionsSubtext = updateDevicePermissionsSubtext;
 
+const DEVICE_PERMS = [
+  { key: 'camera', label: 'Camera', icon: 'video', why: 'Video calls', query: 'camera' },
+  { key: 'microphone', label: 'Microphone', icon: 'mic', why: 'Voice notes and calls', query: 'microphone' },
+  { key: 'location', label: 'Location', icon: 'map-pin', why: 'Showing people near you', query: 'geolocation' },
+  { key: 'notifications', label: 'Notifications', icon: 'bell', why: 'New messages and calls', query: null }
+];
+
 async function openDevicePermissionsModal() {
-  document.getElementById('devicePermissionsModalOverlay')?.remove();
-
-  const overlay = document.createElement('div');
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.id = 'devicePermissionsModalOverlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeDevicePermissionsModal(); };
-
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card" style="max-width:440px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:38px;height:38px;border-radius:50%;background:rgba(139,127,255,0.14);display:flex;align-items:center;justify-content:center;color:#8B7FFF;flex-shrink:0;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
-            </svg>
-          </div>
-          <div>
-            <h3 class="wa-dialog-title" style="margin:0;font-size:1.15rem;text-align:left;">Device Permissions</h3>
-            <span style="font-size:0.75rem;color:var(--txt-muted);display:block;margin-top:2px;">Hardware &amp; system access</span>
-          </div>
-        </div>
-        <button onclick="closeDevicePermissionsModal()" style="background:none;border:none;color:var(--txt-muted);cursor:pointer;font-size:1.3rem;padding:4px 8px;">✕</button>
-      </div>
-
-      <p class="wa-dialog-desc" style="text-align:left;font-size:0.82rem;margin-bottom:12px;">
-        Grant permissions below to enable crystal-clear HD video calls, instant voice messaging, distance discovery, and call alerts.
-      </p>
-
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:16px;">
-
-        <!-- Camera -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="font-size:1.4rem;">📹</div>
-            <div>
-              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Camera</div>
-              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permCamStatus">Checking status…</div>
-            </div>
-          </div>
-          <button class="unblock-action-btn" id="permCamBtn" onclick="requestDevicePermission('camera')" style="padding:6px 14px;font-size:0.78rem;">
-            Allow
-          </button>
-        </div>
-
-        <!-- Microphone -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="font-size:1.4rem;">🎙️</div>
-            <div>
-              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Microphone</div>
-              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permMicStatus">Checking status…</div>
-            </div>
-          </div>
-          <button class="unblock-action-btn" id="permMicBtn" onclick="requestDevicePermission('microphone')" style="padding:6px 14px;font-size:0.78rem;">
-            Allow
-          </button>
-        </div>
-
-        <!-- Location -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="font-size:1.4rem;">📍</div>
-            <div>
-              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Location</div>
-              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permLocStatus">Checking status…</div>
-            </div>
-          </div>
-          <button class="unblock-action-btn" id="permLocBtn" onclick="requestDevicePermission('location')" style="padding:6px 14px;font-size:0.78rem;">
-            Allow
-          </button>
-        </div>
-
-        <!-- Notifications -->
-        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:14px;">
-          <div style="display:flex;align-items:center;gap:12px;">
-            <div style="font-size:1.4rem;">🔔</div>
-            <div>
-              <div style="font-weight:600;font-size:0.9rem;color:var(--txt-primary);">Notifications</div>
-              <div style="font-size:0.75rem;color:var(--txt-muted);" id="permNotifStatus">Checking status…</div>
-            </div>
-          </div>
-          <button class="unblock-action-btn" id="permNotifBtn" onclick="requestDevicePermission('notifications')" style="padding:6px 14px;font-size:0.78rem;">
-            Allow
-          </button>
-        </div>
-
-      </div>
-
-      <div style="display:flex;gap:10px;justify-content:space-between;align-items:center;">
-        <button class="unblock-action-btn" onclick="requestAllDevicePermissions()" style="background:var(--flame-grad);border:none;color:#fff;padding:10px 18px;font-size:0.84rem;font-weight:600;flex:1;">
-          Grant All Permissions
-        </button>
-        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeDevicePermissionsModal()" style="width:auto;padding:8px 20px;">
-          <span>Done</span>
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
+  const rows = DEVICE_PERMS.map(p => `
+    <div class="row">
+      <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-${p.icon}"/></svg></span>
+      <span class="row-body">
+        <span class="row-title">${p.label}</span>
+        <span class="row-sub" id="perm-${p.key}-why">${p.why}</span>
+        <span class="perm-status" id="perm-${p.key}-status" role="status">Checking…</span>
+      </span>
+      <button type="button" class="btn btn-secondary btn-sm" id="perm-${p.key}-btn" data-perm="${p.key}" hidden>Allow</button>
+    </div>`).join('');
+  const { overlay } = openSheetDialog({
+    id: 'devicePermissionsModalOverlay',
+    title: 'Camera, microphone and more',
+    sub: 'Only used for the features listed. You can turn any of them off in your browser settings.',
+    body: `<div class="list">${rows}</div>`,
+    foot: '<button type="button" class="btn btn-secondary" data-sheet-close>Done</button><button type="button" class="btn btn-primary" data-perm-all>Allow all</button>',
+    onClose: () => { renderSettingsScreen(); }
+  });
+  overlay.addEventListener('click', (e) => {
+    const one = e.target.closest('[data-perm]');
+    if (one) requestDevicePermission(one.dataset.perm);
+    if (e.target.closest('[data-perm-all]')) requestAllDevicePermissions();
+  });
   refreshDevicePermissionsUI();
 }
 window.openDevicePermissionsModal = openDevicePermissionsModal;
 
 function closeDevicePermissionsModal() {
-  document.getElementById('devicePermissionsModalOverlay')?.remove();
-  renderSettingsScreen();
+  closeSheetDialog('devicePermissionsModalOverlay');
 }
 window.closeDevicePermissionsModal = closeDevicePermissionsModal;
 
 async function refreshDevicePermissionsUI() {
-  const camStatus = document.getElementById('permCamStatus');
-  const camBtn = document.getElementById('permCamBtn');
-  const micStatus = document.getElementById('permMicStatus');
-  const micBtn = document.getElementById('permMicBtn');
-  const locStatus = document.getElementById('permLocStatus');
-  const locBtn = document.getElementById('permLocBtn');
-  const notifStatus = document.getElementById('permNotifStatus');
-  const notifBtn = document.getElementById('permNotifBtn');
-
-  // Camera & Mic check
-  if (navigator.permissions) {
-    try {
-      const c = await navigator.permissions.query({ name: 'camera' });
-      if (camStatus && camBtn) {
-        if (c.state === 'granted') {
-          camStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
-          camBtn.textContent = 'Active';
-          camBtn.style.opacity = '0.6';
-        } else if (c.state === 'denied') {
-          camStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
-          camBtn.textContent = 'Enable';
-        } else {
-          camStatus.textContent = 'Tap to allow access';
-          camBtn.textContent = 'Allow';
-        }
-      }
-    } catch (_) {}
-
-    try {
-      const m = await navigator.permissions.query({ name: 'microphone' });
-      if (micStatus && micBtn) {
-        if (m.state === 'granted') {
-          micStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
-          micBtn.textContent = 'Active';
-          micBtn.style.opacity = '0.6';
-        } else if (m.state === 'denied') {
-          micStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
-          micBtn.textContent = 'Enable';
-        } else {
-          micStatus.textContent = 'Tap to allow access';
-          micBtn.textContent = 'Allow';
-        }
-      }
-    } catch (_) {}
-
-    try {
-      const l = await navigator.permissions.query({ name: 'geolocation' });
-      if (locStatus && locBtn) {
-        if (l.state === 'granted') {
-          locStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
-          locBtn.textContent = 'Active';
-          locBtn.style.opacity = '0.6';
-        } else if (l.state === 'denied') {
-          locStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
-          locBtn.textContent = 'Enable';
-        } else {
-          locStatus.textContent = 'Tap to allow access';
-          locBtn.textContent = 'Allow';
-        }
-      }
-    } catch (_) {}
-  }
-
-  // Notifications check
-  if ('Notification' in window && notifStatus && notifBtn) {
-    if (Notification.permission === 'granted') {
-      notifStatus.innerHTML = '<span style="color:#21B06B;font-weight:600">Granted ✓</span>';
-      notifBtn.textContent = 'Active';
-      notifBtn.style.opacity = '0.6';
-    } else if (Notification.permission === 'denied') {
-      notifStatus.innerHTML = '<span style="color:#FF3B30;font-weight:600">Blocked in browser</span>';
-      notifBtn.textContent = 'Enable';
-    } else {
-      notifStatus.textContent = 'Tap to enable notifications';
-      notifBtn.textContent = 'Allow';
+  const apply = (key, state) => {
+    const status = document.getElementById(`perm-${key}-status`);
+    const btn = document.getElementById(`perm-${key}-btn`);
+    if (!status || !btn) return;
+    status.className = 'perm-status' + (state === 'granted' ? ' is-ok' : state === 'denied' ? ' is-bad' : '');
+    if (state === 'granted') { status.textContent = 'Allowed'; btn.hidden = true; }
+    else if (state === 'denied') { status.textContent = 'Blocked. Change this in your browser’s site settings.'; btn.hidden = true; }
+    else if (state === 'unsupported') { status.textContent = 'Not available on this device'; btn.hidden = true; }
+    else { status.textContent = 'Not allowed yet'; btn.hidden = false; }
+  };
+  for (const p of DEVICE_PERMS) {
+    if (p.key === 'notifications') {
+      apply(p.key, !('Notification' in window) ? 'unsupported' : Notification.permission === 'default' ? 'prompt' : Notification.permission);
+      continue;
     }
+    let state = 'prompt';
+    if (navigator.permissions) {
+      try { state = (await navigator.permissions.query({ name: p.query })).state; } catch (_) { state = 'prompt'; }
+    }
+    apply(p.key, state);
   }
 }
 
@@ -15581,169 +14508,84 @@ async function requestDevicePermission(type) {
     if (type === 'camera') {
       const s = await navigator.mediaDevices.getUserMedia({ video: true });
       s.getTracks().forEach(t => t.stop());
-      showToast('📹 Camera access granted!', 'gold');
     } else if (type === 'microphone') {
       const s = await navigator.mediaDevices.getUserMedia({ audio: true });
       s.getTracks().forEach(t => t.stop());
-      showToast('🎙️ Microphone access granted!', 'gold');
     } else if (type === 'location') {
-      await new Promise((res, rej) => {
-        navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000 });
-      });
-      showToast('📍 Location access granted!', 'gold');
+      await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 10000 }));
     } else if (type === 'notifications') {
-      if ('Notification' in window) {
-        const res = await Notification.requestPermission();
-        if (res === 'granted') {
-          showToast('🔔 Notifications enabled!', 'gold');
-        } else {
-          showToast('Notification permission denied.', 'warning');
-        }
-      }
+      if ('Notification' in window) await Notification.requestPermission();
     }
   } catch (err) {
     console.warn(`Permission request for ${type} failed:`, err);
-    showToast(`Could not enable ${type}. Check your browser settings.`, 'warning');
+    showToast(`Could not turn on ${type}. Check your browser’s site settings.`, 'warning');
   }
   refreshDevicePermissionsUI();
 }
 window.requestDevicePermission = requestDevicePermission;
 
 async function requestAllDevicePermissions() {
-  showToast('Requesting device permissions…', 'info');
   try {
     const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     s.getTracks().forEach(t => t.stop());
   } catch (_) {}
-
   try {
-    await new Promise((res, rej) => {
-      navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 });
-    });
+    await new Promise((res, rej) => navigator.geolocation.getCurrentPosition(res, rej, { timeout: 6000 }));
   } catch (_) {}
-
   try {
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      await Notification.requestPermission();
-    }
+    if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
   } catch (_) {}
-
   refreshDevicePermissionsUI();
-  showToast('✨ Device permissions updated!', 'gold');
 }
 window.requestAllDevicePermissions = requestAllDevicePermissions;
 
 // Video Call Quality Selection Modal
 function openVideoQualityModal() {
-  document.getElementById('videoQualityModalOverlay')?.remove();
-
   const current = localStorage.getItem('videoCallQuality') || '1080p';
-
-  const overlay = document.createElement('div');
-  overlay.className = 'whatsapp-dialog-overlay';
-  overlay.id = 'videoQualityModalOverlay';
-  overlay.onclick = (e) => { if (e.target === overlay) closeVideoQualityModal(); };
-
-  overlay.innerHTML = `
-    <div class="whatsapp-dialog-card" style="max-width:440px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-          <div style="width:38px;height:38px;border-radius:50%;background:rgba(244,197,80,0.14);display:flex;align-items:center;justify-content:center;color:#F4C550;flex-shrink:0;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-            </svg>
-          </div>
-          <div>
-            <h3 class="wa-dialog-title" style="margin:0;font-size:1.15rem;text-align:left;">Video Call Quality</h3>
-            <span style="font-size:0.75rem;color:var(--txt-muted);display:block;margin-top:2px;">Camera resolution &amp; bitrate</span>
-          </div>
-        </div>
-        <button onclick="closeVideoQualityModal()" style="background:none;border:none;color:var(--txt-muted);cursor:pointer;font-size:1.3rem;padding:4px 8px;">✕</button>
-      </div>
-
-      <p class="wa-dialog-desc" style="text-align:left;font-size:0.82rem;margin-bottom:14px;">
-        Choose camera video stream clarity for all outgoing and incoming video calls.
-      </p>
-
-      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:18px;">
-
-        <!-- 1080p Ultra HD -->
-        <div onclick="selectVideoQuality('1080p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '1080p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '1080p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">Ultra HD 1080p</span>
-              <span style="background:var(--flame-grad);color:#fff;font-size:0.68rem;padding:2px 7px;border-radius:10px;font-weight:700;">HIGHEST</span>
-            </div>
-            <div style="font-size:0.77rem;color:var(--txt-muted);margin-top:4px;">
-              Crystal clear native camera clarity (1920×1080 @ 30fps). Highest sharpness, like a normal phone camera.
-            </div>
-          </div>
-          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${current === '1080p' ? '#F4C550' : 'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;">
-            ${current === '1080p' ? '<div style="width:10px;height:10px;border-radius:50%;background:#F4C550;"></div>' : ''}
-          </div>
-        </div>
-
-        <!-- 720p HD -->
-        <div onclick="selectVideoQuality('720p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '720p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '720p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">HD 720p</span>
-              <span style="background:rgba(255,255,255,0.12);color:var(--txt-primary);font-size:0.68rem;padding:2px 7px;border-radius:10px;font-weight:600;">BALANCED</span>
-            </div>
-            <div style="font-size:0.77rem;color:var(--txt-muted);margin-top:4px;">
-              High definition (1280×720 @ 30fps). Smooth performance and moderate data usage.
-            </div>
-          </div>
-          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${current === '720p' ? '#F4C550' : 'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;">
-            ${current === '720p' ? '<div style="width:10px;height:10px;border-radius:50%;background:#F4C550;"></div>' : ''}
-          </div>
-        </div>
-
-        <!-- 480p Data Saver -->
-        <div onclick="selectVideoQuality('480p')" style="cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:14px;background:${current === '480p' ? 'rgba(244,197,80,0.12)' : 'rgba(255,255,255,0.04)'};border:1.5px solid ${current === '480p' ? '#F4C550' : 'rgba(255,255,255,0.08)'};border-radius:14px;transition:all 0.2s ease;">
-          <div>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <span style="font-weight:700;font-size:0.94rem;color:var(--txt-primary);">Standard 480p</span>
-              <span style="background:rgba(255,255,255,0.12);color:var(--txt-muted);font-size:0.68rem;padding:2px 7px;border-radius:10px;font-weight:600;">DATA SAVER</span>
-            </div>
-            <div style="font-size:0.77rem;color:var(--txt-muted);margin-top:4px;">
-              Standard definition (640×480). Conserves mobile data on slow or limited connections.
-            </div>
-          </div>
-          <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${current === '480p' ? '#F4C550' : 'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:12px;">
-            ${current === '480p' ? '<div style="width:10px;height:10px;border-radius:50%;background:#F4C550;"></div>' : ''}
-          </div>
-        </div>
-
-      </div>
-
-      <div style="display:flex;justify-content:flex-end;">
-        <button class="wa-dialog-btn wa-dialog-btn-cancel" onclick="closeVideoQualityModal()" style="width:auto;padding:8px 24px;">
-          <span>Done</span>
-        </button>
-      </div>
-    </div>
-  `;
-
-  document.body.appendChild(overlay);
+  const options = [
+    ['1080p', '1080p', 'Sharpest picture (1920×1080). Uses the most data.'],
+    ['720p', '720p', 'Balanced picture (1280×720). Moderate data use.'],
+    ['480p', '480p', 'Lowest data use (640×480). Best on slow connections.']
+  ];
+  const body = document.createElement('div');
+  body.className = 'choice-list';
+  body.setAttribute('role', 'radiogroup');
+  body.setAttribute('aria-label', 'Video call quality');
+  options.forEach(([value, label, desc]) => {
+    const row = document.createElement('label');
+    row.className = 'choice choice-radio';
+    const input = document.createElement('input');
+    input.type = 'radio'; input.name = 'videoQuality'; input.value = value;
+    input.checked = value === current;
+    const text = document.createElement('span');
+    text.className = 'choice-text';
+    const t = document.createElement('span'); t.textContent = label;
+    const d = document.createElement('span'); d.className = 'choice-sub'; d.textContent = desc;
+    text.append(t, d);
+    row.append(input, text);
+    body.appendChild(row);
+  });
+  const { overlay } = openSheetDialog({
+    id: 'videoQualityModalOverlay',
+    title: 'Video call quality',
+    sub: 'Higher quality looks sharper but uses more mobile data.',
+    body,
+    foot: '<button type="button" class="btn btn-primary btn-block" data-sheet-close>Done</button>',
+    onClose: () => { renderSettingsScreen(); }
+  });
+  overlay.addEventListener('change', (e) => {
+    if (e.target.name === 'videoQuality') selectVideoQuality(e.target.value);
+  });
 }
 window.openVideoQualityModal = openVideoQualityModal;
 
 function closeVideoQualityModal() {
-  document.getElementById('videoQualityModalOverlay')?.remove();
-  renderSettingsScreen();
+  closeSheetDialog('videoQualityModalOverlay');
 }
 window.closeVideoQualityModal = closeVideoQualityModal;
 
 function selectVideoQuality(quality) {
-  localStorage.setItem('videoCallQuality', quality);
-  const labels = {
-    '1080p': 'Ultra HD 1080p (Crystal Clear)',
-    '720p': 'HD 720p (Balanced)',
-    '480p': 'Standard 480p (Data Saver)'
-  };
-  showToast(`✨ Video Call Quality: ${labels[quality] || quality}`, 'gold');
-  closeVideoQualityModal();
+  try { localStorage.setItem('videoCallQuality', quality); } catch (_) {}
 }
 window.selectVideoQuality = selectVideoQuality;
 
@@ -15827,21 +14669,17 @@ window.loadProfilesForDiscovery = async function() {
 };
 
 // ==========================================================
-// ONBOARDING WIZARD — 5-step conversational new-user flow
+// ONBOARDING WIZARD: 5 steps for a new account. Nothing is pre-selected and
+// only what the person chose is saved.
 // ==========================================================
+const OB_STEPS = 5;
 const _obState = {
   currentStep: 1,
   name: '',
   age: '',
-  gender: 'Male',
+  gender: '',
   interestedIn: '',
-  intent: 'relationship',
-  personality: {
-    nightVibe: 'night_out',
-    escape: 'beach',
-    comms: 'texts',
-    greenFlag: 'Consistent communication'
-  },
+  intent: '',
   interests: [],
   bio: ''
 };
@@ -15849,20 +14687,19 @@ const _obState = {
 function showOnboardingWizard(prefillName) {
   const wiz = document.getElementById('onboardingWizard');
   if (!wiz) return;
-  // Pre-fill name if provided from Google
   if (prefillName) {
     const nameInput = document.getElementById('obNameInput');
     if (nameInput) nameInput.value = prefillName;
     _obState.name = prefillName;
   }
-  // Reset to step 1
   _obState.currentStep = 1;
-  wiz.style.display = 'block';
+  wiz.style.display = 'flex';
   _obShowStep(1);
+  dialogOpened(wiz, { focus: '#obNameInput' });
 
-  // Bio char counter
   const bioInput = document.getElementById('obBioInput');
-  if (bioInput) {
+  if (bioInput && !bioInput._counterBound) {
+    bioInput._counterBound = true;
     bioInput.addEventListener('input', () => {
       const count = document.getElementById('obBioCount');
       if (count) count.textContent = bioInput.value.length;
@@ -15871,83 +14708,61 @@ function showOnboardingWizard(prefillName) {
 }
 window.showOnboardingWizard = showOnboardingWizard;
 
+function _obCloseWizard() {
+  const wiz = document.getElementById('onboardingWizard');
+  if (wiz) { wiz.style.display = 'none'; dialogClosed(wiz); }
+}
+
 function _obShowStep(stepNum) {
-  // Hide all steps
   document.querySelectorAll('.ob-step').forEach(s => s.classList.remove('active'));
-  // Show target
   const target = document.getElementById('obStep' + stepNum);
   if (target) target.classList.add('active');
 
-  // Update dots
-  const dots = document.querySelectorAll('.ob-dot');
-  dots.forEach((d, i) => d.classList.toggle('active', i === stepNum - 1));
+  const label = document.getElementById('obStepLabel');
+  if (label) label.textContent = `Step ${stepNum} of ${OB_STEPS}`;
+  const fill = document.getElementById('obProgressFill');
+  if (fill) fill.style.width = (stepNum / OB_STEPS * 100) + '%';
+  document.getElementById('obProgress')?.setAttribute('aria-valuenow', String(stepNum));
 
-  // Show/hide skip button
   const skipBtn = document.getElementById('obSkipBtn');
-  if (skipBtn) skipBtn.style.display = stepNum < 5 ? 'block' : 'none';
-
-  // Show/hide back button (visible on steps 2, 3, 4, 5)
+  if (skipBtn) skipBtn.style.visibility = stepNum < OB_STEPS ? 'visible' : 'hidden';
   const backBtn = document.getElementById('obBackBtn');
-  if (backBtn) backBtn.style.display = stepNum > 1 ? 'inline-flex' : 'none';
+  if (backBtn) backBtn.style.visibility = stepNum > 1 ? 'visible' : 'hidden';
+  const nextBtn = document.getElementById('obNextBtn');
+  if (nextBtn) nextBtn.textContent = stepNum === OB_STEPS ? 'Finish' : 'Continue';
 
+  document.querySelector('#onboardingWizard .wiz-scroll')?.scrollTo(0, 0);
   _obState.currentStep = stepNum;
-  haptic('light');
+  const heading = target?.querySelector('h1');
+  if (heading) { heading.setAttribute('tabindex', '-1'); if (stepNum > 1) heading.focus({ preventScroll: true }); }
 }
 
 function obBackCurrent() {
-  if (_obState.currentStep > 1) {
-    _obShowStep(_obState.currentStep - 1);
-  }
+  if (_obState.currentStep > 1) _obShowStep(_obState.currentStep - 1);
 }
 window.obBackCurrent = obBackCurrent;
 
-function selectObGender(el) {
-  document.querySelectorAll('#obStep2 .ob-name-section:first-of-type .ob-gender-opt').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  _obState.gender = el.dataset.val;
-  haptic('light');
+// Radio-style groups: one choice at most, and clicking the chosen one again clears it.
+function _obPickOne(el, key, value) {
+  const group = el.parentElement;
+  const wasOn = el.getAttribute('aria-checked') === 'true';
+  group.querySelectorAll('[role="radio"]').forEach(o => { o.classList.remove('selected'); o.setAttribute('aria-checked', 'false'); });
+  if (!wasOn) { el.classList.add('selected'); el.setAttribute('aria-checked', 'true'); }
+  _obState[key] = wasOn ? '' : value;
 }
+
+function selectObGender(el) { _obPickOne(el, 'gender', el.dataset.val); }
 window.selectObGender = selectObGender;
 
-function selectObInterestIn(el) {
-  const grid = el.closest('.ob-gender-grid');
-  if (grid) grid.querySelectorAll('.ob-gender-opt').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
-  _obState.interestedIn = el.dataset.val;
-  haptic('light');
-}
+function selectObInterestIn(el) { _obPickOne(el, 'interestedIn', el.dataset.val); }
 window.selectObInterestIn = selectObInterestIn;
 
-function selectObIntent(el) {
-  document.querySelectorAll('#obIntentGrid .ob-intent-card').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  _obState.intent = el.dataset.intent || 'relationship';
-  haptic('light');
-}
+function selectObIntent(el) { _obPickOne(el, 'intent', el.dataset.intent); }
 window.selectObIntent = selectObIntent;
 
-function selectObVibe(btn, key) {
-  const pair = btn.closest('.ob-vibe-pair');
-  if (pair) pair.querySelectorAll('.ob-vibe-chip').forEach(c => c.classList.remove('selected'));
-  btn.classList.add('selected');
-  if (!_obState.personality) _obState.personality = {};
-  _obState.personality[key] = btn.dataset.val;
-  haptic('light');
-}
-window.selectObVibe = selectObVibe;
-
-function selectObGreenFlag(el) {
-  document.querySelectorAll('#obFlagsGrid .ob-flag-chip').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  if (!_obState.personality) _obState.personality = {};
-  _obState.personality.greenFlag = el.textContent.replace(/^[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\s]+/gu, '').trim();
-  haptic('light');
-}
-window.selectObGreenFlag = selectObGreenFlag;
-
 function selectSignupIntent(intent, el) {
-  document.querySelectorAll('#signupIntentGrid .signup-intent-pill').forEach(p => p.classList.remove('selected'));
-  if (el) el.classList.add('selected');
+  document.querySelectorAll('#signupIntentGrid .signup-intent-pill').forEach(p => { p.classList.remove('selected'); p.setAttribute('aria-checked', 'false'); });
+  if (el) { el.classList.add('selected'); el.setAttribute('aria-checked', 'true'); }
   appState.signupIntent = intent;
   currentUser.intent = intent;
   haptic('light');
@@ -15955,25 +14770,33 @@ function selectSignupIntent(intent, el) {
 window.selectSignupIntent = selectSignupIntent;
 
 function toggleObInterest(el) {
+  const label = el.textContent.trim();
   const isSelected = el.classList.contains('selected');
   if (!isSelected && _obState.interests.length >= 5) {
-    haptic('error');
-    el.style.animation = 'none';
-    el.offsetWidth; // force reflow
-    el.style.animation = 'obEmojiPop 0.3s ease';
+    const countEl = document.getElementById('obInterestCount');
+    if (countEl) countEl.textContent = 'You can pick up to 5. Remove one to add another.';
     return;
   }
-  haptic('light');
   el.classList.toggle('selected');
-  if (el.classList.contains('selected')) {
-    _obState.interests.push(el.textContent.trim());
-  } else {
-    _obState.interests = _obState.interests.filter(i => i !== el.textContent.trim());
-  }
+  el.setAttribute('aria-pressed', String(el.classList.contains('selected')));
+  if (el.classList.contains('selected')) _obState.interests.push(label);
+  else _obState.interests = _obState.interests.filter(i => i !== label);
   const countEl = document.getElementById('obInterestCount');
-  if (countEl) countEl.textContent = `${_obState.interests.length} / 5 selected`;
+  if (countEl) countEl.textContent = `${_obState.interests.length} of 5 selected`;
 }
 window.toggleObInterest = toggleObInterest;
+
+function _obFieldError(inputId, errorId, message) {
+  const input = document.getElementById(inputId);
+  const err = document.getElementById(errorId);
+  if (err) err.textContent = message || '';
+  if (input) { if (message) input.setAttribute('aria-invalid', 'true'); else input.removeAttribute('aria-invalid'); }
+}
+
+function obContinue() {
+  obNext(_obState.currentStep);
+}
+window.obContinue = obContinue;
 
 function obNext(fromStep) {
   if (fromStep === 1) {
@@ -15981,27 +14804,25 @@ function obNext(fromStep) {
     const ageInput  = document.getElementById('obAgeInput');
     const name = (nameInput?.value || '').trim();
     const age  = parseInt(ageInput?.value || '0', 10);
+    _obFieldError('obNameInput', 'obNameError', '');
+    _obFieldError('obAgeInput', 'obAgeError', '');
     if (!name) {
-      haptic('error');
-      if (nameInput) { nameInput.style.borderColor = '#D13A63'; nameInput.focus(); }
-      showToast('Please enter your name 😊', 'error');
+      _obFieldError('obNameInput', 'obNameError', 'Enter your first name.');
+      nameInput?.focus();
       return;
     }
     if (!age || age < 18 || age > 99) {
-      haptic('error');
-      if (ageInput) { ageInput.style.borderColor = '#D13A63'; ageInput.focus(); }
-      showToast('Please enter a valid age (18+)', 'error');
+      _obFieldError('obAgeInput', 'obAgeError', 'Enter an age from 18 to 99. hookmebysam is for adults.');
+      ageInput?.focus();
       return;
     }
     _obState.name = name;
     _obState.age  = age;
     _obShowStep(2);
-  } else if (fromStep === 2) {
-    _obShowStep(3);
-  } else if (fromStep === 3) {
-    _obShowStep(4);
-  } else if (fromStep === 4) {
-    _obShowStep(5);
+  } else if (fromStep < OB_STEPS) {
+    _obShowStep(fromStep + 1);
+  } else {
+    obFinish();
   }
 }
 window.obNext = obNext;
@@ -16010,10 +14831,10 @@ async function obFinish() {
   const bioInput = document.getElementById('obBioInput');
   _obState.bio = (bioInput?.value || '').trim();
 
-  const btn = document.getElementById('obFinishBtn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  const btn = document.getElementById('obNextBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
 
-  // Apply to currentUser
+  // Apply only what the person entered
   if (_obState.name)  currentUser.name = _obState.name;
   if (_obState.age)   currentUser.age  = _obState.age;
   if (_obState.gender) currentUser.gender = _obState.gender;
@@ -16021,23 +14842,6 @@ async function obFinish() {
   if (_obState.interests.length) currentUser.interests = _obState.interests;
   if (_obState.interestedIn) currentUser.interestedIn = _obState.interestedIn;
   if (_obState.intent) currentUser.intent = _obState.intent;
-
-  currentUser.lifestyle = {
-    ...(currentUser.lifestyle || {}),
-    nightVibe: _obState.personality?.nightVibe || 'night_out',
-    escape: _obState.personality?.escape || 'beach',
-    comms: _obState.personality?.comms || 'texts'
-  };
-
-  const greenFlag = _obState.personality?.greenFlag || 'Consistent communication';
-  const weekendText = _obState.personality?.nightVibe === 'night_out'
-    ? 'Out exploring vibrant music & spots 🎶'
-    : 'Cozy dinner & great conversation at home 🛋️';
-
-  currentUser.prompts = [
-    { question: 'My biggest green flag', answer: greenFlag },
-    { question: 'Ideal weekend', answer: weekendText }
-  ];
 
   if (typeof calculateProfileCompleteness === 'function') {
     calculateProfileCompleteness();
@@ -16047,35 +14851,24 @@ async function obFinish() {
   appState.isLoggedIn = true;
   saveToStorage();
 
-  // Save to Firestore
   if (typeof saveUserProfileToFirestore === 'function') {
     try { await saveUserProfileToFirestore(currentUser); } catch (_) {}
   }
 
-  haptic('success');
-
-  // Close wizard + go to discovery
-  const wiz = document.getElementById('onboardingWizard');
-  if (wiz) {
-    wiz.style.transition = 'opacity 0.4s';
-    wiz.style.opacity = '0';
-    setTimeout(() => { wiz.style.display = 'none'; wiz.style.opacity = ''; }, 420);
-  }
+  _obCloseWizard();
+  if (btn) { btn.disabled = false; btn.textContent = 'Finish'; }
 
   showScreen('discovery');
   initMainApp();
   setTimeout(() => {
-    showToast(`🔥 Welcome, ${currentUser.name}! Let's find your match!`, 'gold');
-    // Show PWA banner after onboarding
+    showToast(`Welcome, ${currentUser.name}.`, 'success');
     setTimeout(tryShowPwaBanner, 3500);
   }, 600);
 }
 window.obFinish = obFinish;
 
 function skipOnboarding() {
-  haptic('light');
-  const wiz = document.getElementById('onboardingWizard');
-  if (wiz) { wiz.style.display = 'none'; }
+  _obCloseWizard();
   appState.isLoggedIn = true;
   saveToStorage();
   showScreen('discovery');
@@ -16144,7 +14937,7 @@ async function triggerPwaInstall() {
   haptic('medium');
   if (!_pwaInstallEvent) {
     // iOS fallback — show instructions
-    showToast('📱 Tap the Share button → "Add to Home Screen"', 'gold');
+    showToast('Tap the Share button → "Add to Home Screen"', 'gold');
     dismissPwaBanner();
     return;
   }
@@ -16153,7 +14946,7 @@ async function triggerPwaInstall() {
     const { outcome } = await _pwaInstallEvent.userChoice;
     if (outcome === 'accepted') {
       haptic('success');
-      showToast('🎉 App installed! Check your home screen', 'gold');
+      showToast('App installed! Check your home screen', 'gold');
     }
     _pwaInstallEvent = null;
   } catch (_) {}
@@ -16460,7 +15253,7 @@ function calculateDistanceKm(lat1, lon1, lat2, lon2) {
 window.calculateDistanceKm = calculateDistanceKm;
 
 function getDynamicProfileDistance(profile) {
-  if (!profile) return '2 km away';
+  if (!profile) return '';
   if (_userGeoCoords) {
     let targetCoords = profile.coords;
     if (!targetCoords && (profile.location || profile.city)) {
@@ -16478,7 +15271,7 @@ function getDynamicProfileDistance(profile) {
       return `${km.toFixed(1)} km away`;
     }
   }
-  return profile.distance || '2.5 km away';
+  return profile.distance || '';
 }
 window.getDynamicProfileDistance = getDynamicProfileDistance;
 
@@ -16536,7 +15329,7 @@ window.triggerSuperLike = function() {
   }
 
   haptic('success');
-  showToast('⭐ Super Like sent! Priority match delivery activated!', 'gold');
+  showToast('Like sent', 'gold');
 
   setTimeout(() => {
     doSwipe('right');
@@ -16560,45 +15353,49 @@ window.showRatingModal = showRatingModal;
 
 function setRatingScore(score) {
   _currentRatingScore = score;
-  const stars = document.querySelectorAll('.rating-star-btn');
-  stars.forEach((btn, idx) => {
+  document.querySelectorAll('.rating-star-btn').forEach((btn, idx) => {
     btn.classList.toggle('active', idx < score);
+    btn.setAttribute('aria-checked', String(idx + 1 === score));
   });
 
   const feedbackArea = document.getElementById('ratingFeedbackArea');
   if (feedbackArea) {
-    feedbackArea.style.display = score <= 4 ? 'block' : 'none';
+    feedbackArea.style.display = score <= 4 ? '' : 'none';
   }
 }
 window.setRatingScore = setRatingScore;
 
-function submitRating() {
-  haptic('success');
-  const feedback = (document.getElementById('ratingFeedbackText')?.value || '').trim();
+// Feedback is stored in Firestore (collection app_feedback, create-only, see firestore.rules).
+// The thank-you only appears once the write has actually succeeded.
+async function submitRating() {
+  const feedback = (document.getElementById('ratingFeedbackText')?.value || '').trim().slice(0, 1000);
+  const errEl = document.getElementById('ratingError');
+  const btn = document.getElementById('ratingSubmitBtn');
+  if (errEl) errEl.textContent = '';
 
+  if (typeof fbDb === 'undefined' || !fbDb || typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
+    if (errEl) errEl.textContent = 'Sign in to send feedback.';
+    return;
+  }
+  if (btn) btn.disabled = true;
   try {
-    localStorage.setItem('hmbs_has_rated', Date.now().toString());
-  } catch (_) {}
-
-  // Sync to Firestore if available
-  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    fbDb.collection('app_feedback').add({
+    await fbDb.collection('app_feedback').add({
       uid: fbAuth.currentUser.uid,
-      userName: currentUser.name || 'Anonymous',
+      userName: currentUser.name || '',
       rating: _currentRatingScore,
-      feedback: feedback,
+      feedback,
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).catch(() => {});
+    });
+  } catch (err) {
+    console.warn('Feedback write failed:', err);
+    if (errEl) errEl.textContent = 'Could not send your feedback. Please try again.';
+    if (btn) btn.disabled = false;
+    return;
   }
-
+  if (btn) btn.disabled = false;
+  try { localStorage.setItem('hmbs_has_rated', Date.now().toString()); } catch (_) {}
   closeRatingModal(false);
-
-  if (_currentRatingScore >= 5) {
-    launchMatchConfetti();
-    showToast('❤️ Thank you! We are thrilled you love hookmebysam!', 'gold');
-  } else {
-    showToast('🙏 Thank you for your feedback! We will keep improving!', 'success');
-  }
+  showToast('Thanks for your feedback.', 'success');
 }
 window.submitRating = submitRating;
 
@@ -16616,6 +15413,7 @@ window.closeRatingModal = closeRatingModal;
 function checkShowRatingPrompt() {
   try {
     if (localStorage.getItem('hmbs_has_rated')) return;
+    if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser) return; // feedback needs a signed-in account
     const dismissed = localStorage.getItem('hmbs_rating_dismissed');
     if (dismissed && Date.now() - parseInt(dismissed, 10) < 3 * 86400000) return; // 3 days cooldown
 
@@ -16655,531 +15453,6 @@ setTimeout(initUserGeolocation, 1500);
 
 
 
-// ==========================================================
-// PHOTO VERIFICATION (SELFIE CHECK) SYSTEM
-// ==========================================================
-let _selfieStream = null;
-let _selfieScanTimeout = null;
-let _selfieCountdownInterval = null;
-let _selfieCapturedDataUrl = null;
-let _selfiePhase = 'ready'; // 'ready', 'countdown', 'analyzing', 'success', 'failed'
-
-async function openSelfieVerifyModal() {
-  const modal = document.getElementById('selfieVerifyModal');
-  if (!modal) return;
-  modal.style.display = 'flex';
-  haptic('light');
-
-  // Reset internal state
-  _selfiePhase = 'ready';
-  _selfieCapturedDataUrl = null;
-  if (_selfieScanTimeout) { clearTimeout(_selfieScanTimeout); _selfieScanTimeout = null; }
-  if (_selfieCountdownInterval) { clearInterval(_selfieCountdownInterval); _selfieCountdownInterval = null; }
-
-  // Reset DOM elements
-  const s1 = document.getElementById('sStep1');
-  const s2 = document.getElementById('sStep2');
-  const s3 = document.getElementById('sStep3');
-  const laser = document.getElementById('selfieScanLaser');
-  const statusPill = document.getElementById('selfieStatusPill');
-  const actionBtn = document.getElementById('selfieActionBtn');
-  const retakeBtn = document.getElementById('selfieRetakeBtn');
-  const countdownEl = document.getElementById('selfieCountdown');
-  const flashEl = document.getElementById('selfieFlashOverlay');
-  const capturedImg = document.getElementById('selfieCapturedPreview');
-  const fallbackEl = document.getElementById('selfieCameraFallback');
-  const video = document.getElementById('selfieVideoEl');
-
-  if (s1) s1.className = 'selfie-step-dot active';
-  if (s2) s2.className = 'selfie-step-dot';
-  if (s3) s3.className = 'selfie-step-dot';
-  if (laser) laser.classList.remove('scanning');
-  if (countdownEl) countdownEl.style.display = 'none';
-  if (flashEl) flashEl.classList.remove('flash');
-  if (capturedImg) { capturedImg.style.display = 'none'; capturedImg.src = ''; }
-  if (fallbackEl) fallbackEl.style.display = 'none';
-  if (retakeBtn) retakeBtn.style.display = 'none';
-
-  if (statusPill) {
-    statusPill.textContent = 'Align your face inside the oval';
-    statusPill.style.color = '#3897F0';
-  }
-
-  if (actionBtn) {
-    actionBtn.disabled = false;
-    actionBtn.textContent = '📸 Capture & Scan Face';
-    actionBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
-    actionBtn.style.opacity = '1';
-    actionBtn.onclick = handleSelfieActionClick;
-  }
-
-  // Attempt real camera stream
-  await startSelfieLiveCamera();
-}
-window.openSelfieVerifyModal = openSelfieVerifyModal;
-
-async function startSelfieLiveCamera() {
-  const video = document.getElementById('selfieVideoEl');
-  const fallbackEl = document.getElementById('selfieCameraFallback');
-  const statusPill = document.getElementById('selfieStatusPill');
-  const actionBtn = document.getElementById('selfieActionBtn');
-  const s1 = document.getElementById('sStep1');
-
-  // Stop any existing tracks
-  if (_selfieStream) {
-    try {
-      _selfieStream.getTracks().forEach(t => t.stop());
-    } catch (_) {}
-    _selfieStream = null;
-  }
-
-  const hasMediaDevices = Boolean(navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function');
-  const isSecure = window.isSecureContext !== false;
-
-  if (hasMediaDevices && isSecure) {
-    try {
-      if (statusPill) statusPill.textContent = 'Starting front camera...';
-      let stream = null;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: 'user' },
-            width: { ideal: 640 },
-            height: { ideal: 640 }
-          },
-          audio: false
-        });
-      } catch (e1) {
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user' },
-            audio: false
-          });
-        } catch (e2) {
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-        }
-      }
-
-      if (stream && video) {
-        _selfieStream = stream;
-        video.srcObject = stream;
-        video.muted = true;
-        video.defaultMuted = true;
-        video.setAttribute('playsinline', '');
-        video.setAttribute('webkit-playsinline', '');
-        video.style.display = 'block';
-        if (fallbackEl) fallbackEl.style.display = 'none';
-
-        await video.play().catch(err => console.warn('Camera video.play() notice:', err));
-
-        if (s1) s1.className = 'selfie-step-dot done';
-        if (statusPill) {
-          statusPill.textContent = 'Position your face in the oval & tap Capture';
-          statusPill.style.color = '#3897F0';
-        }
-        if (actionBtn) {
-          actionBtn.disabled = false;
-          actionBtn.textContent = '📸 Capture & Scan Face';
-          actionBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
-          actionBtn.onclick = handleSelfieActionClick;
-        }
-        return;
-      }
-    } catch (err) {
-      console.warn('getUserMedia error, falling back to native camera capture:', err);
-    }
-  }
-
-  // Fallback: WebRTC camera not available or permission denied
-  if (video) video.style.display = 'none';
-  if (fallbackEl) fallbackEl.style.display = 'flex';
-  if (statusPill) {
-    statusPill.textContent = 'Snap a live selfie using your phone camera';
-    statusPill.style.color = '#F4C550';
-  }
-  if (actionBtn) {
-    actionBtn.disabled = false;
-    actionBtn.textContent = '📸 Take Live Selfie';
-    actionBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
-    actionBtn.onclick = triggerNativeSelfieCapture;
-  }
-}
-window.startSelfieLiveCamera = startSelfieLiveCamera;
-
-function triggerNativeSelfieCapture() {
-  const fileInput = document.getElementById('selfieFileInput');
-  if (fileInput) {
-    fileInput.value = '';
-    fileInput.click();
-  }
-}
-window.triggerNativeSelfieCapture = triggerNativeSelfieCapture;
-
-function handleSelfieFileSelected(event) {
-  const file = event?.target?.files?.[0];
-  if (!file) return;
-
-  const statusPill = document.getElementById('selfieStatusPill');
-  const actionBtn = document.getElementById('selfieActionBtn');
-  const fallbackEl = document.getElementById('selfieCameraFallback');
-  const capturedImg = document.getElementById('selfieCapturedPreview');
-  const s1 = document.getElementById('sStep1');
-
-  if (statusPill) statusPill.textContent = 'Processing selfie photo...';
-  if (actionBtn) { actionBtn.disabled = true; actionBtn.textContent = 'Loading photo...'; }
-
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    const dataUrl = e.target.result;
-    const img = new Image();
-    img.onload = function() {
-      // Draw into square canvas
-      const canvas = document.getElementById('selfieCanvas') || document.createElement('canvas');
-      canvas.width = 480;
-      canvas.height = 480;
-      const ctx = canvas.getContext('2d');
-      const minDim = Math.min(img.width, img.height);
-      const sx = (img.width - minDim) / 2;
-      const sy = (img.height - minDim) / 2;
-      ctx.drawImage(img, sx, sy, minDim, minDim, 0, 0, 480, 480);
-
-      _selfieCapturedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-      if (capturedImg) {
-        capturedImg.src = _selfieCapturedDataUrl;
-        capturedImg.style.display = 'block';
-      }
-      if (fallbackEl) fallbackEl.style.display = 'none';
-      if (s1) s1.className = 'selfie-step-dot done';
-
-      // Run biometric face validation
-      analyzeAndScanSelfieImage(canvas);
-    };
-    img.src = dataUrl;
-  };
-  reader.readAsDataURL(file);
-}
-window.handleSelfieFileSelected = handleSelfieFileSelected;
-
-function closeSelfieVerifyModal() {
-  const modal = document.getElementById('selfieVerifyModal');
-  if (modal) modal.style.display = 'none';
-
-  if (_selfieStream) {
-    try {
-      _selfieStream.getTracks().forEach(t => t.stop());
-    } catch (_) {}
-    _selfieStream = null;
-  }
-  if (_selfieScanTimeout) {
-    clearTimeout(_selfieScanTimeout);
-    _selfieScanTimeout = null;
-  }
-  if (_selfieCountdownInterval) {
-    clearInterval(_selfieCountdownInterval);
-    _selfieCountdownInterval = null;
-  }
-  _selfiePhase = 'ready';
-}
-window.closeSelfieVerifyModal = closeSelfieVerifyModal;
-
-function handleSelfieActionClick() {
-  if (_selfiePhase === 'ready') {
-    const video = document.getElementById('selfieVideoEl');
-    if (_selfieStream && video && video.videoWidth > 0) {
-      startSelfieCountdownAndCapture();
-    } else {
-      triggerNativeSelfieCapture();
-    }
-  } else if (_selfiePhase === 'success') {
-    completeSelfieVerification();
-  }
-}
-window.handleSelfieActionClick = handleSelfieActionClick;
-window.startSelfieScan = handleSelfieActionClick; // Alias for backward compatibility
-
-function startSelfieCountdownAndCapture() {
-  _selfiePhase = 'countdown';
-  const countdownEl = document.getElementById('selfieCountdown');
-  const statusPill = document.getElementById('selfieStatusPill');
-  const actionBtn = document.getElementById('selfieActionBtn');
-  const flashEl = document.getElementById('selfieFlashOverlay');
-  const video = document.getElementById('selfieVideoEl');
-  const capturedImg = document.getElementById('selfieCapturedPreview');
-
-  if (actionBtn) {
-    actionBtn.disabled = true;
-    actionBtn.textContent = 'Hold still...';
-  }
-
-  let count = 3;
-  if (countdownEl) {
-    countdownEl.textContent = String(count);
-    countdownEl.style.display = 'flex';
-  }
-  if (statusPill) {
-    statusPill.textContent = `Get ready... Capturing in ${count}s 📸`;
-    statusPill.style.color = '#3897F0';
-  }
-  haptic('light');
-
-  _selfieCountdownInterval = setInterval(() => {
-    count--;
-    if (count > 0) {
-      if (countdownEl) countdownEl.textContent = String(count);
-      if (statusPill) statusPill.textContent = `Hold still... Capturing in ${count}s 📸`;
-      haptic('light');
-    } else {
-      clearInterval(_selfieCountdownInterval);
-      _selfieCountdownInterval = null;
-      if (countdownEl) countdownEl.style.display = 'none';
-
-      // Shutter flash effect
-      if (flashEl) {
-        flashEl.classList.add('flash');
-        setTimeout(() => flashEl.classList.remove('flash'), 300);
-      }
-      haptic('medium');
-
-      // Capture frame from live video
-      const canvas = document.getElementById('selfieCanvas') || document.createElement('canvas');
-      const w = video.videoWidth || 640;
-      const h = video.videoHeight || 640;
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-
-      // Mirror horizontally so snapshot matches user's mirrored front camera view
-      ctx.save();
-      ctx.translate(w, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(video, 0, 0, w, h);
-      ctx.restore();
-
-      _selfieCapturedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-      // Freeze frame on captured snapshot
-      if (capturedImg) {
-        capturedImg.src = _selfieCapturedDataUrl;
-        capturedImg.style.display = 'block';
-      }
-      if (video) video.style.display = 'none';
-
-      // Stop camera stream tracks
-      if (_selfieStream) {
-        try {
-          _selfieStream.getTracks().forEach(t => t.stop());
-        } catch (_) {}
-        _selfieStream = null;
-      }
-
-      // Analyze image
-      analyzeAndScanSelfieImage(canvas);
-    }
-  }, 950);
-}
-
-function analyzeAndScanSelfieImage(canvas) {
-  _selfiePhase = 'analyzing';
-  const laser = document.getElementById('selfieScanLaser');
-  const statusPill = document.getElementById('selfieStatusPill');
-  const actionBtn = document.getElementById('selfieActionBtn');
-  const s2 = document.getElementById('sStep2');
-
-  if (s2) s2.className = 'selfie-step-dot active';
-  if (laser) laser.classList.add('scanning');
-  if (actionBtn) {
-    actionBtn.disabled = true;
-    actionBtn.textContent = 'Scanning facial landmarks...';
-  }
-  if (statusPill) {
-    statusPill.textContent = 'Scanning facial geometry... 🔍';
-    statusPill.style.color = '#3897F0';
-  }
-
-  // 1. Biometric image quality validation
-  const ctx = canvas.getContext('2d');
-  const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  const data = imgData.data;
-
-  let totalLum = 0;
-  let count = 0;
-  for (let i = 0; i < data.length; i += 16) {
-    const r = data[i], g = data[i+1], b = data[i+2];
-    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    totalLum += lum;
-    count++;
-  }
-  const avgLum = totalLum / count;
-
-  let sumDiff = 0;
-  for (let i = 0; i < data.length; i += 16) {
-    const r = data[i], g = data[i+1], b = data[i+2];
-    const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-    sumDiff += Math.pow(lum - avgLum, 2);
-  }
-  const variance = Math.sqrt(sumDiff / count);
-
-  // Quality check validation
-  if (avgLum < 24) {
-    failSelfieScan('⚠️ Photo is too dark. Ensure good face lighting.', 'dark');
-    return;
-  }
-  if (avgLum > 248) {
-    failSelfieScan('⚠️ Photo is overexposed. Avoid direct blinding flash.', 'bright');
-    return;
-  }
-  if (variance < 14) {
-    failSelfieScan('⚠️ No face detected. Position your face clearly in frame.', 'noface');
-    return;
-  }
-
-  // Laser scanning animation delay
-  _selfieScanTimeout = setTimeout(() => {
-    if (laser) laser.classList.remove('scanning');
-    _selfiePhase = 'success';
-
-    const s2 = document.getElementById('sStep2');
-    const s3 = document.getElementById('sStep3');
-    const retakeBtn = document.getElementById('selfieRetakeBtn');
-
-    if (s2) s2.className = 'selfie-step-dot done';
-    if (s3) s3.className = 'selfie-step-dot done';
-
-    if (statusPill) {
-      statusPill.textContent = '✓ 100% Face Match! Identity Confirmed';
-      statusPill.style.color = '#21B06B';
-    }
-
-    if (actionBtn) {
-      actionBtn.disabled = false;
-      actionBtn.textContent = '✓ Confirm & Get Verified';
-      actionBtn.style.background = 'linear-gradient(135deg, #21B06B, #1B9B5C)';
-      actionBtn.onclick = handleSelfieActionClick;
-    }
-
-    if (retakeBtn) {
-      retakeBtn.style.display = 'block';
-      retakeBtn.textContent = '↺ Retake Selfie';
-    }
-
-    haptic('success');
-  }, 1600);
-}
-
-function failSelfieScan(errorMsg, reason) {
-  _selfiePhase = 'failed';
-  const laser = document.getElementById('selfieScanLaser');
-  const statusPill = document.getElementById('selfieStatusPill');
-  const actionBtn = document.getElementById('selfieActionBtn');
-  const retakeBtn = document.getElementById('selfieRetakeBtn');
-
-  if (laser) laser.classList.remove('scanning');
-  if (statusPill) {
-    statusPill.textContent = errorMsg;
-    statusPill.style.color = '#FF4565';
-  }
-  if (actionBtn) {
-    actionBtn.disabled = true;
-    actionBtn.textContent = 'Face Scan Incomplete';
-    actionBtn.style.background = 'rgba(255, 255, 255, 0.12)';
-  }
-  if (retakeBtn) {
-    retakeBtn.style.display = 'block';
-    retakeBtn.textContent = '↺ Retake Photo';
-  }
-  haptic('error');
-}
-
-function retakeSelfiePhoto() {
-  const capturedImg = document.getElementById('selfieCapturedPreview');
-  const retakeBtn = document.getElementById('selfieRetakeBtn');
-  const actionBtn = document.getElementById('selfieActionBtn');
-  const statusPill = document.getElementById('selfieStatusPill');
-  const laser = document.getElementById('selfieScanLaser');
-  const s1 = document.getElementById('sStep1');
-  const s2 = document.getElementById('sStep2');
-  const s3 = document.getElementById('sStep3');
-
-  _selfiePhase = 'ready';
-  _selfieCapturedDataUrl = null;
-  if (_selfieScanTimeout) { clearTimeout(_selfieScanTimeout); _selfieScanTimeout = null; }
-
-  if (capturedImg) { capturedImg.style.display = 'none'; capturedImg.src = ''; }
-  if (retakeBtn) retakeBtn.style.display = 'none';
-  if (laser) laser.classList.remove('scanning');
-
-  if (s1) s1.className = 'selfie-step-dot active';
-  if (s2) s2.className = 'selfie-step-dot';
-  if (s3) s3.className = 'selfie-step-dot';
-
-  if (statusPill) {
-    statusPill.textContent = 'Align your face inside the oval';
-    statusPill.style.color = '#3897F0';
-  }
-
-  if (actionBtn) {
-    actionBtn.disabled = false;
-    actionBtn.textContent = '📸 Capture & Scan Face';
-    actionBtn.style.background = 'linear-gradient(135deg, #3897F0, #1E88E5)';
-    actionBtn.onclick = handleSelfieActionClick;
-  }
-
-  startSelfieLiveCamera();
-}
-window.retakeSelfiePhoto = retakeSelfiePhoto;
-
-function completeSelfieVerification() {
-  currentUser.isVerified = true;
-  if (_selfieCapturedDataUrl) {
-    try {
-      currentUser.verifiedSelfie = _selfieCapturedDataUrl;
-    } catch (_) {}
-  }
-
-  try {
-    localStorage.setItem('hmbs_verified', 'true');
-    const savedUserStr = localStorage.getItem('hmbs_user');
-    if (savedUserStr) {
-      const u = JSON.parse(savedUserStr);
-      u.isVerified = true;
-      if (_selfieCapturedDataUrl) u.verifiedSelfie = _selfieCapturedDataUrl;
-      localStorage.setItem('hmbs_user', JSON.stringify(u));
-    }
-  } catch (_) {}
-
-  // Sync verified state to Cloud Firestore (both user doc and public profile for matches to see)
-  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    try {
-      const uid = fbAuth.currentUser.uid;
-      fbDb.collection('users').doc(uid).set({
-        isVerified: true,
-        verifiedAt: Date.now()
-      }, { merge: true }).catch(() => {});
-
-      fbDb.collection('public_profiles').doc(uid).set({
-        isVerified: true
-      }, { merge: true }).catch(() => {});
-    } catch (e) {
-      console.warn('Firestore verification sync notice:', e);
-    }
-  }
-
-  saveToStorage();
-  haptic('success');
-  if (typeof launchMatchConfetti === 'function') {
-    launchMatchConfetti();
-  }
-  showToast('🛡️ Verified! You earned the official Blue Badge!', 'gold');
-
-  setTimeout(() => {
-    closeSelfieVerifyModal();
-    renderProfileScreen();
-  }, 1400);
-}
-window.completeSelfieVerification = completeSelfieVerification;
-
-
 // Voice Intro Recording in Profile
 let _editVoiceRecorder = null;
 let _editVoiceChunks = [];
@@ -17216,7 +15489,7 @@ async function toggleEditVoiceRecord() {
           };
           saveToStorage();
           renderProfileScreen();
-          showToast('Voice intro saved! 🎙️', 'gold');
+          showToast('Voice intro saved.', 'success');
         };
         reader.readAsDataURL(blob);
       };
@@ -17224,12 +15497,12 @@ async function toggleEditVoiceRecord() {
       _editVoiceRecorder.start();
       _editVoiceTimer = setInterval(() => {
         _editVoiceSeconds++;
-        if (status) status.textContent = '🎙️ Recording... 0:' + String(_editVoiceSeconds).padStart(2, '0') + ' (Tap button to stop)';
+        if (status) status.textContent = 'Recording… 0:' + String(_editVoiceSeconds).padStart(2, '0') + '. Tap Stop when you are done.';
         if (_editVoiceSeconds >= 20) toggleEditVoiceRecord();
       }, 1000);
 
-      if (btn) btn.innerHTML = '⏹️ Stop Recording';
-      if (status) status.textContent = '🎙️ Recording... 0:00 (Tap button to stop)';
+      if (btn) btn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-square"/></svg><span>Stop</span>';
+      if (status) status.textContent = 'Recording… 0:00. Tap Stop when you are done.';
       if (typeof haptic === 'function') haptic('medium');
     } catch (err) {
       console.warn('Voice record error:', err);
@@ -17237,7 +15510,7 @@ async function toggleEditVoiceRecord() {
     }
   } else {
     _editVoiceRecorder.stop();
-    if (btn) btn.innerHTML = '🎙️ Record Intro';
+    if (btn) btn.innerHTML = '<svg class="i" aria-hidden="true"><use href="#i-mic"/></svg><span>Record intro</span>';
   }
 }
 window.toggleEditVoiceRecord = toggleEditVoiceRecord;
@@ -17255,8 +15528,8 @@ function playMyVoiceIntro() {
 }
 window.playMyVoiceIntro = playMyVoiceIntro;
 
-function deleteMyVoiceIntro() {
-  if (confirm('Remove your voice introduction?')) {
+async function deleteMyVoiceIntro() {
+  if (await confirmDialog({ title: 'Remove your voice introduction?', confirmLabel: 'Remove', danger: true })) {
     currentUser.voiceIntro = null;
     saveToStorage();
     renderProfileScreen();
@@ -17282,19 +15555,24 @@ function updateNetworkStatus(isOnline, isManualRetry = false) {
     _networkBannerTimer = null;
   }
 
+  const setIcon = (name) => {
+    const use = icon && icon.querySelector('use');
+    if (use) use.setAttribute('href', `#i-${name}`);
+  };
+
   if (!isOnline) {
     banner.className = 'network-status-banner offline';
-    if (icon) icon.textContent = '📡';
-    if (text) text.textContent = 'Waiting for network... Messages will sync once connected.';
+    setIcon('wifi-off');
+    if (text) text.textContent = "You're offline. Messages will send when you reconnect.";
     if (retryBtn) {
-      retryBtn.style.display = 'inline-block';
+      retryBtn.style.display = '';
       retryBtn.textContent = 'Retry';
     }
     banner.style.display = 'flex';
   } else {
     banner.className = 'network-status-banner online';
-    if (icon) icon.textContent = '⚡';
-    if (text) text.textContent = 'Connected • Real-time syncing active';
+    setIcon('check');
+    if (text) text.textContent = 'Back online';
     if (retryBtn) retryBtn.style.display = 'none';
     banner.style.display = 'flex';
 
@@ -17307,13 +15585,7 @@ function updateNetworkStatus(isOnline, isManualRetry = false) {
     }
 
     _networkBannerTimer = setTimeout(() => {
-      banner.style.opacity = '0';
-      banner.style.transform = 'translate(-50%, -12px)';
-      setTimeout(() => {
-        banner.style.display = 'none';
-        banner.style.opacity = '';
-        banner.style.transform = '';
-      }, 320);
+      banner.style.display = 'none';
     }, 2500);
   }
 }
@@ -17335,7 +15607,7 @@ async function retryNetworkConnection() {
       banner.classList.add('shake');
     }
     if (typeof showToast === 'function') {
-      showToast('⚠️ Still offline. Please check your connection.', 'error');
+      showToast('Still offline. Check your connection and try again.', 'error');
     }
   }
 }
