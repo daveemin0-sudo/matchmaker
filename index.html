@@ -1679,52 +1679,35 @@
     </div>
 
     <!-- =====================================================
-         MATCH POPUP MODAL (Celebration Screen & Icebreakers)
+         MATCH POPUP (shown when two people like each other)
          ===================================================== -->
-    <div class="match-popup" id="matchPopup" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="matchPopupTitle">
-      <div class="match-popup-scroll">
-        <div class="match-heading" id="matchPopupTitle">It's a Match! 🎉</div>
-        <div class="match-compat-badge" id="matchCompatBadge">✨ 98% Compatibility • Shared Vibes</div>
-        <p class="match-sub" id="matchPopupDesc">You and this person liked each other!</p>
-
-        <div class="match-avatars-wrap">
-          <div class="match-avatars">
-            <div class="match-avatar-circle me-side" id="matchMePhoto">
-              <div class="match-pulse-ring me-ring"></div>
-            </div>
-            <div class="match-heart" aria-hidden="true">❤️</div>
-            <div class="match-avatar-circle them-side" id="matchThemPhoto">
-              <div class="match-pulse-ring them-ring"></div>
-            </div>
+    <div class="sheet-overlay match-overlay" id="matchPopup" style="display:none;" onclick="if(event.target===this)closeMatchPopup()">
+      <div class="sheet match-sheet" role="dialog" aria-modal="true" aria-labelledby="matchPopupTitle" aria-describedby="matchPopupDesc">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <div class="sheet-body match-body">
+          <div class="match-avatars" aria-hidden="true">
+            <span class="avatar avatar-xl" id="matchMePhoto"></span>
+            <svg class="i i-lg i-fill match-heart"><use href="#i-heart"/></svg>
+            <span class="avatar avatar-xl" id="matchThemPhoto"></span>
           </div>
-        </div>
+          <h2 class="match-title" id="matchPopupTitle">It's a match</h2>
+          <p class="match-sub" id="matchPopupDesc">You both liked each other.</p>
+          <p class="match-reason" id="matchCompatBadge" hidden></p>
+          <span id="matchPopupName" hidden></span>
 
-        <div class="match-match-name" id="matchPopupName"></div>
-
-        <!-- Dynamic Icebreakers -->
-        <div class="match-icebreaker-container" id="matchIcebreakerContainer">
-          <div class="match-icebreaker-header">✨ Break the ice with 1 tap</div>
-          <div class="match-icebreaker-chips" id="matchIcebreakerChips">
-            <!-- Populated dynamically by triggerMatchPopup -->
+          <div class="match-start" id="matchIcebreakerContainer">
+            <h3 class="section-label">Start with a line</h3>
+            <div class="chip-row match-chips" id="matchIcebreakerChips"></div>
           </div>
-        </div>
 
-        <!-- Inline Quick Message Composer -->
-        <div class="match-quick-composer" id="matchQuickComposer">
-          <input type="text" class="match-quick-input" id="matchQuickInput" placeholder="Say something nice..." maxlength="250" autocomplete="off" onkeydown="if(event.key==='Enter')sendQuickMessageFromMatch()">
-          <button type="button" class="match-quick-send-btn" id="matchQuickSendBtn" onclick="sendQuickMessageFromMatch()" aria-label="Send message" title="Send message">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-          </button>
+          <form class="match-compose" id="matchQuickComposer" onsubmit="sendQuickMessageFromMatch();return false;">
+            <input type="text" class="input" id="matchQuickInput" placeholder="Write a message" aria-label="Message" maxlength="250" autocomplete="off">
+            <button type="submit" class="btn btn-primary btn-icon" id="matchQuickSendBtn" aria-label="Send message"><svg class="i" aria-hidden="true"><use href="#i-send"/></svg></button>
+          </form>
         </div>
-
-        <!-- Action Buttons -->
-        <div class="match-popup-btns">
-          <button type="button" class="accent-btn match-chat-btn" id="matchChatBtn" onclick="goToChatFromMatch()">
-            💬 Chat Now
-          </button>
-          <button type="button" class="outline-btn match-keep-swiping-btn" onclick="closeMatchPopup()">
-            Keep Swiping
-          </button>
+        <div class="sheet-foot">
+          <button type="button" class="btn btn-secondary" onclick="closeMatchPopup()" data-close>Keep swiping</button>
+          <button type="button" class="btn btn-primary" id="matchChatBtn" onclick="goToChatFromMatch()">Open chat</button>
         </div>
       </div>
     </div>
