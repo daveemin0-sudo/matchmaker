@@ -13,6 +13,7 @@ function createHarness({ port, env = {} }) {
   const store = new Map(); // "collection/doc" -> data
   const state = {
     paystackVerifyResponse: null,
+    fetchUrls: [],
     authUsers: {},   // uid -> user record
     idTokens: {},    // bearer token -> decoded token ({ uid, email, ... })
     authCalls: [],   // [{ fn, args }]
@@ -130,7 +131,7 @@ function createHarness({ port, env = {} }) {
     const realLoad = Module._load;
     Module._load = function (request) {
       if (request === 'firebase-admin') return adminStub;
-      if (request === 'node-fetch') return async () => ({ ok: true, json: async () => state.paystackVerifyResponse });
+      if (request === 'node-fetch') return async (url) => { state.fetchUrls.push(String(url)); return { ok: true, json: async () => state.paystackVerifyResponse }; };
       if (request === 'dotenv') return { config: () => {} };
       return realLoad.apply(this, arguments);
     };
@@ -157,7 +158,7 @@ function createHarness({ port, env = {} }) {
     });
   }
 
-  const reset = () => { store.clear(); state.paystackVerifyResponse = null; state.authUsers = {}; state.idTokens = {}; state.authCalls = []; state.storageSaves = []; state.defaultBucketConfigured = false; state.bucketMissing = false; };
+  const reset = () => { store.clear(); state.paystackVerifyResponse = null; state.fetchUrls = []; state.authUsers = {}; state.idTokens = {}; state.authCalls = []; state.storageSaves = []; state.defaultBucketConfigured = false; state.bucketMissing = false; };
   const stop = () => setTimeout(() => process.exit(0), 50).unref();
 
   return { store, state, start, request, reset, stop };
