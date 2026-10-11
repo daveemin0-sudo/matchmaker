@@ -8146,9 +8146,14 @@ async function acceptIncomingCall(incomingOverride) {
 
     const overlay = document.getElementById(type === 'video' ? 'videoCallOverlay' : 'voiceCallOverlay');
     const nameEl = document.getElementById(type === 'video' ? 'videoCallName' : 'callName');
+    const avatarEl = document.getElementById('callAvatar');
     if (nameEl) nameEl.textContent = partner.name || 'Match';
+    if (avatarEl && type !== 'video') {
+      const photo = partner.image || partner.photos?.[0] || partner.avatar || '';
+      if (photo) avatarEl.src = photo; else avatarEl.removeAttribute('src');
+    }
     if (overlay) overlay.style.display = 'flex';
-    updateCallUi(type, 'Connecting...');
+    updateCallUi(type, 'Connecting…');
 
     await wireCallPeerConnection(type, pc, callRef);
     await pc.setRemoteDescription(new RTCSessionDescription(incoming.offer));
@@ -8304,7 +8309,7 @@ function minimizeCall() {
     const nameEl = document.getElementById(activeCallType === 'video' ? 'videoCallName' : 'callName');
     const partnerName = partner.name || nameEl?.textContent || 'Match';
     const avatarEl = document.getElementById('callAvatar');
-    const partnerPhoto = partner.photos?.[0] || partner.photo || avatarEl?.src || 'default-avatar.png';
+    const partnerPhoto = partner.image || partner.photos?.[0] || partner.photo || partner.avatar || avatarEl?.getAttribute('src') || '';
 
     const fcbName = document.getElementById('fcbName');
     const fcbAvatar = document.getElementById('fcbAvatar');
@@ -8312,9 +8317,11 @@ function minimizeCall() {
     const fcbTimer = document.getElementById('fcbTimer');
 
     if (fcbName) fcbName.textContent = partnerName;
-    if (fcbAvatar) fcbAvatar.src = partnerPhoto;
+    if (fcbAvatar) {
+      if (partnerPhoto) fcbAvatar.src = partnerPhoto; else fcbAvatar.removeAttribute('src');
+    }
     if (fcbTypeIcon) {
-      fcbTypeIcon.className = activeCallType === 'video' ? 'fas fa-video fcb-type-icon' : 'fas fa-phone fcb-type-icon';
+      fcbTypeIcon.querySelector('use')?.setAttribute('href', activeCallType === 'video' ? '#i-video' : '#i-phone');
     }
     if (fcbTimer) {
       if (activeCallSeconds > 0) {
@@ -8444,24 +8451,21 @@ function endCall(showToastMessage = true, explicitStatus = null) {
   const callMuteBtn = document.getElementById('callMuteBtn');
   if (callMuteBtn) {
     callMuteBtn.classList.remove('muted');
-    callMuteBtn.style.background = '';
-    callMuteBtn.style.color = '';
+    callMuteBtn.setAttribute('aria-pressed', 'false');
     const label = callMuteBtn.parentElement?.querySelector('span');
     if (label) label.textContent = 'Mute';
   }
   const videoMuteBtn = document.getElementById('videoMuteBtn');
   if (videoMuteBtn) {
     videoMuteBtn.classList.remove('muted');
-    videoMuteBtn.style.background = '';
-    videoMuteBtn.style.color = '';
+    videoMuteBtn.setAttribute('aria-pressed', 'false');
     const label = document.getElementById('videoMuteLabel') || videoMuteBtn.parentElement?.querySelector('span');
     if (label) label.textContent = 'Mute';
   }
   const camBtn = document.getElementById('videoCamBtn');
   if (camBtn) {
     camBtn.classList.remove('muted');
-    camBtn.style.background = '';
-    camBtn.style.color = '';
+    camBtn.setAttribute('aria-pressed', 'false');
     const label = document.getElementById('videoCamLabel') || camBtn.parentElement?.querySelector('span');
     if (label) label.textContent = 'Camera';
   }
@@ -8470,7 +8474,7 @@ function endCall(showToastMessage = true, explicitStatus = null) {
 
   if (showToastMessage) {
     if (explicitStatus === 'declined') {
-      showToast('Call declined 📵', 'info');
+      showToast('Call declined', 'info');
     } else {
       showToast(seconds > 0 ? `Call ended (${Math.floor(seconds / 60)}m ${seconds % 60}s)` : 'Call ended', 'info');
     }
@@ -8505,8 +8509,7 @@ function toggleCallMute() {
   const callMuteBtn = document.getElementById('callMuteBtn');
   if (callMuteBtn) {
     callMuteBtn.classList.toggle('muted', isAudioMuted);
-    callMuteBtn.style.background = isAudioMuted ? 'rgba(255, 61, 0, 0.35)' : '';
-    callMuteBtn.style.color = isAudioMuted ? '#FF3D00' : '#fff';
+    callMuteBtn.setAttribute('aria-pressed', String(isAudioMuted));
     const label = callMuteBtn.parentElement?.querySelector('span');
     if (label) label.textContent = isAudioMuted ? 'Unmute' : 'Mute';
   }
@@ -8515,13 +8518,14 @@ function toggleCallMute() {
   const videoMuteBtn = document.getElementById('videoMuteBtn');
   if (videoMuteBtn) {
     videoMuteBtn.classList.toggle('muted', isAudioMuted);
-    videoMuteBtn.style.background = isAudioMuted ? 'rgba(255, 61, 0, 0.35)' : '';
-    videoMuteBtn.style.color = isAudioMuted ? '#FF3D00' : '#fff';
+    videoMuteBtn.setAttribute('aria-pressed', String(isAudioMuted));
     const label = document.getElementById('videoMuteLabel') || videoMuteBtn.parentElement?.querySelector('span');
     if (label) label.textContent = isAudioMuted ? 'Unmute' : 'Mute';
   }
 
-  showToast(isAudioMuted ? 'Microphone muted 🔇' : 'Microphone unmuted 🎙️', 'info');
+  const fcbMute = document.getElementById('fcbMuteBtn');
+  if (fcbMute) { fcbMute.classList.toggle('muted', isAudioMuted); fcbMute.setAttribute('aria-pressed', String(isAudioMuted)); }
+  showToast(isAudioMuted ? 'Microphone muted' : 'Microphone on', 'info');
 }
 
 function toggleVideoMute() {
@@ -8548,12 +8552,11 @@ function toggleCamera() {
   const camBtn = document.getElementById('videoCamBtn');
   if (camBtn) {
     camBtn.classList.toggle('muted', isVideoMuted);
-    camBtn.style.background = isVideoMuted ? 'rgba(255, 61, 0, 0.35)' : '';
-    camBtn.style.color = isVideoMuted ? '#FF3D00' : '#fff';
+    camBtn.setAttribute('aria-pressed', String(isVideoMuted));
     const label = document.getElementById('videoCamLabel') || camBtn.parentElement?.querySelector('span');
     if (label) label.textContent = isVideoMuted ? 'Turn on' : 'Camera';
   }
-  showToast(isVideoMuted ? 'Camera paused 📷' : 'Camera resumed 📹', 'info');
+  showToast(isVideoMuted ? 'Camera paused' : 'Camera on', 'info');
 }
 
 async function flipCamera() {
@@ -8700,24 +8703,28 @@ async function flipCamera() {
 }
 
 async function toggleSpeaker() {
-  isSpeakerOn = !isSpeakerOn;
+  // Browsers can only switch the audio output where setSinkId and a second output device exist.
   const audio = document.getElementById('remoteCallAudio');
+  let speakers = [];
   if (audio && typeof audio.setSinkId === 'function') {
     try {
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const speakers = devices.filter(d => d.kind === 'audiooutput');
-      if (speakers.length > 1) {
-        await audio.setSinkId(isSpeakerOn ? speakers[1].deviceId : speakers[0].deviceId);
-      }
+      speakers = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audiooutput');
     } catch (_) {}
   }
-  const btn = document.getElementById('callSpeakerBtn');
-  if (btn) {
-    btn.classList.toggle('muted', isSpeakerOn);
-    btn.style.background = isSpeakerOn ? 'rgba(255, 45, 120, 0.3)' : '';
-    btn.style.color = isSpeakerOn ? '#FF2D78' : '';
+  if (speakers.length < 2) {
+    showToast('Your phone controls the speaker. Use the volume buttons.', 'info');
+    return;
   }
-  showToast(isSpeakerOn ? 'Speakerphone on 🔊' : 'Ear speaker on 🔈', 'info');
+  const next = !isSpeakerOn;
+  try {
+    await audio.setSinkId(next ? speakers[1].deviceId : speakers[0].deviceId);
+  } catch (_) {
+    showToast('Could not switch the speaker.', 'warning');
+    return;
+  }
+  isSpeakerOn = next;
+  const btn = document.getElementById('callSpeakerBtn');
+  if (btn) { btn.classList.toggle('muted', isSpeakerOn); btn.setAttribute('aria-pressed', String(isSpeakerOn)); }
 }
 
 // Window bindings for seamless inline onclick handlers
@@ -12916,7 +12923,7 @@ async function handleUserSearchInput(e) {
   const resultsContainer = document.getElementById('searchResultsContainer');
   const resultsList = document.getElementById('searchResultsList');
   const resultsCount = document.getElementById('searchResultsCount');
-  const mainContentSections = document.querySelectorAll('#storiesSection');
+  const mainContentSections = [];
 
   if (clearBtn) clearBtn.style.display = query.length > 0 ? 'block' : 'none';
 
@@ -13562,30 +13569,7 @@ function openReactionSheet(matchId, msgId, defaultEmojiFilter = 'all') {
 
   renderReactionSheetContent();
   const modal = document.getElementById('reactionInfoModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    const sheet = modal.querySelector('.reaction-sheet-modal');
-    if (sheet && !sheet._swipeBound) {
-      sheet._swipeBound = true;
-      let sY = 0;
-      sheet.addEventListener('touchstart', (e) => {
-        sY = e.touches[0].clientY;
-      }, { passive: true });
-      sheet.addEventListener('touchmove', (e) => {
-        const diffY = e.touches[0].clientY - sY;
-        if (diffY > 8) {
-          sheet.style.transform = `translateY(${Math.min(180, diffY)}px)`;
-        }
-      }, { passive: true });
-      sheet.addEventListener('touchend', (e) => {
-        const diffY = e.changedTouches[0].clientY - sY;
-        if (diffY > 55) {
-          closeReactionSheet();
-        }
-        sheet.style.transform = '';
-      }, { passive: true });
-    }
-  }
+  if (modal) modal.style.display = 'flex';
 }
 
 function filterReactionSheet(emoji) {
@@ -13612,28 +13596,21 @@ function renderReactionSheetContent() {
 
   const countEl = document.getElementById('reactionSheetCount');
   if (countEl) {
-    countEl.textContent = `${totalCount} reaction${totalCount !== 1 ? 's' : ''}`;
+    countEl.textContent = `${totalCount} ${totalCount !== 1 ? 'reactions' : 'reaction'}`;
   }
 
-  // Render Tabs
+  // Render tabs
   const tabsEl = document.getElementById('reactionSheetTabs');
   if (tabsEl) {
-    let tabsHtml = `
-      <button class="reaction-tab-chip ${activeFilter === 'all' ? 'active' : ''}" onclick="filterReactionSheet('all')">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-        <span>All</span> <span>${totalCount}</span>
-      </button>`;
-    reactionKeys.forEach(emoji => {
-      const count = reactions[emoji].length;
-      tabsHtml += `
-        <button class="reaction-tab-chip ${activeFilter === emoji ? 'active' : ''}" onclick="filterReactionSheet('${emoji}')">
-          <span>${emoji}</span> <span>${count}</span>
-        </button>`;
-    });
-    tabsEl.innerHTML = tabsHtml;
+    const tab = (value, label, count) => `<button type="button" class="chip${activeFilter === value ? ' active' : ''}" aria-pressed="${activeFilter === value}" data-filter="${escHtml(value)}">${escHtml(label)} ${count}</button>`;
+    tabsEl.innerHTML = tab('all', 'All', totalCount) + reactionKeys.map(emoji => tab(emoji, emoji, reactions[emoji].length)).join('');
+    tabsEl.onclick = (e) => {
+      const b = e.target.closest('[data-filter]');
+      if (b) filterReactionSheet(b.dataset.filter);
+    };
   }
 
-  // Render Reactors List
+  // Render reactors
   const listEl = document.getElementById('reactionSheetList');
   if (listEl) {
     const myId = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser) ? fbAuth.currentUser.uid : 'local_me';
@@ -13641,36 +13618,34 @@ function renderReactionSheetContent() {
                     PROFILES_DATA.find(u => u.id === appState.currentChatId) ||
                     conversations[appState.currentChatId]?.partner || {};
     const partnerName = partner.name || document.getElementById('chatPartnerName')?.textContent?.trim() || 'Match';
-    const partnerAvatar = partner.avatar || partner.image || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80';
-    const myAvatar = currentUser.avatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80';
+    const partnerAvatar = partner.avatar || partner.image || '';
+    const myAvatar = currentUser.avatar || currentUser.image || '';
 
     const emojisToShow = activeFilter === 'all' ? reactionKeys : [activeFilter];
     let rowsHtml = '';
 
     emojisToShow.forEach(emoji => {
-      const reactors = reactions[emoji] || [];
-      reactors.forEach(reactorId => {
+      (reactions[emoji] || []).forEach(reactorId => {
         const isMe = (reactorId === myId || reactorId === 'local_me' || reactorId === 'me');
-        const name = isMe ? 'You' : partnerName;
-        const sub = isMe ? 'Tap to remove' : '';
         const avatar = isMe ? myAvatar : partnerAvatar;
-        const clickAttr = isMe ? `onclick="removeMyReaction('${matchId}','${msgId}','${emoji}')"` : '';
-
-        rowsHtml += `
-          <div class="reaction-reactor-row" ${clickAttr}>
-            <div class="reaction-reactor-left">
-              <div class="reaction-reactor-avatar" style="background-image:url('${avatar}')"></div>
-              <div class="reaction-reactor-info">
-                <span class="reaction-reactor-name">${name}</span>
-                ${sub ? `<span class="reaction-reactor-sub">${sub}</span>` : ''}
-              </div>
-            </div>
-            <span class="reaction-reactor-emoji">${emoji}</span>
-          </div>`;
+        const inner = `
+          <span class="avatar">${avatar ? `<img src="${escHtml(avatar)}" alt="" loading="lazy">` : ''}</span>
+          <span class="row-body">
+            <span class="row-title">${isMe ? 'You' : escHtml(partnerName)}</span>
+            ${isMe ? '<span class="row-sub">Tap to remove</span>' : ''}
+          </span>
+          <span class="reaction-emoji" aria-label="Reacted with ${escHtml(emoji)}">${escHtml(emoji)}</span>`;
+        rowsHtml += isMe
+          ? `<button type="button" class="row" data-remove="${escHtml(emoji)}">${inner}</button>`
+          : `<div class="row">${inner}</div>`;
       });
     });
 
-    listEl.innerHTML = rowsHtml || '<div style="padding:16px;color:#8696a0;text-align:center;font-size:13px">No reactions</div>';
+    listEl.innerHTML = rowsHtml || '<div class="empty"><p class="empty-text">No reactions</p></div>';
+    listEl.onclick = (e) => {
+      const b = e.target.closest('[data-remove]');
+      if (b && _currentReactionSheetData) removeMyReaction(_currentReactionSheetData.matchId, _currentReactionSheetData.msgId, b.dataset.remove);
+    };
   }
 }
 

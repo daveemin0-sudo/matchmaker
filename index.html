@@ -52,6 +52,7 @@
   <link rel="stylesheet" href="css/paywall.css?v=70.0">
   <link rel="stylesheet" href="css/inbox.css?v=70.0">
   <link rel="stylesheet" href="css/chat.css?v=70.0">
+  <link rel="stylesheet" href="css/call.css?v=70.0">
   <link rel="stylesheet" href="css/account.css?v=70.0">
   <meta name="theme-color" content="#0A0710" id="metaThemeColor">
   <script>
@@ -925,67 +926,42 @@
            VOICE CALL OVERLAY
            ===================================================== -->
             <!-- Floating Call Minimize Bar (PiP / Background Call Bar) -->
-      <div class="floating-call-bar" id="floatingCallBar" style="display:none" onclick="expandCall()">
-        <div class="fcb-left">
-          <div class="fcb-avatar-wrap">
-            <div class="fcb-avatar" id="fcbAvatar"></div>
-            <div class="fcb-pulse-dot"></div>
-          </div>
-          <div class="fcb-info">
-            <div class="fcb-name" id="fcbName">Call in progress</div>
-            <div class="fcb-status-line">
-              <span class="fcb-type-icon" id="fcbTypeIcon">📞</span>
-              <span class="fcb-timer" id="fcbTimer">0:00</span>
-              <span class="fcb-tap-hint">• Tap to return</span>
-            </div>
-          </div>
-        </div>
-        <div class="fcb-actions" onclick="event.stopPropagation()">
-          <button class="fcb-btn fcb-mute-btn" id="fcbMuteBtn" onclick="toggleCallMute()" aria-label="Mute" title="Toggle Mute">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-          </button>
-          <button class="fcb-btn fcb-end-btn" onclick="endCall()" aria-label="End call" title="End call">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-          </button>
+      <div class="floating-call-bar" id="floatingCallBar" style="display:none">
+        <button type="button" class="fcb-main" onclick="expandCall()" aria-label="Return to call">
+          <img class="avatar avatar-sm" id="fcbAvatar" alt="">
+          <span class="fcb-info">
+            <span class="fcb-name" id="fcbName">Call in progress</span>
+            <span class="fcb-status-line"><svg class="i fcb-type-icon" id="fcbTypeIcon" aria-hidden="true"><use href="#i-phone"/></svg><span class="fcb-timer" id="fcbTimer">0:00</span><span class="fcb-tap-hint">Tap to return</span></span>
+          </span>
+        </button>
+        <div class="fcb-actions">
+          <button type="button" class="call-ctrl-btn fcb-btn" id="fcbMuteBtn" onclick="toggleCallMute()" aria-label="Mute microphone"><svg class="i ic-on" aria-hidden="true"><use href="#i-mic"/></svg><svg class="i ic-off" aria-hidden="true"><use href="#i-mic-off"/></svg></button>
+          <button type="button" class="call-ctrl-btn call-ctrl-end fcb-btn" onclick="endCall()" aria-label="End call"><svg class="i" aria-hidden="true"><use href="#i-phone-off"/></svg></button>
         </div>
       </div>
 
-      <div class="call-overlay" id="voiceCallOverlay" style="display:none">
-        <div class="call-overlay-bg"></div>
+      <div class="call-overlay" id="voiceCallOverlay" role="dialog" aria-modal="true" aria-label="Voice call" style="display:none">
         <div class="call-top-actions">
-          <button class="call-minimize-btn" onclick="minimizeCall()" aria-label="Minimize call" title="Minimize call">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M5 12l6 6M5 12l6-6"/></svg>
-          </button>
-          <span class="call-type-label">Voice Call</span>
+          <button type="button" class="call-icon-btn" onclick="minimizeCall()" aria-label="Minimise call"><svg class="i" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
+          <span class="call-type-label">Voice call</span>
         </div>
         <div class="call-content">
-          <div class="call-avatar-ring">
-            <div class="call-avatar-img" id="callAvatarImg"></div>
-          </div>
-          <div class="call-name" id="callName">Zainab</div>
-          <div class="call-status" id="callStatusText">Ringing...</div>
-          <div class="call-live-timer" id="callLiveTimer" style="display:none">0:00</div>
-          <div class="call-signal-bars">
-            <span></span><span></span><span></span><span></span>
-          </div>
+          <span class="avatar call-avatar" id="callAvatarImg"><svg class="i" aria-hidden="true"><use href="#i-user"/></svg><img id="callAvatar" alt=""></span>
+          <h2 class="call-name" id="callName"></h2>
+          <p class="call-status" id="callStatusText" role="status">Ringing…</p>
+          <p class="call-live-timer" id="callLiveTimer" style="display:none">0:00</p>
         </div>
         <div class="call-controls-row">
           <div class="call-ctrl-item">
-            <button class="call-ctrl-btn" id="callMuteBtn" onclick="toggleCallMute()">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-            </button>
+            <button type="button" class="call-ctrl-btn" id="callMuteBtn" onclick="toggleCallMute()" aria-label="Mute microphone"><svg class="i ic-on" aria-hidden="true"><use href="#i-mic"/></svg><svg class="i ic-off" aria-hidden="true"><use href="#i-mic-off"/></svg></button>
             <span>Mute</span>
           </div>
           <div class="call-ctrl-item">
-            <button class="call-ctrl-btn call-ctrl-end" onclick="endCall()">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-            </button>
+            <button type="button" class="call-ctrl-btn call-ctrl-end" onclick="endCall()" aria-label="End call"><svg class="i" aria-hidden="true"><use href="#i-phone-off"/></svg></button>
             <span>End</span>
           </div>
-          <div class="call-ctrl-item">
-            <button class="call-ctrl-btn" id="callSpeakerBtn" onclick="toggleSpeaker()">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
-            </button>
+          <div class="call-ctrl-item" id="callSpeakerItem">
+            <button type="button" class="call-ctrl-btn" id="callSpeakerBtn" onclick="toggleSpeaker()" aria-label="Speaker"><svg class="i" aria-hidden="true"><use href="#i-volume-2"/></svg></button>
             <span>Speaker</span>
           </div>
         </div>
@@ -994,45 +970,35 @@
       <!-- =====================================================
            VIDEO CALL OVERLAY
            ===================================================== -->
-      <div class="call-overlay video-call-ov" id="videoCallOverlay" style="display:none">
+      <div class="call-overlay video-call-ov" id="videoCallOverlay" role="dialog" aria-modal="true" aria-label="Video call" style="display:none">
         <div class="video-remote-bg" id="videoRemoteBg">
-          <video id="remoteVideoStream" autoplay playsinline style="width:100%;height:100%;object-fit:cover;pointer-events:none;"></video>
+          <video id="remoteVideoStream" autoplay playsinline></video>
         </div>
         <div class="video-pip" id="myVideoPip">
-          <video id="myVideoStream" autoplay muted playsinline style="width:100%;height:100%;object-fit:cover;border-radius:12px"></video>
-          <div class="pip-cam-off" id="pipCamOff" style="display:none">📷</div>
+          <video id="myVideoStream" autoplay muted playsinline></video>
+          <div class="pip-cam-off" id="pipCamOff" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-video-off"/></svg></div>
         </div>
         <div class="call-top-actions">
-          <button class="call-minimize-btn" onclick="minimizeCall()" aria-label="Minimize call" title="Minimize call">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M5 12l6 6M5 12l6-6"/></svg>
-          </button>
-          <span class="call-type-label">Video Call</span>
-          <span class="call-live-timer" id="videoCallTimer">0:00</span>
+          <button type="button" class="call-icon-btn" onclick="minimizeCall()" aria-label="Minimise call"><svg class="i" aria-hidden="true"><use href="#i-chevron-down"/></svg></button>
+          <span class="call-type-label">Video call</span>
+          <span class="call-live-timer" id="videoCallTimer" role="status">0:00</span>
         </div>
-        <div class="video-call-name" id="videoCallName">Zainab</div>
+        <div class="video-call-name" id="videoCallName"></div>
         <div class="call-controls-row">
           <div class="call-ctrl-item">
-            <button class="call-ctrl-btn" id="videoMuteBtn" onclick="toggleCallMute()" aria-label="Mute microphone">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3zm5.3-3c0 3-2.54 5.1-5.3 5.1S6.7 14 6.7 11H5c0 3.42 2.72 6.23 6 6.72V21h2v-3.28c3.28-.48 6-3.3 6-6.72h-1.7z"/></svg>
-            </button>
+            <button type="button" class="call-ctrl-btn" id="videoMuteBtn" onclick="toggleCallMute()" aria-label="Mute microphone"><svg class="i ic-on" aria-hidden="true"><use href="#i-mic"/></svg><svg class="i ic-off" aria-hidden="true"><use href="#i-mic-off"/></svg></button>
             <span id="videoMuteLabel">Mute</span>
           </div>
           <div class="call-ctrl-item">
-            <button class="call-ctrl-btn call-ctrl-end" onclick="endCall()" aria-label="End call">
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="white"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
-            </button>
+            <button type="button" class="call-ctrl-btn call-ctrl-end" onclick="endCall()" aria-label="End call"><svg class="i" aria-hidden="true"><use href="#i-phone-off"/></svg></button>
             <span>End</span>
           </div>
           <div class="call-ctrl-item">
-            <button class="call-ctrl-btn" id="videoCamBtn" onclick="toggleCamera()" aria-label="Camera pause/resume">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-            </button>
+            <button type="button" class="call-ctrl-btn" id="videoCamBtn" onclick="toggleCamera()" aria-label="Pause camera"><svg class="i ic-on" aria-hidden="true"><use href="#i-video"/></svg><svg class="i ic-off" aria-hidden="true"><use href="#i-video-off"/></svg></button>
             <span id="videoCamLabel">Camera</span>
           </div>
           <div class="call-ctrl-item">
-            <button class="call-ctrl-btn" id="videoFlipBtn" onclick="flipCamera()" aria-label="Flip camera">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4h-3.17L15 2H9L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm-5 11.5V13H9v2.5L5.5 12 9 8.5V11h6V8.5l3.5 3.5-3.5 3.5z"/></svg>
-            </button>
+            <button type="button" class="call-ctrl-btn" id="videoFlipBtn" onclick="flipCamera()" aria-label="Flip camera"><svg class="i" aria-hidden="true"><use href="#i-refresh-cw"/></svg></button>
             <span>Flip</span>
           </div>
         </div>
@@ -1924,16 +1890,15 @@
   <!-- =====================================================
        WHATSAPP REACTION INFO BOTTOM SHEET (Screenshot 3)
        ===================================================== -->
-  <div class="reaction-sheet-overlay" id="reactionInfoModal" style="display:none" onclick="closeReactionSheet()">
-    <div class="reaction-sheet-card" onclick="event.stopPropagation()">
-      <div class="reaction-sheet-handle"></div>
-      <div class="reaction-sheet-header">
-        <span class="reaction-sheet-count" id="reactionSheetCount">1 reaction</span>
+  <div class="sheet-overlay" id="reactionInfoModal" style="display:none" onclick="if(event.target===this)closeReactionSheet()">
+    <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="reactionSheetCount">
+      <div class="sheet-grabber" aria-hidden="true"></div>
+      <div class="sheet-head">
+        <h2 class="sheet-title" id="reactionSheetCount">Reactions</h2>
+        <button type="button" class="btn btn-icon btn-ghost" onclick="closeReactionSheet()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
       </div>
-      <!-- Filter tabs (All, ❤️ 1, etc.) -->
-      <div class="reaction-sheet-tabs" id="reactionSheetTabs"></div>
-      <!-- Reactors List (You - Tap to remove, etc.) -->
-      <div class="reaction-sheet-list" id="reactionSheetList"></div>
+      <div class="chip-row reaction-tabs" id="reactionSheetTabs" role="group" aria-label="Filter by reaction"></div>
+      <div class="sheet-body sheet-body-flush list" id="reactionSheetList"></div>
     </div>
   </div>
 

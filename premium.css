@@ -624,23 +624,6 @@ body[data-theme="light"]::before {
   border-color: rgba(255,46,112,0.5) !important;
 }
 
-/* --- CALL OVERLAY POLISH --- */
-.call-ctrl-btn {
-  background: rgba(255,255,255,0.1) !important;
-  border: 1px solid rgba(255,255,255,0.15) !important;
-  border-radius: 50% !important;
-  transition: all 0.18s ease !important;
-}
-.call-ctrl-btn:hover {
-  background: rgba(255,255,255,0.2) !important;
-  transform: scale(1.08) !important;
-}
-.call-ctrl-end {
-  background: linear-gradient(135deg, #FF2E70 0%, #8C1F45 100%) !important;
-  border: none !important;
-  box-shadow: 0 8px 28px rgba(255,46,112,0.5) !important;
-}
-
 /* --- STORY VIEWER POLISH --- */
 .story-poll-option {
   background: rgba(255,255,255,0.1) !important;
@@ -694,14 +677,6 @@ body[data-theme="light"]::before {
 .photo-upload-area:hover svg:last-child {
   transform: translateX(4px) !important;
   color: rgba(255, 255, 255, 0.7) !important;
-}
-
-/* --- Call overlay back button: slide animation --- */
-.call-minimize-btn svg {
-  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
-}
-.call-minimize-btn:hover svg {
-  transform: translateX(-4px) !important;
 }
 
 /* Light theme overrides for chevrons */
@@ -1149,40 +1124,6 @@ body[data-theme="light"] {
   background: #F4EFFB !important;
   border: 1px solid #DDD5E7 !important;
   color: #5C526A !important;
-}
-
-/* Reaction Sheet */
-[data-theme="light"] .reaction-sheet-card {
-  background: #FFFFFF !important;
-  border-top: 1px solid #E5DFEC !important;
-  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.15) !important;
-}
-
-[data-theme="light"] .reaction-sheet-handle {
-  background: #D1CADB !important;
-}
-
-[data-theme="light"] .reaction-sheet-count {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .reaction-tab-chip {
-  background: #F4EFFB !important;
-  color: #554D62 !important;
-}
-
-[data-theme="light"] .reaction-tab-chip.active {
-  background: rgba(255, 46, 112, 0.14) !important;
-  color: #D13A63 !important;
-  border-color: #FF2E70 !important;
-}
-
-[data-theme="light"] .reaction-reactor-row:hover {
-  background: #FAF7FD !important;
-}
-
-[data-theme="light"] .reaction-reactor-name {
-  color: #140C1D !important;
 }
 
 /* Interest Tag Pills */

@@ -453,3 +453,9 @@ button.row:hover, a.row:hover { background: var(--surface-raised); }
 .rating-star-btn.active { color: var(--gold); }
 .rating-star-btn.active .i { fill: currentColor; }
 .rating-star-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- Reactions sheet ---------- */
+.reaction-tabs { flex: none; padding: var(--s-3) var(--s-4); border-bottom: 1px solid var(--border); overflow-x: auto; flex-wrap: nowrap; }
+.reaction-tabs .chip { flex: none; }
+.reaction-emoji { font-size: 1.5rem; line-height: 1; }
+#reactionSheetList .row { padding-left: var(--s-4); padding-right: var(--s-4); }
