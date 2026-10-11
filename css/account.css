@@ -162,3 +162,4 @@
 .completeness-header { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--fs-sm); font-weight: 700; }
 .completeness-pct { font-variant-numeric: tabular-nums; }
 .edit-voice-btn-row { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.acct-value-sm { font-size: var(--fs-sm); font-weight: 700; color: var(--text-2); }

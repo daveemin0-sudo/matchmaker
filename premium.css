@@ -650,16 +650,6 @@ body[data-theme="light"]::before {
   border-color: rgba(255,46,112,0.5) !important;
 }
 
-/* --- TOGGLE SWITCH: Premium style --- */
-.toggle-slider {
-  background: rgba(255,255,255,0.15) !important;
-  border-radius: 20px !important;
-}
-.toggle-switch input:checked + .toggle-slider {
-  background: linear-gradient(135deg, #FF2E70 0%, #D13A63 100%) !important;
-  box-shadow: 0 0 12px rgba(255,46,112,0.4) !important;
-}
-
 /* --- CALL OVERLAY POLISH --- */
 .call-ctrl-btn {
   background: rgba(255,255,255,0.1) !important;
@@ -1204,41 +1194,6 @@ body[data-theme="light"] {
   color: #140C1D !important;
 }
 
-/* Safety Toolkit Modal */
-[data-theme="light"] .safety-modal-sheet {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18) !important;
-}
-
-[data-theme="light"] .safety-modal-header h2 {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .safety-modal-close-btn {
-  background: #F4EFFB !important;
-  border: 1px solid #DDD3E8 !important;
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .safety-card-item {
-  background: #FAF7FD !important;
-  border: 1px solid #EAE3F2 !important;
-}
-
-[data-theme="light"] .safety-card-item:hover {
-  background: #F4EFFB !important;
-  border-color: #DDD3E8 !important;
-}
-
-[data-theme="light"] .safety-item-title {
-  color: #140C1D !important;
-}
-
-[data-theme="light"] .safety-item-desc {
-  color: #5C526A !important;
-}
-
 /* Auth Dialogs (Forgot Password, Forward, Phone, Username, Language, Legal) */
 [data-theme="light"] #forgotPasswordModal > div,
 [data-theme="light"] #forwardModal > div,
@@ -1390,7 +1345,6 @@ body {
 /* --- 1. ACCENT & FILLED BUTTONS (High contrast text in both themes) --- */
 .accent-btn,
 button.accent-btn,
-.filter-apply-btn,
 .selfie-primary-btn {
   color: #FFFFFF !important;
   -webkit-text-fill-color: #FFFFFF !important;
@@ -1404,8 +1358,7 @@ button.accent-btn,
 [data-theme="light"] #phoneVerifyModal .accent-btn,
 [data-theme="light"] #phoneVerificationModal .accent-btn,
 [data-theme="light"] #forwardModal .accent-btn,
-[data-theme="light"] #languageModal .accent-btn,
-[data-theme="light"] .filter-apply-btn {
+[data-theme="light"] #languageModal .accent-btn {
   color: #FFFFFF !important;
   -webkit-text-fill-color: #FFFFFF !important;
   background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
@@ -1413,64 +1366,9 @@ button.accent-btn,
 }
 
 /* --- 2. DISCOVERY FILTER MODAL (Light & Dark Polish) --- */
-[data-theme="light"] .discovery-filter-sheet {
-  background: #FFFFFF !important;
-  border: 1px solid #E5DFEC !important;
-  box-shadow: 0 24px 60px rgba(20, 12, 29, 0.16) !important;
-}
+
 [data-theme="light"] .sheet-drag-handle {
   background: rgba(0, 0, 0, 0.2) !important;
-}
-[data-theme="light"] .filter-sheet-header {
-  border-bottom: 1px solid #EFEAF4 !important;
-}
-[data-theme="light"] .filter-sheet-title {
-  color: #140C1D !important;
-}
-[data-theme="light"] .filter-reset-btn {
-  color: #B71855 !important;
-}
-[data-theme="light"] .filter-close-btn {
-  background: #F3EEF8 !important;
-  color: #140C1D !important;
-}
-[data-theme="light"] .filter-close-btn:hover {
-  background: #E8E0F0 !important;
-}
-[data-theme="light"] .filter-group {
-  background: #FAF7FC !important;
-  border: 1px solid #ECE4F2 !important;
-}
-[data-theme="light"] .filter-group-label,
-[data-theme="light"] .filter-toggle-title {
-  color: #140C1D !important;
-}
-[data-theme="light"] .filter-toggle-desc {
-  color: #524760 !important;
-}
-[data-theme="light"] .filter-val-badge {
-  color: #9C1045 !important;
-  background: #FCE8F0 !important;
-  font-weight: 800 !important;
-}
-[data-theme="light"] .slider-marks {
-  color: #635773 !important;
-  font-weight: 500 !important;
-}
-[data-theme="light"] .filter-chips-row button.filter-chip {
-  background: #FFFFFF !important;
-  border: 1.5px solid #DDD3E5 !important;
-  color: #22152F !important;
-  font-weight: 600 !important;
-}
-[data-theme="light"] .filter-chips-row button.filter-chip:hover {
-  background: #F7F3FA !important;
-}
-[data-theme="light"] .filter-chips-row button.filter-chip.active {
-  background: linear-gradient(135deg, #D13A63 0%, #8E1538 100%) !important;
-  border-color: #8E1538 !important;
-  color: #FFFFFF !important;
-  box-shadow: 0 4px 14px rgba(180, 25, 75, 0.28) !important;
 }
 
 /* --- 3. SELFIE VERIFICATION MODAL (Light & Dark Polish) --- */
@@ -1547,31 +1445,13 @@ button.accent-btn,
   font-weight: 800 !important;
 }
 
-/* --- 10. SAFETY & UNMATCH CONFIRMATION MODALS --- */
-.unmatch-confirm-btn {
-  background: linear-gradient(135deg, #C62828, #8E0000) !important;
-  color: #FFFFFF !important;
-  font-weight: 700 !important;
-}
-[data-theme="light"] .safety-section-title {
-  color: #4D4258 !important;
-  font-weight: 700 !important;
-}
-
 /* --- 11. FINISHING CONTRAST REFINEMENTS (DARK & LIGHT) --- */
-.filter-age-sub-label {
-  color: rgba(255, 255, 255, 0.72) !important;
-  font-weight: 500 !important;
-}
+
 .filter-age-val {
   color: #FF6584 !important;
   font-weight: 800 !important;
 }
 
-[data-theme="light"] .filter-age-sub-label {
-  color: #524760 !important;
-  font-weight: 600 !important;
-}
 [data-theme="light"] .filter-age-val {
   color: #9C1045 !important;
   font-weight: 800 !important;
@@ -1580,12 +1460,6 @@ button.accent-btn,
 [data-theme="light"] #editProfileModal .form-hint,
 [data-theme="light"] #editProfileModal span {
   color: #524760 !important;
-}
-
-[data-theme="dark"] .slider-marks,
-.slider-marks {
-  color: #A098AD !important;
-  font-weight: 500 !important;
 }
 
 [data-theme="light"] .preview-card-btn,
@@ -1600,9 +1474,7 @@ button.accent-btn,
   font-weight: 700 !important;
 }
 
-[data-theme="light"] #safetyToolkitModal span,
-[data-theme="light"] .safety-emergency-btn span,
-[data-theme="light"] .safety-btn-danger span {
+[data-theme="light"] #safetyToolkitModal span {
   color: #990000 !important;
   font-weight: 700 !important;
 }

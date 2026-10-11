@@ -118,3 +118,9 @@ test('settings only lists controls that do something', () => {
   assert.doesNotMatch(settings, /showToast\('Location updated'\)/);
   assert.match(settings, /handleNotifRowClick\(\)/, 'notifications row reflects and requests the real permission');
 });
+
+test('no stealth/incognito promise exists anywhere in the app', () => {
+  assert.doesNotMatch(html, /stealth|incognito/i, 'nothing enforces it, so nothing may promise it');
+  assert.doesNotMatch(js, /stealth/i);
+  assert.doesNotMatch(js.replace(/mustache detective undercover incognito/, ''), /incognito/i);
+});

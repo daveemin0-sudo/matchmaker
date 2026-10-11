@@ -209,9 +209,6 @@
         </div>
       </div>
       <div id="headerRight" class="header-right">
-        <button type="button" class="header-btn stealth-mode-btn" id="stealthModeHeaderBadge" style="display:none;" onclick="openSafetyToolkit()" aria-label="Incognito is on. Open safety settings" title="Incognito is on">
-          <svg class="i" aria-hidden="true"><use href="#i-eye-off"/></svg><span class="header-btn-label">Incognito</span>
-        </button>
         <button type="button" class="header-btn" id="discoveryFilterBtn" onclick="openDiscoveryFilterModal()" aria-label="Discovery filters" title="Discovery filters">
           <svg class="i" aria-hidden="true"><use href="#i-sliders-horizontal"/></svg>
           <span class="filter-active-dot" id="filterActiveDot" style="display:none;"></span>
@@ -1591,94 +1588,65 @@
     <!-- =====================================================
          MODAL: DISCOVERY FILTERS (WhatsApp/iOS Glassmorphism Sheet)
          ===================================================== -->
-    <div class="whatsapp-dialog-overlay" id="discoveryFilterModal" style="display:none;" onclick="if(event.target===this)closeDiscoveryFilterModal()">
-      <div class="discovery-filter-sheet" role="dialog" aria-labelledby="filterSheetTitle" aria-modal="true">
-        <div class="sheet-drag-handle"></div>
-        <div class="filter-sheet-header">
-          <h3 id="filterSheetTitle" class="filter-sheet-title">Discovery Preferences</h3>
-          <div class="filter-sheet-actions">
-            <button type="button" class="filter-reset-btn" onclick="resetDiscoveryFilters()">Reset</button>
-            <button type="button" class="filter-close-btn" onclick="closeDiscoveryFilterModal()" aria-label="Close filters">✕</button>
+    <div class="sheet-overlay" id="discoveryFilterModal" style="display:none;" onclick="if(event.target===this)closeDiscoveryFilterModal()">
+      <div class="sheet" role="dialog" aria-labelledby="filterSheetTitle" aria-modal="true">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <div class="sheet-head">
+          <h2 class="sheet-title" id="filterSheetTitle">Discovery preferences</h2>
+          <div class="sheet-head-actions">
+            <button type="button" class="btn btn-ghost btn-sm" onclick="resetDiscoveryFilters()">Reset</button>
+            <button type="button" class="btn btn-icon btn-ghost" onclick="closeDiscoveryFilterModal()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
           </div>
         </div>
 
-        <div class="filter-sheet-body">
-          <!-- Maximum Distance -->
-          <div class="filter-group">
-            <div class="filter-group-header">
-              <span class="filter-group-label">Maximum Distance</span>
-              <span class="filter-val-badge" id="filterDistanceVal">50 km</span>
+        <div class="sheet-body edit-body">
+          <div class="ctl">
+            <div class="ctl-head">
+              <label class="ctl-label" for="filterDistanceSlider">Maximum distance</label>
+              <output class="acct-value" id="filterDistanceVal" for="filterDistanceSlider">50 km</output>
             </div>
-            <div class="filter-slider-wrap">
-              <input type="range" class="range-slider" id="filterDistanceSlider" min="2" max="150" value="50" oninput="onFilterDistanceChange(this.value)">
-              <div class="slider-marks">
-                <span>2 km</span>
-                <span>50 km</span>
-                <span>150 km</span>
-              </div>
+            <input type="range" class="range" id="filterDistanceSlider" min="2" max="150" value="50" oninput="onFilterDistanceChange(this.value)">
+            <div class="ctl-marks" aria-hidden="true"><span>2 km</span><span>150 km</span></div>
+          </div>
+
+          <div class="ctl" role="group" aria-labelledby="filterAgeLabel">
+            <div class="ctl-head">
+              <span class="ctl-label" id="filterAgeLabel">Age range</span>
+              <output class="acct-value" id="filterAgeVal">20 – 35</output>
+            </div>
+            <div class="acct-slider-pair">
+              <label class="acct-mini" for="filterMinAgeSlider">Youngest <strong id="filterMinAgeVal" class="filter-age-val">20</strong></label>
+              <input type="range" class="range" id="filterMinAgeSlider" min="18" max="60" value="20" oninput="onFilterAgeChange()">
+              <label class="acct-mini" for="filterMaxAgeSlider">Oldest <strong id="filterMaxAgeVal" class="filter-age-val">35</strong></label>
+              <input type="range" class="range" id="filterMaxAgeSlider" min="19" max="75" value="35" oninput="onFilterAgeChange()">
             </div>
           </div>
 
-          <!-- Age Range -->
-          <div class="filter-group">
-            <div class="filter-group-header">
-              <span class="filter-group-label">Age Range</span>
-              <span class="filter-val-badge" id="filterAgeVal">20 – 35</span>
-            </div>
-            <div class="filter-slider-wrap">
-              <div style="display:flex;gap:12px;align-items:center;">
-                <div style="flex:1;">
-                  <div class="filter-age-sub-label" style="font-size:0.75rem;margin-bottom:4px;">Min: <strong id="filterMinAgeVal" class="filter-age-val">20</strong></div>
-                  <input type="range" class="range-slider" id="filterMinAgeSlider" min="18" max="60" value="20" oninput="onFilterAgeChange()">
-                </div>
-                <div style="flex:1;">
-                  <div class="filter-age-sub-label" style="font-size:0.75rem;margin-bottom:4px;">Max: <strong id="filterMaxAgeVal" class="filter-age-val">35</strong></div>
-                  <input type="range" class="range-slider" id="filterMaxAgeSlider" min="19" max="75" value="35" oninput="onFilterAgeChange()">
-                </div>
-              </div>
-              <div class="slider-marks">
-                <span>18 yrs</span>
-                <span>45 yrs</span>
-                <span>75+ yrs</span>
-              </div>
-            </div>
-          </div>
+          <label class="ctl ctl-row" for="filterVerifiedOnly">
+            <span class="row-body">
+              <span class="ctl-label">Verified profiles only</span>
+              <span class="row-sub">Only show people who passed photo verification</span>
+            </span>
+            <span class="switch"><input type="checkbox" id="filterVerifiedOnly" onchange="onFilterVerifiedToggle(this.checked)"><span class="track"></span></span>
+          </label>
 
-          <!-- Verified Profiles Only Toggle -->
-          <div class="filter-group filter-toggle-group">
-            <div class="filter-toggle-info">
-              <div class="filter-toggle-title">
-                <span>Verified Profiles Only</span>
-                <span class="verified-icon" style="display:inline-flex;margin-left:4px;" title="Verified">
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="#3897F0"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                </span>
-              </div>
-              <div class="filter-toggle-desc">Only show members with photo verification</div>
+          <div class="ctl" role="group" aria-labelledby="filterIntentLabel">
+            <div class="ctl-head">
+              <span class="ctl-label" id="filterIntentLabel">Looking for</span>
+              <span class="acct-value acct-value-sm" id="filterIntentVal">Open to all</span>
             </div>
-            <label class="switch" for="filterVerifiedOnly">
-              <input type="checkbox" id="filterVerifiedOnly" onchange="onFilterVerifiedToggle(this.checked)">
-              <span class="slider round"></span>
-            </label>
-          </div>
-
-          <!-- Relationship Intent -->
-          <div class="filter-group">
-            <div class="filter-group-header">
-              <span class="filter-group-label">Looking For</span>
-              <span class="filter-val-badge" id="filterIntentVal">Open to all</span>
-            </div>
-            <div class="filter-chips-row" id="filterIntentChips">
-              <button type="button" class="filter-chip active" data-intent="all" onclick="selectFilterIntent('all', this)">✨ Anyone</button>
-              <button type="button" class="filter-chip" data-intent="relationship" onclick="selectFilterIntent('relationship', this)">💍 Long-term</button>
-              <button type="button" class="filter-chip" data-intent="dating" onclick="selectFilterIntent('dating', this)">🥂 Dating</button>
-              <button type="button" class="filter-chip" data-intent="friends" onclick="selectFilterIntent('friends', this)">☕ Friends</button>
+            <div class="chip-row" id="filterIntentChips">
+              <button type="button" class="chip chip-choice filter-chip active" aria-pressed="true" data-intent="all" onclick="selectFilterIntent('all', this)">Anyone</button>
+              <button type="button" class="chip chip-choice filter-chip" aria-pressed="false" data-intent="relationship" onclick="selectFilterIntent('relationship', this)">Long-term</button>
+              <button type="button" class="chip chip-choice filter-chip" aria-pressed="false" data-intent="dating" onclick="selectFilterIntent('dating', this)">Dating</button>
+              <button type="button" class="chip chip-choice filter-chip" aria-pressed="false" data-intent="friends" onclick="selectFilterIntent('friends', this)">Friends</button>
             </div>
           </div>
         </div>
 
-        <div class="filter-sheet-footer">
-          <button type="button" class="accent-btn filter-apply-btn" id="filterApplyBtn" onclick="applyDiscoveryFiltersAndClose()">
-            <span>Apply Filters</span>
+        <div class="sheet-foot">
+          <button type="button" class="btn btn-primary btn-block" id="filterApplyBtn" onclick="applyDiscoveryFiltersAndClose()">
+            <span>Show results</span>
             <span class="filter-count-preview" id="filterCountPreview"></span>
           </button>
         </div>
@@ -1762,144 +1730,69 @@
     </div>
 
     <!-- =====================================================
-         SAFETY TOOLKIT & PRIVACY CENTER MODAL
+         SAFETY CENTRE
          ===================================================== -->
-    <div class="safety-modal-overlay" id="safetyToolkitModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="safetyToolkitTitle">
-      <div class="safety-modal-sheet">
-        <div class="safety-grab-bar-wrap" onclick="closeSafetyToolkit()">
-          <div class="safety-grab-bar"></div>
+    <div class="sheet-overlay" id="safetyToolkitModal" style="display:none;" onclick="if(event.target===this)closeSafetyToolkit()">
+      <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="safetyToolkitTitle">
+        <div class="sheet-grabber" aria-hidden="true"></div>
+        <div class="sheet-head">
+          <div class="sheet-head-text">
+            <h2 class="sheet-title" id="safetyToolkitTitle">Safety centre</h2>
+            <p class="sheet-sub" id="safetyToolkitContext">Tools and tips for staying safe</p>
+          </div>
+          <button type="button" class="btn btn-icon btn-ghost" onclick="closeSafetyToolkit()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
         </div>
 
-        <div class="safety-sheet-header">
-          <div class="safety-shield-icon-badge">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
-            </svg>
+        <div class="sheet-body sheet-body-flush">
+          <h3 class="section-label">About this person</h3>
+          <div class="list" id="safetyQuickActionCards">
+            <button type="button" class="row" onclick="openGentleUnmatchModal()">
+              <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-heart-off"/></svg></span>
+              <span class="row-body"><span class="row-title">Unmatch</span><span class="row-sub">Remove the match for both of you</span></span>
+              <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+            </button>
+            <button type="button" class="row" onclick="closeSafetyToolkit(); reportUser();">
+              <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-flag"/></svg></span>
+              <span class="row-body"><span class="row-title">Report</span><span class="row-sub">Harassment, fake profile or anything unsafe</span></span>
+              <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+            </button>
+            <button type="button" class="row" onclick="promptBlockActiveUser()">
+              <span class="row-icon"><svg class="i" aria-hidden="true"><use href="#i-ban"/></svg></span>
+              <span class="row-body"><span class="row-title">Block</span><span class="row-sub">They can no longer message or call you</span></span>
+              <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+            </button>
           </div>
-          <div style="flex:1;text-align:left;">
-            <h3 class="safety-sheet-title" id="safetyToolkitTitle">Safety Center &amp; Privacy</h3>
-            <p class="safety-sheet-sub" id="safetyToolkitContext">Your privacy, control &amp; peace of mind</p>
-          </div>
-          <button type="button" class="safety-close-btn" onclick="closeSafetyToolkit()" aria-label="Close safety toolkit">✕</button>
+
+          <h3 class="section-label">Meeting someone</h3>
+          <ul class="tips">
+            <li><svg class="i" aria-hidden="true"><use href="#i-users"/></svg><span><strong>Meet in public.</strong> Pick a busy place such as a café or restaurant for the first few dates.</span></li>
+            <li><svg class="i" aria-hidden="true"><use href="#i-map-pin"/></svg><span><strong>Tell someone your plan.</strong> Share where you are going and who you are meeting.</span></li>
+            <li><svg class="i" aria-hidden="true"><use href="#i-key-round"/></svg><span><strong>Control your own transport.</strong> Arrive and leave on your own so you can go whenever you want.</span></li>
+            <li><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg><span><strong>Protect your money.</strong> Never send money or bank details to someone you met online.</span></li>
+          </ul>
         </div>
 
-        <div class="safety-sheet-body">
-          <!-- Quick Safety Actions (if in active chat/profile) -->
-          <div class="safety-section-title">Quick Actions</div>
-          <div class="safety-action-cards" id="safetyQuickActionCards">
-            <div class="safety-action-card" onclick="openGentleUnmatchModal()">
-              <div class="safety-card-icon" style="background:rgba(255,101,84,0.15);color:#FF6554;">🚫</div>
-              <div class="safety-card-content">
-                <div class="safety-card-title">Unmatch Partner</div>
-                <div class="safety-card-desc">Politely end connection and disappear from matches</div>
-              </div>
-              <div class="safety-card-chevron">›</div>
-            </div>
-
-            <div class="safety-action-card" onclick="closeSafetyToolkit(); reportUser();">
-              <div class="safety-card-icon" style="background:rgba(255,46,112,0.15);color:#FF2E70;">⚠️</div>
-              <div class="safety-card-content">
-                <div class="safety-card-title">Report Account</div>
-                <div class="safety-card-desc">Flag inappropriate content, harassment, or impersonation</div>
-              </div>
-              <div class="safety-card-chevron">›</div>
-            </div>
-
-            <div class="safety-action-card" onclick="promptBlockActiveUser()">
-              <div class="safety-card-icon" style="background:rgba(255,61,0,0.15);color:#FF3D00;">🛑</div>
-              <div class="safety-card-content">
-                <div class="safety-card-title">Block Contact</div>
-                <div class="safety-card-desc">Stop all messages, calls, and visibility permanently</div>
-              </div>
-              <div class="safety-card-chevron">›</div>
-            </div>
-          </div>
-
-          <!-- Stealth / Incognito Privacy Card -->
-          <div class="safety-section-title" style="margin-top:16px;">Stealth Mode</div>
-          <div class="safety-privacy-card">
-            <div class="safety-privacy-header">
-              <div class="safety-card-icon" style="background:rgba(112,0,255,0.15);color:#A855F7;">🕵️</div>
-              <div class="safety-card-content">
-                <div class="safety-card-title">Incognito / Stealth Mode</div>
-                <div class="safety-card-desc">Only members you have already Liked can view your card</div>
-              </div>
-              <label class="toggle-switch">
-                <input type="checkbox" id="safetyStealthToggle" onchange="toggleStealthMode(this.checked)">
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Safe Dating Guidelines -->
-          <div class="safety-section-title" style="margin-top:16px;">Safe Dating Guidelines</div>
-          <div class="safety-tips-list">
-            <div class="safety-tip-item">
-              <span class="safety-tip-bullet">☕</span>
-              <div class="safety-tip-text"><strong>Always meet in public:</strong> For your first few dates, pick vibrant, populated spots like coffee shops or restaurants.</div>
-            </div>
-            <div class="safety-tip-item">
-              <span class="safety-tip-bullet">📍</span>
-              <div class="safety-tip-text"><strong>Share your plans:</strong> Let a close friend or family member know where you're going and who you are meeting.</div>
-            </div>
-            <div class="safety-tip-item">
-              <span class="safety-tip-bullet">🚗</span>
-              <div class="safety-tip-text"><strong>Control your own ride:</strong> Arrive and leave independently so you can depart whenever you feel ready.</div>
-            </div>
-            <div class="safety-tip-item">
-              <span class="safety-tip-bullet">🔒</span>
-              <div class="safety-tip-text"><strong>Guard financial details:</strong> Never transfer funds or share banking details with anyone you meet online.</div>
-            </div>
-          </div>
-
-          <!-- Emergency Support -->
-          <button type="button" class="safety-emergency-btn" onclick="openEmergencyHelp()">
-            <span>🚨 Emergency Helplines &amp; Support</span>
-          </button>
+        <div class="sheet-foot">
+          <button type="button" class="btn btn-danger btn-block" onclick="openEmergencyHelp()"><svg class="i" aria-hidden="true"><use href="#i-triangle-alert"/></svg>I need urgent help</button>
         </div>
       </div>
     </div>
 
     <!-- =====================================================
-         GENTLE UNMATCH MODAL
+         UNMATCH CONFIRMATION
          ===================================================== -->
-    <div class="safety-modal-overlay" id="unmatchReasonModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="unmatchModalTitle">
-      <div class="unmatch-card">
-        <button type="button" class="unmatch-close-btn" onclick="closeGentleUnmatchModal()" aria-label="Cancel">✕</button>
-        <div class="unmatch-badge-icon">💔</div>
-        <h3 class="unmatch-title" id="unmatchModalTitle">Unmatch with this contact?</h3>
-        <p class="unmatch-desc">They won't be notified, but you'll disappear from each other's matches and conversations immediately.</p>
-
-        <div class="unmatch-reason-options" id="unmatchReasonOptions">
-          <label class="unmatch-reason-chip active" onclick="selectUnmatchReason(this)">
-            <input type="radio" name="unmatchReason" value="no_spark" checked>
-            <span>💭 No spark or connection</span>
-          </label>
-          <label class="unmatch-reason-chip" onclick="selectUnmatchReason(this)">
-            <input type="radio" name="unmatchReason" value="incompatible">
-            <span>🎯 Incompatible goals / values</span>
-          </label>
-          <label class="unmatch-reason-chip" onclick="selectUnmatchReason(this)">
-            <input type="radio" name="unmatchReason" value="taking_break">
-            <span>🏖️ Taking a break from dating</span>
-          </label>
-          <label class="unmatch-reason-chip" onclick="selectUnmatchReason(this)">
-            <input type="radio" name="unmatchReason" value="no_reason">
-            <span>🤐 Prefer not to say</span>
-          </label>
+    <div class="sheet-overlay confirm-overlay" id="unmatchReasonModal" style="display:none;" onclick="if(event.target===this)closeGentleUnmatchModal()">
+      <div class="sheet confirm-sheet" role="alertdialog" aria-modal="true" aria-labelledby="unmatchModalTitle" aria-describedby="unmatchModalDesc">
+        <div class="sheet-body">
+          <h2 class="sheet-title" id="unmatchModalTitle">Unmatch?</h2>
+          <p class="confirm-msg" id="unmatchModalDesc">This removes the match for both of you and the conversation can no longer be opened. They are not notified. This cannot be undone.</p>
         </div>
-
-        <div class="unmatch-actions">
-          <button type="button" class="unmatch-confirm-btn" onclick="confirmUnmatch()">
-            Yes, Unmatch
-          </button>
-          <button type="button" class="unmatch-cancel-btn" onclick="closeGentleUnmatchModal()">
-            Keep Match
-          </button>
+        <div class="sheet-foot">
+          <button type="button" class="btn btn-secondary" onclick="closeGentleUnmatchModal()">Keep match</button>
+          <button type="button" class="btn btn-danger-fill" onclick="confirmUnmatch()">Unmatch</button>
         </div>
       </div>
     </div>
-
 
 
     <!-- =====================================================

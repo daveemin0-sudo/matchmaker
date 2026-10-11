@@ -379,3 +379,22 @@ button.row:hover, a.row:hover { background: var(--surface-raised); }
 .dlg-grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--s-3); }
 .sheet-tall { max-height: min(94dvh, 960px); }
 .select { appearance: none; -webkit-appearance: none; padding-right: 36px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239a8f99' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; }
+
+.sheet-head-actions { display: flex; align-items: center; gap: var(--s-1); }
+.chip-row { display: flex; flex-wrap: wrap; gap: var(--s-2); }
+.chip.active { background: var(--primary-soft); border-color: var(--primary-text); color: var(--primary-text); }
+.ctl { display: flex; flex-direction: column; gap: var(--s-2); }
+.ctl-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--s-3); }
+.ctl-label { font-size: var(--fs-base); font-weight: 700; color: var(--text); }
+.ctl-marks { display: flex; justify-content: space-between; font-size: var(--fs-xs); color: var(--text-3); }
+.ctl-row { flex-direction: row; align-items: center; justify-content: space-between; gap: var(--s-4); cursor: pointer; }
+.filter-count-preview { font-weight: 600; opacity: 0.85; }
+.filter-age-val { color: var(--text); font-weight: 800; }
+
+.sheet-head-text { min-width: 0; }
+.sheet-sub { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--text-3); }
+.sheet-body-flush > .section-label:first-child { padding-top: var(--s-4); }
+.tips { list-style: none; margin: 0; padding: 0 var(--s-4) var(--s-4); display: flex; flex-direction: column; gap: var(--s-3); }
+.tips li { display: flex; gap: var(--s-3); align-items: flex-start; font-size: var(--fs-base); line-height: var(--lh-body); color: var(--text-2); }
+.tips li > .i { flex: none; width: 20px; height: 20px; margin-top: 2px; color: var(--primary-text); }
+.tips strong { color: var(--text); }

@@ -292,13 +292,6 @@ let appState = {
   boostInterval: null,
   boostSecondsLeft: 0,
   isTypingVisible: false,
-  isStealthMode: (() => {
-    try {
-      return localStorage.getItem('hmbs_stealth_mode') === 'true';
-    } catch (_) {
-      return false;
-    }
-  })(),
   activeSafetyPartner: null,
 };
 
@@ -1173,10 +1166,6 @@ function loadFromStorage(scopedUid) {
         blockedUsers = JSON.parse(savedBlocked);
       } catch (e) { blockedUsers = []; }
     }
-    const savedStealth = localStorage.getItem('hmbs_stealth_mode');
-    if (savedStealth !== null) {
-      appState.isStealthMode = (savedStealth === 'true');
-    }
     // Guarantee all conversation threads appear in matchedUsers even if data is off
     syncMatchedUsersFromConversations();
     sortMatchedUsersByLatest();
@@ -1196,7 +1185,6 @@ function saveToStorage() {
       freeRewinds: appState.freeRewinds,
       freeAiGens: appState.freeAiGens,
     }));
-    localStorage.setItem('hmbs_stealth_mode', String(Boolean(appState.isStealthMode)));
     localStorage.setItem('hmbs_user', JSON.stringify(currentUser));
     if (currentUser && currentUser.email && currentUser.name && !currentUser.name.includes('@')) {
       try {
@@ -1397,11 +1385,6 @@ function updateHeader(screenId) {
   // Demo (guest) mode is always labelled, on every main screen.
   const demoBanner = document.getElementById('demoModeBanner');
   if (demoBanner) demoBanner.style.display = (appState.isLoggedIn && String(currentUser?.id || '').startsWith('demo_guest_')) ? 'flex' : 'none';
-
-  const stealthBadge = document.getElementById('stealthModeHeaderBadge');
-  if (stealthBadge) {
-    stealthBadge.style.display = (screenId === 'discovery' && appState.isStealthMode) ? 'inline-flex' : 'none';
-  }
 
   // Back button visibility:
   // Main bottom navigation tabs (Discovery, Matches, Messages, Profile) DO NOT have back button beside page name.
@@ -3311,7 +3294,7 @@ document.addEventListener('keydown', (e) => {
 // Static dialogs are opened by setting style.display; this gives all of them the same behaviour
 // (fade in, focus moves in and is trapped, Escape closes, focus returns to the opener) without touching each opener.
 (function watchStaticDialogs() {
-  const SEL = '.sheet-overlay[id], .modal-overlay[id], .safety-modal-overlay[id]';
+  const SEL = '.sheet-overlay[id], .modal-overlay[id]';
   const shown = (el) => el.style.display !== '' && el.style.display !== 'none';
   const sync = (el) => {
     if (shown(el)) {
@@ -10641,12 +10624,6 @@ function renderSettingsScreen() {
     if (el) el.checked = settings[key];
   }
 
-  // Safety & Stealth Mode toggles
-  const stealthToggle = document.getElementById('settingsStealthToggle');
-  if (stealthToggle) stealthToggle.checked = Boolean(appState.isStealthMode);
-  const safetyStealthToggle = document.getElementById('safetyStealthToggle');
-  if (safetyStealthToggle) safetyStealthToggle.checked = Boolean(appState.isStealthMode);
-
   // Gold status
   const vipStatus = document.getElementById('vipStatusRow');
   const goldCard = document.getElementById('settingsGoldCard');
@@ -10945,7 +10922,9 @@ function openDiscoveryFilterModal() {
   if (verifiedToggle) verifiedToggle.checked = verifiedOnly;
 
   document.querySelectorAll('#filterIntentChips .filter-chip').forEach(chip => {
-    chip.classList.toggle('active', chip.dataset.intent === _pendingFilterIntent);
+    const on = chip.dataset.intent === _pendingFilterIntent;
+    chip.classList.toggle('active', on);
+    chip.setAttribute('aria-pressed', String(on));
   });
   if (intentVal) {
     const labels = { all: 'Open to all', relationship: 'Long-term', dating: 'Dating', friends: 'Friends' };
@@ -10955,7 +10934,6 @@ function openDiscoveryFilterModal() {
   updateFilterCountPreview();
 
   modal.style.display = 'flex';
-  modal.classList.add('open');
   if (typeof haptic === 'function') haptic('light');
 }
 window.openDiscoveryFilterModal = openDiscoveryFilterModal;
@@ -11010,8 +10988,8 @@ window.onFilterVerifiedToggle = onFilterVerifiedToggle;
 
 function selectFilterIntent(intent, btn) {
   _pendingFilterIntent = intent;
-  document.querySelectorAll('#filterIntentChips .filter-chip').forEach(c => c.classList.remove('active'));
-  if (btn) btn.classList.add('active');
+  document.querySelectorAll('#filterIntentChips .filter-chip').forEach(c => { c.classList.remove('active'); c.setAttribute('aria-pressed', 'false'); });
+  if (btn) { btn.classList.add('active'); btn.setAttribute('aria-pressed', 'true'); }
   const intentVal = document.getElementById('filterIntentVal');
   if (intentVal) {
     const labels = { all: 'Open to all', relationship: 'Long-term', dating: 'Dating', friends: 'Friends' };
@@ -11055,7 +11033,7 @@ function updateFilterCountPreview() {
   const count = getMatchingProfilesCount({ maxDistance: dist, minAge, maxAge, verifiedOnly, intent });
   const preview = document.getElementById('filterCountPreview');
   if (preview) {
-    preview.textContent = `(${count} profile${count === 1 ? '' : 's'})`;
+    preview.textContent = `· ${count} profile${count === 1 ? '' : 's'}`;
   }
 }
 
@@ -11099,7 +11077,7 @@ function applyDiscoveryFiltersAndClose() {
   applyDiscoveryFilters();
   closeDiscoveryFilterModal();
 
-  showToast('Preferences updated! Discovering matches ⚡', 'success');
+  showToast('Preferences updated.', 'success');
   if (typeof haptic === 'function') haptic('medium');
 }
 window.applyDiscoveryFiltersAndClose = applyDiscoveryFiltersAndClose;
@@ -11133,7 +11111,9 @@ function resetDiscoveryFilters() {
   if (verifiedToggle) verifiedToggle.checked = false;
 
   document.querySelectorAll('#filterIntentChips .filter-chip').forEach(c => {
-    c.classList.toggle('active', c.dataset.intent === 'all');
+    const on = c.dataset.intent === 'all';
+    c.classList.toggle('active', on);
+    c.setAttribute('aria-pressed', String(on));
   });
 
   // Sync settings screen
@@ -11155,7 +11135,7 @@ function resetDiscoveryFilters() {
   saveToStorage();
   applyDiscoveryFilters();
   closeDiscoveryFilterModal();
-  showToast('Filters reset to default 🔄', 'info');
+  showToast('Filters reset.', 'info');
   if (typeof haptic === 'function') haptic('light');
 }
 window.resetDiscoveryFilters = resetDiscoveryFilters;
@@ -12635,34 +12615,6 @@ async function executeReportAndBlock(userId, name) {
 // SAFETY TOOLKIT, GENTLE UNMATCH & PRIVACY CONTROLS (STEP 5)
 // ==========================================================
 
-function toggleStealthMode(enabled) {
-  appState.isStealthMode = Boolean(enabled);
-  try {
-    localStorage.setItem('hmbs_stealth_mode', String(appState.isStealthMode));
-  } catch (_) {}
-
-  // Sync toggle inputs across screens
-  const sToggle = document.getElementById('settingsStealthToggle');
-  if (sToggle) sToggle.checked = appState.isStealthMode;
-  const safeToggle = document.getElementById('safetyStealthToggle');
-  if (safeToggle) safeToggle.checked = appState.isStealthMode;
-
-  // Sync discovery badge
-  const badge = document.getElementById('stealthModeHeaderBadge');
-  if (badge) {
-    badge.style.display = (appState.currentScreen === 'discovery' && appState.isStealthMode) ? 'inline-flex' : 'none';
-  }
-
-  if (typeof haptic === 'function') haptic('light');
-
-  if (appState.isStealthMode) {
-    showToast('🕵️ Stealth Mode on: Only people you like can see your profile.', 'gold');
-  } else {
-    showToast('👀 Stealth Mode off: You are visible to nearby matches.', 'info');
-  }
-}
-window.toggleStealthMode = toggleStealthMode;
-
 function openSafetyToolkit(targetProfileId) {
   const partnerId = targetProfileId || appState.currentChatId || appState.activeMatchProfile?.id || appState.activeDetailProfileId || null;
   let partner = null;
@@ -12677,36 +12629,25 @@ function openSafetyToolkit(targetProfileId) {
   const contextEl = document.getElementById('safetyToolkitContext');
 
   if (partner && titleEl && contextEl) {
-    titleEl.textContent = 'Safety & Control';
-    contextEl.textContent = `Manage interaction & privacy with ${partner.name}`;
+    titleEl.textContent = 'Safety centre';
+    contextEl.textContent = `Actions for ${partner.name}`;
   } else if (titleEl && contextEl) {
-    titleEl.textContent = 'Safety Center & Privacy';
-    contextEl.textContent = 'Your privacy, control & peace of mind';
+    titleEl.textContent = 'Safety centre';
+    contextEl.textContent = 'Tools and tips for staying safe';
   }
-
-  const sToggle = document.getElementById('safetyStealthToggle');
-  if (sToggle) sToggle.checked = Boolean(appState.isStealthMode);
 
   if (typeof hideChatDropdown === 'function') hideChatDropdown();
 
   const modal = document.getElementById('safetyToolkitModal');
   if (modal) {
     modal.style.display = 'flex';
-    requestAnimationFrame(() => modal.classList.add('active'));
   }
 }
 window.openSafetyToolkit = openSafetyToolkit;
 
 function closeSafetyToolkit() {
   const modal = document.getElementById('safetyToolkitModal');
-  if (modal) {
-    modal.classList.remove('active');
-    setTimeout(() => {
-      if (!modal.classList.contains('active')) {
-        modal.style.display = 'none';
-      }
-    }, 280);
-  }
+  if (modal) modal.style.display = 'none';
 }
 window.closeSafetyToolkit = closeSafetyToolkit;
 
@@ -12724,49 +12665,19 @@ function openGentleUnmatchModal(targetProfileId) {
 
   const titleEl = document.getElementById('unmatchModalTitle');
   if (titleEl && partner) {
-    titleEl.textContent = `Unmatch with ${partner.name}?`;
+    titleEl.textContent = `Unmatch ${partner.name}?`;
   }
-
-  // Reset reason selection to default
-  const chips = document.querySelectorAll('.unmatch-reason-chip');
-  chips.forEach((c, idx) => {
-    if (idx === 0) {
-      c.classList.add('active');
-      const radio = c.querySelector('input[type="radio"]');
-      if (radio) radio.checked = true;
-    } else {
-      c.classList.remove('active');
-    }
-  });
 
   const modal = document.getElementById('unmatchReasonModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    requestAnimationFrame(() => modal.classList.add('active'));
-  }
+  if (modal) modal.style.display = 'flex';
 }
 window.openGentleUnmatchModal = openGentleUnmatchModal;
 
 function closeGentleUnmatchModal() {
   const modal = document.getElementById('unmatchReasonModal');
-  if (modal) {
-    modal.classList.remove('active');
-    setTimeout(() => {
-      if (!modal.classList.contains('active')) {
-        modal.style.display = 'none';
-      }
-    }, 280);
-  }
+  if (modal) modal.style.display = 'none';
 }
 window.closeGentleUnmatchModal = closeGentleUnmatchModal;
-
-function selectUnmatchReason(el) {
-  document.querySelectorAll('.unmatch-reason-chip').forEach(c => c.classList.remove('active'));
-  el.classList.add('active');
-  const radio = el.querySelector('input[type="radio"]');
-  if (radio) radio.checked = true;
-}
-window.selectUnmatchReason = selectUnmatchReason;
 
 function confirmUnmatch() {
   const partner = appState.activeSafetyPartner ||
@@ -12814,7 +12725,7 @@ function confirmUnmatch() {
   }
 
   if (typeof haptic === 'function') haptic('light');
-  showToast(`💔 You have unmatched with ${partnerName}.`, 'info');
+  showToast(`You unmatched ${partnerName}.`, 'info');
 }
 window.confirmUnmatch = confirmUnmatch;
 
