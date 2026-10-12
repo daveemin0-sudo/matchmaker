@@ -2050,6 +2050,12 @@
           <p class="field-error" id="obNameError" role="alert"></p>
         </div>
         <div class="field">
+          <label class="field-label" for="obUsernameInput">Username</label>
+          <input class="input" id="obUsernameInput" type="text" autocomplete="username" maxlength="30" placeholder="e.g. alex_99" aria-describedby="obUsernameHelp">
+          <p class="field-hint" id="obUsernameHelp">3-30 letters, numbers, or underscores. This is your public handle.</p>
+          <p class="field-error" id="obUsernameError" role="alert"></p>
+        </div>
+        <div class="field">
           <label class="field-label" for="obAgeInput">Age</label>
           <input class="input" id="obAgeInput" type="number" min="18" max="99" inputmode="numeric" aria-describedby="obAgeHelp">
           <p class="field-hint" id="obAgeHelp">You must be 18 or older.</p>
@@ -2180,6 +2186,36 @@
       <div class="sheet-foot">
         <button type="button" class="btn btn-secondary" onclick="closeRatingModal(true)">Not now</button>
         <button type="button" class="btn btn-primary" id="ratingSubmitBtn" onclick="submitRating()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =====================================================
+       ACCOUNT LINKING MODAL (Case C: Google with existing email/password)
+       ===================================================== -->
+  <div class="sheet-overlay confirm-overlay" id="accountLinkModalOverlay" style="display:none" onclick="if(event.target===this)closeAccountLinkModal()">
+    <div class="sheet confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="accountLinkTitle">
+      <div class="sheet-head">
+        <h2 class="sheet-title" id="accountLinkTitle">Link Existing Account</h2>
+        <button type="button" class="btn btn-icon btn-ghost" onclick="closeAccountLinkModal()" aria-label="Close"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
+      </div>
+      <div class="sheet-body">
+        <p class="dlg-text" id="accountLinkPrompt">An existing account was found for your email. Enter your password to verify ownership and link your Google account.</p>
+        <div class="field">
+          <label class="field-label" for="accountLinkPassword">Account Password</label>
+          <div class="password-field-wrap">
+            <input class="input" id="accountLinkPassword" type="password" autocomplete="current-password" placeholder="Enter your current password">
+            <button type="button" class="btn btn-icon btn-ghost password-toggle-btn" onclick="togglePasswordVisibility('accountLinkPassword', this)" aria-label="Show password"><svg class="i" aria-hidden="true"><use href="#i-eye"/></svg></button>
+          </div>
+          <p class="field-error" id="accountLinkError" role="alert"></p>
+        </div>
+        <div style="margin-top: 8px;">
+          <button type="button" class="btn btn-link btn-sm" onclick="sendAccountLinkResetEmail()" id="accountLinkResetBtn">Forgot password?</button>
+        </div>
+      </div>
+      <div class="sheet-foot">
+        <button type="button" class="btn btn-secondary" onclick="closeAccountLinkModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" id="accountLinkSubmitBtn" onclick="confirmAccountLink()">Verify &amp; Link</button>
       </div>
     </div>
   </div>

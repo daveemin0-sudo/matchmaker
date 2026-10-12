@@ -2202,108 +2202,204 @@ async function handlePhoneLogin() {
   }
 }
 
-// GOOGLE AUTH HANDLERS
-async function handleGoogleLoginSuccess(user) {
+// GOOGLE AUTH & ACCOUNT LINKING HANDLERS
+window.__pendingGoogleCredential = null;
+window.__pendingGoogleEmail = '';
+
+function handleAccountExistsWithDifferentCredential(err) {
+  const email = err.email || (err.customData && err.customData.email) || '';
+  window.__pendingGoogleCredential = err.credential || null;
+  window.__pendingGoogleEmail = email;
+
+  const modal = document.getElementById('accountLinkModalOverlay');
+  const prompt = document.getElementById('accountLinkPrompt');
+  const passInput = document.getElementById('accountLinkPassword');
+  const errEl = document.getElementById('accountLinkError');
+  const btn = document.getElementById('accountLinkSubmitBtn');
+
+  if (prompt) {
+    prompt.textContent = `An existing account with password was found for ${email || 'your email'}. Enter your password to verify ownership and link your Google account.`;
+  }
+  if (passInput) passInput.value = '';
+  if (errEl) errEl.textContent = '';
+  if (btn) { btn.disabled = false; btn.textContent = 'Verify & Link'; }
+
+  if (modal) {
+    modal.style.display = 'flex';
+    if (typeof dialogOpened === 'function') dialogOpened(modal, { focus: '#accountLinkPassword' });
+    else passInput?.focus();
+  } else {
+    showToast(`An account already exists for ${email}. Please sign in with your password to link Google.`, 'info');
+  }
+}
+window.handleAccountExistsWithDifferentCredential = handleAccountExistsWithDifferentCredential;
+
+function closeAccountLinkModal() {
+  const modal = document.getElementById('accountLinkModalOverlay');
+  if (modal) {
+    modal.style.display = 'none';
+    if (typeof dialogClosed === 'function') dialogClosed(modal);
+  }
+  window.__pendingGoogleCredential = null;
+  window.__pendingGoogleEmail = '';
+}
+window.closeAccountLinkModal = closeAccountLinkModal;
+
+async function confirmAccountLink() {
+  const email = window.__pendingGoogleEmail;
+  const passInput = document.getElementById('accountLinkPassword');
+  const errEl = document.getElementById('accountLinkError');
+  const btn = document.getElementById('accountLinkSubmitBtn');
+  const password = passInput?.value || '';
+
+  if (!password) {
+    if (errEl) errEl.textContent = 'Please enter your password.';
+    passInput?.focus();
+    return;
+  }
+  if (errEl) errEl.textContent = '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Verifying…'; }
+
+  try {
+    if (typeof fbAuth === 'undefined' || !fbAuth) {
+      throw new Error('Authentication is currently unavailable.');
+    }
+    // Verify control of existing account
+    const userCredential = await fbAuth.signInWithEmailAndPassword(email, password);
+    const existingUser = userCredential.user;
+
+    // Check account suspension before linking
+    if (typeof fbDb !== 'undefined' && fbDb) {
+      const snap = await fbDb.collection('users').doc(existingUser.uid).get();
+      if (snap && snap.exists) {
+        const d = snap.data();
+        if (d.suspended === true || d.accountStatus === 'suspended') {
+          await fbAuth.signOut();
+          throw new Error('Your account has been suspended by an administrator.');
+        }
+      }
+    }
+
+    // Securely link Google credential to original account
+    if (window.__pendingGoogleCredential) {
+      await existingUser.linkWithCredential(window.__pendingGoogleCredential);
+      if (typeof fbDb !== 'undefined' && fbDb) {
+        await fbDb.collection('users').doc(existingUser.uid).set({
+          googleLinked: true,
+          updatedAt: (typeof firebase !== 'undefined' && firebase.firestore?.FieldValue?.serverTimestamp)
+            ? firebase.firestore.FieldValue.serverTimestamp()
+            : Date.now()
+        }, { merge: true });
+      }
+    }
+
+    closeAccountLinkModal();
+    showToast('Google account linked successfully! Loading your profile…', 'success');
+
+    // Resume as original user without creating new profile or losing data
+    await handleGoogleLoginSuccess(existingUser);
+  } catch (e) {
+    console.warn('Account linking error:', e);
+    if (btn) { btn.disabled = false; btn.textContent = 'Verify & Link'; }
+    let msg = e.message || 'Could not link account.';
+    if (e.code === 'auth/wrong-password') msg = 'Incorrect password. Please try again.';
+    else if (e.code === 'auth/user-not-found') msg = 'No account found for this email.';
+    if (errEl) errEl.textContent = msg;
+  }
+}
+window.confirmAccountLink = confirmAccountLink;
+
+async function sendAccountLinkResetEmail() {
+  const email = window.__pendingGoogleEmail;
+  if (!email || !fbAuth) return;
+  try {
+    await fbAuth.sendPasswordResetEmail(email);
+    showToast(`Password reset link sent to ${email}.`, 'info');
+  } catch (err) {
+    showToast(err.message || 'Could not send reset email.', 'error');
+  }
+}
+window.sendAccountLinkResetEmail = sendAccountLinkResetEmail;
+
+async function handleGoogleLoginSuccess(user, credential) {
   if (!user) return;
   try { sessionStorage.removeItem('hmbs_google_redirecting'); } catch (_) {}
   resetFailedLoginAttempts();
   if (user.uid) await ensureCacheOwner(user.uid);
 
-  let existingProfile = null;
   const userEmail = (user.email || '').toLowerCase();
+  window.__currentAuthUid = user.uid;
 
-  // 1. Check if currentUser in memory is already this user with valid name
-  if (currentUser && currentUser.email && currentUser.email.toLowerCase() === userEmail && currentUser.name && !currentUser.name.includes('@')) {
-    existingProfile = { ...currentUser };
-  }
+  let docData = null;
 
-  // 2. Check local profile cache (persists across logouts)
-  if (!existingProfile && userEmail) {
-    try {
-      const cache = JSON.parse(localStorage.getItem('hmbs_profile_cache') || '{}');
-      const cached = cache[userEmail];
-      if (cached && cached.name && !cached.name.includes('@')) {
-        existingProfile = cached;
-        console.log('✅ Found profile in local profile cache:', existingProfile.name);
-      }
-    } catch (_) {}
-  }
-
-  // 3. Query Firestore directly for existing document
-  if (!existingProfile && typeof fbDb !== 'undefined' && fbDb) {
+  // 1. Authoritative check: Query Firestore users/{uid}
+  if (typeof fbDb !== 'undefined' && fbDb) {
     try {
       const doc = await fbDb.collection('users').doc(user.uid).get();
       if (doc && doc.exists) {
-        const d = doc.data();
-        if (d && d.name && !d.name.includes('@')) {
-          existingProfile = d;
-        }
+        docData = doc.data();
       }
     } catch (e) {
       console.warn('Error reading Firestore users doc in handleGoogleLoginSuccess:', e.message);
     }
   }
 
-  // 4. Query backend /profiles/me (which uses Admin SDK to check UID or email and migrate seamlessly)
-  if (!existingProfile) {
+  // 2. Query backend /profiles/me
+  if (!docData) {
     try {
       if (typeof fetchUserProfileFromBackend === 'function') {
         const p = await fetchUserProfileFromBackend();
-        if (p && p.name && !p.name.includes('@')) {
-          existingProfile = p;
-        }
-      } else if (typeof BACKEND_URL !== 'undefined') {
-        const token = await user.getIdToken();
-        const res = await fetch(`${BACKEND_URL}/profiles/me`, {
-          headers: { Authorization: 'Bearer ' + token }
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.exists && json.profile && json.profile.name && !json.profile.name.includes('@')) {
-            existingProfile = json.profile;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Error checking backend /profiles/me in handleGoogleLoginSuccess:', e.message);
-    }
-  }
-
-  // 5. Fallback to localStorage registered users or hmbs_user
-  if (!existingProfile && userEmail) {
-    try {
-      const savedUser = JSON.parse(localStorage.getItem('hmbs_user') || 'null');
-      if (savedUser && savedUser.email && savedUser.email.toLowerCase() === userEmail && savedUser.name && !savedUser.name.includes('@')) {
-        existingProfile = savedUser;
-      } else {
-        const regUsers = typeof getRegisteredUsers === 'function' ? getRegisteredUsers() : [];
-        const match = regUsers.find(u => u.email && u.email.toLowerCase() === userEmail && u.name && !u.name.includes('@'));
-        if (match) existingProfile = match;
+        if (p) docData = p;
       }
     } catch (_) {}
   }
 
-  if (existingProfile) {
-    // Preserve the user's REAL account details completely!
+  // 3. Fallback to localStorage profile cache
+  if (!docData && userEmail) {
+    try {
+      const cache = JSON.parse(localStorage.getItem('hmbs_profile_cache') || '{}');
+      const cached = cache[userEmail];
+      if (cached && cached.name && !cached.name.includes('@')) {
+        docData = cached;
+      }
+    } catch (_) {}
+  }
+
+  // Account suspension check
+  if (docData && (docData.suspended === true || docData.accountStatus === 'suspended')) {
+    if (typeof showToast === 'function') showToast('Your account has been suspended by an administrator.', 'error');
+    if (typeof fbAuth !== 'undefined' && fbAuth && typeof fbAuth.signOut === 'function') fbAuth.signOut();
+    if (typeof handleLogout === 'function') handleLogout();
+    return;
+  }
+
+  // Determine completeness
+  const rawAge = Number(docData?.age);
+  const hasAdultAge = Number.isFinite(rawAge) && rawAge >= 18 && rawAge <= 100;
+  const hasGender = Boolean(docData?.gender && String(docData.gender).trim().length > 0);
+  const hasUsername = Boolean(docData?.username && String(docData.username).trim().length >= 3 && !docData.username.includes('@'));
+  const hasName = Boolean((docData?.name || docData?.displayName) && String(docData?.name || docData?.displayName).trim().length > 0 && !String(docData?.name || docData?.displayName).includes('@'));
+  const isComplete = Boolean(docData && hasAdultAge && hasGender && hasUsername && hasName && docData.onboardingComplete !== false);
+
+  if (isComplete) {
+    // Case A — Existing Google user with complete profile:
     currentUser.id = user.uid;
     currentUser.email = userEmail;
-    currentUser.name = existingProfile.name || existingProfile.displayName || currentUser.name;
+    currentUser.name = docData.name || docData.displayName;
     currentUser.displayName = currentUser.name;
-    currentUser.username = (existingProfile.username || currentUser.username || currentUser.name || 'user')
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, '') || 'user';
-    if (existingProfile.age) currentUser.age = existingProfile.age;
-    if (existingProfile.gender) currentUser.gender = existingProfile.gender;
-    if (existingProfile.bio) currentUser.bio = existingProfile.bio;
-    if (existingProfile.interests) currentUser.interests = existingProfile.interests;
-    if (existingProfile.photos?.length) currentUser.photos = existingProfile.photos;
-    if (existingProfile.image || existingProfile.avatar) {
-      currentUser.image = existingProfile.image || existingProfile.avatar;
-      currentUser.avatar = currentUser.image;
-    }
-    currentUser.isVip = Boolean(existingProfile.isVip);
+    currentUser.username = docData.username;
+    currentUser.age = Math.floor(rawAge);
+    currentUser.gender = docData.gender;
+    currentUser.bio = docData.bio || '';
+    currentUser.interests = Array.isArray(docData.interests) ? docData.interests : [];
+    currentUser.photos = Array.isArray(docData.photos) ? docData.photos : [];
+    currentUser.image = docData.image || docData.avatar || (currentUser.photos[0] || user.photoURL || '');
+    currentUser.avatar = currentUser.image;
+    if (currentUser.image && (!currentUser.photos.length)) currentUser.photos = [currentUser.image];
+    currentUser.isVip = Boolean(docData.isVip);
+    currentUser.onboardingComplete = true;
 
-    // Save to profile cache
+    // Cache profile
     try {
       const cache = JSON.parse(localStorage.getItem('hmbs_profile_cache') || '{}');
       cache[userEmail] = { ...currentUser };
@@ -2312,38 +2408,79 @@ async function handleGoogleLoginSuccess(user) {
 
     appState.isLoggedIn = true;
     saveToStorage();
+    _obCloseWizard();
     showScreen('discovery');
     initMainApp();
     showToast('Welcome back, ' + currentUser.name + '!', 'gold');
+
+    // Sync public profile
+    if (typeof syncPublicProfileToBackend === 'function') {
+      syncPublicProfileToBackend().catch(() => {});
+    }
     return;
   }
 
-  // 3. Genuinely brand new user without any existing account:
-  // Never use email prefix as name or username!
-  let cleanName = (user.displayName || '').trim();
-  if (cleanName.includes('@')) cleanName = '';
+  // Case B — New Google user OR Incomplete legacy user:
+  // Must NOT enter normal Discovery with missing required fields!
+  appState.isLoggedIn = false;
+
+  const rawGName = (docData?.name || docData?.displayName || user.displayName || '').trim();
+  const safeName = (rawGName && !rawGName.includes('@')) ? rawGName : '';
+  const photo = docData?.image || docData?.avatar || user.photoURL || '';
 
   currentUser.id = user.uid;
   currentUser.email = userEmail;
-  currentUser.name = cleanName;
-  currentUser.displayName = cleanName;
-  currentUser.username = '';
-  currentUser.age = 24;
-  if (user.photoURL) {
-    currentUser.image = user.photoURL;
-    currentUser.avatar = user.photoURL;
-    currentUser.photos = [user.photoURL];
+  currentUser.name = safeName;
+  currentUser.displayName = safeName;
+  currentUser.username = (docData?.username && !docData.username.includes('@')) ? docData.username : '';
+  currentUser.age = hasAdultAge ? Math.floor(rawAge) : null;
+  currentUser.gender = docData?.gender || '';
+  currentUser.bio = docData?.bio || '';
+  currentUser.interests = Array.isArray(docData?.interests) ? docData.interests : [];
+  currentUser.image = photo;
+  currentUser.avatar = photo;
+  currentUser.photos = photo ? [photo] : [];
+  currentUser.authProvider = 'google';
+  currentUser.onboardingComplete = false;
+
+  // Persist pending-onboarding state to Firestore
+  if (typeof fbDb !== 'undefined' && fbDb) {
+    try {
+      const pendingData = {
+        id: user.uid,
+        email: userEmail,
+        name: safeName,
+        displayName: safeName,
+        accountStatus: 'pending_onboarding',
+        onboardingComplete: false,
+        authProvider: 'google',
+        image: photo,
+        avatar: photo,
+        photos: photo ? [photo] : [],
+        updatedAt: (typeof firebase !== 'undefined' && firebase.firestore?.FieldValue?.serverTimestamp)
+          ? firebase.firestore.FieldValue.serverTimestamp()
+          : Date.now()
+      };
+      if (currentUser.username) pendingData.username = currentUser.username;
+      if (currentUser.age) pendingData.age = currentUser.age;
+      if (currentUser.gender) pendingData.gender = currentUser.gender;
+      await fbDb.collection('users').doc(user.uid).set(pendingData, { merge: true });
+    } catch (err) {
+      console.warn('Could not persist pending Google account state:', err.message);
+    }
   }
 
-  appState.isLoggedIn = false; // Stay logged out until profile setup completes
+  saveToStorage();
 
-  const nameInput = document.getElementById('signupName');
-  if (nameInput && cleanName) nameInput.value = cleanName;
-  const emailInput = document.getElementById('signupEmail');
-  if (emailInput) emailInput.value = currentUser.email;
+  // Hide login screen and old signup screen
+  document.getElementById('loginScreen')?.classList.remove('active');
+  document.getElementById('signupScreen')?.classList.remove('active');
 
-  showToast(`Welcome ${cleanName || 'Explorer'}! Please complete your profile to start matching`, 'gold');
-  showScreen('signup');
+  // Launch onboarding wizard immediately
+  if (typeof showOnboardingWizard === 'function') {
+    showOnboardingWizard(safeName);
+  }
+  showToast('Please complete your profile to activate Discovery.', 'info');
 }
 window.handleGoogleLoginSuccess = handleGoogleLoginSuccess;
 
@@ -2354,7 +2491,10 @@ function handleGoogleAuthError(err) {
   const currentHost = window.location.hostname || 'localhost';
   let message = 'Google sign-in failed. Please try again.';
 
-  if (code === 'auth/unauthorized-domain') {
+  if (code === 'auth/account-exists-with-different-credential') {
+    handleAccountExistsWithDifferentCredential(err);
+    return;
+  } else if (code === 'auth/unauthorized-domain') {
     message = `Google Sign-in failed: domain "${currentHost}" is not authorized in Firebase Console. Please add "${currentHost}" under Firebase Console > Authentication > Settings > Authorized domains.`;
   } else if (code === 'auth/operation-not-allowed') {
     message = 'Google sign-in is not enabled in Firebase Console. Enable "Google" under Authentication > Sign-in method.';
@@ -2386,6 +2526,123 @@ function handleGoogleAuthError(err) {
 }
 window.handleGoogleAuthError = handleGoogleAuthError;
 
+function handleAccountExistsWithDifferentCredential(err) {
+  const pendingCred = err?.credential || null;
+  const email = (err?.email || err?.customData?.email || '').trim().toLowerCase();
+  window._pendingAccountLinkCredential = pendingCred;
+  window._pendingAccountLinkEmail = email;
+
+  const promptEl = document.getElementById('accountLinkPrompt');
+  if (promptEl) {
+    promptEl.textContent = email
+      ? `An account with the email "${email}" already exists. Enter your password to verify ownership and link your Google account.`
+      : 'An account already exists for your email. Enter your password to verify ownership and link your Google account.';
+  }
+
+  const passInput = document.getElementById('accountLinkPassword');
+  if (passInput) passInput.value = '';
+  const errEl = document.getElementById('accountLinkError');
+  if (errEl) errEl.textContent = '';
+
+  const overlay = document.getElementById('accountLinkModalOverlay');
+  if (overlay) overlay.style.display = 'flex';
+  setTimeout(() => passInput?.focus(), 100);
+}
+window.handleAccountExistsWithDifferentCredential = handleAccountExistsWithDifferentCredential;
+
+function closeAccountLinkModal() {
+  const overlay = document.getElementById('accountLinkModalOverlay');
+  if (overlay) overlay.style.display = 'none';
+  window._pendingAccountLinkCredential = null;
+  window._pendingAccountLinkEmail = null;
+  const errEl = document.getElementById('accountLinkError');
+  if (errEl) errEl.textContent = '';
+}
+window.closeAccountLinkModal = closeAccountLinkModal;
+
+async function confirmAccountLink() {
+  const passInput = document.getElementById('accountLinkPassword');
+  const errEl = document.getElementById('accountLinkError');
+  const submitBtn = document.getElementById('accountLinkSubmitBtn');
+  const password = (passInput?.value || '').trim();
+  const email = (window._pendingAccountLinkEmail || '').trim().toLowerCase();
+  const credential = window._pendingAccountLinkCredential;
+
+  if (errEl) errEl.textContent = '';
+
+  if (!email) {
+    if (errEl) errEl.textContent = 'Missing email for account linking. Please try logging in with Google again.';
+    return;
+  }
+  if (!password) {
+    if (errEl) errEl.textContent = 'Please enter your password.';
+    passInput?.focus();
+    return;
+  }
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Verifying…';
+  }
+
+  try {
+    if (!fbAuth) throw new Error('Authentication is unavailable.');
+    const userCredential = await fbAuth.signInWithEmailAndPassword(email, password);
+    const existingUser = userCredential.user;
+
+    if (credential && typeof existingUser.linkWithCredential === 'function') {
+      try {
+        await existingUser.linkWithCredential(credential);
+      } catch (linkErr) {
+        if (linkErr?.code !== 'auth/credential-already-in-use') {
+          console.warn('linkWithCredential notice:', linkErr.message);
+        }
+      }
+    }
+
+    closeAccountLinkModal();
+    showToast('Google account linked successfully!', 'gold');
+
+    if (typeof handleGoogleLoginSuccess === 'function') {
+      await handleGoogleLoginSuccess(existingUser, credential);
+    }
+  } catch (err) {
+    console.warn('Account linking error:', err);
+    let msg = err.message || 'Could not verify account password.';
+    if (err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+      msg = 'Incorrect password. Please try again or use "Forgot password?".';
+    } else if (err.code === 'auth/user-not-found') {
+      msg = 'No existing account found with this email.';
+    }
+    if (errEl) errEl.textContent = msg;
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Verify & Link';
+    }
+  }
+}
+window.confirmAccountLink = confirmAccountLink;
+
+async function sendAccountLinkResetEmail() {
+  const email = (window._pendingAccountLinkEmail || '').trim().toLowerCase();
+  const errEl = document.getElementById('accountLinkError');
+  if (!email) {
+    if (errEl) errEl.textContent = 'No email specified for reset.';
+    return;
+  }
+  try {
+    if (fbAuth && typeof fbAuth.sendPasswordResetEmail === 'function') {
+      await fbAuth.sendPasswordResetEmail(email);
+      showToast('Password reset link sent to ' + email, 'info');
+      if (errEl) errEl.textContent = 'Reset link sent. Check your inbox to reset your password, then return here to link.';
+    }
+  } catch (err) {
+    if (errEl) errEl.textContent = err.message || 'Failed to send reset email.';
+  }
+}
+window.sendAccountLinkResetEmail = sendAccountLinkResetEmail;
+
 function handleGoogleLogin() {
   const gErr = document.getElementById('googleLoginError');
   if (gErr) gErr.textContent = '';
@@ -2405,10 +2662,14 @@ function handleGoogleLogin() {
     fbAuth.signInWithPopup(provider)
       .then(async (result) => {
         const u = typeof window.resolveGoogleSignIn === 'function' ? await window.resolveGoogleSignIn(result) : result.user;
-        handleGoogleLoginSuccess(u);
+        handleGoogleLoginSuccess(u, result.credential);
       })
       .catch((err) => {
         console.warn("signInWithPopup result code:", err.code, err.message);
+        if (err.code === 'auth/account-exists-with-different-credential') {
+          handleAccountExistsWithDifferentCredential(err);
+          return;
+        }
         if (err.code === 'auth/popup-blocked' || err.code === 'auth/cancelled-popup-request') {
           showToast('Opening Google sign-in...', 'info');
           try { sessionStorage.setItem('hmbs_google_redirecting', 'true'); } catch (_) {}
@@ -14786,6 +15047,7 @@ const OB_STEPS = 5;
 const _obState = {
   currentStep: 1,
   name: '',
+  username: '',
   age: '',
   gender: '',
   interestedIn: '',
@@ -14800,10 +15062,12 @@ function showOnboardingWizard(prefillName) {
 
   const curUser = (typeof currentUser !== 'undefined' ? currentUser : window.currentUser) || {};
   const targetName = (prefillName || curUser.name || curUser.displayName || '').trim();
+  const targetUsername = (curUser.username || '').replace(/@.*$/, '').toLowerCase().replace(/[^a-z0-9_]/g, '');
   const rawAge = Number(curUser.age);
   const targetAge = (Number.isFinite(rawAge) && rawAge >= 18 && rawAge <= 99) ? Math.floor(rawAge) : '';
 
   _obState.name = targetName;
+  _obState.username = targetUsername;
   _obState.age = targetAge;
   _obState.gender = curUser.gender || '';
   _obState.interestedIn = curUser.interestedIn || '';
@@ -14813,6 +15077,8 @@ function showOnboardingWizard(prefillName) {
 
   const nameInput = document.getElementById('obNameInput');
   if (nameInput) nameInput.value = _obState.name;
+  const usernameInput = document.getElementById('obUsernameInput');
+  if (usernameInput) usernameInput.value = _obState.username;
   const ageInput = document.getElementById('obAgeInput');
   if (ageInput) ageInput.value = _obState.age;
   const bioInput = document.getElementById('obBioInput');
@@ -14869,18 +15135,23 @@ function showOnboardingWizard(prefillName) {
   // If existing user is completing their profile:
   const obTitle = document.getElementById('obTitle');
   const obSub = document.querySelector('#obStep1 .wiz-sub');
-  if (targetName && (!targetAge || !_obState.gender)) {
+  if (targetName && (!targetAge || !_obState.gender || !_obState.username)) {
     if (obTitle) obTitle.textContent = `Complete your profile, ${targetName}`;
-    if (obSub) obSub.textContent = 'An adult age (18+) and gender are required so people can discover you.';
+    if (obSub) obSub.textContent = 'An adult age (18+), gender, and username are required so people can discover you.';
   } else {
     if (obTitle) obTitle.textContent = 'Welcome to hookmebysam';
-    if (obSub) obSub.textContent = 'Set up your profile in a minute. Everything except your name and age is optional.';
+    if (obSub) obSub.textContent = 'Set up your profile in a minute. Everything except your name, username, and age is optional.';
   }
 
   _obState.currentStep = 1;
   wiz.style.display = 'flex';
   _obShowStep(1);
-  dialogOpened(wiz, { focus: targetName && !targetAge ? '#obAgeInput' : '#obNameInput' });
+
+  let focusTarget = '#obNameInput';
+  if (targetName && !_obState.username) focusTarget = '#obUsernameInput';
+  else if (targetName && _obState.username && !targetAge) focusTarget = '#obAgeInput';
+  else if (targetName && !targetAge) focusTarget = '#obAgeInput';
+  dialogOpened(wiz, { focus: focusTarget });
 
   if (bioInput && !bioInput._counterBound) {
     bioInput._counterBound = true;
@@ -14985,14 +15256,22 @@ window.obContinue = obContinue;
 function obNext(fromStep) {
   if (fromStep === 1) {
     const nameInput = document.getElementById('obNameInput');
+    const usernameInput = document.getElementById('obUsernameInput');
     const ageInput  = document.getElementById('obAgeInput');
     const name = (nameInput?.value || '').trim();
+    const rawUsername = (usernameInput?.value || '').trim().toLowerCase().replace(/^@/, '');
     const age  = parseInt(ageInput?.value || '0', 10);
     _obFieldError('obNameInput', 'obNameError', '');
+    _obFieldError('obUsernameInput', 'obUsernameError', '');
     _obFieldError('obAgeInput', 'obAgeError', '');
     if (!name) {
       _obFieldError('obNameInput', 'obNameError', 'Enter your first name.');
       nameInput?.focus();
+      return;
+    }
+    if (!rawUsername || !/^[a-z0-9_]{3,30}$/i.test(rawUsername)) {
+      _obFieldError('obUsernameInput', 'obUsernameError', 'Enter a username (3-30 letters, numbers, or underscores).');
+      usernameInput?.focus();
       return;
     }
     if (!age || age < 18 || age > 99) {
@@ -15001,6 +15280,7 @@ function obNext(fromStep) {
       return;
     }
     _obState.name = name;
+    _obState.username = rawUsername;
     _obState.age  = age;
     _obShowStep(2);
   } else if (fromStep === 2) {
@@ -15025,10 +15305,11 @@ async function obFinish() {
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
 
   // Apply only what the person entered
-  if (_obState.name)  currentUser.name = _obState.name;
-  if (_obState.age)   currentUser.age  = _obState.age;
+  if (_obState.name) currentUser.name = _obState.name;
+  if (_obState.username) currentUser.username = _obState.username;
+  if (_obState.age) currentUser.age = _obState.age;
   if (_obState.gender) currentUser.gender = _obState.gender;
-  if (_obState.bio)   currentUser.bio  = _obState.bio;
+  if (_obState.bio) currentUser.bio = _obState.bio;
   if (_obState.interests.length) currentUser.interests = _obState.interests;
   if (_obState.interestedIn) currentUser.interestedIn = _obState.interestedIn;
   if (_obState.intent) currentUser.intent = _obState.intent;
@@ -15038,7 +15319,9 @@ async function obFinish() {
   }
 
   currentUser.displayName = currentUser.name;
-  currentUser.username = (currentUser.username || currentUser.name || 'user').toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user';
+  currentUser.onboardingComplete = true;
+  currentUser.accountStatus = 'active';
+
   if (!currentUser.image && currentUser.avatar) currentUser.image = currentUser.avatar;
   if (!currentUser.avatar && currentUser.image) currentUser.avatar = currentUser.image;
   if (!Array.isArray(currentUser.photos) || currentUser.photos.length === 0) {
@@ -15074,6 +15357,7 @@ async function saveUserProfileToFirestore(user) {
   const validAge = Number(target.age);
   const cleanAge = (Number.isFinite(validAge) && validAge >= 18 && validAge <= 100) ? Math.floor(validAge) : null;
   const userName = target.name || target.displayName || 'User';
+  const cleanUsername = (target.username || userName).toLowerCase().replace(/[^a-z0-9_]/g, '');
   const userPhoto = target.image || target.avatar || '';
   const userPhotos = Array.isArray(target.photos) && target.photos.length > 0 ? target.photos : (userPhoto ? [userPhoto] : []);
 
@@ -15081,7 +15365,7 @@ async function saveUserProfileToFirestore(user) {
     id: uid,
     name: userName,
     displayName: userName,
-    username: (target.username || userName).toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user',
+    username: cleanUsername || 'user',
     age: cleanAge,
     gender: target.gender || '',
     bio: target.bio || '',
@@ -15090,6 +15374,8 @@ async function saveUserProfileToFirestore(user) {
     avatar: userPhoto,
     photos: userPhotos,
     location: target.location || 'Lagos, Nigeria',
+    onboardingComplete: target.onboardingComplete === true,
+    accountStatus: (cleanAge && target.gender && cleanUsername && target.onboardingComplete === true) ? 'active' : 'pending_onboarding',
     updatedAt: (typeof firebase !== 'undefined' && firebase.firestore?.FieldValue?.serverTimestamp)
       ? firebase.firestore.FieldValue.serverTimestamp()
       : Date.now()
@@ -15103,7 +15389,7 @@ async function saveUserProfileToFirestore(user) {
     }
   }
 
-  if (cleanAge && cleanAge >= 18) {
+  if (cleanAge && cleanAge >= 18 && target.gender && target.onboardingComplete === true) {
     try {
       await syncPublicProfileToFirestore(payload);
     } catch (e) {
@@ -15115,37 +15401,27 @@ async function saveUserProfileToFirestore(user) {
 window.saveUserProfileToFirestore = saveUserProfileToFirestore;
 
 function skipOnboarding() {
+  const age = Number(currentUser.age);
+  const isComplete = Number.isFinite(age) && age >= 18 && currentUser.gender && currentUser.username;
+  if (!isComplete) {
+    showToast('Age (18+), gender, and username are required before entering Discovery.', 'error');
+    return;
+  }
   _obCloseWizard();
+  currentUser.onboardingComplete = true;
+  currentUser.accountStatus = 'active';
   appState.isLoggedIn = true;
   saveToStorage();
   showScreen('discovery');
   initMainApp();
-  if (typeof checkProfileCompletenessAndAlert === 'function') {
-    const isComplete = checkProfileCompletenessAndAlert();
-    if (!isComplete && typeof showToast === 'function') {
-      showToast('Your profile is hidden from Discovery until age and gender are provided.', 'info');
-    }
-  }
 }
 window.skipOnboarding = skipOnboarding;
 
 // Override handleGoogleLoginSuccess for brand new users to use the wizard
 const _origGoogleSuccess = window.handleGoogleLoginSuccess;
-window.handleGoogleLoginSuccess = async function(user) {
-  // Run the original function
+window.handleGoogleLoginSuccess = async function(user, credential) {
   if (typeof _origGoogleSuccess === 'function') {
-    await _origGoogleSuccess(user);
-  }
-  // After original runs, if user went to 'signup' screen, show wizard instead
-  if (appState.currentScreen === 'signup') {
-    // This is a new Google user who was redirected to signup
-    // Show our better onboarding wizard instead
-    const cleanName = currentUser.name || (user.displayName || '').split(' ')[0] || '';
-    setTimeout(() => {
-      showScreen('login'); // go back to hide the old signup screen
-      document.getElementById('loginScreen')?.classList.remove('active');
-      showOnboardingWizard(cleanName);
-    }, 100);
+    await _origGoogleSuccess(user, credential);
   }
 };
 
