@@ -446,9 +446,9 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
     if (!d.id) updates.id = uid;
     if (body.displayName && !d.displayName && !d.name) updates.displayName = String(body.displayName).slice(0, 80);
     if (body.name && !d.name) updates.name = String(body.name).slice(0, 80);
-    if (body.bio && !d.bio) updates.bio = String(body.bio).slice(0, 1000);
-    if (body.gender && !d.gender) updates.gender = String(body.gender).slice(0, 40);
-    if (body.city && !d.city) updates.city = String(body.city).slice(0, 80);
+    if (body.bio && (!d.bio || d.bio !== body.bio)) updates.bio = String(body.bio).slice(0, 1000);
+    if (body.gender && (!d.gender || d.gender !== body.gender)) updates.gender = String(body.gender).slice(0, 40);
+    if (body.city && (!d.city || d.city !== body.city)) updates.city = String(body.city).slice(0, 80);
     if (Array.isArray(body.interests) && (!d.interests || !d.interests.length)) {
       updates.interests = body.interests.slice(0, 30).map(v => String(v).slice(0, 40));
     }

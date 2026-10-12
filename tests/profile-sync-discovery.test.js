@@ -286,3 +286,120 @@ test('GET /discovery returns eligible synchronized adult profiles and respects e
   const adult2Data = res.json.users.find((u) => u.id === 'adult2');
   assert.equal(adult2Data.image, 'https://example.com/tunde.jpg');
 });
+
+test('existing accounts with missing age/gender remain unpublished and invisible in discovery until completed', async () => {
+  const yusbellAuth = asUser('yusbell_test');
+  const viewerAuth = asUser('viewer_user');
+
+  // Existing account state matching production evidence
+  store.set('users/yusbell_test', {
+    id: 'yusbell_test',
+    email: 'yusbell@example.com',
+    name: 'Yusbellbello18',
+    displayName: 'Yusbellbello18',
+    username: 'yusbellbello18',
+    age: null,
+    gender: '',
+    image: 'https://example.com/avatar.jpg',
+    avatar: 'https://example.com/avatar.jpg',
+    photos: ['https://example.com/avatar.jpg'],
+    accountStatus: 'active'
+  });
+
+  // Background or client sync attempt with missing age must fail closed
+  const syncRes = await h.request('POST', '/profiles/sync', {}, yusbellAuth);
+  assert.equal(syncRes.status, 400);
+  assert.equal(syncRes.json.success, false);
+  assert.equal(syncRes.json.error, 'An adult profile age (18+) is required.');
+  assert.equal(store.has('public_profiles/yusbell_test'), false, 'Incomplete profile must not be published');
+
+  // Discovery by another user must not include the incomplete account
+  const discRes = await h.request('GET', '/discovery', undefined, viewerAuth);
+  assert.equal(discRes.status, 200);
+  const found = (discRes.json.users || []).some(u => u.id === 'yusbell_test');
+  assert.equal(found, false, 'Account with missing age must not appear in discovery');
+});
+
+test('onboarding recovery flow persists adult age and gender, publishes to public_profiles, and enables discovery', async () => {
+  const yusbellAuth = asUser('yusbell_test2');
+  const viewerAuth = asUser('viewer_user2');
+
+  store.set('users/yusbell_test2', {
+    id: 'yusbell_test2',
+    email: 'yusbell2@example.com',
+    name: 'Yusbellbello18',
+    displayName: 'Yusbellbello18',
+    username: 'yusbellbello18',
+    age: null,
+    gender: '',
+    image: 'https://example.com/avatar.jpg',
+    avatar: 'https://example.com/avatar.jpg',
+    photos: ['https://example.com/avatar.jpg'],
+    accountStatus: 'active'
+  });
+
+  // User completes onboarding recovery with adult age (22) and gender ('Female')
+  const recoveryPayload = {
+    age: 22,
+    gender: 'Female',
+    bio: 'Fashion designer in Lagos',
+    city: 'Lagos'
+  };
+
+  const syncRes = await h.request('POST', '/profiles/sync', recoveryPayload, yusbellAuth);
+  assert.equal(syncRes.status, 200);
+  assert.equal(syncRes.json.success, true);
+
+  // Firestore user doc updated
+  const updatedUser = store.get('users/yusbell_test2');
+  assert.equal(updatedUser.age, 22);
+  assert.equal(updatedUser.gender, 'Female');
+  assert.equal(updatedUser.bio, 'Fashion designer in Lagos');
+
+  // public_profiles doc published
+  const pubDoc = store.get('public_profiles/yusbell_test2');
+  assert.ok(pubDoc, 'public_profiles document must exist after recovery');
+  assert.equal(pubDoc.age, 22);
+  assert.equal(pubDoc.gender, 'Female');
+  assert.equal(pubDoc.active, true);
+  assert.equal(pubDoc.image, 'https://example.com/avatar.jpg');
+
+  // Other eligible user discovers the recovered profile
+  const discRes = await h.request('GET', '/discovery', undefined, viewerAuth);
+  assert.equal(discRes.status, 200);
+  const found = (discRes.json.users || []).find(u => u.id === 'yusbell_test2');
+  assert.ok(found, 'Recovered adult user must appear in discovery');
+  assert.equal(found.name, 'Yusbellbello18');
+  assert.equal(found.age, 22);
+  assert.equal(found.gender, 'Female');
+
+  // User querying discovery must NEVER see their own profile
+  const selfDiscRes = await h.request('GET', '/discovery', undefined, yusbellAuth);
+  assert.equal(selfDiscRes.status, 200);
+  const selfFound = (selfDiscRes.json.users || []).some(u => u.id === 'yusbell_test2');
+  assert.equal(selfFound, false, 'User must never see their own profile in discovery');
+});
+
+test('underage recovery attempt is rejected with HTTP 400 and profile remains unpublished', async () => {
+  const minorAuth = asUser('minor_account');
+  store.set('users/minor_account', {
+    id: 'minor_account',
+    name: 'Young User',
+    age: null,
+    gender: '',
+    image: 'https://example.com/pic.jpg',
+    accountStatus: 'active'
+  });
+
+  const underagePayload = {
+    age: 17,
+    gender: 'Male'
+  };
+
+  const syncRes = await h.request('POST', '/profiles/sync', underagePayload, minorAuth);
+  assert.equal(syncRes.status, 400);
+  assert.equal(syncRes.json.success, false);
+  assert.equal(syncRes.json.error, 'An adult profile age (18+) is required.');
+  assert.equal(store.has('public_profiles/minor_account'), false, 'Underage user must not be published');
+});
+

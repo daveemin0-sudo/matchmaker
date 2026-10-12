@@ -342,7 +342,7 @@ let deletedConvoIds = (() => {
 })();
 let settings = {
   maxDistance: 50,
-  minAge: 20, maxAge: 35,
+  minAge: 18, maxAge: 35,
   intent: 'all',
   notifMatches: true,
   notifMessages: true,
@@ -484,6 +484,7 @@ function initMainApp() {
   renderStoriesRow();
   initCommunityStoriesListener();
   updateMatchesNotificationBadge();
+  if (typeof checkProfileCompletenessAndAlert === 'function') checkProfileCompletenessAndAlert();
 
   // Fetch real registered users from Firestore into the card stack
   loadProfilesForDiscovery();
@@ -862,6 +863,46 @@ async function loadProfilesForDiscovery() {
   }
   applyDiscoveryFilters();
 }
+
+function checkProfileCompletenessAndAlert(targetUser) {
+  const u = targetUser || (typeof currentUser !== 'undefined' ? currentUser : window.currentUser) || {};
+  const isReal = typeof isRealUserLoggedIn === 'function' ? isRealUserLoggedIn() : false;
+  const banner = document.getElementById('incompleteProfileBanner');
+  if (!isReal) {
+    if (banner) banner.style.display = 'none';
+    return true;
+  }
+
+  const rawAge = Number(u.age);
+  const hasValidAge = Number.isFinite(rawAge) && rawAge >= 18 && rawAge <= 100;
+  const hasGender = Boolean(u.gender && typeof u.gender === 'string' && u.gender.trim());
+
+  if (!hasValidAge || !hasGender) {
+    if (banner) {
+      banner.style.display = 'flex';
+      const msg = !hasValidAge && !hasGender
+        ? 'Your profile is hidden from Discovery. An adult age (18+) and gender are required.'
+        : (!hasValidAge
+          ? 'Your profile is hidden from Discovery. An adult profile age (18+) is required.'
+          : 'Your profile is hidden from Discovery. Please specify your gender.');
+      const textEl = document.getElementById('incompleteProfileBannerText');
+      if (textEl) textEl.textContent = msg;
+    }
+    return false;
+  } else {
+    if (banner) banner.style.display = 'none';
+    return true;
+  }
+}
+window.checkProfileCompletenessAndAlert = checkProfileCompletenessAndAlert;
+
+function openProfileRecovery() {
+  const u = (typeof currentUser !== 'undefined' ? currentUser : window.currentUser) || {};
+  if (typeof showOnboardingWizard === 'function') {
+    showOnboardingWizard(u.name || u.displayName || '');
+  }
+}
+window.openProfileRecovery = openProfileRecovery;
 
 // ==========================================================
 // STORAGE
@@ -1269,6 +1310,9 @@ function showScreen(screenId, { fromHistory = false } = {}) {
   if (target) target.classList.add('active');
   if (screenId === 'profile' && typeof renderProfileScreen === 'function') {
     renderProfileScreen();
+  }
+  if (screenId === 'discovery' && typeof checkProfileCompletenessAndAlert === 'function') {
+    checkProfileCompletenessAndAlert();
   }
 
   const oldScreen = appState.currentScreen;
@@ -2011,6 +2055,16 @@ async function handleLogin() {
       saveToStorage();
       showScreen('discovery');
       initMainApp();
+
+      const rawAge = Number(currentUser.age);
+      const isAdultAge = Number.isFinite(rawAge) && rawAge >= 18 && rawAge <= 100;
+      const hasGender = Boolean(currentUser.gender && typeof currentUser.gender === 'string' && currentUser.gender.trim());
+      if (!isAdultAge || !hasGender) {
+        setTimeout(() => {
+          showOnboardingWizard(currentUser.name || currentUser.displayName || '');
+          showToast('Please complete your age (18+) and gender to appear in Discovery.', 'info');
+        }, 400);
+      }
       return;
     } catch (err) {
       console.warn("Firebase sign-in error:", err.code);
@@ -10040,6 +10094,8 @@ function openEditProfileModal() {
     if (bioInput) bioInput.value = currentUser.bio || '';
     if (locInput) locInput.value = currentUser.location || '';
     if (interestsInput) interestsInput.value = (currentUser.interests || []).join(', ');
+    const genderSelect = document.getElementById('editGender');
+    if (genderSelect) genderSelect.value = currentUser.gender || '';
 
     const editErr = document.getElementById('editProfileError');
     if (editErr) editErr.textContent = '';
@@ -10393,6 +10449,8 @@ function saveProfile() {
   currentUser.age = age;
   currentUser.bio = bio;
   currentUser.location = val('editLocation');
+  const editGenderVal = val('editGender');
+  if (editGenderVal) currentUser.gender = editGenderVal;
   currentUser.interests = val('editInterests').split(',').map(t => t.trim()).filter(Boolean).slice(0, 12);
 
   // Optional answers stay empty when the person leaves them blank; nothing is filled in for them.
@@ -10419,6 +10477,7 @@ function saveProfile() {
       name: currentUser.name,
       displayName: currentUser.name,
       age: currentUser.age,
+      gender: currentUser.gender || '',
       bio: currentUser.bio,
       location: currentUser.location,
       interests: currentUser.interests || [],
@@ -10427,7 +10486,8 @@ function saveProfile() {
       photos: currentUser.photos || [],
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true }).catch(err => console.warn('Could not sync profile to Firestore:', err));
-     syncPublicProfileToFirestore().catch(err => console.warn('Could not sync public profile:', err));
+    syncPublicProfileToFirestore({ age: currentUser.age, gender: currentUser.gender }).catch(err => console.warn('Could not sync public profile:', err));
+    if (typeof checkProfileCompletenessAndAlert === 'function') checkProfileCompletenessAndAlert();
   }
 
   const settingsName = document.getElementById('settingsProfileName');
@@ -11181,7 +11241,15 @@ function applyDiscoveryFilters(options = {}) {
   const pool = window._masterDiscoveryPool || [];
   if (!window._swipedProfileIds) window._swipedProfileIds = new Set();
 
+  const curUser = (typeof currentUser !== 'undefined' ? currentUser : window.currentUser) || {};
+  const currentUid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || curUser.id || window.__currentAuthUid;
+
   profileStack = pool.filter(p => {
+    // Current user must NEVER see their own profile
+    if (p.id === currentUid || p.id === curUser.id || (window.__currentAuthUid && p.id === window.__currentAuthUid)) {
+      return false;
+    }
+
     if (!options.includeSwiped && window._swipedProfileIds.has(p.id)) {
       return false;
     }
@@ -11196,10 +11264,18 @@ function applyDiscoveryFilters(options = {}) {
       if (dist > maxDistance) return false;
     }
 
-
     if (intent && intent !== 'all') {
       const pIntent = (p.intent || '').toLowerCase();
       if (pIntent && pIntent !== intent) return false;
+    }
+
+    // Legitimate gender preference matching:
+    const myInterest = (curUser.interestedIn || '').toLowerCase();
+    const pGender = (p.gender || '').toLowerCase();
+    if (myInterest === 'men' || myInterest === 'man') {
+      if (pGender && pGender !== 'male' && pGender !== 'man') return false;
+    } else if (myInterest === 'women' || myInterest === 'woman') {
+      if (pGender && pGender !== 'female' && pGender !== 'woman') return false;
     }
 
     return true;
@@ -14721,17 +14797,91 @@ const _obState = {
 function showOnboardingWizard(prefillName) {
   const wiz = document.getElementById('onboardingWizard');
   if (!wiz) return;
-  if (prefillName) {
-    const nameInput = document.getElementById('obNameInput');
-    if (nameInput) nameInput.value = prefillName;
-    _obState.name = prefillName;
+
+  const curUser = (typeof currentUser !== 'undefined' ? currentUser : window.currentUser) || {};
+  const targetName = (prefillName || curUser.name || curUser.displayName || '').trim();
+  const rawAge = Number(curUser.age);
+  const targetAge = (Number.isFinite(rawAge) && rawAge >= 18 && rawAge <= 99) ? Math.floor(rawAge) : '';
+
+  _obState.name = targetName;
+  _obState.age = targetAge;
+  _obState.gender = curUser.gender || '';
+  _obState.interestedIn = curUser.interestedIn || '';
+  _obState.intent = curUser.intent || '';
+  _obState.interests = Array.isArray(curUser.interests) ? [...curUser.interests] : [];
+  _obState.bio = curUser.bio || '';
+
+  const nameInput = document.getElementById('obNameInput');
+  if (nameInput) nameInput.value = _obState.name;
+  const ageInput = document.getElementById('obAgeInput');
+  if (ageInput) ageInput.value = _obState.age;
+  const bioInput = document.getElementById('obBioInput');
+  if (bioInput) {
+    bioInput.value = _obState.bio;
+    const count = document.getElementById('obBioCount');
+    if (count) count.textContent = bioInput.value.length;
   }
+
+  // Pre-select gender in wizard
+  const genderGrid = document.getElementById('obGenderGrid');
+  if (genderGrid) {
+    genderGrid.querySelectorAll('[role="radio"]').forEach(o => {
+      const match = _obState.gender && o.dataset.val && o.dataset.val.toLowerCase() === _obState.gender.toLowerCase();
+      o.classList.toggle('selected', Boolean(match));
+      o.setAttribute('aria-checked', String(Boolean(match)));
+    });
+  }
+
+  // Pre-select interestedIn
+  const interestedGrid = document.getElementById('obInterestedGrid');
+  if (interestedGrid) {
+    interestedGrid.querySelectorAll('[role="radio"]').forEach(o => {
+      const match = _obState.interestedIn && o.dataset.val && o.dataset.val.toLowerCase() === _obState.interestedIn.toLowerCase();
+      o.classList.toggle('selected', Boolean(match));
+      o.setAttribute('aria-checked', String(Boolean(match)));
+    });
+  }
+
+  // Pre-select intent
+  const intentGrid = document.getElementById('obIntentGrid');
+  if (intentGrid) {
+    intentGrid.querySelectorAll('[role="radio"]').forEach(o => {
+      const match = _obState.intent && o.dataset.intent && o.dataset.intent.toLowerCase() === _obState.intent.toLowerCase();
+      o.classList.toggle('selected', Boolean(match));
+      o.setAttribute('aria-checked', String(Boolean(match)));
+    });
+  }
+
+  // Pre-select interests
+  const interestsGrid = document.getElementById('obInterestsGrid');
+  if (interestsGrid) {
+    const curSet = new Set(_obState.interests.map(i => i.toLowerCase()));
+    interestsGrid.querySelectorAll('.chip-choice').forEach(chip => {
+      const chipText = chip.textContent.trim().toLowerCase();
+      const match = curSet.has(chipText);
+      chip.classList.toggle('selected', match);
+      chip.setAttribute('aria-pressed', String(match));
+    });
+    const countEl = document.getElementById('obInterestCount');
+    if (countEl) countEl.textContent = `${_obState.interests.length} of 5 selected`;
+  }
+
+  // If existing user is completing their profile:
+  const obTitle = document.getElementById('obTitle');
+  const obSub = document.querySelector('#obStep1 .wiz-sub');
+  if (targetName && (!targetAge || !_obState.gender)) {
+    if (obTitle) obTitle.textContent = `Complete your profile, ${targetName}`;
+    if (obSub) obSub.textContent = 'An adult age (18+) and gender are required so people can discover you.';
+  } else {
+    if (obTitle) obTitle.textContent = 'Welcome to hookmebysam';
+    if (obSub) obSub.textContent = 'Set up your profile in a minute. Everything except your name and age is optional.';
+  }
+
   _obState.currentStep = 1;
   wiz.style.display = 'flex';
   _obShowStep(1);
-  dialogOpened(wiz, { focus: '#obNameInput' });
+  dialogOpened(wiz, { focus: targetName && !targetAge ? '#obAgeInput' : '#obNameInput' });
 
-  const bioInput = document.getElementById('obBioInput');
   if (bioInput && !bioInput._counterBound) {
     bioInput._counterBound = true;
     bioInput.addEventListener('input', () => {
@@ -14853,6 +15003,12 @@ function obNext(fromStep) {
     _obState.name = name;
     _obState.age  = age;
     _obShowStep(2);
+  } else if (fromStep === 2) {
+    if (!_obState.gender) {
+      if (typeof showToast === 'function') showToast('Please select your gender to continue.', 'error');
+      return;
+    }
+    _obShowStep(3);
   } else if (fromStep < OB_STEPS) {
     _obShowStep(fromStep + 1);
   } else {
@@ -14964,6 +15120,12 @@ function skipOnboarding() {
   saveToStorage();
   showScreen('discovery');
   initMainApp();
+  if (typeof checkProfileCompletenessAndAlert === 'function') {
+    const isComplete = checkProfileCompletenessAndAlert();
+    if (!isComplete && typeof showToast === 'function') {
+      showToast('Your profile is hidden from Discovery until age and gender are provided.', 'info');
+    }
+  }
 }
 window.skipOnboarding = skipOnboarding;
 

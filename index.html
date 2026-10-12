@@ -579,6 +579,18 @@
       <div class="screen" id="discoveryScreen">
         <div class="discovery-workspace">
 
+          <!-- Incomplete profile notice (shown when age is missing/underage or gender is missing) -->
+          <div class="incomplete-profile-banner" id="incompleteProfileBanner" style="display:none" role="alert">
+            <div class="incomplete-banner-content">
+              <svg class="i incomplete-banner-icon" aria-hidden="true"><use href="#i-circle-alert"/></svg>
+              <div class="incomplete-banner-text">
+                <strong class="incomplete-banner-title">Profile Hidden from Discovery</strong>
+                <span id="incompleteProfileBannerText">An adult age (18+) and gender are required to be visible to others.</span>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary incomplete-banner-btn" onclick="openProfileRecovery()">Complete Profile</button>
+          </div>
+
           <!-- Daily likes remaining (free plan) -->
           <div class="swipe-counter-badge" id="swipeCounterBadge" style="display:none" role="status">
             <svg class="i i-sm" aria-hidden="true"><use href="#i-heart"/></svg>
@@ -1137,9 +1149,19 @@
                   <input class="input" id="editAge" type="number" min="18" max="80" inputmode="numeric" placeholder="18+">
                 </div>
                 <div class="field">
-                  <label class="field-label" for="editLocation">City</label>
-                  <input class="input" id="editLocation" type="text" placeholder="e.g. Lagos" maxlength="60" autocomplete="address-level2">
+                  <label class="field-label" for="editGender">Gender</label>
+                  <select class="select" id="editGender">
+                    <option value="">Select gender</option>
+                    <option value="Male">Man</option>
+                    <option value="Female">Woman</option>
+                    <option value="Non-binary">Non-binary</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
+              </div>
+              <div class="field">
+                <label class="field-label" for="editLocation">City</label>
+                <input class="input" id="editLocation" type="text" placeholder="e.g. Lagos" maxlength="60" autocomplete="address-level2">
               </div>
               <div class="field">
                 <label class="field-label" for="editBio">Bio</label>

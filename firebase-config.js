@@ -460,6 +460,7 @@ function listenToAuthChanges() {
         showScreen(targetScreen);
       }
       if (typeof initMainApp === 'function') initMainApp();
+      if (typeof checkProfileCompletenessAndAlert === 'function') checkProfileCompletenessAndAlert(targetUser);
           if (typeof updateUserPresence === 'function') updateUserPresence(true);
       if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
       if (typeof initPushNotifications === 'function') initPushNotifications();
