@@ -11,7 +11,8 @@ function load() {
   const a = js.indexOf('const INTENT_LABELS');
   const b = js.indexOf('window.calculateCompatibility = calculateCompatibility;');
   const c = js.indexOf('function escHtml(str)');
-  const d = js.indexOf('}\n', c) + 2;
+  const closeMatch = js.slice(c).match(/\}\r?\n/);
+  const d = closeMatch ? c + closeMatch.index + closeMatch[0].length : js.length;
   assert.ok(a > 0 && b > a && c > 0, 'functions not found');
   const ctx = {};
   vm.createContext(ctx);

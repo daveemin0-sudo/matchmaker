@@ -124,13 +124,17 @@ if (typeof firebase !== "undefined") {
 // Sync only the safe, discoverable subset of the authenticated user's profile.
 // The server reads the private user document with Admin SDK and publishes a
 // sanitized copy to public_profiles.
-async function syncPublicProfileToBackend() {
+async function syncPublicProfileToBackend(payload) {
   if (!fbAuth?.currentUser) return false;
   try {
     const token = await fbAuth.currentUser.getIdToken();
+    const body = (payload && typeof payload === 'object' && Object.keys(payload).length > 0)
+      ? JSON.stringify(payload)
+      : undefined;
     const res = await fetch(BACKEND_URL + '/profiles/sync', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      ...(body ? { body } : {})
     });
     return res.ok;
   } catch (err) {
@@ -438,8 +442,11 @@ function listenToAuthChanges() {
       }
       window.currentUser = targetUser;
       if (typeof saveToStorage === 'function') saveToStorage();
-       await syncPublicProfileToBackend();
-            await loadBlockedUsersFromFirestore();
+      const currentAge = Number(targetUser.age);
+      if (Number.isFinite(currentAge) && currentAge >= 18 && currentAge <= 100) {
+        await syncPublicProfileToBackend();
+      }
+      await loadBlockedUsersFromFirestore();
        if (typeof appState !== 'undefined') appState.isLoggedIn = true;
       const currentHash = window.location.hash || '';
       const isChatHash = currentHash.startsWith('#chat/');
