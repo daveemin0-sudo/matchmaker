@@ -403,3 +403,20 @@ test('underage recovery attempt is rejected with HTTP 400 and profile remains un
   assert.equal(store.has('public_profiles/minor_account'), false, 'Underage user must not be published');
 });
 
+test('GET /discovery never serves live_ test-account profiles, even when active', async () => {
+  const viewerAuth = asUser('real_viewer_1');
+  store.set('public_profiles/live_caseA_google_user', {
+    id: 'live_caseA_google_user', displayName: 'Test Profile', age: 26, gender: 'Female',
+    image: 'https://example.com/t.jpg', active: true
+  });
+  store.set('public_profiles/real_member_1', {
+    id: 'real_member_1', displayName: 'Real Member', age: 27, gender: 'Female',
+    image: 'https://example.com/r.jpg', active: true
+  });
+  const res = await h.request('GET', '/discovery', undefined, viewerAuth);
+  assert.equal(res.status, 200);
+  const ids = (res.json.users || []).map(u => u.id);
+  assert.ok(ids.includes('real_member_1'), 'Real profiles must still appear');
+  assert.equal(ids.includes('live_caseA_google_user'), false, 'Test-account profiles must never appear');
+});
+
