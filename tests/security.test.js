@@ -52,14 +52,14 @@ test('no route path is registered twice in the deployed backend (Express keeps o
 
 test('reporting a user accepts every reason the in-app report sheet can send, and records who filed it', () => {
   const app = read('script.js');
-  const optionsBlock = (app.match(/const REPORT_REASON_OPTIONS = \[([\s\S]*?)\n\];/) || [])[1] || '';
+  const optionsBlock = (app.match(/const REPORT_REASON_OPTIONS = \[([\s\S]*?)\r?\n\];/) || [])[1] || '';
   const uiReasons = [...optionsBlock.matchAll(/\['([a-z]+)',/g)].map(m => m[1]);
   assert.ok(uiReasons.length > 0, 'expected to find REPORT_REASON_OPTIONS in script.js');
 
   const server = read('webhook-server/index.js');
   // Capture any reason allow-list declared just above the route too (e.g. a
   // `REPORT_REASONS` constant), not only the handler body itself.
-  const reportsRouteMatch = server.match(/(?:const REPORT_REASONS[\s\S]*?\n\n)?app\.post\('\/reports'[\s\S]*?\n\}\);/);
+  const reportsRouteMatch = server.match(/(?:const REPORT_REASONS[\s\S]*?\r?\n\r?\n)?app\.post\('\/reports'[\s\S]*?\r?\n\}\);/);
   assert.ok(reportsRouteMatch, 'expected exactly one POST /reports handler');
   const handlerSource = reportsRouteMatch[0];
 

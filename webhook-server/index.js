@@ -427,18 +427,62 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
     const uid = req.user.uid;
     if (!(await persistentRateLimit('profile-sync:' + uid, 20, 10 * 60 * 1000))) return res.status(429).json({ success:false, error:'Too many profile sync requests.' });
     const snap = await db.collection('users').doc(uid).get();
-    if (!snap.exists) return res.status(404).json({ success:false, error:'Profile not found.' });
-    const d = snap.data() || {};
-    const age = Number(d.age);
+    let d = snap.exists ? (snap.data() || {}) : {};
+    const body = (req.body && typeof req.body === 'object') ? req.body : {};
+
+    // If user document is missing in Firestore, check if client supplied valid profile fields
+    if (!snap.exists && (body.age === undefined || body.age === null)) {
+      return res.status(404).json({ success:false, error:'Profile not found.' });
+    }
+
+    const docAge = (d.age !== undefined && d.age !== null) ? Number(d.age) : NaN;
+    const bodyAge = (body.age !== undefined && body.age !== null) ? Number(body.age) : NaN;
+    const age = (Number.isFinite(docAge) && docAge >= 18 && docAge <= 100) ? docAge : bodyAge;
     if (!Number.isFinite(age) || age < 18 || age > 100) return res.status(400).json({ success:false, error:'An adult profile age (18+) is required.' });
-    const city = String(d.city || '').trim().slice(0,80);
+
+    // Synchronize client-supplied fields if document was missing or lacked age/photo/name
+    const updates = {};
+    if (!snap.exists || d.age !== Math.floor(age)) updates.age = Math.floor(age);
+    if (!d.id) updates.id = uid;
+    if (body.displayName && !d.displayName && !d.name) updates.displayName = String(body.displayName).slice(0, 80);
+    if (body.name && !d.name) updates.name = String(body.name).slice(0, 80);
+    if (body.bio && !d.bio) updates.bio = String(body.bio).slice(0, 1000);
+    if (body.gender && !d.gender) updates.gender = String(body.gender).slice(0, 40);
+    if (body.city && !d.city) updates.city = String(body.city).slice(0, 80);
+    if (Array.isArray(body.interests) && (!d.interests || !d.interests.length)) {
+      updates.interests = body.interests.slice(0, 30).map(v => String(v).slice(0, 40));
+    }
+    const bodyImage = String(body.image || body.avatar || (Array.isArray(body.photos) && body.photos[0]) || '');
+    if (bodyImage && !d.image && !d.avatar) {
+      updates.image = bodyImage;
+      updates.avatar = bodyImage;
+    }
+    if (Array.isArray(body.photos) && body.photos.length > 0 && (!d.photos || !d.photos.length)) {
+      updates.photos = body.photos.slice(0, 6);
+    }
+    if (Object.keys(updates).length > 0) {
+      updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+      await db.collection('users').doc(uid).set(updates, { merge: true });
+      d = Object.assign({}, d, updates);
+    }
+
+    const city = String(d.city || body.city || '').trim().slice(0,80);
+    const finalImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || bodyImage || '');
+    const finalPhotos = Array.isArray(d.photos) && d.photos.length > 0
+      ? d.photos.slice(0, 6)
+      : (Array.isArray(body.photos) && body.photos.length > 0
+        ? body.photos.slice(0, 6)
+        : (finalImage ? [finalImage] : []));
+
     await db.collection('public_profiles').doc(uid).set({
-      id: uid, displayName: String(d.displayName || d.name || 'User').slice(0,80),
-      age: Math.floor(age), gender: String(d.gender || '').slice(0,40),
-      bio: String(d.bio || '').slice(0,1000),
-      interests: Array.isArray(d.interests) ? d.interests.slice(0,30).map(v => String(v).slice(0,40)) : [],
-      image: String(d.image || d.avatar || ''), ...(city ? {city} : {}),
-      active: d.accountStatus !== 'suspended' && !d.deletedAt,
+      id: uid, displayName: String(d.displayName || d.name || body.displayName || body.name || 'User').slice(0,80),
+      age: Math.floor(age), gender: String(d.gender || body.gender || '').slice(0,40),
+      bio: String(d.bio || body.bio || '').slice(0,1000),
+      interests: Array.isArray(d.interests) ? d.interests.slice(0,30).map(v => String(v).slice(0,40)) : (Array.isArray(body.interests) ? body.interests.slice(0,30).map(v => String(v).slice(0,40)) : []),
+      image: finalImage,
+      photos: finalPhotos,
+      ...(city ? {city} : {}),
+      active: d.accountStatus !== 'suspended' && d.accountStatus !== 'merged' && d.suspended !== true && !d.deletedAt && !d.mergedInto,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, {merge:true});
     res.json({success:true, profile: d});
@@ -568,10 +612,11 @@ app.get('/discovery', requireAuth, async (req, res) => {
     const users=[];
     profiles.forEach(doc => {
       if(users.length>=limit || excluded.has(doc.id)) return;
-      const d=doc.data()||{}, age=Number(d.age);
-      if(!d.image || !Number.isFinite(age) || age<18 || d.active!==true) return;
-      const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (d.image ? [d.image] : []);
-      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:d.image,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',isRealUser:true});
+      const d = doc.data() || {}, age = Number(d.age);
+      const userImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || '');
+      if(!userImage || !Number.isFinite(age) || age<18 || d.active!==true) return;
+      const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (userImage ? [userImage] : []);
+      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:userImage,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',isRealUser:true});
     });
     res.json({success:true,users});
   } catch (err) {

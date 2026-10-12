@@ -976,9 +976,22 @@ async function purgeUserScopedData() {
   const oldUid = window.__currentAuthUid;
   window.__currentAuthUid = null;
   if (currentUser && typeof currentUser === 'object') {
+    const isSigningUp = typeof appState !== 'undefined' && appState.signupStep > 0;
+    const preservedSignup = isSigningUp ? {
+      name: currentUser.name,
+      age: currentUser.age,
+      gender: currentUser.gender,
+      interests: currentUser.interests,
+      bio: currentUser.bio,
+      location: currentUser.location,
+      image: currentUser.image,
+      avatar: currentUser.avatar,
+      photos: currentUser.photos
+    } : null;
     Object.keys(currentUser).forEach(k => { delete currentUser[k]; });
+    if (preservedSignup) Object.assign(currentUser, preservedSignup);
   }
-  window.currentUser = {};
+  window.currentUser = currentUser || {};
   try {
     ['hmbs_state', 'hmbs_user', 'hmbs_matches', 'hmbs_convos', 'hmbs_blocked', 'hmbs_cache_owner', 'hmbs_deleted_convos'].forEach(k => localStorage.removeItem(k));
     if (oldUid) {
@@ -2519,7 +2532,7 @@ async function syncPublicProfileToFirestore(fields = {}) {
   // now performed by the authenticated backend, which reads the private user
   // record with Admin SDK and controls the public field set.
   if (!fbAuth?.currentUser) return false;
-  return syncPublicProfileToBackend();
+  return syncPublicProfileToBackend(fields);
 }
 
 function completeSignup() {
@@ -2574,6 +2587,16 @@ function completeSignup() {
   const btn = document.getElementById('signupCompleteBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Creating account…'; }
 
+  const signupName = (currentUser.name || document.getElementById('signupName')?.value || '').trim();
+  const finalSignupAge = (Number.isFinite(signupAge) && signupAge >= 18) ? signupAge : (parseInt(document.getElementById('signupAge')?.value) || 18);
+  const signupGender = currentUser.gender || appState.signupGender || '';
+  const signupInterests = [...(currentUser.interests || appState.signupInterests || [])];
+  const signupBio = (currentUser.bio || document.getElementById('signupBio')?.value || '').trim();
+  const signupLocation = (currentUser.location || document.getElementById('signupLocation')?.value || '').trim() || 'Lagos, Nigeria';
+  const signupPhotos = (window._signupPhotos || []).filter(Boolean).length
+    ? (window._signupPhotos || []).filter(Boolean)
+    : (userPhoto ? [userPhoto] : []);
+
   currentUser.email = email;
   currentUser.phone = phone;
 
@@ -2582,7 +2605,18 @@ function completeSignup() {
     fbAuth.createUserWithEmailAndPassword(email, password)
       .then(async (userCredential) => {
         const user = userCredential.user;
+        const userName = signupName || currentUser.name || currentUser.displayName || email.split('@')[0];
         currentUser.id = user.uid;
+        currentUser.name = userName;
+        currentUser.displayName = userName;
+        currentUser.age = finalSignupAge;
+        currentUser.gender = signupGender;
+        currentUser.bio = signupBio;
+        currentUser.interests = signupInterests;
+        currentUser.location = signupLocation;
+        currentUser.image = userPhoto;
+        currentUser.avatar = userPhoto;
+        currentUser.photos = signupPhotos;
         appState.isLoggedIn = true;
 
         // Dispatch real Firebase email verification
@@ -2593,7 +2627,6 @@ function completeSignup() {
           console.warn("Could not dispatch email verification:", e);
         }
 
-        const userName = currentUser.name || currentUser.displayName || email.split('@')[0];
         const profileData = {
           id: user.uid,
           email: email,
@@ -2602,13 +2635,14 @@ function completeSignup() {
           name: userName,
           displayName: userName,
           username: (currentUser.username || userName).toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user',
-          age: currentUser.age || null,
-          bio: currentUser.bio || '',
-          gender: currentUser.gender || '',
-          interests: currentUser.interests || [],
+          age: finalSignupAge,
+          bio: signupBio,
+          gender: signupGender,
+          interests: signupInterests,
+          location: signupLocation,
           image: userPhoto,
           avatar: userPhoto,
-          photos: (window._signupPhotos || []).filter(Boolean),
+          photos: signupPhotos,
           isVip: false,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
@@ -14848,11 +14882,20 @@ async function obFinish() {
   }
 
   currentUser.displayName = currentUser.name;
+  currentUser.username = (currentUser.username || currentUser.name || 'user').toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user';
+  if (!currentUser.image && currentUser.avatar) currentUser.image = currentUser.avatar;
+  if (!currentUser.avatar && currentUser.image) currentUser.avatar = currentUser.image;
+  if (!Array.isArray(currentUser.photos) || currentUser.photos.length === 0) {
+    if (currentUser.image) currentUser.photos = [currentUser.image];
+  }
+
   appState.isLoggedIn = true;
   saveToStorage();
 
-  if (typeof saveUserProfileToFirestore === 'function') {
-    try { await saveUserProfileToFirestore(currentUser); } catch (_) {}
+  try {
+    await saveUserProfileToFirestore(currentUser);
+  } catch (err) {
+    console.warn('obFinish saveUserProfileToFirestore notice:', err.message);
   }
 
   _obCloseWizard();
@@ -14866,6 +14909,54 @@ async function obFinish() {
   }, 600);
 }
 window.obFinish = obFinish;
+
+async function saveUserProfileToFirestore(user) {
+  const target = user || currentUser;
+  const uid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || target?.id;
+  if (!uid || uid === 'me') return false;
+
+  const validAge = Number(target.age);
+  const cleanAge = (Number.isFinite(validAge) && validAge >= 18 && validAge <= 100) ? Math.floor(validAge) : null;
+  const userName = target.name || target.displayName || 'User';
+  const userPhoto = target.image || target.avatar || '';
+  const userPhotos = Array.isArray(target.photos) && target.photos.length > 0 ? target.photos : (userPhoto ? [userPhoto] : []);
+
+  const payload = {
+    id: uid,
+    name: userName,
+    displayName: userName,
+    username: (target.username || userName).toLowerCase().replace(/[^a-z0-9_]/g, '') || 'user',
+    age: cleanAge,
+    gender: target.gender || '',
+    bio: target.bio || '',
+    interests: Array.isArray(target.interests) ? target.interests : [],
+    image: userPhoto,
+    avatar: userPhoto,
+    photos: userPhotos,
+    location: target.location || 'Lagos, Nigeria',
+    updatedAt: (typeof firebase !== 'undefined' && firebase.firestore?.FieldValue?.serverTimestamp)
+      ? firebase.firestore.FieldValue.serverTimestamp()
+      : Date.now()
+  };
+
+  if (typeof fbDb !== 'undefined' && fbDb) {
+    try {
+      await fbDb.collection('users').doc(uid).set(payload, { merge: true });
+    } catch (e) {
+      console.warn('Could not save user profile to Firestore:', e.message);
+    }
+  }
+
+  if (cleanAge && cleanAge >= 18) {
+    try {
+      await syncPublicProfileToFirestore(payload);
+    } catch (e) {
+      console.warn('Could not sync public profile after save:', e.message);
+    }
+  }
+  return true;
+}
+window.saveUserProfileToFirestore = saveUserProfileToFirestore;
 
 function skipOnboarding() {
   _obCloseWizard();
