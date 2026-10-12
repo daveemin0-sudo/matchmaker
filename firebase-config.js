@@ -86,14 +86,23 @@ function initBackend() {
             console.log("🔥 Google redirect sign-in success:", result.user.email);
             window.resolveGoogleSignIn(result).then((user) => {
               if (typeof handleGoogleLoginSuccess === 'function') {
-                handleGoogleLoginSuccess(user);
+                handleGoogleLoginSuccess(user, result.credential);
               } else if (typeof window.handleGoogleLoginSuccess === 'function') {
-                window.handleGoogleLoginSuccess(user);
+                window.handleGoogleLoginSuccess(user, result.credential);
               }
             });
           }
         }).catch((err) => {
           console.warn("Google redirect auth error:", err);
+          if (err && err.code === 'auth/account-exists-with-different-credential') {
+            if (typeof handleAccountExistsWithDifferentCredential === 'function') {
+              handleAccountExistsWithDifferentCredential(err);
+              return;
+            } else if (typeof window.handleAccountExistsWithDifferentCredential === 'function') {
+              window.handleAccountExistsWithDifferentCredential(err);
+              return;
+            }
+          }
           if (typeof handleGoogleAuthError === 'function') {
             handleGoogleAuthError(err);
           } else if (typeof window.handleGoogleAuthError === 'function') {
@@ -349,20 +358,17 @@ function listenToAuthChanges() {
              targetUser.email = (user.email || targetUser.email || '').toLowerCase();
              targetUser.name = docData.name || docData.displayName || targetUser.name || 'User';
              targetUser.displayName = targetUser.name;
-             // Guarantee username is never undefined!
-             targetUser.username = (docData.username || targetUser.username || targetUser.name || 'user')
+             targetUser.username = (docData.username || targetUser.username || '')
                .toLowerCase()
-               .replace(/[^a-z0-9_]/g, '') || 'user';
+               .replace(/[^a-z0-9_]/g, '');
 
              const expiryMs = docData.vipExpiry?.toMillis ? docData.vipExpiry.toMillis() : (docData.vipExpiry || 0);
              const vipActive = Boolean(docData.isVip && (!expiryMs || expiryMs > Date.now()));
              if (typeof appState !== 'undefined') {
                appState.isVip = vipActive;
-               appState.isLoggedIn = true;
              }
              if (window.appState) {
                window.appState.isVip = vipActive;
-               window.appState.isLoggedIn = true;
              }
 
              // Keep local cache updated
@@ -443,28 +449,55 @@ function listenToAuthChanges() {
       window.currentUser = targetUser;
       if (typeof saveToStorage === 'function') saveToStorage();
       const currentAge = Number(targetUser.age);
-      if (Number.isFinite(currentAge) && currentAge >= 18 && currentAge <= 100) {
-        await syncPublicProfileToBackend();
-      }
-      await loadBlockedUsersFromFirestore();
-       if (typeof appState !== 'undefined') appState.isLoggedIn = true;
-      const currentHash = window.location.hash || '';
-      const isChatHash = currentHash.startsWith('#chat/');
-      const chatPartnerId = isChatHash ? currentHash.replace('#chat/', '').trim() : (window.appState?.currentChatId || null);
+      const hasAdultAge = Number.isFinite(currentAge) && currentAge >= 18 && currentAge <= 100;
+      const hasGender = Boolean(targetUser.gender && targetUser.gender !== 'unspecified');
+      const hasUsername = Boolean(targetUser.username && targetUser.username.length >= 3 && targetUser.username !== 'user');
+      const hasName = Boolean(targetUser.name && !targetUser.name.includes('@'));
+      const isProfileComplete = Boolean(
+        hasAdultAge &&
+        hasGender &&
+        hasUsername &&
+        hasName &&
+        !targetUser.suspended &&
+        targetUser.onboardingComplete !== false &&
+        targetUser.accountStatus !== 'pending_onboarding'
+      );
 
-      if (isChatHash && chatPartnerId && typeof openChat === 'function') {
-        openChat(chatPartnerId);
-      } else if (typeof showScreen === 'function' && window.appState?.currentScreen !== 'chat') {
-        const cur = (typeof appState !== 'undefined' ? appState.currentScreen : null) || window.appState?.currentScreen;
-        const targetScreen = (!cur || cur === 'login' || cur === 'signup') ? 'discovery' : cur;
-        showScreen(targetScreen);
+      if (isProfileComplete) {
+        await syncPublicProfileToBackend();
+        await loadBlockedUsersFromFirestore();
+        if (typeof appState !== 'undefined') appState.isLoggedIn = true;
+        if (window.appState) window.appState.isLoggedIn = true;
+
+        const currentHash = window.location.hash || '';
+        const isChatHash = currentHash.startsWith('#chat/');
+        const chatPartnerId = isChatHash ? currentHash.replace('#chat/', '').trim() : (window.appState?.currentChatId || null);
+
+        if (isChatHash && chatPartnerId && typeof openChat === 'function') {
+          openChat(chatPartnerId);
+        } else if (typeof showScreen === 'function' && window.appState?.currentScreen !== 'chat') {
+          const cur = (typeof appState !== 'undefined' ? appState.currentScreen : null) || window.appState?.currentScreen;
+          const targetScreen = (!cur || cur === 'login' || cur === 'signup') ? 'discovery' : cur;
+          showScreen(targetScreen);
+        }
+        if (typeof initMainApp === 'function') initMainApp();
+        if (typeof checkProfileCompletenessAndAlert === 'function') checkProfileCompletenessAndAlert(targetUser);
+        if (typeof updateUserPresence === 'function') updateUserPresence(true);
+        if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
+        if (typeof initPushNotifications === 'function') initPushNotifications();
+        if (typeof initCommunityStoriesListener === 'function') initCommunityStoriesListener();
+      } else {
+        if (typeof appState !== 'undefined') appState.isLoggedIn = false;
+        if (window.appState) window.appState.isLoggedIn = false;
+        document.getElementById('loginScreen')?.classList.remove('active');
+        document.getElementById('signupScreen')?.classList.remove('active');
+        if (typeof showOnboardingWizard === 'function') {
+          showOnboardingWizard(targetUser.name || '');
+        }
+        if (typeof showToast === 'function') {
+          showToast('Please complete your profile to activate Matchmaker Discovery.', 'info');
+        }
       }
-      if (typeof initMainApp === 'function') initMainApp();
-      if (typeof checkProfileCompletenessAndAlert === 'function') checkProfileCompletenessAndAlert(targetUser);
-          if (typeof updateUserPresence === 'function') updateUserPresence(true);
-      if (typeof listenForIncomingCalls === 'function') listenForIncomingCalls();
-      if (typeof initPushNotifications === 'function') initPushNotifications();
-      if (typeof initCommunityStoriesListener === 'function') initCommunityStoriesListener();
       
       // Wire up live real-time matches & messages listener immediately upon auth
       if (typeof listenToUserMatches === 'function' && typeof applyMatchesUpdate === 'function') {
