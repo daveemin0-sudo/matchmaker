@@ -611,7 +611,7 @@ app.get('/discovery', requireAuth, async (req, res) => {
     swipes.forEach(s => { const d=s.data()||{}; if(d.toUserId) excluded.add(String(d.toUserId)); });
     const users=[];
     profiles.forEach(doc => {
-      if(users.length>=limit || excluded.has(doc.id)) return;
+      if(users.length>=limit || excluded.has(doc.id) || doc.id.startsWith('live_')) return;
       const d = doc.data() || {}, age = Number(d.age);
       const userImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || '');
       if(!userImage || !Number.isFinite(age) || age<18 || d.active!==true) return;
