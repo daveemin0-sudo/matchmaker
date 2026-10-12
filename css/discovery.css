@@ -21,6 +21,30 @@
 .swipe-counter-badge.low .i { color: var(--warning); }
 .swipe-reset-timer { color: var(--text-3); font-variant-numeric: tabular-nums; }
 
+/* Incomplete profile warning banner in Discovery */
+.incomplete-profile-banner {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--s-3);
+  margin-bottom: var(--s-2); padding: var(--s-2) var(--s-3);
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  border-radius: var(--r-md);
+}
+.incomplete-banner-content {
+  display: flex; align-items: center; gap: var(--s-2); min-width: 0; flex: 1;
+}
+.incomplete-banner-icon {
+  color: var(--warning, #f59e0b); flex: none; width: 20px; height: 20px;
+}
+.incomplete-banner-text {
+  display: flex; flex-direction: column; gap: 1px; min-width: 0; font-size: var(--fs-xs); color: var(--text);
+}
+.incomplete-banner-title {
+  font-weight: 700; color: var(--warning, #f59e0b); font-size: var(--fs-xs);
+}
+.incomplete-banner-btn {
+  flex: none; white-space: nowrap; font-size: var(--fs-xs); padding: var(--s-1) var(--s-3);
+}
+
 /* Top pick: one compact row */
 .today-top-pick-card {
   flex: none; display: none; margin-bottom: var(--s-2);
