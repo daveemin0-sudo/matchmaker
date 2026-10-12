@@ -141,6 +141,68 @@ test('POST /profiles/sync returns 404 when user document is missing and no body 
   assert.equal(res.json.error, 'Profile not found.');
 });
 
+test('POST /profiles/sync cannot overwrite privileged fields (isVip, role, accountStatus, suspended, id)', async () => {
+  const auth = asUser('regularUser');
+  store.set('users/regularUser', {
+    id: 'regularUser',
+    email: 'regular@example.com',
+    displayName: 'Regular Joe',
+    age: 26,
+    isVip: false,
+    role: 'user',
+    accountStatus: 'active',
+    suspended: false
+  });
+
+  const maliciousPayload = {
+    id: 'adminUser',
+    isVip: true,
+    vipTier: 3,
+    vipPlan: 'Lifetime VIP Gold',
+    role: 'admin',
+    accountStatus: 'superadmin',
+    suspended: false,
+    age: 18 // attempt to overwrite existing age 26 with 18
+  };
+
+  const res = await h.request('POST', '/profiles/sync', maliciousPayload, auth);
+  assert.equal(res.status, 200);
+
+  // Firestore user document must NOT be elevated or changed
+  const userDoc = store.get('users/regularUser');
+  assert.equal(userDoc.id, 'regularUser');
+  assert.equal(userDoc.isVip, false, 'isVip must not be overwritten');
+  assert.equal(userDoc.role, 'user', 'role must not be overwritten');
+  assert.equal(userDoc.accountStatus, 'active', 'accountStatus must not be overwritten');
+  assert.equal(userDoc.age, 26, 'existing age must not be overwritten by client body');
+
+  // public_profiles must be published under regularUser with age 26
+  assert.equal(store.has('public_profiles/adminUser'), false, 'must not publish under forged UID');
+  const pub = store.get('public_profiles/regularUser');
+  assert.ok(pub);
+  assert.equal(pub.id, 'regularUser');
+  assert.equal(pub.age, 26);
+  assert.equal('isVip' in pub, false, 'isVip must not exist in public_profiles');
+});
+
+test('POST /profiles/sync marks suspended or merged users as inactive in public_profiles', async () => {
+  const auth = asUser('suspendedUser');
+  store.set('users/suspendedUser', {
+    id: 'suspendedUser',
+    displayName: 'Bad Actor',
+    age: 30,
+    suspended: true,
+    accountStatus: 'suspended'
+  });
+
+  const res = await h.request('POST', '/profiles/sync', { active: true }, auth);
+  assert.equal(res.status, 200);
+
+  const pub = store.get('public_profiles/suspendedUser');
+  assert.ok(pub);
+  assert.equal(pub.active, false, 'suspended user must be inactive in public_profiles even if client sends active:true');
+});
+
 // ---------- GET /discovery ----------
 
 test('GET /discovery returns eligible synchronized adult profiles and respects exclusions', async () => {

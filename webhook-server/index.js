@@ -482,7 +482,7 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
       image: finalImage,
       photos: finalPhotos,
       ...(city ? {city} : {}),
-      active: d.accountStatus !== 'suspended' && !d.deletedAt,
+      active: d.accountStatus !== 'suspended' && d.accountStatus !== 'merged' && d.suspended !== true && !d.deletedAt && !d.mergedInto,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, {merge:true});
     res.json({success:true, profile: d});
