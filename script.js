@@ -1863,6 +1863,52 @@ function getRegisteredUsers() {
   }
 }
 
+// Local-only accounts (no Firebase available) keep a salted PBKDF2 hash of the password,
+// never the password itself. Accounts created through Firebase keep no password locally.
+const LOCAL_PASSWORD_ITERATIONS = 150000;
+
+function _bytesToB64(bytes) {
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin);
+}
+
+async function hashLocalPassword(password, saltB64 = null, iterations = LOCAL_PASSWORD_ITERATIONS) {
+  if (!window.crypto?.subtle) throw new Error('Secure password hashing is not available in this browser.');
+  const salt = saltB64
+    ? Uint8Array.from(atob(saltB64), c => c.charCodeAt(0))
+    : crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, key, 256);
+  return { salt: _bytesToB64(salt), hash: _bytesToB64(new Uint8Array(bits)), iterations };
+}
+
+async function verifyLocalPassword(record, password) {
+  const kdf = record && record.passwordKdf;
+  if (!kdf || !kdf.salt || !kdf.hash) return false;
+  const { hash } = await hashLocalPassword(password, kdf.salt, kdf.iterations || LOCAL_PASSWORD_ITERATIONS);
+  if (hash.length !== kdf.hash.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hash.length; i++) diff |= hash.charCodeAt(i) ^ kdf.hash.charCodeAt(i);
+  return diff === 0;
+}
+
+// Older versions stored the password base64-encoded, which anyone with the phone could decode.
+// Replace each with a PBKDF2 hash and remove the recoverable copy.
+async function migrateLegacyLocalPasswords() {
+  const users = getRegisteredUsers();
+  if (!users.some(u => u && u.passwordHash)) return;
+  for (const u of users) {
+    if (!u || !u.passwordHash) continue;
+    try {
+      if (!u.passwordKdf && window.crypto?.subtle) u.passwordKdf = await hashLocalPassword(atob(u.passwordHash));
+    } catch (_) { /* undecodable: the account just loses offline sign-in */ }
+    delete u.passwordHash;
+  }
+  try { localStorage.setItem('hookme_registered_users', JSON.stringify(users)); } catch (_) {}
+}
+try { migrateLegacyLocalPasswords().catch(() => {}); } catch (_) {}
+
 function saveRegisteredUser(record) {
   const users = getRegisteredUsers();
   const existingIdx = users.findIndex(u => (record.email && u.email && u.email.toLowerCase() === record.email.toLowerCase()) || (record.phone && u.phone === record.phone));
@@ -2084,9 +2130,24 @@ async function handleLogin() {
   // ---- LOCAL VERIFIED STORAGE MODE ----
   // NEVER blindly log in an unknown/random email!
   const registeredUsers = getRegisteredUsers();
-  const matchedUser = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+  const matchedUser = registeredUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
 
-  if (matchedUser && (!matchedUser.passwordHash || matchedUser.passwordHash === btoa(password))) {
+  // Accounts created through Firebase have no local password, so they can only be signed in
+  // to online. (Previously such an account accepted any password here.)
+  if (matchedUser && !matchedUser.passwordKdf && !matchedUser.passwordHash) {
+    if (errorEl) errorEl.textContent = "Can't reach the server to sign you in. Check your internet connection and try again.";
+    if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = 'Sign in'; }
+    return;
+  }
+
+  let passwordOk = false;
+  try {
+    if (matchedUser && !matchedUser.passwordKdf && matchedUser.passwordHash) await migrateLegacyLocalPasswords();
+    const fresh = matchedUser ? getRegisteredUsers().find(u => u.email && u.email.toLowerCase() === email.toLowerCase()) : null;
+    passwordOk = Boolean(fresh) && await verifyLocalPassword(fresh, password);
+  } catch (_) { passwordOk = false; }
+
+  if (matchedUser && passwordOk) {
     resetFailedLoginAttempts();
     currentUser.email = email;
     currentUser.name = matchedUser.name || currentUser.name || 'User';
@@ -2829,7 +2890,7 @@ function nextSignupStep() {
     appState.signupStep++;
     renderSignupStep();
   } else {
-    completeSignup();
+    completeSignup().catch(err => console.warn("Signup failed:", err));
   }
 }
 
@@ -2850,7 +2911,7 @@ async function syncPublicProfileToFirestore(fields = {}) {
   return syncPublicProfileToBackend(fields);
 }
 
-function completeSignup() {
+async function completeSignup() {
   const email = (document.getElementById('signupEmail')?.value || '').trim();
   let phone = (document.getElementById('signupPhone')?.value || '').replace(/\D/g, '');
   if (phone.startsWith('0')) phone = phone.slice(1);
@@ -2995,10 +3056,18 @@ function completeSignup() {
   }
 
   // ---- LOCAL VERIFIED STORAGE MODE ----
+  let passwordKdf;
+  try {
+    passwordKdf = await hashLocalPassword(password);
+  } catch (_) {
+    if (errorEl) errorEl.textContent = "Can't create an account right now. Check your internet connection and try again.";
+    if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
+    return;
+  }
   saveRegisteredUser({
     email: email.toLowerCase(),
     phone: phone,
-    passwordHash: btoa(password),
+    passwordKdf,
     name: currentUser.name || 'User',
     uid: 'local_' + Date.now(),
     createdAt: Date.now()
