@@ -16,7 +16,8 @@ const TERMII_SENDER_ID = (process.env.TERMII_SENDER_ID || 'N-Alert').trim().repl
 const PAYSTACK_SECRET_KEY = (process.env.PAYSTACK_SECRET_KEY || '').trim().replace(/[\r\n\t]/g, '');
 const CLEANUP_SECRET = (process.env.CLEANUP_SECRET || '').trim().replace(/[\r\n\t]/g, '');
 const METERED_API_KEY = (process.env.METERED_API_KEY || '').trim().replace(/[\r\n\t]/g, '');
-const METERED_DOMAIN = (process.env.METERED_DOMAIN || '').trim().replace(/[\r\n\t]/g, '');
+// Accept "name.metered.live" as well as a pasted "https://name.metered.live/".
+const METERED_DOMAIN = (process.env.METERED_DOMAIN || '').trim().replace(/[\r\n\t]/g, '').replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
 const DAILY_FREE_SWIPES = Math.max(1, Number(process.env.DAILY_FREE_SWIPES || 100));
 
 function nigeriaDateKey(date = new Date()) {
@@ -1265,8 +1266,14 @@ app.get('/turn/credentials', requireAuth, async (_req, res) => {
   try {
     const response = await fetch(`https://${METERED_DOMAIN}/api/v1/turn/credentials?apiKey=${encodeURIComponent(METERED_API_KEY)}`);
     if (!response.ok) throw new Error(`Metered returned ${response.status}`);
-    res.json(await response.json());
+    const servers = await response.json();
+    if (!Array.isArray(servers) || !servers.some(sv => [].concat(sv.urls || sv.url || []).some(u => /^turns?:/i.test(u)))) {
+      throw new Error('Metered response contained no TURN relay servers');
+    }
+    res.json(servers);
   } catch (err) {
+    // Without a relay, calls between different networks connect but carry no audio or video.
+    console.error('TURN credentials unavailable, serving STUN only:', err.message);
     return res.json(fallbackServers);
   }
 });

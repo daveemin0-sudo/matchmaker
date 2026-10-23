@@ -4516,8 +4516,12 @@ function _buildConvoItemHtml(u, filterQuery) {
       const isVideo = last.callType === 'video';
       const isMissed = last.callStatus === 'missed' || last.callStatus === 'declined';
       previewIcon = isVideo ? 'video' : 'phone';
-      lastMsgRaw = `${isMissed ? 'Missed ' : ''}${isVideo ? 'video' : 'voice'} call${!isMissed && last.duration ? ` (${last.duration})` : ''}`;
-      lastMsgRaw = lastMsgRaw.charAt(0).toUpperCase() + lastMsgRaw.slice(1);
+      if (last.callStatus === 'failed') {
+        lastMsgRaw = `${isVideo ? 'Video' : 'Voice'} call didn't connect`;
+      } else {
+        lastMsgRaw = `${isMissed ? 'Missed ' : ''}${isVideo ? 'video' : 'voice'} call${!isMissed && last.duration ? ` (${last.duration})` : ''}`;
+        lastMsgRaw = lastMsgRaw.charAt(0).toUpperCase() + lastMsgRaw.slice(1);
+      }
     } else if (last.isVoice) {
       previewIcon = 'mic'; lastMsgRaw = 'Voice note';
     } else if (last.videoUrl || last.isVideo) {
@@ -6054,11 +6058,14 @@ function renderChatThread() {
       const isDeclined = msg.callStatus === 'declined' || lowerText.includes('declined');
       const isNoAnswer = msg.callStatus === 'no_answer' || msg.callStatus === 'cancelled' || lowerText.includes('cancelled') || lowerText.includes('no answer');
       const isMissed = msg.callStatus === 'missed' || lowerText.includes('missed');
-      const isUnanswered = isDeclined || isNoAnswer || isMissed;
+      const isFailed = msg.callStatus === 'failed';
+      const isUnanswered = isDeclined || isNoAnswer || isMissed || isFailed;
 
       let title = '';
       let subText = 'Tap to call back';
-      if (isDeclined) {
+      if (isFailed) {
+        title = `${isVideo ? 'Video' : 'Voice'} call didn't connect`;
+      } else if (isDeclined) {
         title = isSent ? 'No answer' : `Declined ${isVideo ? 'video' : 'voice'} call`;
       } else if (isNoAnswer || isMissed) {
         title = isSent ? 'No answer' : `Missed ${isVideo ? 'video' : 'voice'} call`;
@@ -7906,6 +7913,8 @@ function logCallInChat({ partnerId, callType, direction, status, durationSeconds
     displayText = `Declined ${isVideo ? 'video' : 'voice'} call`;
   } else if (status === 'no_answer' || status === 'cancelled') {
     displayText = (direction === 'outgoing') ? 'No answer' : `Missed ${isVideo ? 'video' : 'voice'} call`;
+  } else if (status === 'failed') {
+    displayText = `${isVideo ? 'Video' : 'Voice'} call didn't connect`;
   } else {
     displayText = (direction === 'outgoing') ? 'No answer' : `Missed ${isVideo ? 'video' : 'voice'} call`;
   }
@@ -8022,6 +8031,27 @@ function stopRingtone() {
   }
 }
 
+let _turnRelayLoaded = false;
+
+// pc.__mediaFailed stops a second report (timeout followed by ICE 'failed') from showing two
+// toasts and ending the call twice. A call whose media connected and later dropped keeps its
+// real duration; one whose media never connected is logged as 'failed', not as a completed call.
+function failCallMedia(type, pc, mediaEverConnected = false) {
+  if (!pc || pc.__mediaFailed || activePeerConnection !== pc) return;
+  pc.__mediaFailed = true;
+  if (mediaEverConnected) {
+    updateCallUi(type, 'Connection lost');
+    showToast('The call dropped because the connection was lost.', 'error');
+    setTimeout(() => { if (activePeerConnection === pc) endCall(false); }, 1500);
+    return;
+  }
+  updateCallUi(type, 'Could not connect');
+  showToast(_turnRelayLoaded
+    ? 'The call connected but no audio or video could pass. Check both internet connections and try again.'
+    : 'The call could not connect across different networks. Please try again in a moment.', 'error');
+  setTimeout(() => { if (activePeerConnection === pc) endCall(false, 'failed'); }, 1500);
+}
+
 async function refreshTurnCredentials() {
   if (!fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') return;
   try {
@@ -8029,11 +8059,12 @@ async function refreshTurnCredentials() {
     const res = await fetch(BACKEND_URL + '/turn/credentials', {
       headers: { Authorization: 'Bearer ' + token }
     });
-    if (!res.ok) return;
+    if (!res.ok) { console.warn('TURN credentials request failed:', res.status); return; }
     const liveServers = await res.json();
     if (Array.isArray(liveServers) && liveServers.length > 0) {
       peerConnectionConfig = { iceServers: liveServers.concat(METERED_ICE_SERVERS) };
-      console.log('✅ Live TURN servers loaded:', liveServers.length);
+      _turnRelayLoaded = liveServers.some(sv => [].concat(sv.urls || sv.url || []).some(u => /^turns?:/i.test(u)));
+      console.log('Call servers loaded:', liveServers.length, 'relay available:', _turnRelayLoaded);
     }
   } catch (_) {
     console.warn('TURN credential refresh failed; using STUN only.');
@@ -8265,6 +8296,33 @@ async function wireCallPeerConnection(type, pc, callRef) {
     if (stream) setCallMediaStream(stream, type);
   };
 
+  // The call can be "answered" (signalling goes through Firestore) while no audio or video ever
+  // flows, which is what happens when two phones on different networks cannot reach each other
+  // without a relay. Detect that and say so instead of leaving a silent, apparently connected call.
+  // Armed only once ICE starts checking (after the call is answered), so ringing is never cut short.
+  let mediaTimer = null;
+  let mediaEverConnected = false;
+  pc.oniceconnectionstatechange = () => {
+    const st = pc.iceConnectionState;
+    if (st === 'checking' && !mediaTimer && !mediaEverConnected) {
+      mediaTimer = setTimeout(() => {
+        if (activePeerConnection === pc && !['connected', 'completed'].includes(pc.iceConnectionState)) {
+          console.warn('Call media did not connect. ICE state:', pc.iceConnectionState, 'relay servers:', _turnRelayLoaded);
+          failCallMedia(type, pc, false);
+        }
+      }, 20000);
+    } else if (st === 'connected' || st === 'completed') {
+      mediaEverConnected = true;
+      clearTimeout(mediaTimer);
+    } else if (st === 'failed' && activePeerConnection === pc) {
+      clearTimeout(mediaTimer);
+      console.warn('Call ICE failed. relay servers:', _turnRelayLoaded, 'had connected:', mediaEverConnected);
+      failCallMedia(type, pc, mediaEverConnected);
+    } else if (st === 'closed') {
+      clearTimeout(mediaTimer);
+    }
+  };
+
   activeCandidateListener = callRef.collection('candidates').onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
       if (change.type !== 'added') return;
@@ -8344,7 +8402,7 @@ async function startPeerCall(type) {
       setTimeout(() => {
         if (activeCallIsRinging && overlay && overlay.style.display !== 'none') {
           stopRingtone();
-          updateCallUi(type, 'No answer 📵');
+          updateCallUi(type, 'No answer');
           setTimeout(() => {
             endCall(false);
             showToast((partner.name || 'Your match') + ' is currently unavailable. Leave a voice note!', 'info');
@@ -8727,7 +8785,7 @@ function endCall(showToastMessage = true, explicitStatus = null) {
       callType,
       direction,
       status,
-      durationSeconds: seconds,
+      durationSeconds: status === 'failed' ? 0 : seconds,
       callId
     });
   }
