@@ -768,30 +768,57 @@ app.get('/profiles/:uid/voice-intro', requireAuth, async (req, res) => {
   }
 });
 
+// Discovery applies the viewer's preferences here and pages through every active profile.
+// It used to take the first 200 active profiles only and leave filtering to the phone, so
+// once someone had swiped through those 200, Discovery stayed empty however many people joined.
+const DISCOVERY_PAGE = 200;
+const DISCOVERY_MAX_PAGES = 5;
+const GENDERS_FOR = { men: ['male', 'man'], women: ['female', 'woman'] };
+
 app.get('/discovery', requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
     if (!(await persistentRateLimit('discovery:' + uid, 30, 60 * 1000))) return res.status(429).json({success:false,error:'Too many discovery requests. Please slow down.'});
     const limit = Math.min(Math.max(Number(req.query.limit) || 40, 1), 60);
-    const [outgoing, incoming, swipes, profiles] = await Promise.all([
+    const minAge = Math.min(Math.max(Math.floor(Number(req.query.minAge)) || 18, 18), 100);
+    const maxAge = Math.max(Math.min(Math.floor(Number(req.query.maxAge)) || 100, 100), minAge);
+    let interestedIn = String(req.query.interestedIn || '').trim().toLowerCase();
+    if (!['men', 'women', 'everyone'].includes(interestedIn)) {
+      const me = await db.collection('users').doc(uid).get();
+      interestedIn = String((me.exists && (me.data() || {}).interestedIn) || 'everyone').toLowerCase();
+    }
+    const wantGenders = GENDERS_FOR[interestedIn] || null;
+
+    const [outgoing, incoming, swipes] = await Promise.all([
       db.collection('blocks').where('blockedBy','==',uid).get(),
       db.collection('blocks').where('blockedUserId','==',uid).get(),
-      db.collection('swipes').where('fromUserId','==',uid).get(),
-      db.collection('public_profiles').where('active','==',true).limit(200).get()
+      db.collection('swipes').where('fromUserId','==',uid).get()
     ]);
     const excluded = new Set([uid]);
     outgoing.forEach(s => { const d=s.data()||{}; if(d.blockedUserId) excluded.add(String(d.blockedUserId)); });
     incoming.forEach(s => { const d=s.data()||{}; if(d.blockedBy) excluded.add(String(d.blockedBy)); });
     swipes.forEach(s => { const d=s.data()||{}; if(d.toUserId) excluded.add(String(d.toUserId)); });
-    const users=[];
-    profiles.forEach(doc => {
-      if(users.length>=limit || excluded.has(doc.id) || doc.id.startsWith('live_')) return;
-      const d = doc.data() || {}, age = Number(d.age);
-      const userImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || '');
-      if(!userImage || !Number.isFinite(age) || age<18 || d.active!==true) return;
-      const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (userImage ? [userImage] : []);
-      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:userImage,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',...(d.voiceIntro&&d.voiceIntro.durationSeconds?{voiceIntro:{duration:d.voiceIntro.duration,hasAudio:true}}:{}),isRealUser:true});
-    });
+
+    const users = [];
+    let cursor = null;
+    for (let page = 0; page < DISCOVERY_MAX_PAGES && users.length < limit; page++) {
+      let q = db.collection('public_profiles').where('active','==',true)
+        .orderBy(admin.firestore.FieldPath.documentId()).limit(DISCOVERY_PAGE);
+      if (cursor) q = q.startAfter(cursor);
+      const snap = await q.get();
+      snap.forEach(doc => {
+        if (users.length >= limit || excluded.has(doc.id) || doc.id.startsWith('live_')) return;
+        const d = doc.data() || {}, age = Number(d.age);
+        const userImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || '');
+        if (!userImage || !Number.isFinite(age) || age < minAge || age > maxAge || d.active !== true) return;
+        const gender = String(d.gender || '').toLowerCase();
+        if (wantGenders && gender && !wantGenders.includes(gender)) return;
+        const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (userImage ? [userImage] : []);
+        users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:userImage,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',...(d.voiceIntro&&d.voiceIntro.durationSeconds?{voiceIntro:{duration:d.voiceIntro.duration,hasAudio:true}}:{}),isRealUser:true});
+      });
+      if (snap.size < DISCOVERY_PAGE) break;
+      cursor = snap.docs[snap.docs.length - 1];
+    }
     res.json({success:true,users});
   } catch (err) {
     console.error('discovery error:', err.message);

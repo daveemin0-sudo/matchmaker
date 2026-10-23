@@ -281,7 +281,7 @@ let appState = {
   lastAction: null,
   isRecording: false,
   signupStep: 1,
-  signupGender: 'Male',
+  signupGender: '', // chosen by the person; never defaulted
   signupInterests: [],
   selectedPricingTier: 2,
   aiSelectedProfileId: 'p3',
@@ -2849,6 +2849,10 @@ function nextSignupStep() {
     }
     if (isNaN(age) || age < 18 || age > 80) {
       if (errorEl) errorEl.textContent = 'Please enter a valid age (18–80).';
+      return;
+    }
+    if (!appState.signupGender) {
+      if (errorEl) errorEl.textContent = 'Please choose how you identify.';
       return;
     }
     currentUser.name = name;
@@ -11552,7 +11556,12 @@ function applyDiscoveryFiltersAndClose() {
 
 
   saveToStorage();
-  applyDiscoveryFilters();
+  // Real accounts: preferences are applied on the server, so fetch a fresh pool.
+  if (isRealUserLoggedIn() && typeof loadProfilesForDiscovery === 'function') {
+    loadProfilesForDiscovery();
+  } else {
+    applyDiscoveryFilters();
+  }
   closeDiscoveryFilterModal();
 
   showToast('Preferences updated.', 'success');
@@ -11605,7 +11614,11 @@ function resetDiscoveryFilters() {
   if (window._swipedProfileIds) window._swipedProfileIds.clear();
 
   saveToStorage();
-  applyDiscoveryFilters();
+  if (isRealUserLoggedIn() && typeof loadProfilesForDiscovery === 'function') {
+    loadProfilesForDiscovery();
+  } else {
+    applyDiscoveryFilters();
+  }
   closeDiscoveryFilterModal();
   showToast('Filters reset.', 'info');
   if (typeof haptic === 'function') haptic('light');
@@ -11680,7 +11693,9 @@ function applyDiscoveryFilters(options = {}) {
       if (age < minAge || age > maxAge) return false;
     }
 
-    const dist = parseInt(String(p.distance || '').replace(/[^0-9]/g, ''), 10);
+    // Same (city-level) distance the card shows; real profiles have no stored distance.
+    const distText = String((typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(p) : '') || p.distance || '');
+    const dist = /\d/.test(distText) ? parseFloat(distText.replace(/[^0-9.]/g, '')) / (/\bm away$/.test(distText) ? 1000 : 1) : NaN;
     if (!isNaN(dist) && dist > 0) {
       if (dist > maxDistance) return false;
     }

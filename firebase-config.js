@@ -581,7 +581,14 @@ async function fetchRealUsersFromFirestore() {
   if (!fbAuth?.currentUser) return [];
   try {
     const headers = await getBackendAuthHeaders();
-    const res = await fetch(BACKEND_URL + '/discovery?limit=60', { headers });
+    // Preferences are applied on the server so it can page past people who don't fit.
+    const prefs = (typeof settings !== 'undefined' && settings) || window.settings || {};
+    const me = (typeof currentUser !== 'undefined' && currentUser) || window.currentUser || {};
+    const params = new URLSearchParams({ limit: '60' });
+    if (Number(prefs.minAge) >= 18) params.set('minAge', String(prefs.minAge));
+    if (Number(prefs.maxAge) >= 18) params.set('maxAge', String(prefs.maxAge));
+    if (me.interestedIn) params.set('interestedIn', String(me.interestedIn));
+    const res = await fetch(BACKEND_URL + '/discovery?' + params.toString(), { headers });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
       throw new Error(data.error || 'Discovery request failed.');
@@ -1621,21 +1628,23 @@ async function markMessagesReadInFirestore(matchId) {
   if (!fbDb || !fbAuth?.currentUser) return;
   const uid = fbAuth.currentUser.uid;
   try {
+    // `sender != uid` combined with `read == false` needs a composite index that was never
+    // defined, so this query always failed (silently). Filter the sender here instead.
     const snap = await fbDb
       .collection('matches')
       .doc(matchId)
       .collection('messages')
-      .where('sender', '!=', uid)
       .where('read', '==', false)
-      .limit(50)
+      .limit(100)
       .get();
 
-    if (snap.empty) return;
+    const theirs = snap.docs.filter(doc => (doc.data() || {}).sender !== uid);
+    if (!theirs.length) return;
     const batch = fbDb.batch();
-    snap.docs.forEach(doc => batch.update(doc.ref, { read: true }));
+    theirs.forEach(doc => batch.update(doc.ref, { read: true }));
     await batch.commit();
   } catch (e) {
-    // Non-critical
+    console.warn('Could not mark messages read:', e.message);
   }
 }
 

@@ -49,9 +49,10 @@ function createHarness({ port, env = {} }) {
     };
   }
 
-  function query(col, filters) {
+  // opts: { ordered: sort by document id, after: id to start after, max: limit }
+  function query(col, filters, opts = {}) {
     const run = () => {
-      const docs = [];
+      let docs = [];
       for (const [key, data] of store) {
         if (!key.startsWith(col + '/') || key.slice(col.length + 1).includes('/')) continue;
         const ok = filters.every(([field, op, value]) => {
@@ -62,12 +63,17 @@ function createHarness({ port, env = {} }) {
         });
         if (ok) { const id = key.slice(col.length + 1); docs.push({ id, data: () => data, ref: docRef(col, id) }); }
       }
+      if (opts.ordered || opts.after !== undefined) docs.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      if (opts.after !== undefined) docs = docs.filter(d => d.id > opts.after);
+      if (opts.max !== undefined) docs = docs.slice(0, opts.max);
       return docs;
     };
     const q = {
-      where: (f, o, v) => query(col, [...filters, [f, o, v]]),
-      limit: () => q,
-      get: async () => { const docs = run(); return { docs, empty: docs.length === 0, size: docs.length, forEach: (fn) => docs.forEach(fn) }; },
+      where: (f, o, v) => query(col, [...filters, [f, o, v]], opts),
+      orderBy: () => query(col, filters, { ...opts, ordered: true }),
+      startAfter: (cursor) => query(col, filters, { ...opts, after: typeof cursor === 'string' ? cursor : cursor.id }),
+      limit: (n) => query(col, filters, { ...opts, max: n }),
+      get: async () => { state.queryReads = (state.queryReads || 0) + 1; const docs = run(); return { docs, empty: docs.length === 0, size: docs.length, forEach: (fn) => docs.forEach(fn) }; },
     };
     return q;
   }
@@ -104,6 +110,7 @@ function createHarness({ port, env = {} }) {
     const firestoreFn = () => db;
     firestoreFn.FieldValue = { serverTimestamp: () => '__SERVER_TS__' };
     firestoreFn.Timestamp = { fromDate: (d) => ({ _date: d }), now: () => ({}) };
+    firestoreFn.FieldPath = { documentId: () => '__name__' };
     return {
       initializeApp: () => {},
       credential: { cert: () => ({}) },
