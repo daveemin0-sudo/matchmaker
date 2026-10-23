@@ -37,5 +37,6 @@ jobs:
           set -o pipefail
           npm run test:rules 2>&1 | tee rules.out || status=$?
           # Surface failures as annotations so they're readable from the checks API.
-          grep -E "not ok|Error|error:|expected|PERMISSION|✖" rules.out | head -40 | sed 's/^/::error::/' || true
+          # (PERMISSION_DENIED lines in the output are the expected denials, not failures.)
+          grep -E "^not ok|^# (tests|pass|fail) " rules.out | sed -E 's/^(not ok.*)/::error::\1/; s/^(# .*)/::notice::\1/' || true
           exit ${status:-0}
