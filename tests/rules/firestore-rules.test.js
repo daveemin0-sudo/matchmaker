@@ -12,7 +12,7 @@ const MATCH = 'alice_bob'; // sorted uids
 
 test.before(async () => {
   env = await initializeTestEnvironment({
-    projectId: 'hookmebysam-rules-test',
+    projectId: 'demo-hookmebysam',
     firestore: { rules: fs.readFileSync(path.join(__dirname, '..', '..', 'firestore.rules'), 'utf8') },
   });
 });
