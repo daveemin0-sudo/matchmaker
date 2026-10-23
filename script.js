@@ -10476,7 +10476,7 @@ function renderProfileScreen() {
   const goldRow = document.getElementById('hkGoldRow');
   if (goldRow) goldRow.disabled = Boolean(appState.isVip);
   if (vipHeading) vipHeading.textContent = appState.isVip ? 'HookMe Gold is active' : 'HookMe Gold';
-  if (vipSub) vipSub.textContent = 'Unlimited likes, rewinds and AI portraits';
+  if (vipSub) vipSub.textContent = 'Unlimited likes and rewinds';
   if (vipCtaBtn) {
     vipCtaBtn.textContent = appState.isVip ? 'Active' : 'See plans';
     vipCtaBtn.classList.toggle('btn-gold', !appState.isVip);
@@ -12005,7 +12005,7 @@ function openPaywall(context) {
     ai_gen: 'You have used your free AI portrait. Gold gives you unlimited AI portraits.',
     bulk_ai: 'Generating several AI portraits at once needs Gold.',
     swipe_limit: 'You have reached the daily like limit. Gold removes it.',
-    default: 'Gold removes the daily limits on likes, rewinds and AI portraits.'
+    default: 'Gold removes the daily limits on likes and rewinds.'
   };
   if (reasonEl) reasonEl.textContent = reasons[context] || reasons.default;
 

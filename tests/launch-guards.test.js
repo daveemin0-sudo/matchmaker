@@ -44,3 +44,10 @@ test('firebase-admin stays on v12: v14 removes the namespaced API this server us
   assert.match(pkg.dependencies['firebase-admin'], /^\^12\./);
   assert.match(read('webhook-server/index.js'), /admin\.credential\.cert/);
 });
+
+test('Gold does not advertise AI portraits (the feature has no entry point in the app)', () => {
+  const html = read('index.html');
+  assert.doesNotMatch(html, /AI portraits/);
+  assert.doesNotMatch(html, /id="aiPickerGrid"/, 'if the AI feature is ever wired up, revisit this guard');
+  assert.doesNotMatch(read('script.js'), /textContent = 'Unlimited likes, rewinds and AI portraits'/);
+});
