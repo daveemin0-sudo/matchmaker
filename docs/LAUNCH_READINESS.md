@@ -34,7 +34,7 @@ Plus PR #14 (server-side search, voice intros that others can hear) and PR #9 (h
 | Area | Status | Exact verification | Evidence / measurement | Remaining blocker |
 |---|---|---|---|---|
 | Unit/integration (backend + frontend logic) | Verified | `npm test` (repo root) | 143 pass, 0 fail, exit 0 | — |
-| Firestore rules | Implemented, not verified locally | `npm run test:rules` needs the emulator; download blocked in sandbox | Runs in CI job `firestore-rules` | See CI result on the PR |
+| Firestore rules | Verified (emulator, in CI) | `npm run test:rules` (Firestore emulator via `firebase emulators:exec`, project `demo-hookmebysam`); CI job `firestore-rules` on PR #15 | 9 tests, 9 pass, 0 fail (CI annotations) | Rules still need publishing to the live project |
 | Responsive layout | Verified (headless) | `node tools/headless-verify.js <repo> <outdir>` | 4 viewports × 6 screens: 0 overflow, 0 script errors; `docs/evidence/` | Real devices not tested |
 | XSS in names, bios, messages, search | Verified (headless) | same script, payload in every main view | 0 executions, 0 injected nodes | — |
 | Load performance | Measured | same script; 390×844, CPU 4×, 150 ms RTT, 1.6 Mbps, gzip | DCL 1978 ms, load 2406 ms, LCP 972 ms, CLS 0, 322 KB / 20 requests; `script.js` 648 KB raw / 162 KB gzip | Firebase CDN unreachable in sandbox, so real-world numbers will be higher |
