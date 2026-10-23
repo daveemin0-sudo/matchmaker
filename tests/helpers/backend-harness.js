@@ -38,7 +38,14 @@ function createHarness({ port, env = {} }) {
       },
       delete: async () => { store.delete(key); },
       collection: (name) => query(`${key}/${name}`, []),
-      listCollections: async () => [],
+      // Subcollections are derived from stored keys, like Firestore's listCollections().
+      listCollections: async () => {
+        const names = new Set();
+        for (const k of store.keys()) {
+          if (k.startsWith(key + '/')) names.add(k.slice(key.length + 1).split('/')[0]);
+        }
+        return [...names].map(name => query(`${key}/${name}`, []));
+      },
     };
   }
 
@@ -46,7 +53,7 @@ function createHarness({ port, env = {} }) {
     const run = () => {
       const docs = [];
       for (const [key, data] of store) {
-        if (!key.startsWith(col + '/')) continue;
+        if (!key.startsWith(col + '/') || key.slice(col.length + 1).includes('/')) continue;
         const ok = filters.every(([field, op, value]) => {
           if (op === '==') return data[field] === value;
           if (op === 'in') return value.includes(data[field]);

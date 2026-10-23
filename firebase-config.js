@@ -258,13 +258,17 @@ async function loadBlockedUsersFromFirestore() {
         .map(item => [item.id, item])
     );
     const ids = [];
+    const listed = []; // unmatches are enforced like blocks but aren't shown in the Blocked list
     snap.forEach(doc => {
       const data = doc.data() || {};
-      if (data.blockedUserId && data.blockedUserId !== uid) ids.push(data.blockedUserId);
+      if (data.blockedUserId && data.blockedUserId !== uid) {
+        ids.push(data.blockedUserId);
+        if (data.kind !== 'unmatch') listed.push(data.blockedUserId);
+      }
     });
     window.__blockedUserIds = new Set(ids);
     if (typeof blockedUsers !== 'undefined') {
-      blockedUsers = ids.map(id => existing.get(id) || {
+      blockedUsers = listed.map(id => existing.get(id) || {
         id,
         name: 'Blocked contact',
         image: '',
@@ -902,27 +906,25 @@ async function deleteRealtimeMessage(matchId, messageId) {
 }
 window.deleteRealtimeMessage = deleteRealtimeMessage;
 
-async function clearChatMessagesInFirestore(matchId) {
-  if (!fbDb || !matchId) return;
+// Clear / delete / unmatch run on the backend: the rules don't let a client delete the match
+// or the other person's messages, so doing it here silently failed and the chat came back.
+async function endMatchOnServer(partnerId, action) {
+  if (!fbAuth?.currentUser || !partnerId) return false;
   try {
-    const msgsRef = fbDb.collection('matches').doc(matchId).collection('messages');
-    const snapshot = await msgsRef.limit(200).get();
-    if (!snapshot.empty) {
-      const batch = fbDb.batch();
-      snapshot.forEach(doc => {
-        batch.delete(doc.ref);
-      });
-      await batch.commit();
-    }
-    await fbDb.collection('matches').doc(matchId).set({
-      lastMessage: '',
-      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    return true;
+    const headers = await getBackendAuthHeaders();
+    const res = await fetch(BACKEND_URL + '/matches/end', { method: 'POST', headers, body: JSON.stringify({ partnerId, action }) });
+    return res.ok;
   } catch (err) {
-    console.warn("clearChatMessagesInFirestore error:", err.message);
+    console.warn('endMatchOnServer failed:', err.message);
     return false;
   }
+}
+window.endMatchOnServer = endMatchOnServer;
+
+async function clearChatMessagesInFirestore(matchId) {
+  if (!fbAuth?.currentUser || !matchId) return false;
+  const partnerId = matchId.split('_').find(id => id !== fbAuth.currentUser.uid);
+  return endMatchOnServer(partnerId, 'clear');
 }
 
 async function deleteRealtimeMessage(matchId, messageId) {

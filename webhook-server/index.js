@@ -837,6 +837,47 @@ app.post('/reports', requireAuth, async (req, res) => {
   }
 });
 
+/*
+ * Ending a conversation. Clients cannot delete the match or the other person's messages
+ * (Firestore rules), so the in-app actions that promise this are done here:
+ *   clear   - delete every message for both people; the match stays
+ *   delete  - delete the match and everything in it for both people
+ *   unmatch - delete, and record a block (kind 'unmatch') so neither side can message,
+ *             call or re-match, and neither appears in the other's Discovery or search
+ */
+const END_MATCH_ACTIONS = new Set(['clear', 'delete', 'unmatch']);
+
+app.post('/matches/end', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const partnerId = String((req.body || {}).partnerId || '').trim();
+  const action = String((req.body || {}).action || '').trim();
+  if (!partnerId || partnerId === uid || partnerId.includes('/') || partnerId.includes('_') || !END_MATCH_ACTIONS.has(action)) {
+    return res.status(400).json({ success: false, error: 'Invalid request.' });
+  }
+  if (!(await persistentRateLimit('end-match:' + uid, 30, 10 * 60 * 1000))) {
+    return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
+  }
+  try {
+    const matchRef = db.collection('matches').doc([uid, partnerId].sort().join('_'));
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    if (action === 'clear') {
+      await deleteQueryDocs(matchRef.collection('messages'));
+      const snap = await matchRef.get();
+      if (snap.exists) await matchRef.set({ lastMessage: '', lastSender: '', clearedAt: now, lastUpdated: now }, { merge: true });
+      return res.json({ success: true });
+    }
+    if (action === 'unmatch') {
+      await db.collection('blocks').doc(uid + '_' + partnerId).set({ blockedBy: uid, blockedUserId: partnerId, kind: 'unmatch', createdAt: now }, { merge: true });
+      await db.collection('swipes').doc(uid + '_' + partnerId).set({ fromUserId: uid, toUserId: partnerId, action: 'pass', unmatched: true, createdAt: now }, { merge: true }).catch(() => {});
+    }
+    await deleteDocumentTree(matchRef);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('end match error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not update this conversation.' });
+  }
+});
+
 app.post('/blocks', requireAuth, async (req, res) => {
   const uid=req.user.uid, blockedUserId=String(req.body.blockedUserId||'').trim();
   if(!blockedUserId || blockedUserId===uid) return res.status(400).json({success:false,error:'Invalid block.'});

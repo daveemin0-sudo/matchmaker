@@ -4898,11 +4898,10 @@ async function deleteConversation(partnerId) {
     localStorage.setItem('hmbs_cleared_' + partnerId, String(Date.now()));
   } catch (_) {}
 
-  if (matchId && typeof clearChatMessagesInFirestore === 'function') {
-    clearChatMessagesInFirestore(matchId).catch(() => {});
-  }
-  if (matchId && typeof fbDb !== 'undefined' && fbDb) {
-    fbDb.collection('matches').doc(matchId).delete().catch(() => {});
+  if (matchId && typeof endMatchOnServer === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    endMatchOnServer(partnerId, 'delete').then(ok => {
+      if (!ok) showToast("Couldn't delete the chat for both of you. It's hidden on this device only; try again when you're online.", 'error');
+    });
   }
 
   matchedUsers = (matchedUsers || []).filter(u => u.id !== partnerId);
@@ -5928,9 +5927,11 @@ async function clearCurrentChatHistory() {
 
     // Clear from Firestore so it never re-appears on reload or other device
     const uid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || currentUser?.id || currentUser?.uid;
-    if (uid && typeof clearChatMessagesInFirestore === 'function') {
+    if (uid && typeof clearChatMessagesInFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       const matchId = [uid, chatId].sort().join('_');
-      clearChatMessagesInFirestore(matchId).catch(() => {});
+      clearChatMessagesInFirestore(matchId).then(ok => {
+        if (!ok) showToast("Couldn't clear the chat for both of you. It's cleared on this device only; try again when you're online.", 'error');
+      }).catch(() => {});
     }
 
     renderChatThread();
@@ -13136,7 +13137,7 @@ function closeGentleUnmatchModal() {
 }
 window.closeGentleUnmatchModal = closeGentleUnmatchModal;
 
-function confirmUnmatch() {
+async function confirmUnmatch() {
   const partner = appState.activeSafetyPartner ||
                   (appState.currentChatId ? matchedUsers.find(u => u.id === appState.currentChatId) : null);
 
@@ -13148,21 +13149,23 @@ function confirmUnmatch() {
   const partnerId = partner.id;
   const partnerName = partner.name || 'this contact';
 
+  // Unmatching is enforced on the server (removes the match and its messages for both
+  // people and stops further contact). Only report success once that has happened.
+  if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser && !DUMMY_USER_IDS.includes(partnerId)) {
+    const ok = typeof endMatchOnServer === 'function' && await endMatchOnServer(partnerId, 'unmatch');
+    if (!ok) {
+      showToast("Couldn't unmatch right now. Check your connection and try again.", 'error');
+      return;
+    }
+    if (window.__blockedUserIds instanceof Set) window.__blockedUserIds.add(partnerId);
+  }
+
   // 1. Remove from matchedUsers
   matchedUsers = matchedUsers.filter(u => u.id !== partnerId);
 
   // 2. Remove conversation
   if (conversations[partnerId]) {
     delete conversations[partnerId];
-  }
-
-  // 3. Mark in firestore if connected
-  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    try {
-      const uid = fbAuth.currentUser.uid;
-      const matchId = [uid, partnerId].sort().join('_');
-      fbDb.collection('matches').doc(matchId).delete().catch(() => {});
-    } catch (_) {}
   }
 
   // 4. Save state
