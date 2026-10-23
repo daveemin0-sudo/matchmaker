@@ -13327,10 +13327,7 @@ async function handleUserSearchInput(e) {
     const localPool = isRealUserLoggedIn() ? (matchedUsers || []) : [...PROFILES_DATA, ...matchedUsers];
     const localMatches = localPool.filter(u =>
       !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
-    ).filter(u =>
-      (u.name && u.name.toLowerCase().includes(qLower)) ||
-      (u.bio && u.bio.toLowerCase().includes(qLower))
-    );
+    ).filter(u => u.name && u.name.toLowerCase().includes(qLower));
 
     // Merge without duplicates
     const seenIds = new Set(matches.map(m => m.id));
@@ -13463,10 +13460,7 @@ async function handleModalSearchInput(e) {
     const localPool = isRealUserLoggedIn() ? (matchedUsers || []) : [...PROFILES_DATA, ...matchedUsers];
     const localMatches = localPool.filter(u =>
       !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
-    ).filter(u =>
-      (u.name && u.name.toLowerCase().includes(qLower)) ||
-      (u.bio && u.bio.toLowerCase().includes(qLower))
-    );
+    ).filter(u => u.name && u.name.toLowerCase().includes(qLower));
 
     const seenIds = new Set(matches.map(m => m.id));
     localMatches.forEach(lm => {

@@ -325,6 +325,25 @@ app.post('/webhook/paystack', async (req, res) => {
 });
 
 /* Retrieve authenticated user's own profile. Read-only: it never clones a profile to another uid. */
+/*
+ * People search. Firestore cannot search inside text, so each published profile carries
+ * searchKeys: the 2-20 character prefixes of every word of its display name. A search asks
+ * Firestore for one key and checks the remaining words here, so a phone never downloads the
+ * whole public_profiles collection.
+ */
+function searchWords(text) {
+  return String(text || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+function profileSearchKeys(name) {
+  const keys = new Set();
+  for (const w of searchWords(name).slice(0, 6)) {
+    for (let i = 2; i <= Math.min(w.length, 20); i++) keys.add(w.slice(0, i));
+  }
+  return [...keys].slice(0, 120);
+}
+
 app.get('/profiles/me', requireAuth, async (req, res) => {
   try {
     const snap = await db.collection('users').doc(req.user.uid).get();
@@ -474,8 +493,9 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
         ? body.photos.slice(0, 6)
         : (finalImage ? [finalImage] : []));
 
+    const publicName = String(d.displayName || d.name || body.displayName || body.name || 'User').slice(0,80);
     await db.collection('public_profiles').doc(uid).set({
-      id: uid, displayName: String(d.displayName || d.name || body.displayName || body.name || 'User').slice(0,80),
+      id: uid, displayName: publicName, searchKeys: profileSearchKeys(publicName),
       age: Math.floor(age), gender: String(d.gender || body.gender || '').slice(0,40),
       bio: String(d.bio || body.bio || '').slice(0,1000),
       interests: Array.isArray(d.interests) ? d.interests.slice(0,30).map(v => String(v).slice(0,40)) : (Array.isArray(body.interests) ? body.interests.slice(0,30).map(v => String(v).slice(0,40)) : []),
@@ -591,6 +611,51 @@ app.post('/media/upload', requireAuth, async (req, res) => {
   } catch (err) {
     console.error('media/upload error:', err.message);
     return res.status(500).json({ success: false, error: 'Media upload failed.' });
+  }
+});
+
+app.get('/profiles/search', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    if (!(await persistentRateLimit('search:' + uid, 60, 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many searches. Please slow down.' });
+    }
+    const words = searchWords(String(req.query.q || '').slice(0, 80)).slice(0, 5);
+    if (!words.length || words.every(w => w.length < 2)) return res.json({ success: true, users: [] });
+    // Query on the longest word (most selective); check every word against the name below.
+    const key = words.reduce((a, b) => (b.length > a.length ? b : a)).slice(0, 20);
+    const [outgoing, incoming, profiles] = await Promise.all([
+      db.collection('blocks').where('blockedBy', '==', uid).get(),
+      db.collection('blocks').where('blockedUserId', '==', uid).get(),
+      db.collection('public_profiles').where('searchKeys', 'array-contains', key).limit(60).get()
+    ]);
+    const excluded = new Set([uid]);
+    outgoing.forEach(s => { const d = s.data() || {}; if (d.blockedUserId) excluded.add(String(d.blockedUserId)); });
+    incoming.forEach(s => { const d = s.data() || {}; if (d.blockedBy) excluded.add(String(d.blockedBy)); });
+    const users = [];
+    profiles.forEach(doc => {
+      if (users.length >= 20 || excluded.has(doc.id) || doc.id.startsWith('live_')) return;
+      const d = doc.data() || {};
+      if (d.active !== true) return;
+      const nameWords = searchWords(d.displayName || d.name);
+      if (!words.every(w => nameWords.some(nw => nw.startsWith(w)))) return;
+      const age = Number(d.age);
+      users.push({
+        id: doc.id,
+        name: d.displayName || d.name || 'User',
+        age: Number.isFinite(age) && age >= 18 ? Math.floor(age) : null,
+        bio: String(d.bio || '').slice(0, 200),
+        gender: d.gender || '',
+        image: String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || ''),
+        tags: Array.isArray(d.interests) ? d.interests : [],
+        city: d.city || '',
+        isRealUser: true
+      });
+    });
+    res.json({ success: true, users });
+  } catch (err) {
+    console.error('profile search error:', err.message);
+    res.status(500).json({ success: false, error: 'Search failed.' });
   }
 });
 
@@ -1379,7 +1444,9 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
         id: doc.id,
         name: d.name || d.displayName || 'User',
         displayName: d.displayName || d.name || 'User',
-        age: Number(d.age || 24),
+        searchKeys: profileSearchKeys(d.displayName || d.name),
+        // Never invent an age: Discovery and search drop profiles without a real adult age.
+        ...(Number.isFinite(Number(d.age)) && Number(d.age) >= 18 ? { age: Math.floor(Number(d.age)) } : {}),
         bio: String(d.bio || '').slice(0, 2000),
         gender: d.gender || '',
         interests: Array.isArray(d.interests) ? d.interests.slice(0, 30) : [],
