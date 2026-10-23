@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createHarness } = require('./helpers/backend-harness');
 
-const h = createHarness({ port: 3189 });
+const h = createHarness({ port: 3197 });
 const { store, state } = h;
 const bearer = (t) => ({ Authorization: 'Bearer ' + t });
 

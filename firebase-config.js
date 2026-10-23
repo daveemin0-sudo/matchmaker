@@ -465,6 +465,7 @@ function listenToAuthChanges() {
 
       if (isProfileComplete) {
         await syncPublicProfileToBackend();
+        if (typeof window.migrateLocalVoiceIntro === 'function') window.migrateLocalVoiceIntro().catch(() => {});
         await loadBlockedUsersFromFirestore();
         if (typeof appState !== 'undefined') appState.isLoggedIn = true;
         if (window.appState) window.appState.isLoggedIn = true;
@@ -597,42 +598,23 @@ async function fetchRealUsersFromFirestore() {
     return [];
   }
 }
-// Search registered Firestore users by name, email, or bio
+// People search runs on the backend (GET /profiles/search), which queries name prefixes and
+// returns at most 20 active, unblocked people. It used to download every public profile.
 async function searchUsersInFirestore(queryText) {
-  if (!fbDb || !fbAuth?.currentUser) return [];
-  const currentUserId = fbAuth.currentUser.uid;
-  const q = queryText.toLowerCase().trim();
-  if (!q) return [];
-
+  if (!fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') return [];
+  const q = String(queryText || '').trim();
+  if (q.length < 2) return [];
   try {
-    const snapshot = await fbDb.collection('public_profiles').get().catch(() => null);
-    if (!snapshot) return [];
-
-    const results = [];
-    snapshot.forEach(doc => {
-      if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
-        const data = doc.data();
-        const name = (data.displayName || data.name || '').toLowerCase();
-        const bio = (data.bio || '').toLowerCase();
-
-        if (name.includes(q) || bio.includes(q)) {
-          const userPhoto = data.image || data.avatar || '';
-          results.push({
-            id: doc.id,
-            name: data.displayName || data.name || 'User',
-            age: data.age || null,
-            bio: data.bio || '',
-            gender: data.gender || '',
-            image: userPhoto,
-            tags: data.interests || [],
-            isRealUser: true
-          });
-        }
-      }
+    const token = await fbAuth.currentUser.getIdToken();
+    const res = await fetch(BACKEND_URL + '/profiles/search?q=' + encodeURIComponent(q), {
+      headers: { Authorization: 'Bearer ' + token }
     });
-    return results;
+    if (!res.ok) return [];
+    const data = await res.json();
+    const blocked = window.__blockedUserIds || new Set();
+    return Array.isArray(data.users) ? data.users.filter(u => u && u.id && !blocked.has(u.id)) : [];
   } catch (err) {
-    console.warn("Error searching Firestore users:", err.message);
+    console.warn('People search failed:', err.message);
     return [];
   }
 }

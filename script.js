@@ -1863,6 +1863,52 @@ function getRegisteredUsers() {
   }
 }
 
+// Local-only accounts (no Firebase available) keep a salted PBKDF2 hash of the password,
+// never the password itself. Accounts created through Firebase keep no password locally.
+const LOCAL_PASSWORD_ITERATIONS = 150000;
+
+function _bytesToB64(bytes) {
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin);
+}
+
+async function hashLocalPassword(password, saltB64 = null, iterations = LOCAL_PASSWORD_ITERATIONS) {
+  if (!window.crypto?.subtle) throw new Error('Secure password hashing is not available in this browser.');
+  const salt = saltB64
+    ? Uint8Array.from(atob(saltB64), c => c.charCodeAt(0))
+    : crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, key, 256);
+  return { salt: _bytesToB64(salt), hash: _bytesToB64(new Uint8Array(bits)), iterations };
+}
+
+async function verifyLocalPassword(record, password) {
+  const kdf = record && record.passwordKdf;
+  if (!kdf || !kdf.salt || !kdf.hash) return false;
+  const { hash } = await hashLocalPassword(password, kdf.salt, kdf.iterations || LOCAL_PASSWORD_ITERATIONS);
+  if (hash.length !== kdf.hash.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hash.length; i++) diff |= hash.charCodeAt(i) ^ kdf.hash.charCodeAt(i);
+  return diff === 0;
+}
+
+// Older versions stored the password base64-encoded, which anyone with the phone could decode.
+// Replace each with a PBKDF2 hash and remove the recoverable copy.
+async function migrateLegacyLocalPasswords() {
+  const users = getRegisteredUsers();
+  if (!users.some(u => u && u.passwordHash)) return;
+  for (const u of users) {
+    if (!u || !u.passwordHash) continue;
+    try {
+      if (!u.passwordKdf && window.crypto?.subtle) u.passwordKdf = await hashLocalPassword(atob(u.passwordHash));
+    } catch (_) { /* undecodable: the account just loses offline sign-in */ }
+    delete u.passwordHash;
+  }
+  try { localStorage.setItem('hookme_registered_users', JSON.stringify(users)); } catch (_) {}
+}
+try { migrateLegacyLocalPasswords().catch(() => {}); } catch (_) {}
+
 function saveRegisteredUser(record) {
   const users = getRegisteredUsers();
   const existingIdx = users.findIndex(u => (record.email && u.email && u.email.toLowerCase() === record.email.toLowerCase()) || (record.phone && u.phone === record.phone));
@@ -2084,9 +2130,24 @@ async function handleLogin() {
   // ---- LOCAL VERIFIED STORAGE MODE ----
   // NEVER blindly log in an unknown/random email!
   const registeredUsers = getRegisteredUsers();
-  const matchedUser = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+  const matchedUser = registeredUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
 
-  if (matchedUser && (!matchedUser.passwordHash || matchedUser.passwordHash === btoa(password))) {
+  // Accounts created through Firebase have no local password, so they can only be signed in
+  // to online. (Previously such an account accepted any password here.)
+  if (matchedUser && !matchedUser.passwordKdf && !matchedUser.passwordHash) {
+    if (errorEl) errorEl.textContent = "Can't reach the server to sign you in. Check your internet connection and try again.";
+    if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = 'Sign in'; }
+    return;
+  }
+
+  let passwordOk = false;
+  try {
+    if (matchedUser && !matchedUser.passwordKdf && matchedUser.passwordHash) await migrateLegacyLocalPasswords();
+    const fresh = matchedUser ? getRegisteredUsers().find(u => u.email && u.email.toLowerCase() === email.toLowerCase()) : null;
+    passwordOk = Boolean(fresh) && await verifyLocalPassword(fresh, password);
+  } catch (_) { passwordOk = false; }
+
+  if (matchedUser && passwordOk) {
     resetFailedLoginAttempts();
     currentUser.email = email;
     currentUser.name = matchedUser.name || currentUser.name || 'User';
@@ -2829,7 +2890,7 @@ function nextSignupStep() {
     appState.signupStep++;
     renderSignupStep();
   } else {
-    completeSignup();
+    completeSignup().catch(err => console.warn("Signup failed:", err));
   }
 }
 
@@ -2850,7 +2911,7 @@ async function syncPublicProfileToFirestore(fields = {}) {
   return syncPublicProfileToBackend(fields);
 }
 
-function completeSignup() {
+async function completeSignup() {
   const email = (document.getElementById('signupEmail')?.value || '').trim();
   let phone = (document.getElementById('signupPhone')?.value || '').replace(/\D/g, '');
   if (phone.startsWith('0')) phone = phone.slice(1);
@@ -2995,10 +3056,18 @@ function completeSignup() {
   }
 
   // ---- LOCAL VERIFIED STORAGE MODE ----
+  let passwordKdf;
+  try {
+    passwordKdf = await hashLocalPassword(password);
+  } catch (_) {
+    if (errorEl) errorEl.textContent = "Can't create an account right now. Check your internet connection and try again.";
+    if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
+    return;
+  }
   saveRegisteredUser({
     email: email.toLowerCase(),
     phone: phone,
-    passwordHash: btoa(password),
+    passwordKdf,
     name: currentUser.name || 'User',
     uid: 'local_' + Date.now(),
     createdAt: Date.now()
@@ -3101,6 +3170,7 @@ window.calculateCompatibility = calculateCompatibility;
 // ==========================================================
 
 let _currentVoiceIntroProfileId = null;
+let _introAudio = null;
 
 function playProfileVoiceIntro(profileId, event) {
   if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
@@ -3114,6 +3184,37 @@ function playProfileVoiceIntro(profileId, event) {
   }
 
   const pName = profile.name || 'them';
+
+  // Real people: play their actual recording.
+  if (profile.isRealUser || profile.voiceIntro.hasAudio) {
+    if (_introAudio && _currentVoiceIntroProfileId === profileId) {
+      _introAudio.pause();
+      _introAudio = null;
+      _resetVoiceIntroUI(profileId);
+      _currentVoiceIntroProfileId = null;
+      return;
+    }
+    if (_introAudio) { _introAudio.pause(); _introAudio = null; }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (_currentVoiceIntroProfileId) _resetVoiceIntroUI(_currentVoiceIntroProfileId);
+    _currentVoiceIntroProfileId = profileId;
+    _setVoiceIntroUIPlaying(profileId);
+    const done = () => { _resetVoiceIntroUI(profileId); if (_currentVoiceIntroProfileId === profileId) _currentVoiceIntroProfileId = null; _introAudio = null; };
+    getVoiceIntroAudioUrl(profileId).then(url => {
+      if (_currentVoiceIntroProfileId !== profileId) return;
+      if (!url) throw new Error('missing');
+      const audio = new Audio(url);
+      _introAudio = audio;
+      audio.onended = done;
+      audio.onerror = () => { done(); showToast('Could not play this voice intro', 'error'); };
+      return audio.play();
+    }).then(() => { if (typeof haptic === 'function') haptic('light'); }).catch(() => {
+      done();
+      showToast('Voice intro unavailable for this profile', 'info');
+    });
+    return;
+  }
+
   const text = profile.voiceIntro.text || `Hey! I'm ${pName}. Looking forward to connecting on HookMeBySam!`;
 
   // Toggle off if currently speaking
@@ -3183,7 +3284,9 @@ function _resetVoiceIntroUI(profileId) {
   const detailPill = document.getElementById(`detailVoicePlayPill_${profileId}`);
   if (detailPill) detailPill.classList.remove('playing');
   const detailText = document.getElementById(`detailVoiceBtnText_${profileId}`);
-  const profile = typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA.find(p => p.id === profileId) : null;
+  const profile = (typeof profileStack !== 'undefined' ? profileStack.find(p => p.id === profileId) : null) ||
+                  (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA.find(p => p.id === profileId) : null) ||
+                  (typeof matchedUsers !== 'undefined' ? matchedUsers.find(p => p.id === profileId) : null);
   if (detailText) detailText.textContent = `Listen to ${profile?.name || 'them'}`;
 }
 
@@ -13327,10 +13430,7 @@ async function handleUserSearchInput(e) {
     const localPool = isRealUserLoggedIn() ? (matchedUsers || []) : [...PROFILES_DATA, ...matchedUsers];
     const localMatches = localPool.filter(u =>
       !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
-    ).filter(u =>
-      (u.name && u.name.toLowerCase().includes(qLower)) ||
-      (u.bio && u.bio.toLowerCase().includes(qLower))
-    );
+    ).filter(u => u.name && u.name.toLowerCase().includes(qLower));
 
     // Merge without duplicates
     const seenIds = new Set(matches.map(m => m.id));
@@ -13463,10 +13563,7 @@ async function handleModalSearchInput(e) {
     const localPool = isRealUserLoggedIn() ? (matchedUsers || []) : [...PROFILES_DATA, ...matchedUsers];
     const localMatches = localPool.filter(u =>
       !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
-    ).filter(u =>
-      (u.name && u.name.toLowerCase().includes(qLower)) ||
-      (u.bio && u.bio.toLowerCase().includes(qLower))
-    );
+    ).filter(u => u.name && u.name.toLowerCase().includes(qLower));
 
     const seenIds = new Set(matches.map(m => m.id));
     localMatches.forEach(lm => {
@@ -16005,22 +16102,20 @@ async function toggleEditVoiceRecord() {
       _editVoiceRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         clearInterval(_editVoiceTimer);
-        const blob = new Blob(_editVoiceChunks, { type: 'audio/webm' });
-        const dur = Math.max(1, _editVoiceSeconds);
-        const durStr = '0:' + String(dur).padStart(2, '0');
-
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          currentUser.voiceIntro = {
-            duration: durStr,
-            audioUrl: reader.result,
-            text: 'Voice introduction by ' + (currentUser.name || 'me')
-          };
+        const blob = new Blob(_editVoiceChunks, { type: _editVoiceRecorder.mimeType || 'audio/webm' });
+        const seconds = Math.min(20, Math.max(1, _editVoiceSeconds));
+        if (status) status.textContent = 'Saving your voice intro…';
+        try {
+          currentUser.voiceIntro = await uploadVoiceIntro(blob, seconds);
+          _myVoiceIntroBlobUrl = URL.createObjectURL(blob);
           saveToStorage();
           renderProfileScreen();
           showToast('Voice intro saved.', 'success');
-        };
-        reader.readAsDataURL(blob);
+        } catch (err) {
+          console.warn('Voice intro upload failed:', err.message);
+          if (status) status.textContent = err.message || "Couldn't save your voice intro. Check your connection and try again.";
+          showToast("Couldn't save your voice intro.", 'error');
+        }
       };
 
       _editVoiceRecorder.start();
@@ -16044,26 +16139,105 @@ async function toggleEditVoiceRecord() {
 }
 window.toggleEditVoiceRecord = toggleEditVoiceRecord;
 
-function playMyVoiceIntro() {
-  if (!currentUser?.voiceIntro?.audioUrl) {
+// Voice intros are saved on the server (POST from here, never kept as a data URL on the phone)
+// and fetched when someone presses play.
+let _myVoiceIntroBlobUrl = null;
+const _voiceIntroAudioCache = new Map(); // profileId -> playable URL
+
+function _blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Could not read the recording.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function uploadVoiceIntro(blob, seconds) {
+  if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') {
+    throw new Error('Sign in and connect to the internet to save a voice intro.');
+  }
+  const token = await fbAuth.currentUser.getIdToken();
+  const res = await fetch(BACKEND_URL + '/profiles/voice-intro', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ dataBase64: await _blobToBase64(blob), contentType: blob.type || 'audio/webm', durationSeconds: seconds })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) throw new Error(data.error || "Couldn't save your voice intro.");
+  return data.voiceIntro;
+}
+
+// Returns a playable URL for a person's real recorded intro, or null if there is none.
+async function getVoiceIntroAudioUrl(profileId) {
+  if (_voiceIntroAudioCache.has(profileId)) return _voiceIntroAudioCache.get(profileId);
+  if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') return null;
+  const token = await fbAuth.currentUser.getIdToken();
+  const res = await fetch(BACKEND_URL + '/profiles/' + encodeURIComponent(profileId) + '/voice-intro', {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => ({}));
+  let url = data.url || null;
+  if (!url && data.dataBase64) {
+    const bytes = Uint8Array.from(atob(data.dataBase64), c => c.charCodeAt(0));
+    url = URL.createObjectURL(new Blob([bytes], { type: data.contentType || 'audio/webm' }));
+  }
+  if (url) _voiceIntroAudioCache.set(profileId, url);
+  return url;
+}
+
+// Older versions kept the recording as a base64 data URL in local storage, where nobody
+// else could hear it. Upload it once, then keep only the metadata.
+async function migrateLocalVoiceIntro() {
+  const vi = typeof currentUser !== 'undefined' ? currentUser?.voiceIntro : null;
+  if (!vi || typeof vi.audioUrl !== 'string' || !vi.audioUrl.startsWith('data:')) return;
+  try {
+    const blob = await (await fetch(vi.audioUrl)).blob();
+    const parts = String(vi.duration || '').split(':').map(Number);
+    const seconds = parts.length === 2 && parts.every(Number.isFinite) ? parts[0] * 60 + parts[1] : 20;
+    currentUser.voiceIntro = await uploadVoiceIntro(blob, Math.min(20, Math.max(1, seconds)));
+    saveToStorage();
+  } catch (err) {
+    console.warn('Could not move the saved voice intro to the server:', err.message);
+  }
+}
+window.migrateLocalVoiceIntro = migrateLocalVoiceIntro;
+
+async function playMyVoiceIntro() {
+  if (!currentUser?.voiceIntro) {
     showToast('No voice intro recorded yet', 'info');
     return;
   }
-  const audio = new Audio(currentUser.voiceIntro.audioUrl);
-  audio.play().catch(e => {
+  try {
+    const myId = fbAuth?.currentUser?.uid;
+    const url = _myVoiceIntroBlobUrl || currentUser.voiceIntro.url || currentUser.voiceIntro.audioUrl || (myId ? await getVoiceIntroAudioUrl(myId) : null);
+    if (!url) throw new Error('missing');
+    await new Audio(url).play();
+  } catch (e) {
     console.warn('Audio play error:', e);
-    showToast('Could not play audio', 'error');
-  });
+    showToast('Could not play your voice intro', 'error');
+  }
 }
 window.playMyVoiceIntro = playMyVoiceIntro;
 
 async function deleteMyVoiceIntro() {
-  if (await confirmDialog({ title: 'Remove your voice introduction?', confirmLabel: 'Remove', danger: true })) {
-    currentUser.voiceIntro = null;
-    saveToStorage();
-    renderProfileScreen();
-    showToast('Voice intro removed', 'info');
+  if (!(await confirmDialog({ title: 'Remove your voice introduction?', confirmLabel: 'Remove', danger: true }))) return;
+  try {
+    if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser && typeof BACKEND_URL !== 'undefined') {
+      const token = await fbAuth.currentUser.getIdToken();
+      const res = await fetch(BACKEND_URL + '/profiles/voice-intro', { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+      if (!res.ok) throw new Error('delete failed');
+    }
+  } catch (_) {
+    showToast("Couldn't remove your voice intro. Check your connection and try again.", 'error');
+    return;
   }
+  currentUser.voiceIntro = null;
+  _myVoiceIntroBlobUrl = null;
+  saveToStorage();
+  renderProfileScreen();
+  showToast('Voice intro removed', 'info');
 }
 window.deleteMyVoiceIntro = deleteMyVoiceIntro;
 
