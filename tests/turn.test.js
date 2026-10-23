@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { createHarness } = require('./helpers/backend-harness');
 
-const h = createHarness({ port: 3191, env: { METERED_API_KEY: 'key123', METERED_DOMAIN: 'https://hookmebysam.metered.live/' } });
+const h = createHarness({ port: 3196, env: { METERED_API_KEY: 'key123', METERED_DOMAIN: 'https://hookmebysam.metered.live/' } });
 const { state } = h;
 test.before(() => h.start());
 test.beforeEach(() => h.reset());
