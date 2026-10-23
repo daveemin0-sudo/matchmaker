@@ -47,6 +47,12 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ── voice_intros: audio kept by the backend when Cloud Storage is not provisioned.
+    // Served through GET /profiles/{uid}/voice-intro, which enforces blocks.
+    match /voice_intros/{userId} {
+      allow read, write: if false;
+    }
+
     // ── app_feedback (in-app rating prompt) ────────────────────────────────
     // Create-only, tied to the signed-in user, bounded fields. Nobody can read it from a client.
     match /app_feedback/{feedbackId} {

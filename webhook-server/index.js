@@ -659,6 +659,114 @@ app.get('/profiles/search', requireAuth, async (req, res) => {
   }
 });
 
+/*
+ * Voice introductions (max 20 s). Stored in Cloud Storage when it is provisioned, otherwise
+ * in a server-only voice_intros/{uid} document (clients have no Firestore access to it).
+ * public_profiles only carries { durationSeconds, duration, url? } so Discovery stays light,
+ * and the audio is fetched when someone actually presses play.
+ */
+const VOICE_INTRO_MAX_BYTES = 600 * 1024;
+const VOICE_INTRO_MAX_SECONDS = 20;
+
+function voiceIntroDuration(seconds) {
+  return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+}
+
+app.put('/profiles/voice-intro', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  try {
+    if (!(await persistentRateLimit('voice-intro:' + uid, 10, 60 * 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many uploads. Please try again later.' });
+    }
+    const { dataBase64, contentType } = req.body || {};
+    const seconds = Math.round(Number((req.body || {}).durationSeconds));
+    const type = String(contentType || '').split(';')[0].trim().toLowerCase();
+    if (!/^audio\/[a-z0-9.+-]+$/.test(type)) return res.status(400).json({ success: false, error: 'A voice intro must be audio.' });
+    if (!Number.isFinite(seconds) || seconds < 1 || seconds > VOICE_INTRO_MAX_SECONDS) {
+      return res.status(400).json({ success: false, error: `A voice intro must be 1 to ${VOICE_INTRO_MAX_SECONDS} seconds.` });
+    }
+    const raw = String(dataBase64 || '').includes(';base64,') ? String(dataBase64).split(';base64,')[1] : String(dataBase64 || '');
+    const buffer = Buffer.from(raw, 'base64');
+    if (!buffer.length) return res.status(400).json({ success: false, error: 'The recording is empty.' });
+    if (buffer.length > VOICE_INTRO_MAX_BYTES) return res.status(400).json({ success: false, error: 'The recording is too large.' });
+
+    let url = null;
+    try {
+      const bucket = getStorageBucket();
+      const destination = `voice_intros/${uid}/${Date.now()}.${(type.split('/')[1] || 'webm').replace(/[^a-z0-9]/g, '')}`;
+      const token = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+      await bucket.file(destination).save(buffer, { metadata: { contentType: type, metadata: { firebaseStorageDownloadTokens: token } }, resumable: false });
+      url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(destination)}?alt=media&token=${token}`;
+    } catch (storageErr) {
+      console.warn('Voice intro: Storage unavailable, keeping audio in Firestore:', storageErr.message);
+    }
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const meta = { durationSeconds: seconds, duration: voiceIntroDuration(seconds), ...(url ? { url } : {}), updatedAt: now };
+    if (url) {
+      await db.collection('voice_intros').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; });
+    } else {
+      await db.collection('voice_intros').doc(uid).set({ ownerId: uid, contentType: type, dataBase64: buffer.toString('base64'), durationSeconds: seconds, updatedAt: now });
+    }
+    await db.collection('public_profiles').doc(uid).set({ voiceIntro: meta }, { merge: true });
+    await db.collection('users').doc(uid).set({ voiceIntro: meta }, { merge: true });
+    const { updatedAt, ...publicMeta } = meta;
+    return res.json({ success: true, voiceIntro: publicMeta });
+  } catch (err) {
+    console.error('voice intro upload error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not save your voice intro.' });
+  }
+});
+
+app.delete('/profiles/voice-intro', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  try {
+    const remove = admin.firestore.FieldValue.delete ? admin.firestore.FieldValue.delete() : null;
+    await Promise.all([
+      db.collection('voice_intros').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
+      db.collection('public_profiles').doc(uid).set({ voiceIntro: remove }, { merge: true }),
+      db.collection('users').doc(uid).set({ voiceIntro: remove }, { merge: true }),
+      deleteStoragePrefixes([`voice_intros/${uid}/`]).catch(() => {})
+    ]);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('voice intro delete error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not remove your voice intro.' });
+  }
+});
+
+// Audio for one person's intro. Anyone signed in may listen, except across a block, and only
+// to an active profile (or their own).
+app.get('/profiles/:uid/voice-intro', requireAuth, async (req, res) => {
+  const viewer = req.user.uid;
+  const owner = String(req.params.uid || '');
+  try {
+    if (!(await persistentRateLimit('voice-intro-play:' + viewer, 120, 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many requests.' });
+    }
+    if (owner !== viewer) {
+      const [a, b, pub] = await Promise.all([
+        db.collection('blocks').doc(viewer + '_' + owner).get(),
+        db.collection('blocks').doc(owner + '_' + viewer).get(),
+        db.collection('public_profiles').doc(owner).get()
+      ]);
+      if (a.exists || b.exists || !pub.exists || (pub.data() || {}).active !== true) {
+        return res.status(404).json({ success: false, error: 'Voice intro not found.' });
+      }
+    }
+    const pub = await db.collection('public_profiles').doc(owner).get();
+    const meta = (pub.exists && (pub.data() || {}).voiceIntro) || null;
+    if (meta && meta.url) return res.json({ success: true, url: meta.url, duration: meta.duration });
+    const doc = await db.collection('voice_intros').doc(owner).get();
+    if (!doc.exists) return res.status(404).json({ success: false, error: 'Voice intro not found.' });
+    const d = doc.data() || {};
+    return res.json({ success: true, contentType: d.contentType, dataBase64: d.dataBase64, duration: meta ? meta.duration : voiceIntroDuration(Number(d.durationSeconds) || 0) });
+  } catch (err) {
+    console.error('voice intro fetch error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not load the voice intro.' });
+  }
+});
+
 app.get('/discovery', requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
@@ -681,7 +789,7 @@ app.get('/discovery', requireAuth, async (req, res) => {
       const userImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || '');
       if(!userImage || !Number.isFinite(age) || age<18 || d.active!==true) return;
       const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (userImage ? [userImage] : []);
-      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:userImage,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',isRealUser:true});
+      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:userImage,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',...(d.voiceIntro&&d.voiceIntro.durationSeconds?{voiceIntro:{duration:d.voiceIntro.duration,hasAudio:true}}:{}),isRealUser:true});
     });
     res.json({success:true,users});
   } catch (err) {
@@ -1402,7 +1510,8 @@ app.post('/account/delete', requireAuth, async (req, res) => {
     await Promise.all([
       db.collection('users').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
       db.collection('public_profiles').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
-      deleteStoragePrefixes([`stories/${uid}/`, `voicenotes/${uid}/`, ...matchMediaPrefixes])
+      db.collection('voice_intros').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
+      deleteStoragePrefixes([`stories/${uid}/`, `voicenotes/${uid}/`, `voice_intros/${uid}/`, ...matchMediaPrefixes])
     ]);
 
     // Delete the Auth account last so a partial cleanup can be retried safely.

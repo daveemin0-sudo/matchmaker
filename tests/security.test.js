@@ -41,10 +41,12 @@ test('profile publication requires adult age', () => {
 
 test('no route path is registered twice in the deployed backend (Express keeps only the first, silently shadowing the rest)', () => {
   const server = read('webhook-server/index.js');
-  const matches = [...server.matchAll(/app\.(?:get|post|put|delete|patch)\(\s*['"]([^'"]+)['"]/g)];
+  // Shadowing needs the same method AND path; PUT and DELETE on one path are separate routes.
+  const matches = [...server.matchAll(/app\.(get|post|put|delete|patch)\(\s*['"]([^'"]+)['"]/g)];
   const seen = new Map();
-  for (const [, routePath] of matches) {
-    seen.set(routePath, (seen.get(routePath) || 0) + 1);
+  for (const [, method, routePath] of matches) {
+    const key = method.toUpperCase() + ' ' + routePath;
+    seen.set(key, (seen.get(key) || 0) + 1);
   }
   const duplicates = [...seen.entries()].filter(([, count]) => count > 1).map(([routePath]) => routePath);
   assert.deepEqual(duplicates, []);

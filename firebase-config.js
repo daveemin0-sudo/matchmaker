@@ -465,6 +465,7 @@ function listenToAuthChanges() {
 
       if (isProfileComplete) {
         await syncPublicProfileToBackend();
+        if (typeof window.migrateLocalVoiceIntro === 'function') window.migrateLocalVoiceIntro().catch(() => {});
         await loadBlockedUsersFromFirestore();
         if (typeof appState !== 'undefined') appState.isLoggedIn = true;
         if (window.appState) window.appState.isLoggedIn = true;
@@ -597,7 +598,6 @@ async function fetchRealUsersFromFirestore() {
     return [];
   }
 }
-// Search registered Firestore users by name, email, or bio
 // People search runs on the backend (GET /profiles/search), which queries name prefixes and
 // returns at most 20 active, unblocked people. It used to download every public profile.
 async function searchUsersInFirestore(queryText) {
