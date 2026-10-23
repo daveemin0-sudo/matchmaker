@@ -1,0 +1,24 @@
+# The site is served straight from the repository root (vercel.json: outputDirectory "."),
+# so anything not listed here becomes a public URL. Only the app's own files should be.
+# Pages load: index.html, admin.html, script.js, firebase-config.js, sw.js,
+# firebase-messaging-sw.js, manifest.json, style.css, premium.css, css/, fonts/, icons/, logos.
+
+# Backend source, tests, tooling and internal documentation
+webhook-server/
+tests/
+tools/
+docs/
+*.md
+.github/
+.vscode/
+
+# Firebase / native / environment configuration
+.env
+.env.*
+firestore.rules
+storage.rules
+firebase.json
+.firebaserc
+firebase.indexes.json
+cors.json
+capacitor.config.json

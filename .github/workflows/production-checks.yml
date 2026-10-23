@@ -17,3 +17,26 @@ jobs:
       - name: Install backend dependencies (tests load webhook-server/index.js)
         run: npm ci --prefix webhook-server
       - run: npm test
+
+  # Firestore security rules against the real Firestore emulator (needs Java).
+  firestore-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Firestore rules tests
+        shell: bash
+        run: |
+          set -o pipefail
+          npm run test:rules 2>&1 | tee rules.out || status=$?
+          # Surface failures as annotations so they're readable from the checks API.
+          # (PERMISSION_DENIED lines in the output are the expected denials, not failures.)
+          grep -E "^not ok|^# (tests|pass|fail) " rules.out | sed -E 's/^(not ok.*)/::error::\1/; s/^(# .*)/::notice::\1/' || true
+          exit ${status:-0}

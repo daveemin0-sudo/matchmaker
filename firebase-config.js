@@ -258,13 +258,17 @@ async function loadBlockedUsersFromFirestore() {
         .map(item => [item.id, item])
     );
     const ids = [];
+    const listed = []; // unmatches are enforced like blocks but aren't shown in the Blocked list
     snap.forEach(doc => {
       const data = doc.data() || {};
-      if (data.blockedUserId && data.blockedUserId !== uid) ids.push(data.blockedUserId);
+      if (data.blockedUserId && data.blockedUserId !== uid) {
+        ids.push(data.blockedUserId);
+        if (data.kind !== 'unmatch') listed.push(data.blockedUserId);
+      }
     });
     window.__blockedUserIds = new Set(ids);
     if (typeof blockedUsers !== 'undefined') {
-      blockedUsers = ids.map(id => existing.get(id) || {
+      blockedUsers = listed.map(id => existing.get(id) || {
         id,
         name: 'Blocked contact',
         image: '',
@@ -465,6 +469,7 @@ function listenToAuthChanges() {
 
       if (isProfileComplete) {
         await syncPublicProfileToBackend();
+        if (typeof window.migrateLocalVoiceIntro === 'function') window.migrateLocalVoiceIntro().catch(() => {});
         await loadBlockedUsersFromFirestore();
         if (typeof appState !== 'undefined') appState.isLoggedIn = true;
         if (window.appState) window.appState.isLoggedIn = true;
@@ -576,7 +581,14 @@ async function fetchRealUsersFromFirestore() {
   if (!fbAuth?.currentUser) return [];
   try {
     const headers = await getBackendAuthHeaders();
-    const res = await fetch(BACKEND_URL + '/discovery?limit=60', { headers });
+    // Preferences are applied on the server so it can page past people who don't fit.
+    const prefs = (typeof settings !== 'undefined' && settings) || window.settings || {};
+    const me = (typeof currentUser !== 'undefined' && currentUser) || window.currentUser || {};
+    const params = new URLSearchParams({ limit: '60' });
+    if (Number(prefs.minAge) >= 18) params.set('minAge', String(prefs.minAge));
+    if (Number(prefs.maxAge) >= 18) params.set('maxAge', String(prefs.maxAge));
+    if (me.interestedIn) params.set('interestedIn', String(me.interestedIn));
+    const res = await fetch(BACKEND_URL + '/discovery?' + params.toString(), { headers });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
       throw new Error(data.error || 'Discovery request failed.');
@@ -597,42 +609,23 @@ async function fetchRealUsersFromFirestore() {
     return [];
   }
 }
-// Search registered Firestore users by name, email, or bio
+// People search runs on the backend (GET /profiles/search), which queries name prefixes and
+// returns at most 20 active, unblocked people. It used to download every public profile.
 async function searchUsersInFirestore(queryText) {
-  if (!fbDb || !fbAuth?.currentUser) return [];
-  const currentUserId = fbAuth.currentUser.uid;
-  const q = queryText.toLowerCase().trim();
-  if (!q) return [];
-
+  if (!fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') return [];
+  const q = String(queryText || '').trim();
+  if (q.length < 2) return [];
   try {
-    const snapshot = await fbDb.collection('public_profiles').get().catch(() => null);
-    if (!snapshot) return [];
-
-    const results = [];
-    snapshot.forEach(doc => {
-      if (doc.id !== currentUserId && !(window.__blockedUserIds || new Set()).has(doc.id)) {
-        const data = doc.data();
-        const name = (data.displayName || data.name || '').toLowerCase();
-        const bio = (data.bio || '').toLowerCase();
-
-        if (name.includes(q) || bio.includes(q)) {
-          const userPhoto = data.image || data.avatar || '';
-          results.push({
-            id: doc.id,
-            name: data.displayName || data.name || 'User',
-            age: data.age || null,
-            bio: data.bio || '',
-            gender: data.gender || '',
-            image: userPhoto,
-            tags: data.interests || [],
-            isRealUser: true
-          });
-        }
-      }
+    const token = await fbAuth.currentUser.getIdToken();
+    const res = await fetch(BACKEND_URL + '/profiles/search?q=' + encodeURIComponent(q), {
+      headers: { Authorization: 'Bearer ' + token }
     });
-    return results;
+    if (!res.ok) return [];
+    const data = await res.json();
+    const blocked = window.__blockedUserIds || new Set();
+    return Array.isArray(data.users) ? data.users.filter(u => u && u.id && !blocked.has(u.id)) : [];
   } catch (err) {
-    console.warn("Error searching Firestore users:", err.message);
+    console.warn('People search failed:', err.message);
     return [];
   }
 }
@@ -920,27 +913,25 @@ async function deleteRealtimeMessage(matchId, messageId) {
 }
 window.deleteRealtimeMessage = deleteRealtimeMessage;
 
-async function clearChatMessagesInFirestore(matchId) {
-  if (!fbDb || !matchId) return;
+// Clear / delete / unmatch run on the backend: the rules don't let a client delete the match
+// or the other person's messages, so doing it here silently failed and the chat came back.
+async function endMatchOnServer(partnerId, action) {
+  if (!fbAuth?.currentUser || !partnerId) return false;
   try {
-    const msgsRef = fbDb.collection('matches').doc(matchId).collection('messages');
-    const snapshot = await msgsRef.limit(200).get();
-    if (!snapshot.empty) {
-      const batch = fbDb.batch();
-      snapshot.forEach(doc => {
-        batch.delete(doc.ref);
-      });
-      await batch.commit();
-    }
-    await fbDb.collection('matches').doc(matchId).set({
-      lastMessage: '',
-      lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
-    }, { merge: true });
-    return true;
+    const headers = await getBackendAuthHeaders();
+    const res = await fetch(BACKEND_URL + '/matches/end', { method: 'POST', headers, body: JSON.stringify({ partnerId, action }) });
+    return res.ok;
   } catch (err) {
-    console.warn("clearChatMessagesInFirestore error:", err.message);
+    console.warn('endMatchOnServer failed:', err.message);
     return false;
   }
+}
+window.endMatchOnServer = endMatchOnServer;
+
+async function clearChatMessagesInFirestore(matchId) {
+  if (!fbAuth?.currentUser || !matchId) return false;
+  const partnerId = matchId.split('_').find(id => id !== fbAuth.currentUser.uid);
+  return endMatchOnServer(partnerId, 'clear');
 }
 
 async function deleteRealtimeMessage(matchId, messageId) {
@@ -1280,7 +1271,8 @@ async function sendOtpToPhone(phoneNumber) {
   // 1. Attempt backend webhook (Termii SMS) with a quick 3-second timeout
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    // The backend can take 30+ s to wake on Render's free tier.
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     const res = await fetch(`${BACKEND_URL}/auth/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1320,27 +1312,15 @@ async function sendOtpToPhone(phoneNumber) {
     }
   }
 
-  // 3. Resilient test fallback: generate 6-digit verification code
-  // Prevents the user from being blocked by "Offline" error during testing or before SMS billing is funded
-  const testOtp = String(Math.floor(100000 + Math.random() * 900000));
-  window._devPhoneOtp = testOtp;
-  window._devPhoneOtpTarget = phoneNumber;
-  window._devPhoneOtpMessage = `ℹ️ <strong>Offline / Test Mode:</strong> SMS gateway server is offline. Use verification code: <strong style="color:#FFF;letter-spacing:3px;font-size:1.1rem;background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:6px">${testOtp}</strong>`;
-
-  showToast(`📱 Verification code: ${testOtp}`, 'info', 8000);
-  return true;
+  // No code could be sent. Never invent one: a code shown on screen proves nothing about
+  // owning the number, and the app used to treat it as a successful sign-in.
+  showToast("We couldn't send a code right now. Please try again in a minute.", 'error');
+  return false;
 }
 
 async function verifyOtp(phoneNumber, otpCode) {
   const cleanOtp = String(otpCode || '').trim();
 
-  // A. Check dev/test code
-  if (window._devPhoneOtp && cleanOtp === window._devPhoneOtp) {
-    window._devPhoneOtp = null;
-    window._devPhoneOtpMessage = null;
-    showToast('✅ Phone verified!', 'gold');
-    return { success: true, uid: fbAuth?.currentUser?.uid || 'phone_' + phoneNumber.replace(/\D/g, '') };
-  }
 
   // B. Check Firebase confirmationResult
   if (window._phoneConfirmationResult) {
@@ -1391,23 +1371,6 @@ async function verifyOtp(phoneNumber, otpCode) {
 async function verifyPhoneOwnershipOnly(phoneNumber, otpCode) {
   const cleanOtp = String(otpCode || '').trim();
 
-  // A. Check dev/test OTP
-  if (window._devPhoneOtp && cleanOtp === window._devPhoneOtp) {
-    window._devPhoneOtp = null;
-    window._devPhoneOtpMessage = null;
-    if (fbDb && fbAuth?.currentUser) {
-      try {
-        await fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
-          phone: phoneNumber,
-          phoneVerified: true,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-      } catch (e) {
-        console.warn('Firestore phone update notice:', e.message);
-      }
-    }
-    return { success: true };
-  }
 
   // B. Check Firebase confirmationResult
   if (window._phoneConfirmationResult) {
@@ -1665,21 +1628,23 @@ async function markMessagesReadInFirestore(matchId) {
   if (!fbDb || !fbAuth?.currentUser) return;
   const uid = fbAuth.currentUser.uid;
   try {
+    // `sender != uid` combined with `read == false` needs a composite index that was never
+    // defined, so this query always failed (silently). Filter the sender here instead.
     const snap = await fbDb
       .collection('matches')
       .doc(matchId)
       .collection('messages')
-      .where('sender', '!=', uid)
       .where('read', '==', false)
-      .limit(50)
+      .limit(100)
       .get();
 
-    if (snap.empty) return;
+    const theirs = snap.docs.filter(doc => (doc.data() || {}).sender !== uid);
+    if (!theirs.length) return;
     const batch = fbDb.batch();
-    snap.docs.forEach(doc => batch.update(doc.ref, { read: true }));
+    theirs.forEach(doc => batch.update(doc.ref, { read: true }));
     await batch.commit();
   } catch (e) {
-    // Non-critical
+    console.warn('Could not mark messages read:', e.message);
   }
 }
 

@@ -16,7 +16,8 @@ const TERMII_SENDER_ID = (process.env.TERMII_SENDER_ID || 'N-Alert').trim().repl
 const PAYSTACK_SECRET_KEY = (process.env.PAYSTACK_SECRET_KEY || '').trim().replace(/[\r\n\t]/g, '');
 const CLEANUP_SECRET = (process.env.CLEANUP_SECRET || '').trim().replace(/[\r\n\t]/g, '');
 const METERED_API_KEY = (process.env.METERED_API_KEY || '').trim().replace(/[\r\n\t]/g, '');
-const METERED_DOMAIN = (process.env.METERED_DOMAIN || '').trim().replace(/[\r\n\t]/g, '');
+// Accept "name.metered.live" as well as a pasted "https://name.metered.live/".
+const METERED_DOMAIN = (process.env.METERED_DOMAIN || '').trim().replace(/[\r\n\t]/g, '').replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
 const DAILY_FREE_SWIPES = Math.max(1, Number(process.env.DAILY_FREE_SWIPES || 100));
 
 function nigeriaDateKey(date = new Date()) {
@@ -325,6 +326,25 @@ app.post('/webhook/paystack', async (req, res) => {
 });
 
 /* Retrieve authenticated user's own profile. Read-only: it never clones a profile to another uid. */
+/*
+ * People search. Firestore cannot search inside text, so each published profile carries
+ * searchKeys: the 2-20 character prefixes of every word of its display name. A search asks
+ * Firestore for one key and checks the remaining words here, so a phone never downloads the
+ * whole public_profiles collection.
+ */
+function searchWords(text) {
+  return String(text || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+function profileSearchKeys(name) {
+  const keys = new Set();
+  for (const w of searchWords(name).slice(0, 6)) {
+    for (let i = 2; i <= Math.min(w.length, 20); i++) keys.add(w.slice(0, i));
+  }
+  return [...keys].slice(0, 120);
+}
+
 app.get('/profiles/me', requireAuth, async (req, res) => {
   try {
     const snap = await db.collection('users').doc(req.user.uid).get();
@@ -474,8 +494,9 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
         ? body.photos.slice(0, 6)
         : (finalImage ? [finalImage] : []));
 
+    const publicName = String(d.displayName || d.name || body.displayName || body.name || 'User').slice(0,80);
     await db.collection('public_profiles').doc(uid).set({
-      id: uid, displayName: String(d.displayName || d.name || body.displayName || body.name || 'User').slice(0,80),
+      id: uid, displayName: publicName, searchKeys: profileSearchKeys(publicName),
       age: Math.floor(age), gender: String(d.gender || body.gender || '').slice(0,40),
       bio: String(d.bio || body.bio || '').slice(0,1000),
       interests: Array.isArray(d.interests) ? d.interests.slice(0,30).map(v => String(v).slice(0,40)) : (Array.isArray(body.interests) ? body.interests.slice(0,30).map(v => String(v).slice(0,40)) : []),
@@ -594,30 +615,210 @@ app.post('/media/upload', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/profiles/search', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    if (!(await persistentRateLimit('search:' + uid, 60, 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many searches. Please slow down.' });
+    }
+    const words = searchWords(String(req.query.q || '').slice(0, 80)).slice(0, 5);
+    if (!words.length || words.every(w => w.length < 2)) return res.json({ success: true, users: [] });
+    // Query on the longest word (most selective); check every word against the name below.
+    const key = words.reduce((a, b) => (b.length > a.length ? b : a)).slice(0, 20);
+    const [outgoing, incoming, profiles] = await Promise.all([
+      db.collection('blocks').where('blockedBy', '==', uid).get(),
+      db.collection('blocks').where('blockedUserId', '==', uid).get(),
+      db.collection('public_profiles').where('searchKeys', 'array-contains', key).limit(60).get()
+    ]);
+    const excluded = new Set([uid]);
+    outgoing.forEach(s => { const d = s.data() || {}; if (d.blockedUserId) excluded.add(String(d.blockedUserId)); });
+    incoming.forEach(s => { const d = s.data() || {}; if (d.blockedBy) excluded.add(String(d.blockedBy)); });
+    const users = [];
+    profiles.forEach(doc => {
+      if (users.length >= 20 || excluded.has(doc.id) || doc.id.startsWith('live_')) return;
+      const d = doc.data() || {};
+      if (d.active !== true) return;
+      const nameWords = searchWords(d.displayName || d.name);
+      if (!words.every(w => nameWords.some(nw => nw.startsWith(w)))) return;
+      const age = Number(d.age);
+      users.push({
+        id: doc.id,
+        name: d.displayName || d.name || 'User',
+        age: Number.isFinite(age) && age >= 18 ? Math.floor(age) : null,
+        bio: String(d.bio || '').slice(0, 200),
+        gender: d.gender || '',
+        image: String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || ''),
+        tags: Array.isArray(d.interests) ? d.interests : [],
+        city: d.city || '',
+        isRealUser: true
+      });
+    });
+    res.json({ success: true, users });
+  } catch (err) {
+    console.error('profile search error:', err.message);
+    res.status(500).json({ success: false, error: 'Search failed.' });
+  }
+});
+
+/*
+ * Voice introductions (max 20 s). Stored in Cloud Storage when it is provisioned, otherwise
+ * in a server-only voice_intros/{uid} document (clients have no Firestore access to it).
+ * public_profiles only carries { durationSeconds, duration, url? } so Discovery stays light,
+ * and the audio is fetched when someone actually presses play.
+ */
+const VOICE_INTRO_MAX_BYTES = 600 * 1024;
+const VOICE_INTRO_MAX_SECONDS = 20;
+
+function voiceIntroDuration(seconds) {
+  return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+}
+
+app.put('/profiles/voice-intro', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  try {
+    if (!(await persistentRateLimit('voice-intro:' + uid, 10, 60 * 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many uploads. Please try again later.' });
+    }
+    const { dataBase64, contentType } = req.body || {};
+    const seconds = Math.round(Number((req.body || {}).durationSeconds));
+    const type = String(contentType || '').split(';')[0].trim().toLowerCase();
+    if (!/^audio\/[a-z0-9.+-]+$/.test(type)) return res.status(400).json({ success: false, error: 'A voice intro must be audio.' });
+    if (!Number.isFinite(seconds) || seconds < 1 || seconds > VOICE_INTRO_MAX_SECONDS) {
+      return res.status(400).json({ success: false, error: `A voice intro must be 1 to ${VOICE_INTRO_MAX_SECONDS} seconds.` });
+    }
+    const raw = String(dataBase64 || '').includes(';base64,') ? String(dataBase64).split(';base64,')[1] : String(dataBase64 || '');
+    const buffer = Buffer.from(raw, 'base64');
+    if (!buffer.length) return res.status(400).json({ success: false, error: 'The recording is empty.' });
+    if (buffer.length > VOICE_INTRO_MAX_BYTES) return res.status(400).json({ success: false, error: 'The recording is too large.' });
+
+    let url = null;
+    try {
+      const bucket = getStorageBucket();
+      const destination = `voice_intros/${uid}/${Date.now()}.${(type.split('/')[1] || 'webm').replace(/[^a-z0-9]/g, '')}`;
+      const token = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+      await bucket.file(destination).save(buffer, { metadata: { contentType: type, metadata: { firebaseStorageDownloadTokens: token } }, resumable: false });
+      url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(destination)}?alt=media&token=${token}`;
+    } catch (storageErr) {
+      console.warn('Voice intro: Storage unavailable, keeping audio in Firestore:', storageErr.message);
+    }
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const meta = { durationSeconds: seconds, duration: voiceIntroDuration(seconds), ...(url ? { url } : {}), updatedAt: now };
+    if (url) {
+      await db.collection('voice_intros').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; });
+    } else {
+      await db.collection('voice_intros').doc(uid).set({ ownerId: uid, contentType: type, dataBase64: buffer.toString('base64'), durationSeconds: seconds, updatedAt: now });
+    }
+    await db.collection('public_profiles').doc(uid).set({ voiceIntro: meta }, { merge: true });
+    await db.collection('users').doc(uid).set({ voiceIntro: meta }, { merge: true });
+    const { updatedAt, ...publicMeta } = meta;
+    return res.json({ success: true, voiceIntro: publicMeta });
+  } catch (err) {
+    console.error('voice intro upload error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not save your voice intro.' });
+  }
+});
+
+app.delete('/profiles/voice-intro', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  try {
+    const remove = admin.firestore.FieldValue.delete ? admin.firestore.FieldValue.delete() : null;
+    await Promise.all([
+      db.collection('voice_intros').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
+      db.collection('public_profiles').doc(uid).set({ voiceIntro: remove }, { merge: true }),
+      db.collection('users').doc(uid).set({ voiceIntro: remove }, { merge: true }),
+      deleteStoragePrefixes([`voice_intros/${uid}/`]).catch(() => {})
+    ]);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('voice intro delete error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not remove your voice intro.' });
+  }
+});
+
+// Audio for one person's intro. Anyone signed in may listen, except across a block, and only
+// to an active profile (or their own).
+app.get('/profiles/:uid/voice-intro', requireAuth, async (req, res) => {
+  const viewer = req.user.uid;
+  const owner = String(req.params.uid || '');
+  try {
+    if (!(await persistentRateLimit('voice-intro-play:' + viewer, 120, 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many requests.' });
+    }
+    if (owner !== viewer) {
+      const [a, b, pub] = await Promise.all([
+        db.collection('blocks').doc(viewer + '_' + owner).get(),
+        db.collection('blocks').doc(owner + '_' + viewer).get(),
+        db.collection('public_profiles').doc(owner).get()
+      ]);
+      if (a.exists || b.exists || !pub.exists || (pub.data() || {}).active !== true) {
+        return res.status(404).json({ success: false, error: 'Voice intro not found.' });
+      }
+    }
+    const pub = await db.collection('public_profiles').doc(owner).get();
+    const meta = (pub.exists && (pub.data() || {}).voiceIntro) || null;
+    if (meta && meta.url) return res.json({ success: true, url: meta.url, duration: meta.duration });
+    const doc = await db.collection('voice_intros').doc(owner).get();
+    if (!doc.exists) return res.status(404).json({ success: false, error: 'Voice intro not found.' });
+    const d = doc.data() || {};
+    return res.json({ success: true, contentType: d.contentType, dataBase64: d.dataBase64, duration: meta ? meta.duration : voiceIntroDuration(Number(d.durationSeconds) || 0) });
+  } catch (err) {
+    console.error('voice intro fetch error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not load the voice intro.' });
+  }
+});
+
+// Discovery applies the viewer's preferences here and pages through every active profile.
+// It used to take the first 200 active profiles only and leave filtering to the phone, so
+// once someone had swiped through those 200, Discovery stayed empty however many people joined.
+const DISCOVERY_PAGE = 200;
+const DISCOVERY_MAX_PAGES = 5;
+const GENDERS_FOR = { men: ['male', 'man'], women: ['female', 'woman'] };
+
 app.get('/discovery', requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
     if (!(await persistentRateLimit('discovery:' + uid, 30, 60 * 1000))) return res.status(429).json({success:false,error:'Too many discovery requests. Please slow down.'});
     const limit = Math.min(Math.max(Number(req.query.limit) || 40, 1), 60);
-    const [outgoing, incoming, swipes, profiles] = await Promise.all([
+    const minAge = Math.min(Math.max(Math.floor(Number(req.query.minAge)) || 18, 18), 100);
+    const maxAge = Math.max(Math.min(Math.floor(Number(req.query.maxAge)) || 100, 100), minAge);
+    let interestedIn = String(req.query.interestedIn || '').trim().toLowerCase();
+    if (!['men', 'women', 'everyone'].includes(interestedIn)) {
+      const me = await db.collection('users').doc(uid).get();
+      interestedIn = String((me.exists && (me.data() || {}).interestedIn) || 'everyone').toLowerCase();
+    }
+    const wantGenders = GENDERS_FOR[interestedIn] || null;
+
+    const [outgoing, incoming, swipes] = await Promise.all([
       db.collection('blocks').where('blockedBy','==',uid).get(),
       db.collection('blocks').where('blockedUserId','==',uid).get(),
-      db.collection('swipes').where('fromUserId','==',uid).get(),
-      db.collection('public_profiles').where('active','==',true).limit(200).get()
+      db.collection('swipes').where('fromUserId','==',uid).get()
     ]);
     const excluded = new Set([uid]);
     outgoing.forEach(s => { const d=s.data()||{}; if(d.blockedUserId) excluded.add(String(d.blockedUserId)); });
     incoming.forEach(s => { const d=s.data()||{}; if(d.blockedBy) excluded.add(String(d.blockedBy)); });
     swipes.forEach(s => { const d=s.data()||{}; if(d.toUserId) excluded.add(String(d.toUserId)); });
-    const users=[];
-    profiles.forEach(doc => {
-      if(users.length>=limit || excluded.has(doc.id) || doc.id.startsWith('live_')) return;
-      const d = doc.data() || {}, age = Number(d.age);
-      const userImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || '');
-      if(!userImage || !Number.isFinite(age) || age<18 || d.active!==true) return;
-      const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (userImage ? [userImage] : []);
-      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:userImage,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',isRealUser:true});
-    });
+
+    const users = [];
+    let cursor = null;
+    for (let page = 0; page < DISCOVERY_MAX_PAGES && users.length < limit; page++) {
+      let q = db.collection('public_profiles').where('active','==',true)
+        .orderBy(admin.firestore.FieldPath.documentId()).limit(DISCOVERY_PAGE);
+      if (cursor) q = q.startAfter(cursor);
+      const snap = await q.get();
+      snap.forEach(doc => {
+        if (users.length >= limit || excluded.has(doc.id) || doc.id.startsWith('live_')) return;
+        const d = doc.data() || {}, age = Number(d.age);
+        const userImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || '');
+        if (!userImage || !Number.isFinite(age) || age < minAge || age > maxAge || d.active !== true) return;
+        const gender = String(d.gender || '').toLowerCase();
+        if (wantGenders && gender && !wantGenders.includes(gender)) return;
+        const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (userImage ? [userImage] : []);
+        users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:userImage,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',...(d.voiceIntro&&d.voiceIntro.durationSeconds?{voiceIntro:{duration:d.voiceIntro.duration,hasAudio:true}}:{}),isRealUser:true});
+      });
+      if (snap.size < DISCOVERY_PAGE) break;
+      cursor = snap.docs[snap.docs.length - 1];
+    }
     res.json({success:true,users});
   } catch (err) {
     console.error('discovery error:', err.message);
@@ -660,6 +861,47 @@ app.post('/reports', requireAuth, async (req, res) => {
   } catch(err) {
     console.error('report error:',err.message);
     res.status(500).json({success:false,error:'Could not submit the report.'});
+  }
+});
+
+/*
+ * Ending a conversation. Clients cannot delete the match or the other person's messages
+ * (Firestore rules), so the in-app actions that promise this are done here:
+ *   clear   - delete every message for both people; the match stays
+ *   delete  - delete the match and everything in it for both people
+ *   unmatch - delete, and record a block (kind 'unmatch') so neither side can message,
+ *             call or re-match, and neither appears in the other's Discovery or search
+ */
+const END_MATCH_ACTIONS = new Set(['clear', 'delete', 'unmatch']);
+
+app.post('/matches/end', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const partnerId = String((req.body || {}).partnerId || '').trim();
+  const action = String((req.body || {}).action || '').trim();
+  if (!partnerId || partnerId === uid || partnerId.includes('/') || partnerId.includes('_') || !END_MATCH_ACTIONS.has(action)) {
+    return res.status(400).json({ success: false, error: 'Invalid request.' });
+  }
+  if (!(await persistentRateLimit('end-match:' + uid, 30, 10 * 60 * 1000))) {
+    return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
+  }
+  try {
+    const matchRef = db.collection('matches').doc([uid, partnerId].sort().join('_'));
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    if (action === 'clear') {
+      await deleteQueryDocs(matchRef.collection('messages'));
+      const snap = await matchRef.get();
+      if (snap.exists) await matchRef.set({ lastMessage: '', lastSender: '', clearedAt: now, lastUpdated: now }, { merge: true });
+      return res.json({ success: true });
+    }
+    if (action === 'unmatch') {
+      await db.collection('blocks').doc(uid + '_' + partnerId).set({ blockedBy: uid, blockedUserId: partnerId, kind: 'unmatch', createdAt: now }, { merge: true });
+      await db.collection('swipes').doc(uid + '_' + partnerId).set({ fromUserId: uid, toUserId: partnerId, action: 'pass', unmatched: true, createdAt: now }, { merge: true }).catch(() => {});
+    }
+    await deleteDocumentTree(matchRef);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('end match error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not update this conversation.' });
   }
 });
 
@@ -1265,8 +1507,14 @@ app.get('/turn/credentials', requireAuth, async (_req, res) => {
   try {
     const response = await fetch(`https://${METERED_DOMAIN}/api/v1/turn/credentials?apiKey=${encodeURIComponent(METERED_API_KEY)}`);
     if (!response.ok) throw new Error(`Metered returned ${response.status}`);
-    res.json(await response.json());
+    const servers = await response.json();
+    if (!Array.isArray(servers) || !servers.some(sv => [].concat(sv.urls || sv.url || []).some(u => /^turns?:/i.test(u)))) {
+      throw new Error('Metered response contained no TURN relay servers');
+    }
+    res.json(servers);
   } catch (err) {
+    // Without a relay, calls between different networks connect but carry no audio or video.
+    console.error('TURN credentials unavailable, serving STUN only:', err.message);
     return res.json(fallbackServers);
   }
 });
@@ -1337,7 +1585,8 @@ app.post('/account/delete', requireAuth, async (req, res) => {
     await Promise.all([
       db.collection('users').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
       db.collection('public_profiles').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
-      deleteStoragePrefixes([`stories/${uid}/`, `voicenotes/${uid}/`, ...matchMediaPrefixes])
+      db.collection('voice_intros').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
+      deleteStoragePrefixes([`stories/${uid}/`, `voicenotes/${uid}/`, `voice_intros/${uid}/`, ...matchMediaPrefixes])
     ]);
 
     // Delete the Auth account last so a partial cleanup can be retried safely.
@@ -1379,7 +1628,9 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
         id: doc.id,
         name: d.name || d.displayName || 'User',
         displayName: d.displayName || d.name || 'User',
-        age: Number(d.age || 24),
+        searchKeys: profileSearchKeys(d.displayName || d.name),
+        // Never invent an age: Discovery and search drop profiles without a real adult age.
+        ...(Number.isFinite(Number(d.age)) && Number(d.age) >= 18 ? { age: Math.floor(Number(d.age)) } : {}),
         bio: String(d.bio || '').slice(0, 2000),
         gender: d.gender || '',
         interests: Array.isArray(d.interests) ? d.interests.slice(0, 30) : [],

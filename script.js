@@ -281,7 +281,7 @@ let appState = {
   lastAction: null,
   isRecording: false,
   signupStep: 1,
-  signupGender: 'Male',
+  signupGender: '', // chosen by the person; never defaulted
   signupInterests: [],
   selectedPricingTier: 2,
   aiSelectedProfileId: 'p3',
@@ -1863,6 +1863,52 @@ function getRegisteredUsers() {
   }
 }
 
+// Local-only accounts (no Firebase available) keep a salted PBKDF2 hash of the password,
+// never the password itself. Accounts created through Firebase keep no password locally.
+const LOCAL_PASSWORD_ITERATIONS = 150000;
+
+function _bytesToB64(bytes) {
+  let bin = '';
+  bytes.forEach(b => { bin += String.fromCharCode(b); });
+  return btoa(bin);
+}
+
+async function hashLocalPassword(password, saltB64 = null, iterations = LOCAL_PASSWORD_ITERATIONS) {
+  if (!window.crypto?.subtle) throw new Error('Secure password hashing is not available in this browser.');
+  const salt = saltB64
+    ? Uint8Array.from(atob(saltB64), c => c.charCodeAt(0))
+    : crypto.getRandomValues(new Uint8Array(16));
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, key, 256);
+  return { salt: _bytesToB64(salt), hash: _bytesToB64(new Uint8Array(bits)), iterations };
+}
+
+async function verifyLocalPassword(record, password) {
+  const kdf = record && record.passwordKdf;
+  if (!kdf || !kdf.salt || !kdf.hash) return false;
+  const { hash } = await hashLocalPassword(password, kdf.salt, kdf.iterations || LOCAL_PASSWORD_ITERATIONS);
+  if (hash.length !== kdf.hash.length) return false;
+  let diff = 0;
+  for (let i = 0; i < hash.length; i++) diff |= hash.charCodeAt(i) ^ kdf.hash.charCodeAt(i);
+  return diff === 0;
+}
+
+// Older versions stored the password base64-encoded, which anyone with the phone could decode.
+// Replace each with a PBKDF2 hash and remove the recoverable copy.
+async function migrateLegacyLocalPasswords() {
+  const users = getRegisteredUsers();
+  if (!users.some(u => u && u.passwordHash)) return;
+  for (const u of users) {
+    if (!u || !u.passwordHash) continue;
+    try {
+      if (!u.passwordKdf && window.crypto?.subtle) u.passwordKdf = await hashLocalPassword(atob(u.passwordHash));
+    } catch (_) { /* undecodable: the account just loses offline sign-in */ }
+    delete u.passwordHash;
+  }
+  try { localStorage.setItem('hookme_registered_users', JSON.stringify(users)); } catch (_) {}
+}
+try { migrateLegacyLocalPasswords().catch(() => {}); } catch (_) {}
+
 function saveRegisteredUser(record) {
   const users = getRegisteredUsers();
   const existingIdx = users.findIndex(u => (record.email && u.email && u.email.toLowerCase() === record.email.toLowerCase()) || (record.phone && u.phone === record.phone));
@@ -2084,9 +2130,24 @@ async function handleLogin() {
   // ---- LOCAL VERIFIED STORAGE MODE ----
   // NEVER blindly log in an unknown/random email!
   const registeredUsers = getRegisteredUsers();
-  const matchedUser = registeredUsers.find(u => u.email.toLowerCase() === email.toLowerCase());
+  const matchedUser = registeredUsers.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
 
-  if (matchedUser && (!matchedUser.passwordHash || matchedUser.passwordHash === btoa(password))) {
+  // Accounts created through Firebase have no local password, so they can only be signed in
+  // to online. (Previously such an account accepted any password here.)
+  if (matchedUser && !matchedUser.passwordKdf && !matchedUser.passwordHash) {
+    if (errorEl) errorEl.textContent = "Can't reach the server to sign you in. Check your internet connection and try again.";
+    if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.textContent = 'Sign in'; }
+    return;
+  }
+
+  let passwordOk = false;
+  try {
+    if (matchedUser && !matchedUser.passwordKdf && matchedUser.passwordHash) await migrateLegacyLocalPasswords();
+    const fresh = matchedUser ? getRegisteredUsers().find(u => u.email && u.email.toLowerCase() === email.toLowerCase()) : null;
+    passwordOk = Boolean(fresh) && await verifyLocalPassword(fresh, password);
+  } catch (_) { passwordOk = false; }
+
+  if (matchedUser && passwordOk) {
     resetFailedLoginAttempts();
     currentUser.email = email;
     currentUser.name = matchedUser.name || currentUser.name || 'User';
@@ -2152,12 +2213,10 @@ async function handlePhoneLogin() {
       if (otpGroup) otpGroup.style.display = 'block';
       if (btn) btn.textContent = 'Verify and sign in';
       if (otpInput) {
-        otpInput.value = window._devPhoneOtp || '';
+        otpInput.value = '';
         setTimeout(() => otpInput.focus(), 150);
       }
-      if (!window._devPhoneOtp) {
-        showToast('Code sent to +234 ' + rawPhone, 'info');
-      }
+      showToast('Code sent to +234 ' + rawPhone, 'info');
     } else {
       if (errEl) errEl.textContent = 'Could not send SMS verification code. Please check number or try again.';
     }
@@ -2792,6 +2851,10 @@ function nextSignupStep() {
       if (errorEl) errorEl.textContent = 'Please enter a valid age (18–80).';
       return;
     }
+    if (!appState.signupGender) {
+      if (errorEl) errorEl.textContent = 'Please choose how you identify.';
+      return;
+    }
     currentUser.name = name;
     currentUser.age = age;
     currentUser.gender = appState.signupGender;
@@ -2829,7 +2892,7 @@ function nextSignupStep() {
     appState.signupStep++;
     renderSignupStep();
   } else {
-    completeSignup();
+    completeSignup().catch(err => console.warn("Signup failed:", err));
   }
 }
 
@@ -2850,7 +2913,7 @@ async function syncPublicProfileToFirestore(fields = {}) {
   return syncPublicProfileToBackend(fields);
 }
 
-function completeSignup() {
+async function completeSignup() {
   const email = (document.getElementById('signupEmail')?.value || '').trim();
   let phone = (document.getElementById('signupPhone')?.value || '').replace(/\D/g, '');
   if (phone.startsWith('0')) phone = phone.slice(1);
@@ -2995,10 +3058,18 @@ function completeSignup() {
   }
 
   // ---- LOCAL VERIFIED STORAGE MODE ----
+  let passwordKdf;
+  try {
+    passwordKdf = await hashLocalPassword(password);
+  } catch (_) {
+    if (errorEl) errorEl.textContent = "Can't create an account right now. Check your internet connection and try again.";
+    if (btn) { btn.disabled = false; btn.textContent = 'Create account'; }
+    return;
+  }
   saveRegisteredUser({
     email: email.toLowerCase(),
     phone: phone,
-    passwordHash: btoa(password),
+    passwordKdf,
     name: currentUser.name || 'User',
     uid: 'local_' + Date.now(),
     createdAt: Date.now()
@@ -3101,6 +3172,7 @@ window.calculateCompatibility = calculateCompatibility;
 // ==========================================================
 
 let _currentVoiceIntroProfileId = null;
+let _introAudio = null;
 
 function playProfileVoiceIntro(profileId, event) {
   if (event && typeof event.stopPropagation === 'function') event.stopPropagation();
@@ -3114,6 +3186,37 @@ function playProfileVoiceIntro(profileId, event) {
   }
 
   const pName = profile.name || 'them';
+
+  // Real people: play their actual recording.
+  if (profile.isRealUser || profile.voiceIntro.hasAudio) {
+    if (_introAudio && _currentVoiceIntroProfileId === profileId) {
+      _introAudio.pause();
+      _introAudio = null;
+      _resetVoiceIntroUI(profileId);
+      _currentVoiceIntroProfileId = null;
+      return;
+    }
+    if (_introAudio) { _introAudio.pause(); _introAudio = null; }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+    if (_currentVoiceIntroProfileId) _resetVoiceIntroUI(_currentVoiceIntroProfileId);
+    _currentVoiceIntroProfileId = profileId;
+    _setVoiceIntroUIPlaying(profileId);
+    const done = () => { _resetVoiceIntroUI(profileId); if (_currentVoiceIntroProfileId === profileId) _currentVoiceIntroProfileId = null; _introAudio = null; };
+    getVoiceIntroAudioUrl(profileId).then(url => {
+      if (_currentVoiceIntroProfileId !== profileId) return;
+      if (!url) throw new Error('missing');
+      const audio = new Audio(url);
+      _introAudio = audio;
+      audio.onended = done;
+      audio.onerror = () => { done(); showToast('Could not play this voice intro', 'error'); };
+      return audio.play();
+    }).then(() => { if (typeof haptic === 'function') haptic('light'); }).catch(() => {
+      done();
+      showToast('Voice intro unavailable for this profile', 'info');
+    });
+    return;
+  }
+
   const text = profile.voiceIntro.text || `Hey! I'm ${pName}. Looking forward to connecting on HookMeBySam!`;
 
   // Toggle off if currently speaking
@@ -3183,7 +3286,9 @@ function _resetVoiceIntroUI(profileId) {
   const detailPill = document.getElementById(`detailVoicePlayPill_${profileId}`);
   if (detailPill) detailPill.classList.remove('playing');
   const detailText = document.getElementById(`detailVoiceBtnText_${profileId}`);
-  const profile = typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA.find(p => p.id === profileId) : null;
+  const profile = (typeof profileStack !== 'undefined' ? profileStack.find(p => p.id === profileId) : null) ||
+                  (typeof PROFILES_DATA !== 'undefined' ? PROFILES_DATA.find(p => p.id === profileId) : null) ||
+                  (typeof matchedUsers !== 'undefined' ? matchedUsers.find(p => p.id === profileId) : null);
   if (detailText) detailText.textContent = `Listen to ${profile?.name || 'them'}`;
 }
 
@@ -4516,8 +4621,12 @@ function _buildConvoItemHtml(u, filterQuery) {
       const isVideo = last.callType === 'video';
       const isMissed = last.callStatus === 'missed' || last.callStatus === 'declined';
       previewIcon = isVideo ? 'video' : 'phone';
-      lastMsgRaw = `${isMissed ? 'Missed ' : ''}${isVideo ? 'video' : 'voice'} call${!isMissed && last.duration ? ` (${last.duration})` : ''}`;
-      lastMsgRaw = lastMsgRaw.charAt(0).toUpperCase() + lastMsgRaw.slice(1);
+      if (last.callStatus === 'failed') {
+        lastMsgRaw = `${isVideo ? 'Video' : 'Voice'} call didn't connect`;
+      } else {
+        lastMsgRaw = `${isMissed ? 'Missed ' : ''}${isVideo ? 'video' : 'voice'} call${!isMissed && last.duration ? ` (${last.duration})` : ''}`;
+        lastMsgRaw = lastMsgRaw.charAt(0).toUpperCase() + lastMsgRaw.slice(1);
+      }
     } else if (last.isVoice) {
       previewIcon = 'mic'; lastMsgRaw = 'Voice note';
     } else if (last.videoUrl || last.isVideo) {
@@ -4793,11 +4902,10 @@ async function deleteConversation(partnerId) {
     localStorage.setItem('hmbs_cleared_' + partnerId, String(Date.now()));
   } catch (_) {}
 
-  if (matchId && typeof clearChatMessagesInFirestore === 'function') {
-    clearChatMessagesInFirestore(matchId).catch(() => {});
-  }
-  if (matchId && typeof fbDb !== 'undefined' && fbDb) {
-    fbDb.collection('matches').doc(matchId).delete().catch(() => {});
+  if (matchId && typeof endMatchOnServer === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
+    endMatchOnServer(partnerId, 'delete').then(ok => {
+      if (!ok) showToast("Couldn't delete the chat for both of you. It's hidden on this device only; try again when you're online.", 'error');
+    });
   }
 
   matchedUsers = (matchedUsers || []).filter(u => u.id !== partnerId);
@@ -5823,9 +5931,11 @@ async function clearCurrentChatHistory() {
 
     // Clear from Firestore so it never re-appears on reload or other device
     const uid = (typeof fbAuth !== 'undefined' && fbAuth?.currentUser?.uid) || currentUser?.id || currentUser?.uid;
-    if (uid && typeof clearChatMessagesInFirestore === 'function') {
+    if (uid && typeof clearChatMessagesInFirestore === 'function' && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
       const matchId = [uid, chatId].sort().join('_');
-      clearChatMessagesInFirestore(matchId).catch(() => {});
+      clearChatMessagesInFirestore(matchId).then(ok => {
+        if (!ok) showToast("Couldn't clear the chat for both of you. It's cleared on this device only; try again when you're online.", 'error');
+      }).catch(() => {});
     }
 
     renderChatThread();
@@ -6054,11 +6164,14 @@ function renderChatThread() {
       const isDeclined = msg.callStatus === 'declined' || lowerText.includes('declined');
       const isNoAnswer = msg.callStatus === 'no_answer' || msg.callStatus === 'cancelled' || lowerText.includes('cancelled') || lowerText.includes('no answer');
       const isMissed = msg.callStatus === 'missed' || lowerText.includes('missed');
-      const isUnanswered = isDeclined || isNoAnswer || isMissed;
+      const isFailed = msg.callStatus === 'failed';
+      const isUnanswered = isDeclined || isNoAnswer || isMissed || isFailed;
 
       let title = '';
       let subText = 'Tap to call back';
-      if (isDeclined) {
+      if (isFailed) {
+        title = `${isVideo ? 'Video' : 'Voice'} call didn't connect`;
+      } else if (isDeclined) {
         title = isSent ? 'No answer' : `Declined ${isVideo ? 'video' : 'voice'} call`;
       } else if (isNoAnswer || isMissed) {
         title = isSent ? 'No answer' : `Missed ${isVideo ? 'video' : 'voice'} call`;
@@ -7906,6 +8019,8 @@ function logCallInChat({ partnerId, callType, direction, status, durationSeconds
     displayText = `Declined ${isVideo ? 'video' : 'voice'} call`;
   } else if (status === 'no_answer' || status === 'cancelled') {
     displayText = (direction === 'outgoing') ? 'No answer' : `Missed ${isVideo ? 'video' : 'voice'} call`;
+  } else if (status === 'failed') {
+    displayText = `${isVideo ? 'Video' : 'Voice'} call didn't connect`;
   } else {
     displayText = (direction === 'outgoing') ? 'No answer' : `Missed ${isVideo ? 'video' : 'voice'} call`;
   }
@@ -8022,6 +8137,27 @@ function stopRingtone() {
   }
 }
 
+let _turnRelayLoaded = false;
+
+// pc.__mediaFailed stops a second report (timeout followed by ICE 'failed') from showing two
+// toasts and ending the call twice. A call whose media connected and later dropped keeps its
+// real duration; one whose media never connected is logged as 'failed', not as a completed call.
+function failCallMedia(type, pc, mediaEverConnected = false) {
+  if (!pc || pc.__mediaFailed || activePeerConnection !== pc) return;
+  pc.__mediaFailed = true;
+  if (mediaEverConnected) {
+    updateCallUi(type, 'Connection lost');
+    showToast('The call dropped because the connection was lost.', 'error');
+    setTimeout(() => { if (activePeerConnection === pc) endCall(false); }, 1500);
+    return;
+  }
+  updateCallUi(type, 'Could not connect');
+  showToast(_turnRelayLoaded
+    ? 'The call connected but no audio or video could pass. Check both internet connections and try again.'
+    : 'The call could not connect across different networks. Please try again in a moment.', 'error');
+  setTimeout(() => { if (activePeerConnection === pc) endCall(false, 'failed'); }, 1500);
+}
+
 async function refreshTurnCredentials() {
   if (!fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') return;
   try {
@@ -8029,11 +8165,12 @@ async function refreshTurnCredentials() {
     const res = await fetch(BACKEND_URL + '/turn/credentials', {
       headers: { Authorization: 'Bearer ' + token }
     });
-    if (!res.ok) return;
+    if (!res.ok) { console.warn('TURN credentials request failed:', res.status); return; }
     const liveServers = await res.json();
     if (Array.isArray(liveServers) && liveServers.length > 0) {
       peerConnectionConfig = { iceServers: liveServers.concat(METERED_ICE_SERVERS) };
-      console.log('✅ Live TURN servers loaded:', liveServers.length);
+      _turnRelayLoaded = liveServers.some(sv => [].concat(sv.urls || sv.url || []).some(u => /^turns?:/i.test(u)));
+      console.log('Call servers loaded:', liveServers.length, 'relay available:', _turnRelayLoaded);
     }
   } catch (_) {
     console.warn('TURN credential refresh failed; using STUN only.');
@@ -8265,6 +8402,33 @@ async function wireCallPeerConnection(type, pc, callRef) {
     if (stream) setCallMediaStream(stream, type);
   };
 
+  // The call can be "answered" (signalling goes through Firestore) while no audio or video ever
+  // flows, which is what happens when two phones on different networks cannot reach each other
+  // without a relay. Detect that and say so instead of leaving a silent, apparently connected call.
+  // Armed only once ICE starts checking (after the call is answered), so ringing is never cut short.
+  let mediaTimer = null;
+  let mediaEverConnected = false;
+  pc.oniceconnectionstatechange = () => {
+    const st = pc.iceConnectionState;
+    if (st === 'checking' && !mediaTimer && !mediaEverConnected) {
+      mediaTimer = setTimeout(() => {
+        if (activePeerConnection === pc && !['connected', 'completed'].includes(pc.iceConnectionState)) {
+          console.warn('Call media did not connect. ICE state:', pc.iceConnectionState, 'relay servers:', _turnRelayLoaded);
+          failCallMedia(type, pc, false);
+        }
+      }, 20000);
+    } else if (st === 'connected' || st === 'completed') {
+      mediaEverConnected = true;
+      clearTimeout(mediaTimer);
+    } else if (st === 'failed' && activePeerConnection === pc) {
+      clearTimeout(mediaTimer);
+      console.warn('Call ICE failed. relay servers:', _turnRelayLoaded, 'had connected:', mediaEverConnected);
+      failCallMedia(type, pc, mediaEverConnected);
+    } else if (st === 'closed') {
+      clearTimeout(mediaTimer);
+    }
+  };
+
   activeCandidateListener = callRef.collection('candidates').onSnapshot(snapshot => {
     snapshot.docChanges().forEach(change => {
       if (change.type !== 'added') return;
@@ -8344,7 +8508,7 @@ async function startPeerCall(type) {
       setTimeout(() => {
         if (activeCallIsRinging && overlay && overlay.style.display !== 'none') {
           stopRingtone();
-          updateCallUi(type, 'No answer 📵');
+          updateCallUi(type, 'No answer');
           setTimeout(() => {
             endCall(false);
             showToast((partner.name || 'Your match') + ' is currently unavailable. Leave a voice note!', 'info');
@@ -8727,7 +8891,7 @@ function endCall(showToastMessage = true, explicitStatus = null) {
       callType,
       direction,
       status,
-      durationSeconds: seconds,
+      durationSeconds: status === 'failed' ? 0 : seconds,
       callId
     });
   }
@@ -10312,7 +10476,7 @@ function renderProfileScreen() {
   const goldRow = document.getElementById('hkGoldRow');
   if (goldRow) goldRow.disabled = Boolean(appState.isVip);
   if (vipHeading) vipHeading.textContent = appState.isVip ? 'HookMe Gold is active' : 'HookMe Gold';
-  if (vipSub) vipSub.textContent = 'Unlimited likes, rewinds and AI portraits';
+  if (vipSub) vipSub.textContent = 'Unlimited likes and rewinds';
   if (vipCtaBtn) {
     vipCtaBtn.textContent = appState.isVip ? 'Active' : 'See plans';
     vipCtaBtn.classList.toggle('btn-gold', !appState.isVip);
@@ -11392,7 +11556,12 @@ function applyDiscoveryFiltersAndClose() {
 
 
   saveToStorage();
-  applyDiscoveryFilters();
+  // Real accounts: preferences are applied on the server, so fetch a fresh pool.
+  if (isRealUserLoggedIn() && typeof loadProfilesForDiscovery === 'function') {
+    loadProfilesForDiscovery();
+  } else {
+    applyDiscoveryFilters();
+  }
   closeDiscoveryFilterModal();
 
   showToast('Preferences updated.', 'success');
@@ -11445,7 +11614,11 @@ function resetDiscoveryFilters() {
   if (window._swipedProfileIds) window._swipedProfileIds.clear();
 
   saveToStorage();
-  applyDiscoveryFilters();
+  if (isRealUserLoggedIn() && typeof loadProfilesForDiscovery === 'function') {
+    loadProfilesForDiscovery();
+  } else {
+    applyDiscoveryFilters();
+  }
   closeDiscoveryFilterModal();
   showToast('Filters reset.', 'info');
   if (typeof haptic === 'function') haptic('light');
@@ -11520,7 +11693,9 @@ function applyDiscoveryFilters(options = {}) {
       if (age < minAge || age > maxAge) return false;
     }
 
-    const dist = parseInt(String(p.distance || '').replace(/[^0-9]/g, ''), 10);
+    // Same (city-level) distance the card shows; real profiles have no stored distance.
+    const distText = String((typeof getDynamicProfileDistance === 'function' ? getDynamicProfileDistance(p) : '') || p.distance || '');
+    const dist = /\d/.test(distText) ? parseFloat(distText.replace(/[^0-9.]/g, '')) / (/\bm away$/.test(distText) ? 1000 : 1) : NaN;
     if (!isNaN(dist) && dist > 0) {
       if (dist > maxDistance) return false;
     }
@@ -11830,7 +12005,7 @@ function openPaywall(context) {
     ai_gen: 'You have used your free AI portrait. Gold gives you unlimited AI portraits.',
     bulk_ai: 'Generating several AI portraits at once needs Gold.',
     swipe_limit: 'You have reached the daily like limit. Gold removes it.',
-    default: 'Gold removes the daily limits on likes, rewinds and AI portraits.'
+    default: 'Gold removes the daily limits on likes and rewinds.'
   };
   if (reasonEl) reasonEl.textContent = reasons[context] || reasons.default;
 
@@ -12977,7 +13152,7 @@ function closeGentleUnmatchModal() {
 }
 window.closeGentleUnmatchModal = closeGentleUnmatchModal;
 
-function confirmUnmatch() {
+async function confirmUnmatch() {
   const partner = appState.activeSafetyPartner ||
                   (appState.currentChatId ? matchedUsers.find(u => u.id === appState.currentChatId) : null);
 
@@ -12989,21 +13164,23 @@ function confirmUnmatch() {
   const partnerId = partner.id;
   const partnerName = partner.name || 'this contact';
 
+  // Unmatching is enforced on the server (removes the match and its messages for both
+  // people and stops further contact). Only report success once that has happened.
+  if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser && !DUMMY_USER_IDS.includes(partnerId)) {
+    const ok = typeof endMatchOnServer === 'function' && await endMatchOnServer(partnerId, 'unmatch');
+    if (!ok) {
+      showToast("Couldn't unmatch right now. Check your connection and try again.", 'error');
+      return;
+    }
+    if (window.__blockedUserIds instanceof Set) window.__blockedUserIds.add(partnerId);
+  }
+
   // 1. Remove from matchedUsers
   matchedUsers = matchedUsers.filter(u => u.id !== partnerId);
 
   // 2. Remove conversation
   if (conversations[partnerId]) {
     delete conversations[partnerId];
-  }
-
-  // 3. Mark in firestore if connected
-  if (typeof fbDb !== 'undefined' && fbDb && typeof fbAuth !== 'undefined' && fbAuth?.currentUser) {
-    try {
-      const uid = fbAuth.currentUser.uid;
-      const matchId = [uid, partnerId].sort().join('_');
-      fbDb.collection('matches').doc(matchId).delete().catch(() => {});
-    } catch (_) {}
   }
 
   // 4. Save state
@@ -13327,10 +13504,7 @@ async function handleUserSearchInput(e) {
     const localPool = isRealUserLoggedIn() ? (matchedUsers || []) : [...PROFILES_DATA, ...matchedUsers];
     const localMatches = localPool.filter(u =>
       !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
-    ).filter(u =>
-      (u.name && u.name.toLowerCase().includes(qLower)) ||
-      (u.bio && u.bio.toLowerCase().includes(qLower))
-    );
+    ).filter(u => u.name && u.name.toLowerCase().includes(qLower));
 
     // Merge without duplicates
     const seenIds = new Set(matches.map(m => m.id));
@@ -13463,10 +13637,7 @@ async function handleModalSearchInput(e) {
     const localPool = isRealUserLoggedIn() ? (matchedUsers || []) : [...PROFILES_DATA, ...matchedUsers];
     const localMatches = localPool.filter(u =>
       !DUMMY_USER_IDS.includes(u.id) || !isRealUserLoggedIn()
-    ).filter(u =>
-      (u.name && u.name.toLowerCase().includes(qLower)) ||
-      (u.bio && u.bio.toLowerCase().includes(qLower))
-    );
+    ).filter(u => u.name && u.name.toLowerCase().includes(qLower));
 
     const seenIds = new Set(matches.map(m => m.id));
     localMatches.forEach(lm => {
@@ -14146,12 +14317,10 @@ async function submitForgotPasswordPhone() {
       if (otpGroup) otpGroup.style.display = 'block';
       if (btn) btn.textContent = 'Verify Code & Reset';
       if (otpInp) {
-        otpInp.value = window._devPhoneOtp || '';
+        otpInp.value = '';
         setTimeout(() => otpInp.focus(), 150);
       }
-      if (!window._devPhoneOtp) {
-        showToast('SMS code sent to +234 ' + phone, 'info');
-      }
+      showToast('SMS code sent to +234 ' + phone, 'info');
     } else {
       if (errEl) errEl.textContent = 'Could not send SMS code. Please try again.';
     }
@@ -14178,7 +14347,7 @@ async function submitForgotPasswordPhone() {
 
   if (verified) {
     _fpPhoneOtpSent = false;
-    showToast('Phone identity verified! Please create your new password.', 'gold');
+    showToast('Phone verified. Signing you in to the account linked to this number.', 'success');
     closeForgotPasswordModal();
   } else {
     if (errEl) errEl.textContent = 'Invalid verification code. Please try again.';
@@ -14255,18 +14424,11 @@ async function sendPhoneOtp() {
     if (sentTo) sentTo.textContent = 'Code sent to +234 ' + _pendingPhoneNumber;
 
     const helper = document.getElementById('phoneOtpHelper');
-    if (helper) {
-      if (window._devPhoneOtpMessage) {
-        helper.innerHTML = window._devPhoneOtpMessage;
-        helper.style.display = 'block';
-      } else {
-        helper.style.display = 'none';
-      }
-    }
+    if (helper) helper.style.display = 'none';
 
     const otpInp = document.getElementById('otpInput');
     if (otpInp) {
-      otpInp.value = window._devPhoneOtp || '';
+      otpInp.value = '';
       setTimeout(() => otpInp.focus(), 150);
     }
   }
@@ -16005,22 +16167,20 @@ async function toggleEditVoiceRecord() {
       _editVoiceRecorder.onstop = async () => {
         stream.getTracks().forEach(t => t.stop());
         clearInterval(_editVoiceTimer);
-        const blob = new Blob(_editVoiceChunks, { type: 'audio/webm' });
-        const dur = Math.max(1, _editVoiceSeconds);
-        const durStr = '0:' + String(dur).padStart(2, '0');
-
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          currentUser.voiceIntro = {
-            duration: durStr,
-            audioUrl: reader.result,
-            text: 'Voice introduction by ' + (currentUser.name || 'me')
-          };
+        const blob = new Blob(_editVoiceChunks, { type: _editVoiceRecorder.mimeType || 'audio/webm' });
+        const seconds = Math.min(20, Math.max(1, _editVoiceSeconds));
+        if (status) status.textContent = 'Saving your voice intro…';
+        try {
+          currentUser.voiceIntro = await uploadVoiceIntro(blob, seconds);
+          _myVoiceIntroBlobUrl = URL.createObjectURL(blob);
           saveToStorage();
           renderProfileScreen();
           showToast('Voice intro saved.', 'success');
-        };
-        reader.readAsDataURL(blob);
+        } catch (err) {
+          console.warn('Voice intro upload failed:', err.message);
+          if (status) status.textContent = err.message || "Couldn't save your voice intro. Check your connection and try again.";
+          showToast("Couldn't save your voice intro.", 'error');
+        }
       };
 
       _editVoiceRecorder.start();
@@ -16044,26 +16204,105 @@ async function toggleEditVoiceRecord() {
 }
 window.toggleEditVoiceRecord = toggleEditVoiceRecord;
 
-function playMyVoiceIntro() {
-  if (!currentUser?.voiceIntro?.audioUrl) {
+// Voice intros are saved on the server (POST from here, never kept as a data URL on the phone)
+// and fetched when someone presses play.
+let _myVoiceIntroBlobUrl = null;
+const _voiceIntroAudioCache = new Map(); // profileId -> playable URL
+
+function _blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Could not read the recording.'));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function uploadVoiceIntro(blob, seconds) {
+  if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') {
+    throw new Error('Sign in and connect to the internet to save a voice intro.');
+  }
+  const token = await fbAuth.currentUser.getIdToken();
+  const res = await fetch(BACKEND_URL + '/profiles/voice-intro', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+    body: JSON.stringify({ dataBase64: await _blobToBase64(blob), contentType: blob.type || 'audio/webm', durationSeconds: seconds })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok || !data.success) throw new Error(data.error || "Couldn't save your voice intro.");
+  return data.voiceIntro;
+}
+
+// Returns a playable URL for a person's real recorded intro, or null if there is none.
+async function getVoiceIntroAudioUrl(profileId) {
+  if (_voiceIntroAudioCache.has(profileId)) return _voiceIntroAudioCache.get(profileId);
+  if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser || typeof BACKEND_URL === 'undefined') return null;
+  const token = await fbAuth.currentUser.getIdToken();
+  const res = await fetch(BACKEND_URL + '/profiles/' + encodeURIComponent(profileId) + '/voice-intro', {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => ({}));
+  let url = data.url || null;
+  if (!url && data.dataBase64) {
+    const bytes = Uint8Array.from(atob(data.dataBase64), c => c.charCodeAt(0));
+    url = URL.createObjectURL(new Blob([bytes], { type: data.contentType || 'audio/webm' }));
+  }
+  if (url) _voiceIntroAudioCache.set(profileId, url);
+  return url;
+}
+
+// Older versions kept the recording as a base64 data URL in local storage, where nobody
+// else could hear it. Upload it once, then keep only the metadata.
+async function migrateLocalVoiceIntro() {
+  const vi = typeof currentUser !== 'undefined' ? currentUser?.voiceIntro : null;
+  if (!vi || typeof vi.audioUrl !== 'string' || !vi.audioUrl.startsWith('data:')) return;
+  try {
+    const blob = await (await fetch(vi.audioUrl)).blob();
+    const parts = String(vi.duration || '').split(':').map(Number);
+    const seconds = parts.length === 2 && parts.every(Number.isFinite) ? parts[0] * 60 + parts[1] : 20;
+    currentUser.voiceIntro = await uploadVoiceIntro(blob, Math.min(20, Math.max(1, seconds)));
+    saveToStorage();
+  } catch (err) {
+    console.warn('Could not move the saved voice intro to the server:', err.message);
+  }
+}
+window.migrateLocalVoiceIntro = migrateLocalVoiceIntro;
+
+async function playMyVoiceIntro() {
+  if (!currentUser?.voiceIntro) {
     showToast('No voice intro recorded yet', 'info');
     return;
   }
-  const audio = new Audio(currentUser.voiceIntro.audioUrl);
-  audio.play().catch(e => {
+  try {
+    const myId = fbAuth?.currentUser?.uid;
+    const url = _myVoiceIntroBlobUrl || currentUser.voiceIntro.url || currentUser.voiceIntro.audioUrl || (myId ? await getVoiceIntroAudioUrl(myId) : null);
+    if (!url) throw new Error('missing');
+    await new Audio(url).play();
+  } catch (e) {
     console.warn('Audio play error:', e);
-    showToast('Could not play audio', 'error');
-  });
+    showToast('Could not play your voice intro', 'error');
+  }
 }
 window.playMyVoiceIntro = playMyVoiceIntro;
 
 async function deleteMyVoiceIntro() {
-  if (await confirmDialog({ title: 'Remove your voice introduction?', confirmLabel: 'Remove', danger: true })) {
-    currentUser.voiceIntro = null;
-    saveToStorage();
-    renderProfileScreen();
-    showToast('Voice intro removed', 'info');
+  if (!(await confirmDialog({ title: 'Remove your voice introduction?', confirmLabel: 'Remove', danger: true }))) return;
+  try {
+    if (typeof fbAuth !== 'undefined' && fbAuth?.currentUser && typeof BACKEND_URL !== 'undefined') {
+      const token = await fbAuth.currentUser.getIdToken();
+      const res = await fetch(BACKEND_URL + '/profiles/voice-intro', { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } });
+      if (!res.ok) throw new Error('delete failed');
+    }
+  } catch (_) {
+    showToast("Couldn't remove your voice intro. Check your connection and try again.", 'error');
+    return;
   }
+  currentUser.voiceIntro = null;
+  _myVoiceIntroBlobUrl = null;
+  saveToStorage();
+  renderProfileScreen();
+  showToast('Voice intro removed', 'info');
 }
 window.deleteMyVoiceIntro = deleteMyVoiceIntro;
 

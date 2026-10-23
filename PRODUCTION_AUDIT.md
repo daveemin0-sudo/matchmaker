@@ -1,3 +1,5 @@
+> **Superseded (23 Oct 2026):** see [`docs/LAUNCH_READINESS.md`](docs/LAUNCH_READINESS.md). Several rows below were marked verified without runnable evidence, and later audits found defects in areas listed here as verified.
+
 > **Correction (2026-10-10):** the `Server.js` file links and line numbers cited in this document referred to a root-level
 > file that was never deployed (it has since been removed). The production backend is `webhook-server/index.js`
 > (what `BACKEND_URL` / matchmaker-viwb.onrender.com runs). Treat any "VERIFIED" row below that cites `Server.js` as
