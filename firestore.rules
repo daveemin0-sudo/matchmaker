@@ -24,19 +24,32 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/blocks/$(matchId.split('_')[1] + '_' + matchId.split('_')[0]));
     }
 
+    // Fields only the trusted backend may write: entitlements, roles, verification, moderation
+    // state and account lifecycle. A client cannot grant itself VIP or lift its own suspension.
+    function serverOnlyUserFields() {
+      return ['isVip','vipTier','vipPlan','vipExpiry','vipExpiresAt','vipActivatedAt','role',
+        'emailVerified','phoneVerified','subscriptionStatus','paystackReference','paystackEmail','paystackAmount',
+        'suspended','suspendedAt','suspensionReason','unsuspendedAt','mergedInto','mergedAt','deletedAt'];
+    }
+
     // ── users ───────────────────────────────────────────────────────────────
     // All signed-in users must be able to read user profiles to discover cards,
     // search users, and view match profiles.
     // Account owners can create and update their profiles, but cannot grant
     // themselves VIP or elevate their role.
     match /users/{userId} {
-      allow read: if owner(userId) || (signedIn() && request.auth.token.email != null && resource.data.email == request.auth.token.email);
+      // Only the owner reads their private document. (An email-match clause used to let anyone
+      // holding an unverified token for the same email read it; no client code relied on it.)
+      allow read: if owner(userId);
+      // Sign-up writes isVip:false / phoneVerified:false; only those safe values are accepted.
       allow create: if owner(userId)
+        && !request.resource.data.keys().hasAny(serverOnlyUserFields().removeAll(['isVip','role','phoneVerified','emailVerified']))
         && (!('isVip' in request.resource.data) || request.resource.data.isVip == false)
-        && (!('role' in request.resource.data) || request.resource.data.role == 'user');
+        && (!('role' in request.resource.data) || request.resource.data.role == 'user')
+        && (!('phoneVerified' in request.resource.data) || request.resource.data.phoneVerified == false)
+        && (!('emailVerified' in request.resource.data) || request.resource.data.emailVerified == false);
       allow update: if owner(userId)
-        && !request.resource.data.diff(resource.data).affectedKeys()
-          .hasAny(['isVip','vipTier','vipPlan','vipExpiry','vipExpiresAt','vipActivatedAt','role','emailVerified','phoneVerified','subscriptionStatus','paystackReference','paystackEmail','paystackAmount']);
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(serverOnlyUserFields());
       allow delete: if owner(userId);
     }
 
@@ -122,9 +135,17 @@ service cloud.firestore {
           )
           && notBlocked(matchId)
           && (!('text' in request.resource.data) || request.resource.data.text.size() <= 5000);
+        // The sender may edit or soft-delete their own message; either participant may mark it
+        // read or react. Nobody can rewrite the other person's words or change who sent it.
         allow update: if signedIn() && (
           (request.auth.uid in matchId.split('_'))
           || (exists(/databases/$(database)/documents/matches/$(matchId)) && participant(get(/databases/$(database)/documents/matches/$(matchId)).data))
+        ) && (
+          (resource.data.sender == request.auth.uid
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['text','edited','editedAt','deleted','reactions','read','readAt'])
+            && (!('text' in request.resource.data) || request.resource.data.text.size() <= 5000))
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read','readAt','reactions'])
         );
         allow delete: if signedIn()
           && resource.data.sender == request.auth.uid;

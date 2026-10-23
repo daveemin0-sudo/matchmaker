@@ -1262,7 +1262,8 @@ async function sendOtpToPhone(phoneNumber) {
   // 1. Attempt backend webhook (Termii SMS) with a quick 3-second timeout
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    // The backend can take 30+ s to wake on Render's free tier.
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
     const res = await fetch(`${BACKEND_URL}/auth/send-otp`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1302,27 +1303,15 @@ async function sendOtpToPhone(phoneNumber) {
     }
   }
 
-  // 3. Resilient test fallback: generate 6-digit verification code
-  // Prevents the user from being blocked by "Offline" error during testing or before SMS billing is funded
-  const testOtp = String(Math.floor(100000 + Math.random() * 900000));
-  window._devPhoneOtp = testOtp;
-  window._devPhoneOtpTarget = phoneNumber;
-  window._devPhoneOtpMessage = `ℹ️ <strong>Offline / Test Mode:</strong> SMS gateway server is offline. Use verification code: <strong style="color:#FFF;letter-spacing:3px;font-size:1.1rem;background:rgba(255,255,255,0.15);padding:2px 8px;border-radius:6px">${testOtp}</strong>`;
-
-  showToast(`📱 Verification code: ${testOtp}`, 'info', 8000);
-  return true;
+  // No code could be sent. Never invent one: a code shown on screen proves nothing about
+  // owning the number, and the app used to treat it as a successful sign-in.
+  showToast("We couldn't send a code right now. Please try again in a minute.", 'error');
+  return false;
 }
 
 async function verifyOtp(phoneNumber, otpCode) {
   const cleanOtp = String(otpCode || '').trim();
 
-  // A. Check dev/test code
-  if (window._devPhoneOtp && cleanOtp === window._devPhoneOtp) {
-    window._devPhoneOtp = null;
-    window._devPhoneOtpMessage = null;
-    showToast('✅ Phone verified!', 'gold');
-    return { success: true, uid: fbAuth?.currentUser?.uid || 'phone_' + phoneNumber.replace(/\D/g, '') };
-  }
 
   // B. Check Firebase confirmationResult
   if (window._phoneConfirmationResult) {
@@ -1373,23 +1362,6 @@ async function verifyOtp(phoneNumber, otpCode) {
 async function verifyPhoneOwnershipOnly(phoneNumber, otpCode) {
   const cleanOtp = String(otpCode || '').trim();
 
-  // A. Check dev/test OTP
-  if (window._devPhoneOtp && cleanOtp === window._devPhoneOtp) {
-    window._devPhoneOtp = null;
-    window._devPhoneOtpMessage = null;
-    if (fbDb && fbAuth?.currentUser) {
-      try {
-        await fbDb.collection('users').doc(fbAuth.currentUser.uid).set({
-          phone: phoneNumber,
-          phoneVerified: true,
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-      } catch (e) {
-        console.warn('Firestore phone update notice:', e.message);
-      }
-    }
-    return { success: true };
-  }
 
   // B. Check Firebase confirmationResult
   if (window._phoneConfirmationResult) {

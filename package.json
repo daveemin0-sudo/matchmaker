@@ -9,7 +9,8 @@
     "start": "npx live-server --port=5500 --open=index.html",
     "dev": "npx live-server --port=5500 --open=index.html",
     "client": "npx live-server --port=5500 --open=index.html",
-    "server": "node webhook-server/index.js"
+    "server": "node webhook-server/index.js",
+    "test:rules": "firebase emulators:exec --only firestore --project hookmebysam-rules-test \"node --test tests/rules/\""
   },
   "repository": {
     "type": "git",
@@ -29,6 +30,8 @@
     "@capacitor/core": "^8.5.0"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.10.0",
     "firebase-tools": "^15.27.0",
     "live-server": "^1.2.2"
   }

@@ -2213,12 +2213,10 @@ async function handlePhoneLogin() {
       if (otpGroup) otpGroup.style.display = 'block';
       if (btn) btn.textContent = 'Verify and sign in';
       if (otpInput) {
-        otpInput.value = window._devPhoneOtp || '';
+        otpInput.value = '';
         setTimeout(() => otpInput.focus(), 150);
       }
-      if (!window._devPhoneOtp) {
-        showToast('Code sent to +234 ' + rawPhone, 'info');
-      }
+      showToast('Code sent to +234 ' + rawPhone, 'info');
     } else {
       if (errEl) errEl.textContent = 'Could not send SMS verification code. Please check number or try again.';
     }
@@ -14301,12 +14299,10 @@ async function submitForgotPasswordPhone() {
       if (otpGroup) otpGroup.style.display = 'block';
       if (btn) btn.textContent = 'Verify Code & Reset';
       if (otpInp) {
-        otpInp.value = window._devPhoneOtp || '';
+        otpInp.value = '';
         setTimeout(() => otpInp.focus(), 150);
       }
-      if (!window._devPhoneOtp) {
-        showToast('SMS code sent to +234 ' + phone, 'info');
-      }
+      showToast('SMS code sent to +234 ' + phone, 'info');
     } else {
       if (errEl) errEl.textContent = 'Could not send SMS code. Please try again.';
     }
@@ -14333,7 +14329,7 @@ async function submitForgotPasswordPhone() {
 
   if (verified) {
     _fpPhoneOtpSent = false;
-    showToast('Phone identity verified! Please create your new password.', 'gold');
+    showToast('Phone verified. Signing you in to the account linked to this number.', 'success');
     closeForgotPasswordModal();
   } else {
     if (errEl) errEl.textContent = 'Invalid verification code. Please try again.';
@@ -14410,18 +14406,11 @@ async function sendPhoneOtp() {
     if (sentTo) sentTo.textContent = 'Code sent to +234 ' + _pendingPhoneNumber;
 
     const helper = document.getElementById('phoneOtpHelper');
-    if (helper) {
-      if (window._devPhoneOtpMessage) {
-        helper.innerHTML = window._devPhoneOtpMessage;
-        helper.style.display = 'block';
-      } else {
-        helper.style.display = 'none';
-      }
-    }
+    if (helper) helper.style.display = 'none';
 
     const otpInp = document.getElementById('otpInput');
     if (otpInp) {
-      otpInp.value = window._devPhoneOtp || '';
+      otpInp.value = '';
       setTimeout(() => otpInp.focus(), 150);
     }
   }
