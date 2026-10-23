@@ -10,7 +10,7 @@
     "dev": "npx live-server --port=5500 --open=index.html",
     "client": "npx live-server --port=5500 --open=index.html",
     "server": "node webhook-server/index.js",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-hookmebysam \"node --test tests/rules/\""
+    "test:rules": "firebase emulators:exec --only firestore --project demo-hookmebysam \"node --test tests/rules/firestore-rules.test.js\""
   },
   "repository": {
     "type": "git",
