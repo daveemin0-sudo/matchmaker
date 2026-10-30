@@ -1504,8 +1504,14 @@ async function initPushNotifications() {
       const data = payload.data || {};
       const { title, body } = payload.notification || {};
       if (data.type === 'incoming_call') {
-        if (typeof showIncomingCallPrompt === 'function' && data.callId) {
-          showIncomingCallPrompt(data.callId, data);
+        // The push only names the call. Load the call itself (its video/voice type and the
+        // connection offer needed to answer) before ringing, as the notification-click path does.
+        if (typeof showIncomingCallPrompt === 'function' && data.callId && data.matchId && fbDb) {
+          fbDb.collection('matches').doc(data.matchId).collection('calls').doc(data.callId).get().then(snap => {
+            if (snap.exists && snap.data()?.status === 'ringing') {
+              showIncomingCallPrompt(data.callId, { ...snap.data(), matchId: data.matchId });
+            }
+          }).catch(err => console.warn('Could not load incoming call:', err.message));
         }
       } else if (title || body) {
         showToast(`🔔 ${body || title}`, 'info');
