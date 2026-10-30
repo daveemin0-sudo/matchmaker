@@ -1036,6 +1036,27 @@ try {
   if (Number(localStorage.getItem(STORAGE_UNAVAILABLE_KEY) || 0) > Date.now()) window._firebaseStorageDisabled = true;
 } catch (_) {}
 
+// Ask the backend once whether a Storage bucket is configured. Until it says yes, small
+// photos and voice notes go inline with the message: trying an unprovisioned bucket first
+// cost ~8 s (client put timeout) plus the backend's own failed attempt, ~16 s per voice note.
+window._cloudStorageConfirmed = false;
+function checkCloudStorageAvailability() {
+  if (typeof BACKEND_URL === 'undefined' || typeof fetch !== 'function') return;
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const t = setTimeout(() => ctrl && ctrl.abort(), 60000);
+  fetch(BACKEND_URL + '/health', ctrl ? { signal: ctrl.signal } : {}).then(r => r.json()).then(h => {
+    const storage = h && h.dependencies && h.dependencies.storage;
+    if (storage === true) {
+      // Configured on the server. A failure this device actually saw (remembered for
+      // 30 minutes) still wins, so a configured-but-broken bucket doesn't bring the wait back.
+      window._cloudStorageConfirmed = true;
+    } else if (storage === false) {
+      markCloudStorageUnavailable();
+    }
+  }).catch(() => {}).finally(() => clearTimeout(t));
+}
+setTimeout(checkCloudStorageAvailability, 0);
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -1051,9 +1072,9 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
     window._lastMediaUploadError = !fbStorage ? 'Firebase Storage is not initialized.' : 'Sign in before uploading.';
     return null;
   }
-  if (window._firebaseStorageDisabled) {
-    // Known-unprovisioned bucket: no network round trip. Small non-video files are
-    // inlined (same result the backend fallback produced, minus the ~10s wait).
+  if (window._firebaseStorageDisabled || !window._cloudStorageConfirmed) {
+    // Storage not confirmed available: no network round trip. Small non-video files are
+    // inlined (same result the backend fallback produced, minus the ~16 s wait).
     const contentType = customContentType || file.type || '';
     const looksVideo = contentType.startsWith('video/') || /\.(mp4|mov|webm|m4v|3gp|mkv)$/i.test(file.name || '');
     const isAudioType = contentType.startsWith('audio/');
@@ -1061,8 +1082,11 @@ async function uploadFileToBackend(file, path, returnMetadata = false, customCon
       const inline = await readFileAsDataUrl(file);
       if (inline) return returnMetadata ? { url: inline, storagePath: '' } : inline;
     }
-    window._lastMediaUploadError = 'Firebase Storage is not provisioned on this plan.';
-    return null;
+    if (window._firebaseStorageDisabled) {
+      window._lastMediaUploadError = 'Firebase Storage is not provisioned on this plan.';
+      return null;
+    }
+    // Status still unknown and the file is too big to inline: try Storage as before.
   }
   try {
     const uid = fbAuth.currentUser.uid;
@@ -1452,8 +1476,11 @@ window.addEventListener("load", () => {
 let _fcmMessaging = null;
 
 // Call this once after login to register the device for push
+// Returns { ok, reason } so Settings can say exactly why this phone isn't getting pushes.
 async function initPushNotifications() {
-  if (!fbApp || typeof firebase === 'undefined' || !firebase.messaging || typeof Notification === 'undefined') return;
+  if (!fbApp || typeof firebase === 'undefined' || !firebase.messaging || typeof Notification === 'undefined') {
+    return (window._pushStatus = { ok: false, reason: 'unsupported' });
+  }
 
   try {
     _fcmMessaging = firebase.messaging();
@@ -1466,7 +1493,7 @@ async function initPushNotifications() {
     }
     if (permission !== 'granted') {
       console.info('Push notification permission:', permission);
-      return;
+      return (window._pushStatus = { ok: false, reason: 'permission-' + permission });
     }
 
     const VAPID_KEY = 'BLp3qjWUxvFZkjtXaP7Xs4o4Oidsgz2segUhkRBeJWCWnYS283ds9P0c2Ao86eqxSjSZvGphASeN5Y6Ty7bC3h8';
@@ -1489,14 +1516,22 @@ async function initPushNotifications() {
     const tokenOptions = { vapidKey: VAPID_KEY };
     if (serviceWorkerRegistration) tokenOptions.serviceWorkerRegistration = serviceWorkerRegistration;
 
+    let tokenError = '';
     const token = await _fcmMessaging.getToken(tokenOptions).catch(err => {
       console.warn('FCM getToken error:', err?.message);
+      tokenError = err?.code || err?.message || 'unknown';
       return null;
     });
-    if (!token) return;
+    if (!token) return (window._pushStatus = { ok: false, reason: 'token', detail: tokenError || 'no token' });
 
     console.log('📱 FCM token registered:', token.substring(0, 20) + '...');
-    await saveFcmToken(token);
+    const saved = await saveFcmToken(token);
+    window._pushStatus = saved ? { ok: true } : { ok: false, reason: 'save' };
+
+    // Registration can run again (Settings test); attach the listeners only once, or every
+    // incoming call and message would be handled twice.
+    if (window._pushListenersAttached) return window._pushStatus;
+    window._pushListenersAttached = true;
 
     // Handle foreground messages (app is open)
     _fcmMessaging.onMessage((payload) => {
@@ -1545,8 +1580,10 @@ async function initPushNotifications() {
         }
       });
     }
+    return window._pushStatus;
   } catch (err) {
     console.warn('Push notification setup error:', err);
+    return (window._pushStatus = { ok: false, reason: 'setup', detail: err?.message || String(err) });
   }
 }
 
@@ -1570,10 +1607,31 @@ async function saveFcmToken(token) {
         platform: 'web',
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+    return true;
   } catch (e) {
     console.warn('Could not save FCM token:', e);
+    return false;
   }
 }
+
+// Settings → Notifications: register this phone again and ask the server to push to it.
+async function testPushNotifications() {
+  if (!_fcmMessaging || !(window._pushStatus && window._pushStatus.ok)) {
+    await initPushNotifications();
+  }
+  const status = window._pushStatus || { ok: false, reason: 'unknown' };
+  if (!status.ok) return { ok: false, stage: 'register', ...status };
+  try {
+    const headers = await getBackendAuthHeaders();
+    const res = await fetch(BACKEND_URL + '/fcm/test', { method: 'POST', headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return { ok: false, stage: 'send', reason: data.error || ('HTTP ' + res.status) };
+    return { ok: data.sent > 0, stage: 'send', ...data };
+  } catch (err) {
+    return { ok: false, stage: 'send', reason: err.message };
+  }
+}
+window.testPushNotifications = testPushNotifications;
 
 /* ==========================================================
    TYPING INDICATORS

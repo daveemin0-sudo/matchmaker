@@ -18,6 +18,8 @@ function createHarness({ port, env = {} }) {
     idTokens: {},    // bearer token -> decoded token ({ uid, email, ... })
     authCalls: [],   // [{ fn, args }]
     storageSaves: [],
+    pushes: [],
+    pushFail: null,
     defaultBucketConfigured: false,
     bucketMissing: false,
   };
@@ -70,6 +72,7 @@ function createHarness({ port, env = {} }) {
       return docs;
     };
     const q = {
+      doc: (id) => docRef(col, id === undefined ? 'auto_' + Math.random().toString(36).slice(2, 12) : id),
       where: (f, o, v) => query(col, [...filters, [f, o, v]], opts),
       orderBy: () => query(col, filters, { ...opts, ordered: true }),
       startAfter: (cursor) => query(col, filters, { ...opts, after: typeof cursor === 'string' ? cursor : cursor.id }),
@@ -120,7 +123,18 @@ function createHarness({ port, env = {} }) {
       credential: { cert: () => ({}) },
       firestore: firestoreFn,
       auth: () => auth,
-      messaging: () => ({}),
+      // Push: records each multicast; state.pushFail makes every device fail with that code.
+      messaging: () => ({
+        sendEachForMulticast: async (p) => {
+          state.pushes.push(p);
+          const fail = state.pushFail;
+          return {
+            successCount: fail ? 0 : p.tokens.length,
+            failureCount: fail ? p.tokens.length : 0,
+            responses: p.tokens.map(() => (fail ? { success: false, error: { code: fail } } : { success: true })),
+          };
+        },
+      }),
       // Mirrors real firebase-admin: bucket() with no name THROWS when no default
       // bucket is configured, and a bucket that was never provisioned answers 404.
       storage: () => ({
@@ -176,7 +190,7 @@ function createHarness({ port, env = {} }) {
     });
   }
 
-  const reset = () => { store.clear(); state.paystackVerifyResponse = null; state.fetchUrls = []; state.authUsers = {}; state.idTokens = {}; state.authCalls = []; state.storageSaves = []; state.defaultBucketConfigured = false; state.bucketMissing = false; };
+  const reset = () => { store.clear(); state.paystackVerifyResponse = null; state.fetchUrls = []; state.authUsers = {}; state.idTokens = {}; state.authCalls = []; state.storageSaves = []; state.pushes = []; state.pushFail = null; state.defaultBucketConfigured = false; state.bucketMissing = false; };
   const stop = () => setTimeout(() => process.exit(0), 50).unref();
 
   return { store, state, start, request, reset, stop };

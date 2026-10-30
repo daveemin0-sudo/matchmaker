@@ -355,6 +355,18 @@ window.settings = settings;
 // Known dummy / AI demo profile IDs
 const DUMMY_USER_IDS = ['p1', 'p2', 'p3', 'p4', 'p5', 'pm1', 'pm2', 's1', 's2', 's3', 's4', 's5'];
 
+// True only for the built-in sample profiles (and demo/guest ids). This used to be guessed
+// from the id's shape (shorter than 20 characters, contains "_", or STARTS WITH "p"), so
+// any real user whose Firebase uid happened to begin with "p" could never be called: the
+// call was simulated locally and their phone never rang, and their online status was hidden.
+function isSampleProfileId(id) {
+  if (!id) return true;
+  const s = String(id);
+  if (DUMMY_USER_IDS.includes(s) || s === 'samantha' || s.startsWith('demo')) return true;
+  return typeof PROFILES_DATA !== 'undefined' && PROFILES_DATA.some(p => p.id === s && !p.isRealUser);
+}
+window.isSampleProfileId = isSampleProfileId;
+
 function isRealUserLoggedIn() {
   return Boolean(
     (typeof fbAuth !== 'undefined' && fbAuth && fbAuth.currentUser) ||
@@ -637,7 +649,7 @@ function applyMatchesUpdate(realMatches) {
             movePartnerToTop(m.id);
           }
 
-          if (!isViewing) {
+          if (!isViewing && !wasAlreadyNotified(m.id, m.lastUpdated ? msgTime : 0, m.lastMessage)) {
             hasNewIncomingMessage = true;
             showToast(`${m.name}: ${m.lastMessage.substring(0, 36)}...`, 'info');
             triggerSystemNotification(`💬 ${m.name}`, {
@@ -645,6 +657,8 @@ function applyMatchesUpdate(realMatches) {
               data: { matchId: m.id }
             });
           }
+          // Announced (or seen in the open chat): never announce this message again.
+          markNotified(m.id, m.lastUpdated ? msgTime : 0, m.lastMessage);
         }
       }
     }
@@ -4486,7 +4500,7 @@ function pingUserPresenceActivity() {
 function syncMatchesPresenceListeners() {
   if (typeof fbDb === 'undefined' || !fbDb || typeof fbAuth === 'undefined' || !fbAuth?.currentUser) return;
   // Only listen for real Firebase Auth UIDs (20+ chars, no underscore/demo prefixes)
-  const matchIds = new Set((matchedUsers || []).map(u => u.id).filter(id => id && String(id).length >= 20 && !id.includes('_') && !id.startsWith('p') && !id.startsWith('demo') && id !== 'samantha'));
+  const matchIds = new Set((matchedUsers || []).map(u => u.id).filter(id => !isSampleProfileId(id)));
 
   // Unsubscribe listeners for removed matches
   for (const [id, unsub] of Object.entries(_matchesPresenceListeners)) {
@@ -5629,7 +5643,7 @@ function openChat(profileId, { fromHistory = false } = {}) {
     _activePresenceListener();
     _activePresenceListener = null;
   }
-  if (typeof fbDb !== 'undefined' && fbDb && profileId && profileId.length >= 20 && !profileId.includes('_') && !profileId.startsWith('p') && !profileId.startsWith('demo') && profileId !== 'samantha') {
+  if (typeof fbDb !== 'undefined' && fbDb && profileId && !isSampleProfileId(profileId)) {
     try {
       _activePresenceListener = fbDb.collection('presence').doc(profileId).onSnapshot(doc => {
         if (doc && doc.exists) {
@@ -8500,7 +8514,7 @@ async function startPeerCall(type) {
     playRingtone();
 
     // If partner is a seed/demo contact (e.g. Samantha Gonzalez), simulate a realistic call experience!
-    const isDemoPartner = !partner.id || partner.id.length < 20 || partner.id.includes('_') || partner.id.startsWith('p') || partner.id.startsWith('demo') || partner.id === 'samantha';
+    const isDemoPartner = isSampleProfileId(partner.id);
     if (isDemoPartner) {
       activeCallIsRinging = true;
       activeCallPartnerId = partner.id;
@@ -8574,6 +8588,10 @@ async function startPeerCall(type) {
           callId: callRef.id,
           matchId: matchId
         })
+      }).then(r => r && r.json ? r.json() : null).then(d => {
+        if (d && d.devices === 0 && activeCallIsRinging) {
+          showToast(`${partner.name || 'They'} will only see your call if the app is open: notifications are off on their phone.`, 'info', 6000);
+        }
       }).catch(e => console.warn('Incoming call push notification failed:', e.message));
     }).catch(() => {});
 
@@ -11232,7 +11250,7 @@ function renderNotifRow() {
   if (!('Notification' in window)) {
     sub.textContent = 'Not supported in this browser';
   } else if (Notification.permission === 'granted') {
-    sub.textContent = 'On. You will be alerted to matches and messages.';
+    sub.textContent = 'On. Tap to send a test notification to this phone.';
   } else if (Notification.permission === 'denied') {
     sub.textContent = 'Blocked. Allow notifications in your browser settings.';
   } else {
@@ -11246,7 +11264,7 @@ function handleNotifRowClick() {
     return;
   }
   if (Notification.permission === 'granted') {
-    showToast('Notifications are on. To turn them off, use your browser or phone settings.', 'info');
+    runNotificationTest();
   } else if (Notification.permission === 'denied') {
     showToast('Notifications are blocked. Allow them in your browser or phone settings.', 'warning');
   } else {
@@ -11260,6 +11278,39 @@ function handleNotifRowClick() {
   }
 }
 window.handleNotifRowClick = handleNotifRowClick;
+
+// Re-registers this phone for push and has the server send it a test notification, then
+// says in plain words what worked. "Calls don't ring when the app is closed" is almost
+// always a phone that never registered, and this makes that visible.
+let _notifTestRunning = false;
+async function runNotificationTest() {
+  if (_notifTestRunning) return;
+  if (typeof testPushNotifications !== 'function' || typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
+    showToast('Sign in to test notifications.', 'info');
+    return;
+  }
+  _notifTestRunning = true;
+  const sub = document.getElementById('settingsNotifSub');
+  if (sub) sub.textContent = 'Sending a test notification…';
+  try {
+    const r = await testPushNotifications();
+    if (r.ok) {
+      showToast('Test sent. A notification should appear in a few seconds. Calls and messages will reach this phone even when the app is closed.', 'success', 7000);
+    } else if (r.stage === 'register' && String(r.reason).startsWith('permission')) {
+      showToast('Notifications are blocked for this app. Allow them in your phone settings, then try again.', 'warning', 7000);
+    } else if (r.stage === 'register') {
+      showToast("This phone couldn't register for notifications (" + (r.detail || r.reason) + '). Open the app in Chrome, allow notifications, and try again.', 'error', 9000);
+    } else if (r.devices === 0) {
+      showToast("The server has no record of this phone. Close and reopen the app, then try again.", 'error', 8000);
+    } else {
+      showToast('The server could not deliver to this phone' + (r.errors && r.errors.length ? ' (' + r.errors[0] + ')' : '') + '. Try again in a minute.', 'error', 8000);
+    }
+  } finally {
+    _notifTestRunning = false;
+    if (typeof renderNotifRow === 'function') renderNotifRow();
+  }
+}
+window.runNotificationTest = runNotificationTest;
 
 async function handleResendEmailVerification() {
   if (typeof fbAuth === 'undefined' || !fbAuth?.currentUser) {
@@ -13399,6 +13450,32 @@ function dismissNotifBanner(snooze) {
 }
 
 // OS / Browser Native System Notification Dispatcher
+// What this device has already announced, per conversation, kept across restarts. The
+// matches listener re-reads every chat's latest message on each start, and without this an
+// unread message was announced again every time the app was opened.
+const NOTIFIED_KEY = 'hmbs_notified_v1';
+function _notifiedLedger() {
+  try { return JSON.parse(localStorage.getItem(NOTIFIED_KEY) || '{}') || {}; } catch (_) { return {}; }
+}
+function wasAlreadyNotified(chatId, ts, text) {
+  const e = _notifiedLedger()[chatId];
+  if (!e) return false;
+  if (ts && e.t && ts <= e.t) return true;
+  return Boolean(text) && e.m === String(text).slice(0, 80) && (!ts || !e.t || Math.abs(ts - e.t) < 5000);
+}
+function markNotified(chatId, ts, text) {
+  if (!chatId) return;
+  try {
+    const l = _notifiedLedger();
+    const prev = l[chatId] || {};
+    l[chatId] = { t: Math.max(Number(ts) || 0, Number(prev.t) || 0), m: String(text || prev.m || '').slice(0, 80) };
+    const keys = Object.keys(l);
+    if (keys.length > 300) keys.sort((a, b) => (l[a].t || 0) - (l[b].t || 0)).slice(0, keys.length - 300).forEach(k => delete l[k]);
+    localStorage.setItem(NOTIFIED_KEY, JSON.stringify(l));
+  } catch (_) {}
+}
+window.markNotified = markNotified;
+
 function triggerSystemNotification(title, options = {}) {
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
 
