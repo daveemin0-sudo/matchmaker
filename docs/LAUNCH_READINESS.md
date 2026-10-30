@@ -44,6 +44,7 @@ Plus PR #14 (server-side search, voice intros that others can hear) and PR #9 (h
 
 ## 4. Blockers
 
+0. **Rotate the leaked Termii and Metered keys** (found 30 Oct; see `docs/SECURITY_REVIEW.md`).
 1. **Paystack is in test mode.** `firebase-config.js` line 20 has `pk_test_…`. Owner: set the live public key there and `PAYSTACK_SECRET_KEY=sk_live_…` on Render, then make one real payment and refund it.
 2. **Firestore rules not published.** Owner: after merging, `firebase deploy --only firestore:rules` (or paste in the console). Includes the `voice_intros`, `app_feedback`, message and user-field rules.
 3. **Backend not redeployed.** Owner: redeploy Render from `main`; confirm `https://matchmaker-viwb.onrender.com/health` responds (the Production Ops workflow checks it every 30 min).
