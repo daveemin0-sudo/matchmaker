@@ -608,6 +608,24 @@ app.post('/auth/link-google', requireAuth, async (req, res) => {
 });
 
 /* Authenticated direct payment verification. Never trusts uid/amount from the browser. */
+// Profile photos are shown to everyone in Discovery, so only accept what the app itself
+// produces: compressed JPEG/PNG/WebP data URLs (Storage is not provisioned yet), Firebase
+// Storage links, Google profile photos, and the Unsplash images older profiles carry.
+// Anything else (http://, javascript:, SVG, a tracking pixel on someone's own server that
+// would collect every viewer's IP, or a multi-megabyte string) is dropped.
+const PHOTO_HOSTS = /^(?:firebasestorage\.googleapis\.com|storage\.googleapis\.com|[a-z0-9-]+\.googleusercontent\.com|images\.unsplash\.com)$/;
+const MAX_PHOTO_DATA_URL = 700 * 1024;
+
+function safePhotoUrl(value) {
+  const v = String(value || '').trim();
+  if (!v) return '';
+  if (/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(v)) return v.length <= MAX_PHOTO_DATA_URL ? v : '';
+  let url;
+  try { url = new URL(v); } catch (_) { return ''; }
+  return url.protocol === 'https:' && PHOTO_HOSTS.test(url.hostname) && v.length <= 2048 ? v : '';
+}
+const safePhotoList = (list) => (Array.isArray(list) ? list : []).map(safePhotoUrl).filter(Boolean).slice(0, 6);
+
 app.post('/profiles/sync', requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
@@ -638,13 +656,13 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
     if (Array.isArray(body.interests) && (!d.interests || !d.interests.length)) {
       updates.interests = body.interests.slice(0, 30).map(v => String(v).slice(0, 40));
     }
-    const bodyImage = String(body.image || body.avatar || (Array.isArray(body.photos) && body.photos[0]) || '');
+    const bodyImage = safePhotoUrl(body.image || body.avatar || (Array.isArray(body.photos) && body.photos[0]) || '');
     if (bodyImage && !d.image && !d.avatar) {
       updates.image = bodyImage;
       updates.avatar = bodyImage;
     }
-    if (Array.isArray(body.photos) && body.photos.length > 0 && (!d.photos || !d.photos.length)) {
-      updates.photos = body.photos.slice(0, 6);
+    if (safePhotoList(body.photos).length > 0 && (!d.photos || !d.photos.length)) {
+      updates.photos = safePhotoList(body.photos);
     }
     if (Object.keys(updates).length > 0) {
       updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
@@ -653,11 +671,13 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
     }
 
     const city = String(d.city || body.city || '').trim().slice(0,80);
-    const finalImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || bodyImage || '');
-    const finalPhotos = Array.isArray(d.photos) && d.photos.length > 0
-      ? d.photos.slice(0, 6)
-      : (Array.isArray(body.photos) && body.photos.length > 0
-        ? body.photos.slice(0, 6)
+    // d.* comes from the user's own Firestore document, which the client writes directly,
+    // so it is validated here too before anything is published.
+    const finalImage = safePhotoUrl(d.image) || safePhotoUrl(d.avatar) || safePhotoList(d.photos)[0] || bodyImage || '';
+    const finalPhotos = safePhotoList(d.photos).length > 0
+      ? safePhotoList(d.photos)
+      : (safePhotoList(body.photos).length > 0
+        ? safePhotoList(body.photos)
         : (finalImage ? [finalImage] : []));
 
     const publicName = String(d.displayName || d.name || body.displayName || body.name || 'User').slice(0,80);

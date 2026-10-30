@@ -119,3 +119,21 @@ test('no hard-coded API keys remain in the server code', () => {
   assert.doesNotMatch(server, /tlv_[A-Za-z0-9]{10,}/);
   assert.equal(JSON.parse(read('webhook-server/package.json')).dependencies.open, undefined, 'unused "open" package removed');
 });
+
+test('profile sync publishes only safe photo URLs (no tracking pixels, other schemes or oversized data)', async () => {
+  const me = asUser('ada');
+  const jpeg = 'data:image/jpeg;base64,' + Buffer.alloc(300).toString('base64');
+  h.store.set('users/ada', {
+    name: 'Ada', displayName: 'Ada', age: 26, gender: 'Female', accountStatus: 'active',
+    image: 'https://tracker.attacker.com/pixel.gif',
+    photos: ['javascript:alert(1)', 'http://firebasestorage.googleapis.com/insecure.jpg', 'data:image/svg+xml;base64,PHN2Zz4=',
+             'data:image/jpeg;base64,' + 'A'.repeat(800 * 1024), jpeg,
+             'https://firebasestorage.googleapis.com/v0/b/x/o/ok.jpg', 'https://lh3.googleusercontent.com/a/photo'],
+  });
+  const r = await h.request('POST', '/profiles/sync', {}, me);
+  assert.equal(r.status, 200);
+  const pub = h.store.get('public_profiles/ada');
+  assert.deepEqual(pub.photos, [jpeg, 'https://firebasestorage.googleapis.com/v0/b/x/o/ok.jpg', 'https://lh3.googleusercontent.com/a/photo']);
+  assert.equal(pub.image, jpeg, 'the unsafe main image is replaced by the first safe photo');
+  assert.doesNotMatch(JSON.stringify(pub), /attacker|javascript:|svg\+xml|http:\/\//);
+});

@@ -68,7 +68,7 @@ test('POST /profiles/sync accepts valid age and fields from request body if Fire
     gender: 'Female',
     bio: 'Hello world',
     interests: ['Art 🎨'],
-    photos: ['https://example.com/photo.jpg']
+    photos: ['https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/photo.jpg']
   };
 
   const res = await h.request('POST', '/profiles/sync', body, auth);
@@ -84,7 +84,7 @@ test('POST /profiles/sync accepts valid age and fields from request body if Fire
   const pub = store.get('public_profiles/freshUser');
   assert.ok(pub);
   assert.equal(pub.age, 20);
-  assert.equal(pub.image, 'https://example.com/photo.jpg');
+  assert.equal(pub.image, 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/photo.jpg');
   assert.equal(pub.active, true);
 });
 
@@ -93,7 +93,7 @@ test('POST /profiles/sync rejects underage users (<18) with HTTP 400', async () 
   store.set('users/underageDoc', {
     displayName: 'Teenager',
     age: 17,
-    image: 'https://example.com/teen.jpg'
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/teen.jpg'
   });
 
   const res = await h.request('POST', '/profiles/sync', {}, auth);
@@ -212,13 +212,13 @@ test('GET /discovery returns eligible synchronized adult profiles and respects e
   store.set('public_profiles/currentUser', {
     displayName: 'Me Myself',
     age: 22,
-    image: 'https://example.com/me.jpg',
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/me.jpg',
     active: true
   });
   store.set('public_profiles/adult1', {
     displayName: 'Folake',
     age: 20,
-    image: 'https://example.com/folake.jpg',
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/folake.jpg',
     bio: 'Fashion designer',
     interests: ['Fashion 👗'],
     active: true
@@ -226,31 +226,31 @@ test('GET /discovery returns eligible synchronized adult profiles and respects e
   store.set('public_profiles/adult2', {
     displayName: 'Tunde',
     age: 25,
-    photos: ['https://example.com/tunde.jpg'], // image resolved from photos[0]
+    photos: ['https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/tunde.jpg'], // image resolved from photos[0]
     active: true
   });
   store.set('public_profiles/underage', {
     displayName: 'Junior',
     age: 17,
-    image: 'https://example.com/junior.jpg',
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/junior.jpg',
     active: true
   });
   store.set('public_profiles/inactive', {
     displayName: 'Suspended',
     age: 28,
-    image: 'https://example.com/inactive.jpg',
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/inactive.jpg',
     active: false
   });
   store.set('public_profiles/swipedAlready', {
     displayName: 'Swiped User',
     age: 23,
-    image: 'https://example.com/swiped.jpg',
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/swiped.jpg',
     active: true
   });
   store.set('public_profiles/blockedUser', {
     displayName: 'Blocked Person',
     age: 24,
-    image: 'https://example.com/blocked.jpg',
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/blocked.jpg',
     active: true
   });
 
@@ -281,10 +281,10 @@ test('GET /discovery returns eligible synchronized adult profiles and respects e
   const adult1Data = res.json.users.find((u) => u.id === 'adult1');
   assert.equal(adult1Data.age, 20);
   assert.equal(adult1Data.name, 'Folake');
-  assert.equal(adult1Data.image, 'https://example.com/folake.jpg');
+  assert.equal(adult1Data.image, 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/folake.jpg');
 
   const adult2Data = res.json.users.find((u) => u.id === 'adult2');
-  assert.equal(adult2Data.image, 'https://example.com/tunde.jpg');
+  assert.equal(adult2Data.image, 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/tunde.jpg');
 });
 
 test('existing accounts with missing age/gender remain unpublished and invisible in discovery until completed', async () => {
@@ -300,9 +300,9 @@ test('existing accounts with missing age/gender remain unpublished and invisible
     username: 'yusbellbello18',
     age: null,
     gender: '',
-    image: 'https://example.com/avatar.jpg',
-    avatar: 'https://example.com/avatar.jpg',
-    photos: ['https://example.com/avatar.jpg'],
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/avatar.jpg',
+    avatar: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/avatar.jpg',
+    photos: ['https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/avatar.jpg'],
     accountStatus: 'active'
   });
 
@@ -332,9 +332,9 @@ test('onboarding recovery flow persists adult age and gender, publishes to publi
     username: 'yusbellbello18',
     age: null,
     gender: '',
-    image: 'https://example.com/avatar.jpg',
-    avatar: 'https://example.com/avatar.jpg',
-    photos: ['https://example.com/avatar.jpg'],
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/avatar.jpg',
+    avatar: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/avatar.jpg',
+    photos: ['https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/avatar.jpg'],
     accountStatus: 'active'
   });
 
@@ -362,7 +362,7 @@ test('onboarding recovery flow persists adult age and gender, publishes to publi
   assert.equal(pubDoc.age, 22);
   assert.equal(pubDoc.gender, 'Female');
   assert.equal(pubDoc.active, true);
-  assert.equal(pubDoc.image, 'https://example.com/avatar.jpg');
+  assert.equal(pubDoc.image, 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/avatar.jpg');
 
   // Other eligible user discovers the recovered profile
   const discRes = await h.request('GET', '/discovery', undefined, viewerAuth);
@@ -387,7 +387,7 @@ test('underage recovery attempt is rejected with HTTP 400 and profile remains un
     name: 'Young User',
     age: null,
     gender: '',
-    image: 'https://example.com/pic.jpg',
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/pic.jpg',
     accountStatus: 'active'
   });
 
@@ -407,11 +407,11 @@ test('GET /discovery never serves live_ test-account profiles, even when active'
   const viewerAuth = asUser('real_viewer_1');
   store.set('public_profiles/live_caseA_google_user', {
     id: 'live_caseA_google_user', displayName: 'Test Profile', age: 26, gender: 'Female',
-    image: 'https://example.com/t.jpg', active: true
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/t.jpg', active: true
   });
   store.set('public_profiles/real_member_1', {
     id: 'real_member_1', displayName: 'Real Member', age: 27, gender: 'Female',
-    image: 'https://example.com/r.jpg', active: true
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/r.jpg', active: true
   });
   const res = await h.request('GET', '/discovery', undefined, viewerAuth);
   assert.equal(res.status, 200);
