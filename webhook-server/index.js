@@ -1532,7 +1532,10 @@ async function sendPushToUser(userId, { title, body, data = {} }) {
   const tokenEntries = snap.docs
     .map(d => ({ docId: d.id, token: d.data().token }))
     .filter(item => item.token);
-  if (!tokenEntries.length) return;
+  if (!tokenEntries.length) {
+    console.warn(`[push] ${data?.type || 'message'} to ${userId}: no registered devices (notifications never enabled on any device)`);
+    return { devices: 0, sent: 0, failed: 0, errors: [] };
+  }
 
   const isIncomingCall = data?.type === 'incoming_call';
   const isCallEnded = data?.type === 'call_ended';
@@ -1584,14 +1587,39 @@ async function sendPushToUser(userId, { title, body, data = {} }) {
 
   const response = await admin.messaging().sendEachForMulticast(payload);
 
+  const errors = [];
   for (let i = 0; i < response.responses.length; i++) {
     const err = response.responses[i].error;
+    if (err) errors.push(String(err.code || err.message || 'unknown'));
     if (err?.code === 'messaging/registration-token-not-registered' ||
         err?.code === 'messaging/invalid-registration-token') {
       await db.collection('fcm_tokens').doc(userId).collection('tokens').doc(tokenEntries[i].docId).delete().catch(() => {});
     }
   }
+  // One line per push so delivery problems are visible in the Render log (no tokens printed).
+  const line = `[push] ${data?.type || 'message'} to ${userId}: devices=${tokenEntries.length} sent=${response.successCount} failed=${response.failureCount}` + (errors.length ? ` errors=${[...new Set(errors)].join(',')}` : '');
+  (response.failureCount ? console.warn : console.log)(line);
+  return { devices: tokenEntries.length, sent: response.successCount, failed: response.failureCount, errors: [...new Set(errors)] };
 }
+
+// "Send test notification" from Settings: pushes to the caller's own devices and reports
+// exactly what happened, so a phone that never registered is visible immediately.
+app.post('/fcm/test', requireAuth, async (req, res) => {
+  if (!rateLimit(`fcm-test:${req.user.uid}`, 5, 10 * 60 * 1000)) {
+    return res.status(429).json({ success: false, error: 'Please wait a few minutes before testing again.' });
+  }
+  try {
+    const result = await sendPushToUser(req.user.uid, {
+      title: 'hookmebysam',
+      body: 'Test notification: notifications work on this device.',
+      data: { type: 'test' }
+    });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    console.error('Test push error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not send a test notification.' });
+  }
+});
 
 app.post('/fcm/new-match', requireAuth, async (req, res) => {
   const matchedUserId = String(req.body?.matchedUserId || '');
@@ -1670,7 +1698,7 @@ app.post('/fcm/incoming-call', requireAuth, async (req, res) => {
     const title = `${isVideo ? '📹 Incoming Video Call' : '📞 Incoming Voice Call'}`;
     const body = `${callerName} is calling you... Tap to answer!`;
 
-    await sendPushToUser(partnerId, {
+    const pushResult = await sendPushToUser(partnerId, {
       title,
       body,
       data: {
@@ -1682,7 +1710,7 @@ app.post('/fcm/incoming-call', requireAuth, async (req, res) => {
         callerName: String(callerName)
       }
     });
-    return res.json({ success: true });
+    return res.json({ success: true, devices: pushResult?.devices || 0, delivered: (pushResult?.sent || 0) > 0 });
   } catch (err) {
     console.error('Call push error:', err.message);
     return res.status(500).json({ error: 'Could not send call notification.' });
