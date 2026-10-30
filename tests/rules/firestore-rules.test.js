@@ -88,3 +88,15 @@ test('voice intro audio, reports and blocks are server-only', async () => {
   await assertFails(setDoc(doc(as('alice'), 'blocks/alice_bob'), { blockedBy: 'alice', blockedUserId: 'bob' }));
   await assertFails(setDoc(doc(as('alice'), 'reports/r1'), { reportedBy: 'alice' }));
 });
+
+test('security events and alerts are invisible to every client, admins included', async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'users/boss'), { role: 'admin' });
+    await setDoc(doc(ctx.firestore(), 'security_alerts/a1'), { type: 'admin_denied' });
+  });
+  for (const uid of ['alice', 'boss']) {
+    await assertFails(getDoc(doc(as(uid), 'security_alerts/a1')));
+    await assertFails(setDoc(doc(as(uid), 'security_events/e1'), { type: 'fake' }));
+    await assertFails(updateDoc(doc(as(uid), 'security_alerts/a1'), { status: 'acknowledged' }));
+  }
+});

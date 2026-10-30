@@ -82,6 +82,9 @@ function createHarness({ port, env = {} }) {
     collection: (col) => ({
       doc: (id) => docRef(col, id === undefined ? 'auto_' + Math.random().toString(36).slice(2, 12) : id),
       where: (f, o, v) => query(col, [[f, o, v]]),
+      orderBy: () => query(col, [], { ordered: true }),
+      limit: (n) => query(col, [], { max: n }),
+      get: () => query(col, []).get(),
     }),
     batch: () => { const ops = []; return { delete: (ref) => ops.push(ref), commit: async () => { for (const ref of ops) await ref.delete(); } }; },
     runTransaction: async (fn) => fn({
@@ -109,7 +112,7 @@ function createHarness({ port, env = {} }) {
   const adminStub = (() => {
     const firestoreFn = () => db;
     firestoreFn.FieldValue = { serverTimestamp: () => '__SERVER_TS__' };
-    firestoreFn.Timestamp = { fromDate: (d) => ({ _date: d }), now: () => ({}) };
+    firestoreFn.Timestamp = { fromDate: (d) => ({ _date: d }), fromMillis: (ms) => ({ _ms: ms, toMillis: () => ms }), now: () => ({}) };
     firestoreFn.FieldPath = { documentId: () => '__name__' };
     return {
       initializeApp: () => {},

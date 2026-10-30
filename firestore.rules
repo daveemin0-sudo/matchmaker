@@ -66,6 +66,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── security_events / security_alerts: written and read only by the backend
+    // (GET /admin/security). Clients have no access at all.
+    match /security_events/{eventId} {
+      allow read, write: if false;
+    }
+    match /security_alerts/{alertId} {
+      allow read, write: if false;
+    }
+
     // ── app_feedback (in-app rating prompt) ────────────────────────────────
     // Create-only, tied to the signed-in user, bounded fields. Nobody can read it from a client.
     match /app_feedback/{feedbackId} {

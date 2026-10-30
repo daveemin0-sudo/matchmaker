@@ -84,6 +84,22 @@ try {
   console.warn('⚠️  Firestore client pending credentials initialization.');
 }
 
+// Every 401/403/429/5xx response is recorded, so probing and brute force show up on the
+// admin page even on routes that have no explicit event. Handlers that record a more
+// specific event set res.locals.securityLogged to avoid counting it twice.
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (res.locals.securityLogged) return;
+    const code = res.statusCode;
+    const p = String(req.originalUrl || req.url || '');
+    if (code === 401) securityEvent('unauthenticated', { req });
+    else if (code === 403) securityEvent(p.startsWith('/admin') ? 'admin_denied' : 'forbidden', { req });
+    else if (code === 429) securityEvent('rate_limited', { req });
+    else if (code >= 500) securityEvent('server_error', { req, detail: { status: code } });
+  });
+  next();
+});
+
 app.use(express.json({
   limit: '15mb',
   verify: (req, _res, buf) => { req.rawBody = Buffer.from(buf); }
@@ -122,6 +138,108 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+/*
+ * Security monitoring. Suspicious activity is written to security_events (server-only),
+ * and bursts that cross a threshold raise one security_alerts document per key and window,
+ * shown on the admin page and logged with a [SECURITY_ALERT] prefix for the Render logs.
+ * IP addresses are stored only as a salted hash (enough to correlate, not to identify), and
+ * every document carries expiresAt so a Firestore TTL policy can delete it after 30 days.
+ * Writes are capped per key and window so an attacker cannot inflate Firestore costs.
+ * Email/password sign-in goes straight from the app to Firebase Auth, which throttles
+ * it itself; this server never sees those attempts.
+ */
+const SECURITY_SALT = (process.env.SECURITY_LOG_SALT || CLEANUP_SECRET || PAYSTACK_SECRET_KEY || 'hmbs-security').trim();
+const SECURITY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const SECURITY_EVENT_WRITES_PER_KEY = 5; // per window, after which only the counter grows
+
+// type -> { severity, threshold (events per key in window that raise an alert), windowMs, by }
+// `by` picks the key the burst is counted on: 'ip', 'uid', 'target' or 'global'.
+const SECURITY_RULES = {
+  unauthenticated:      { severity: 'low',      threshold: 30, windowMs: 5 * 60 * 1000,  by: 'ip' },
+  forbidden:            { severity: 'low',      threshold: 20, windowMs: 10 * 60 * 1000, by: 'ip' },
+  rate_limited:         { severity: 'medium',   threshold: 10, windowMs: 10 * 60 * 1000, by: 'ip' },
+  admin_denied:         { severity: 'high',     threshold: 1,  windowMs: 60 * 60 * 1000, by: 'uid' },
+  admin_action:         { severity: 'info',     threshold: 0,  windowMs: 60 * 60 * 1000, by: 'uid', audit: true },
+  otp_sent:             { severity: 'info',     threshold: 15, windowMs: 60 * 60 * 1000, by: 'ip' },
+  otp_send_burst:       { severity: 'high',     threshold: 60, windowMs: 60 * 60 * 1000, by: 'global' },
+  otp_verify_failed:    { severity: 'medium',   threshold: 5,  windowMs: 10 * 60 * 1000, by: 'target' },
+  webhook_bad_signature:{ severity: 'high',     threshold: 3,  windowMs: 10 * 60 * 1000, by: 'ip' },
+  payment_mismatch:     { severity: 'high',     threshold: 1,  windowMs: 60 * 60 * 1000, by: 'uid' },
+  upload_rejected:      { severity: 'medium',   threshold: 10, windowMs: 10 * 60 * 1000, by: 'uid' },
+  origin_blocked:       { severity: 'low',      threshold: 50, windowMs: 10 * 60 * 1000, by: 'ip' },
+  user_reported:        { severity: 'medium',   threshold: 3,  windowMs: 24 * 60 * 60 * 1000, by: 'target' },
+  suspended_access:     { severity: 'medium',   threshold: 5,  windowMs: 60 * 60 * 1000, by: 'uid' },
+  account_deleted:      { severity: 'info',     threshold: 0,  windowMs: 60 * 60 * 1000, by: 'uid', audit: true },
+  server_error:         { severity: 'medium',   threshold: 20, windowMs: 10 * 60 * 1000, by: 'global' },
+};
+
+const securityCounters = new Map(); // `${type}|${key}` -> { start, count, written, alerted }
+
+function hashForLog(value) {
+  if (!value) return null;
+  return crypto.createHmac('sha256', SECURITY_SALT).update(String(value)).digest('hex').slice(0, 16);
+}
+
+function securityEvent(type, { req = null, uid = null, target = null, detail = {} } = {}) {
+  const rule = SECURITY_RULES[type];
+  if (!rule) return;
+  try {
+    const ipHash = hashForLog(req ? req.ip : null);
+    const actor = uid || (req && req.user && req.user.uid) || null;
+    const targetHash = target ? hashForLog(target) : null;
+    const key = rule.by === 'global' ? 'all' : rule.by === 'uid' ? (actor || ipHash || 'anon') : rule.by === 'target' ? (targetHash || ipHash || 'anon') : (ipHash || actor || 'anon');
+    const counterKey = type + '|' + key;
+    const now = Date.now();
+    let c = securityCounters.get(counterKey);
+    if (!c || now - c.start > rule.windowMs) c = { start: now, count: 0, written: 0, alerted: false };
+    c.count += 1;
+    securityCounters.set(counterKey, c);
+
+    const safeDetail = {};
+    for (const [k, v] of Object.entries(detail || {})) {
+      if (v === undefined || v === null) continue;
+      safeDetail[k] = typeof v === 'number' || typeof v === 'boolean' ? v : String(v).slice(0, 200);
+    }
+    const base = {
+      type, severity: rule.severity,
+      uid: actor, ipHash, targetHash,
+      path: req ? String(req.originalUrl || req.url || '').split('?')[0].slice(0, 120) : null,
+      method: req ? req.method : null,
+      detail: safeDetail,
+    };
+    if (!db) return;
+    const now_ts = admin.firestore.FieldValue.serverTimestamp();
+    const expiresAt = admin.firestore.Timestamp.fromMillis(now + SECURITY_RETENTION_MS);
+    // Audit events (admin actions, deletions) are always kept; they can't be triggered by outsiders.
+    if (rule.audit || c.written < SECURITY_EVENT_WRITES_PER_KEY) {
+      c.written += 1;
+      db.collection('security_events').doc().set({ ...base, createdAt: now_ts, expiresAt }).catch(err => console.warn('security_events write failed:', err.message));
+    }
+    if (rule.threshold > 0 && !c.alerted && c.count >= rule.threshold) {
+      c.alerted = true;
+      const alertId = crypto.createHash('sha256').update(counterKey + '|' + c.start).digest('hex').slice(0, 32);
+      const summary = `${c.count} × ${type} in ${Math.round((now - c.start) / 1000)} s` + (rule.by !== 'global' ? ` (same ${rule.by})` : '');
+      console.error(`[SECURITY_ALERT] ${rule.severity.toUpperCase()} ${summary} path=${base.path || '-'} uid=${actor || '-'} ip=${ipHash || '-'}`);
+      db.collection('security_alerts').doc(alertId).set({
+        ...base, count: c.count, windowSeconds: Math.round(rule.windowMs / 1000), summary,
+        status: 'open', firstSeenAt: admin.firestore.Timestamp.fromMillis(c.start), lastSeenAt: now_ts, expiresAt
+      }, { merge: true }).catch(err => console.warn('security_alerts write failed:', err.message));
+    }
+  } catch (err) {
+    console.warn('securityEvent failed:', err.message);
+  }
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, c] of securityCounters) {
+    const rule = SECURITY_RULES[k.split('|')[0]];
+    if (!rule || now - c.start > rule.windowMs) securityCounters.delete(k);
+  }
+  // Hard cap so a flood of distinct IPs cannot grow memory without bound.
+  if (securityCounters.size > 50000) securityCounters.clear();
+}, 60 * 1000).unref();
 
 const rateBuckets = new Map();
 
@@ -174,6 +292,8 @@ async function requireAdmin(req, res, next) {
   try {
     const doc = await db.collection('users').doc(req.user.uid).get();
     if (!doc.exists || doc.data()?.role !== 'admin') {
+      res.locals.securityLogged = true;
+      securityEvent('admin_denied', { req });
       return res.status(403).json({ error: 'Admin access required.' });
     }
     req.adminProfile = doc.data();
@@ -191,6 +311,8 @@ async function requireAuth(req, res, next) {
     const decoded = await admin.auth().verifyIdToken(header.slice(7));
     const userRecord = await admin.auth().getUser(decoded.uid);
     if (userRecord.disabled) {
+      res.locals.securityLogged = true;
+      securityEvent('suspended_access', { req, uid: decoded.uid });
       return res.status(403).json({ error: 'This account has been suspended.' });
     }
     req.user = decoded;
@@ -280,12 +402,16 @@ async function grantVip({ reference, uid, tier, payment }) {
 /* Paystack webhook: verify raw signature, then verify transaction server-to-server. */
 app.post('/webhook/paystack', async (req, res) => {
   try {
+    // Fail closed: an HMAC with an empty key is something anyone can compute.
+    if (!PAYSTACK_SECRET_KEY) return res.status(503).json({ error: 'Payments are not configured.' });
     const signature = String(req.headers['x-paystack-signature'] || '');
     const expected = crypto.createHmac('sha512', PAYSTACK_SECRET_KEY)
       .update(req.rawBody || Buffer.from(''))
       .digest('hex');
     if (!signature || signature.length !== expected.length ||
         !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+      res.locals.securityLogged = true;
+      securityEvent('webhook_bad_signature', { req, detail: { hasSignature: Boolean(signature) } });
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
@@ -534,6 +660,36 @@ function getStorageBucket() {
 
 const MEDIA_UPLOAD_ROOTS = new Set(['stories', 'voicenotes', 'chat_media', 'chat_images', 'chat_videos']);
 
+// What a file really is, from its first bytes. Uploads must match the type they claim:
+// a browser-supplied Content-Type is just a label, and SVG (which can carry script) is
+// never accepted. Returns the set of top-level kinds the bytes are valid for.
+function sniffMediaKinds(buf) {
+  if (!buf || buf.length < 12) return new Set();
+  const hex = buf.subarray(0, 16).toString('hex');
+  const ascii = (a, b) => buf.subarray(a, b).toString('latin1');
+  if (hex.startsWith('ffd8ff')) return new Set(['image']);                      // JPEG
+  if (hex.startsWith('89504e470d0a1a0a')) return new Set(['image']);            // PNG
+  if (ascii(0, 4) === 'GIF8') return new Set(['image']);                        // GIF
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return new Set(['image']);
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WAVE') return new Set(['audio']);
+  if (ascii(4, 8) === 'ftyp') {                                                 // ISO BMFF
+    const brand = ascii(8, 12).toLowerCase();
+    if (['heic', 'heix', 'heif', 'mif1', 'msf1', 'avif'].includes(brand)) return new Set(['image']);
+    return new Set(['video', 'audio']);                                         // mp4, m4a, mov, 3gp
+  }
+  if (hex.startsWith('1a45dfa3')) return new Set(['video', 'audio']);           // WebM / Matroska
+  if (ascii(0, 4) === 'OggS') return new Set(['audio', 'video']);
+  if (ascii(0, 3) === 'ID3' || /^fff[23ab]/.test(hex) || /^fff[19]/.test(hex)) return new Set(['audio']); // MP3, AAC ADTS
+  if (ascii(0, 4) === 'fLaC' || ascii(0, 5) === '#!AMR') return new Set(['audio']);
+  return new Set();
+}
+
+function mediaMatchesClaim(buf, contentType) {
+  const kind = String(contentType || '').split('/')[0];
+  if (/svg|xml|html/i.test(String(contentType || ''))) return false;
+  return sniffMediaKinds(buf).has(kind);
+}
+
 app.post('/media/upload', requireAuth, async (req, res) => {
   try {
     const { dataBase64, contentType, path, fileName } = req.body || {};
@@ -541,6 +697,14 @@ app.post('/media/upload', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'dataBase64 is required.' });
     }
     const uid = req.user.uid;
+    if (!(await persistentRateLimit('media-upload:' + uid, 60, 60 * 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many uploads. Please try again later.' });
+    }
+    const reject = (reason, message) => {
+      res.locals.securityLogged = true;
+      securityEvent('upload_rejected', { req, detail: { reason, contentType: String(contentType || '').slice(0, 60) } });
+      return res.status(400).json({ success: false, error: message });
+    };
     const safePath = String(path || 'chat_media').replace(/[^a-zA-Z0-9_\-\/]/g, '');
     const cleanContentType = String(contentType || 'audio/webm').split(';')[0].trim().toLowerCase();
 
@@ -550,10 +714,10 @@ app.post('/media/upload', requireAuth, async (req, res) => {
     // match the caller belongs to.
     const pathParts = safePath.split('/').filter(Boolean);
     if (!MEDIA_UPLOAD_ROOTS.has(pathParts[0])) {
-      return res.status(400).json({ success: false, error: 'Unsupported upload path.' });
+      return reject('path', 'Unsupported upload path.');
     }
     if (!/^(image|video|audio)\/[a-z0-9.+-]+$/.test(cleanContentType)) {
-      return res.status(400).json({ success: false, error: 'Only image, video and audio uploads are allowed.' });
+      return reject('type', 'Only image, video and audio uploads are allowed.');
     }
     if (pathParts[0] === 'chat_media') {
       const matchId = pathParts[1] || '';
@@ -577,7 +741,10 @@ app.post('/media/upload', requireAuth, async (req, res) => {
     const buffer = Buffer.from(rawBase64, 'base64');
 
     if (buffer.length > 15 * 1024 * 1024) {
-      return res.status(400).json({ success: false, error: 'File size exceeds 15MB limit.' });
+      return reject('size', 'File size exceeds 15MB limit.');
+    }
+    if (!mediaMatchesClaim(buffer, cleanContentType)) {
+      return reject('content', "That file isn't a supported photo, video or audio file.");
     }
 
     let downloadUrl = null;
@@ -690,6 +857,11 @@ app.put('/profiles/voice-intro', requireAuth, async (req, res) => {
     const buffer = Buffer.from(raw, 'base64');
     if (!buffer.length) return res.status(400).json({ success: false, error: 'The recording is empty.' });
     if (buffer.length > VOICE_INTRO_MAX_BYTES) return res.status(400).json({ success: false, error: 'The recording is too large.' });
+    if (!mediaMatchesClaim(buffer, type)) {
+      res.locals.securityLogged = true;
+      securityEvent('upload_rejected', { req, detail: { reason: 'content', contentType: type } });
+      return res.status(400).json({ success: false, error: "That recording isn't a supported audio file." });
+    }
 
     let url = null;
     try {
@@ -857,6 +1029,8 @@ app.post('/reports', requireAuth, async (req, res) => {
       });
       tx.set(blockRef,{blockedBy:reporterId,blockedUserId:reportedUserId,createdAt:now},{merge:true});
     });
+    // Several reports against one person in a day is a moderation signal worth surfacing.
+    securityEvent('user_reported', { req, target: reportedUserId, detail: { reason, reportedUserId } });
     res.json({success:true,reportId:reportRef.id,blocked:true});
   } catch(err) {
     console.error('report error:',err.message);
@@ -958,6 +1132,8 @@ app.post('/payment/verify', requireAuth, async (req, res) => {
     const isOwnerByMetadata = Boolean(metadataUserId && metadataUserId === req.user.uid);
     const isOwnerByEmail = Boolean(authenticatedEmail && paidEmail && authenticatedEmail === paidEmail);
     if (!isOwnerByEmail && !isOwnerByMetadata) {
+      res.locals.securityLogged = true;
+      securityEvent('payment_mismatch', { req, detail: { reason: 'customer', reference: String(reference).slice(0, 60) } });
       return res.status(403).json({ success: false, error: 'Payment customer does not match the signed-in account.' });
     }
     const granted = await grantVip({
@@ -969,6 +1145,9 @@ app.post('/payment/verify', requireAuth, async (req, res) => {
     return res.json({ success: true, alreadyProcessed: !granted });
   } catch (err) {
     console.error('Payment verification error:', err.message);
+    if (/amount or currency/i.test(err.message || '')) {
+      securityEvent('payment_mismatch', { req, detail: { reason: 'amount', reference: String(reference).slice(0, 60), tier: Number(tier) } });
+    }
     const safeError = err.message && !err.message.includes('sk_') && !err.message.includes('Bearer') && !err.message.includes('header')
       ? err.message
       : 'Payment could not be verified.';
@@ -1069,6 +1248,8 @@ app.post('/auth/send-otp', async (req, res) => {
       return res.status(502).json({ success: false, error: 'Could not send SMS right now. Try again shortly.' });
     }
     await savePendingOtp(phone, data.pinId, Date.now() + 10 * 60 * 1000);
+    securityEvent('otp_sent', { req, target: phone });
+    securityEvent('otp_send_burst', { req });
     return res.json({ success: true, message: 'OTP sent. Check your SMS.' });
   } catch (err) {
     console.error('OTP send error:', err.message);
@@ -1091,7 +1272,10 @@ app.post('/auth/verify-otp', async (req, res) => {
 
   try {
     const result = await verifyTermiiOtp(phone, otp);
-    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+    if (!result.ok) {
+      securityEvent('otp_verify_failed', { req, target: phone });
+      return res.status(400).json({ success: false, error: result.error });
+    }
 
     let userRecord;
     try {
@@ -1134,7 +1318,10 @@ app.post('/auth/verify-phone', requireAuth, async (req, res) => {
 
   try {
     const result = await verifyTermiiOtp(phone, otp);
-    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+    if (!result.ok) {
+      securityEvent('otp_verify_failed', { req, target: phone });
+      return res.status(400).json({ success: false, error: result.error });
+    }
 
     let updated;
     try {
@@ -1591,6 +1778,7 @@ app.post('/account/delete', requireAuth, async (req, res) => {
 
     // Delete the Auth account last so a partial cleanup can be retried safely.
     await admin.auth().deleteUser(uid);
+    securityEvent('account_deleted', { req, uid });
 
     return res.json({ success: true });
   } catch (err) {
@@ -1645,6 +1833,7 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
     }
     await commit();
 
+    securityEvent('admin_action', { req, detail: { action: 'migrate_public_profiles' } });
     return res.json({ success: true, migrated });
   } catch (err) {
     console.error('Public profile migration error:', err.message);
@@ -1703,6 +1892,7 @@ app.post('/admin/reports/update', requireAuth, requireAdmin, async (req, res) =>
       reviewedBy: req.user.uid,
       reviewedAt: admin.firestore.FieldValue.serverTimestamp()
     });
+    securityEvent('admin_action', { req, detail: { action: 'report_update', reportId: String(req.body?.reportId || ''), status: String(req.body?.status || '') } });
     return res.json({ success: true });
   } catch (err) {
     console.error('Admin report update error:', err.message);
@@ -1726,6 +1916,7 @@ app.post('/admin/users/suspend', requireAuth, requireAdmin, async (req, res) => 
       suspensionReason: reason
     }, { merge: true });
     await db.collection('public_profiles').doc(targetUid).set({ active: false }, { merge: true }).catch(() => {});
+    securityEvent('admin_action', { req, target: targetUid, detail: { action: 'suspend_user', targetUid } });
     return res.json({ success: true });
   } catch (err) {
     console.error('Admin suspension error:', err.message);
@@ -1744,10 +1935,65 @@ app.post('/admin/users/unsuspend', requireAuth, requireAdmin, async (req, res) =
       unsuspendedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     await db.collection('public_profiles').doc(targetUid).set({ active: true }, { merge: true }).catch(() => {});
+    securityEvent('admin_action', { req, target: targetUid, detail: { action: 'unsuspend_user', targetUid } });
     return res.json({ success: true });
   } catch (err) {
     console.error('Admin unsuspension error:', err.message);
     return res.status(500).json({ error: 'Could not restore user.' });
+  }
+});
+
+/* Security monitoring for admins: open alerts and the recent event log. */
+const SECURITY_SEVERITIES = ['info', 'low', 'medium', 'high'];
+
+function securityDocOut(doc) {
+  const d = doc.data() || {};
+  const ts = (v) => (v && typeof v.toMillis === 'function' ? v.toMillis() : (typeof v === 'number' ? v : null));
+  return {
+    id: doc.id, type: d.type, severity: d.severity, uid: d.uid || null, ipHash: d.ipHash || null,
+    targetHash: d.targetHash || null, path: d.path || null, method: d.method || null, detail: d.detail || {},
+    count: d.count || null, summary: d.summary || null, status: d.status || null,
+    createdAt: ts(d.createdAt), firstSeenAt: ts(d.firstSeenAt), lastSeenAt: ts(d.lastSeenAt),
+    acknowledgedBy: d.acknowledgedBy || null,
+  };
+}
+
+app.get('/admin/security', requireAuth, requireAdmin, async (req, res) => {
+  if (!rateLimit(`admin-security:${req.user.uid}`, 60, 60 * 1000)) {
+    return res.status(429).json({ error: 'Too many requests.' });
+  }
+  try {
+    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 300);
+    const minSeverity = SECURITY_SEVERITIES.includes(String(req.query.minSeverity)) ? String(req.query.minSeverity) : 'low';
+    const keep = (x) => SECURITY_SEVERITIES.indexOf(x.severity) >= SECURITY_SEVERITIES.indexOf(minSeverity);
+    const [alerts, events] = await Promise.all([
+      db.collection('security_alerts').where('status', '==', 'open').limit(200).get(),
+      db.collection('security_events').orderBy('createdAt', 'desc').limit(limit).get(),
+    ]);
+    const byTime = (a, b) => (b.lastSeenAt || b.createdAt || 0) - (a.lastSeenAt || a.createdAt || 0);
+    return res.json({
+      alerts: alerts.docs.map(securityDocOut).sort(byTime),
+      events: events.docs.map(securityDocOut).filter(e => keep(e) || e.type === 'admin_action'),
+    });
+  } catch (err) {
+    console.error('Admin security fetch error:', err.message);
+    return res.status(500).json({ error: 'Could not load security activity.' });
+  }
+});
+
+app.post('/admin/security/alerts/ack', requireAuth, requireAdmin, async (req, res) => {
+  const alertId = String(req.body?.alertId || '');
+  if (!/^[a-f0-9]{32}$/.test(alertId)) return res.status(400).json({ error: 'Invalid alert.' });
+  try {
+    const ref = db.collection('security_alerts').doc(alertId);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: 'Alert not found.' });
+    await ref.set({ status: 'acknowledged', acknowledgedBy: req.user.uid, acknowledgedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    securityEvent('admin_action', { req, detail: { action: 'acknowledge_alert', alertId } });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Alert acknowledge error:', err.message);
+    return res.status(500).json({ error: 'Could not update the alert.' });
   }
 });
 

@@ -18,7 +18,8 @@ function asUser(uid) {
 function activeProfile(uid) {
   store.set('public_profiles/' + uid, { id: uid, displayName: uid, age: 25, image: 'https://example.com/p.jpg', active: true });
 }
-const AUDIO = Buffer.from('fake-opus-audio-bytes').toString('base64');
+// A WebM header (EBML magic) followed by a marker the tests can search for.
+const AUDIO = Buffer.concat([Buffer.from('1a45dfa3', 'hex'), Buffer.alloc(28), Buffer.from('fake-opus-audio-bytes')]).toString('base64');
 const upload = (auth, body) => h.request('PUT', '/profiles/voice-intro', { dataBase64: 'data:audio/webm;base64,' + AUDIO, contentType: 'audio/webm;codecs=opus', durationSeconds: 12, ...body }, auth);
 
 test.before(() => h.start());

@@ -18,6 +18,8 @@
     table{width:100%;border-collapse:collapse}.tableWrap{overflow:auto;border:1px solid var(--line);border-radius:14px}th,td{padding:11px 12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top;font-size:.86rem}th{color:var(--muted);font-weight:700;position:sticky;top:0;background:#17101c}
     .pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#241a2a;color:#d8cddd;font-size:.76rem}.actions{display:flex;flex-wrap:wrap;gap:7px}.empty{padding:30px;text-align:center;color:var(--muted)}
     .row{display:flex;gap:8px;align-items:center}.row>*{flex:1}.dangerText{color:#ff8a90}.ok{color:#8de5aa}
+    .sev{display:inline-block;padding:3px 8px;border-radius:999px;font-size:.74rem;font-weight:700}.sev-high{background:#4a1218;color:#ff9aa0}.sev-medium{background:#47320d;color:#f4c15d}.sev-low{background:#1d2633;color:#9cc3ff}.sev-info{background:#241a2a;color:#d8cddd}
+    code{font-size:.78rem;color:#d8cddd}.secCard{margin-top:18px}
     @media(max-width:860px){.grid{grid-template-columns:1fr}.wrap{padding:14px}.top{align-items:flex-start;flex-direction:column}}
   </style>
 </head>
@@ -65,6 +67,35 @@
           </div>
         </section>
       </div>
+
+      <section class="card secCard" aria-labelledby="secTitle">
+        <div class="row" style="margin-bottom:12px">
+          <div><b id="secTitle">Suspicious activity</b><div class="sub" id="secCount">Not loaded</div></div>
+          <div style="text-align:right;display:flex;gap:8px;justify-content:flex-end;align-items:center">
+            <select id="secSeverity" aria-label="Minimum severity" style="width:auto">
+              <option value="low">Low and above</option>
+              <option value="medium">Medium and above</option>
+              <option value="high">High only</option>
+              <option value="info">Everything (incl. admin actions)</option>
+            </select>
+            <button id="secRefreshBtn" class="secondary">Refresh</button>
+          </div>
+        </div>
+        <div class="sub" style="margin-bottom:8px"><b>Open alerts</b>: bursts that crossed a threshold (failed sign-ins, OTP abuse, bad webhook signatures, payment mismatches, repeated reports against one person).</div>
+        <div class="tableWrap" style="margin-bottom:16px">
+          <table>
+            <thead><tr><th>Severity</th><th>What happened</th><th>Where</th><th>Who</th><th>Last seen</th><th></th></tr></thead>
+            <tbody id="alertsBody"><tr><td colspan="6" class="empty">No alerts loaded.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="sub" style="margin-bottom:8px"><b>Recent events</b>. IPs are shown as salted hashes; records are kept for 30 days.</div>
+        <div class="tableWrap">
+          <table>
+            <thead><tr><th>Time</th><th>Severity</th><th>Event</th><th>Path</th><th>User</th><th>IP hash</th><th>Detail</th></tr></thead>
+            <tbody id="eventsBody"><tr><td colspan="7" class="empty">No events loaded.</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </section>
   </main>
 
@@ -236,6 +267,73 @@ document.getElementById("migrateBtn").addEventListener("click", async () => {
   }
 });
 
+const EVENT_LABELS = {
+  unauthenticated: "Request with a missing or invalid sign-in",
+  forbidden: "Request to something the user may not access",
+  rate_limited: "Rate limit hit",
+  admin_denied: "Non-admin tried an admin action",
+  admin_action: "Admin action",
+  otp_sent: "SMS code sent",
+  otp_send_burst: "Unusually many SMS codes sent (possible SMS pumping)",
+  otp_verify_failed: "Wrong SMS code entered",
+  webhook_bad_signature: "Payment webhook with a bad signature",
+  payment_mismatch: "Payment did not match the account or price",
+  upload_rejected: "Upload rejected",
+  origin_blocked: "Request from a website that is not allowed",
+  user_reported: "User reported",
+  suspended_access: "Suspended account tried to use the app",
+  account_deleted: "Account deleted",
+  server_error: "Server error",
+};
+const secBody = document.getElementById("eventsBody");
+const alertsBody = document.getElementById("alertsBody");
+const secCount = document.getElementById("secCount");
+const secSeverity = document.getElementById("secSeverity");
+const fmtTime = (ms) => ms ? new Date(ms).toLocaleString() : "—";
+const sevPill = (s) => '<span class="sev sev-' + escapeHtml(s) + '">' + escapeHtml(s) + '</span>';
+const detailText = (d) => Object.entries(d || {}).map(([k, v]) => k + "=" + v).join(", ");
+
+async function loadSecurity() {
+  secCount.textContent = "Loading…";
+  try {
+    const data = await api("/admin/security?minSeverity=" + encodeURIComponent(secSeverity.value));
+    const alerts = data.alerts || [], events = data.events || [];
+    secCount.textContent = alerts.length + " open alert" + (alerts.length === 1 ? "" : "s") + " · " + events.length + " recent events";
+    alertsBody.innerHTML = alerts.length ? alerts.map(a =>
+      '<tr><td>' + sevPill(a.severity) + '</td>' +
+      '<td><b>' + escapeHtml(EVENT_LABELS[a.type] || a.type) + '</b><div class="sub">' + escapeHtml(a.summary || "") + '</div></td>' +
+      '<td><code>' + escapeHtml((a.method || "") + " " + (a.path || "")) + '</code></td>' +
+      '<td><div class="sub">' + escapeHtml(a.uid || "signed out") + '</div><div class="sub">ip ' + escapeHtml(a.ipHash || "—") + '</div></td>' +
+      '<td>' + escapeHtml(fmtTime(a.lastSeenAt || a.firstSeenAt)) + '</td>' +
+      '<td><button class="secondary" data-ack="' + escapeHtml(a.id) + '">Acknowledge</button></td></tr>'
+    ).join("") : '<tr><td colspan="6" class="empty">No open alerts.</td></tr>';
+    secBody.innerHTML = events.length ? events.map(e =>
+      '<tr><td>' + escapeHtml(fmtTime(e.createdAt)) + '</td><td>' + sevPill(e.severity) + '</td>' +
+      '<td>' + escapeHtml(EVENT_LABELS[e.type] || e.type) + '</td>' +
+      '<td><code>' + escapeHtml((e.method || "") + " " + (e.path || "")) + '</code></td>' +
+      '<td class="sub">' + escapeHtml(e.uid || "—") + '</td><td class="sub">' + escapeHtml(e.ipHash || "—") + '</td>' +
+      '<td class="sub">' + escapeHtml(detailText(e.detail)) + '</td></tr>'
+    ).join("") : '<tr><td colspan="7" class="empty">Nothing recorded at this level.</td></tr>';
+  } catch (err) {
+    secCount.textContent = err.message;
+  }
+}
+
+alertsBody.addEventListener("click", async event => {
+  const button = event.target.closest("button[data-ack]");
+  if (!button) return;
+  button.disabled = true;
+  try {
+    await api("/admin/security/alerts/ack", { method: "POST", body: JSON.stringify({ alertId: button.dataset.ack }) });
+    await loadSecurity();
+  } catch (err) {
+    button.disabled = false;
+    window.alert(err.message);
+  }
+});
+secSeverity.addEventListener("change", loadSecurity);
+document.getElementById("secRefreshBtn").addEventListener("click", loadSecurity);
+
 auth.onAuthStateChanged(async user => {
   if (!user) {
     loginCard.classList.remove("hidden");
@@ -251,6 +349,7 @@ auth.onAuthStateChanged(async user => {
     adminStatus.textContent = "Authenticated admin: " + user.email;
     count.textContent = (me.reports || []).length + " open reports";
     await loadReports();
+    await loadSecurity();
   } catch (err) {
     await auth.signOut();
     loginStatus.textContent = err.message;
