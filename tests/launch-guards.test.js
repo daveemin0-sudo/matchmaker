@@ -51,3 +51,15 @@ test('Gold does not advertise AI portraits (the feature has no entry point in th
   assert.doesNotMatch(html, /id="aiPickerGrid"/, 'if the AI feature is ever wired up, revisit this guard');
   assert.doesNotMatch(read('script.js'), /textContent = 'Unlimited likes, rewinds and AI portraits'/);
 });
+
+test('calls announced by push are loaded before ringing, show the right kind, and can be answered', () => {
+  const cfg = read('firebase-config.js');
+  const push = cfg.slice(cfg.indexOf("if (data.type === 'incoming_call')"), cfg.indexOf("if (data.type === 'incoming_call')") + 700);
+  assert.match(push, /collection\('calls'\)\.doc\(data\.callId\)\.get\(\)/, 'push handler loads the call document');
+  assert.doesNotMatch(push, /showIncomingCallPrompt\(data\.callId, data\)/, 'never rings with the bare push payload');
+  const app = read('script.js');
+  const prompt = app.slice(app.indexOf('function showIncomingCallPrompt'), app.indexOf('function showIncomingCallPrompt') + 900);
+  assert.match(prompt, /data\.type === 'video' \|\| data\.callType === 'video'/);
+  const accept = app.slice(app.indexOf('async function acceptIncomingCall'), app.indexOf('async function acceptIncomingCall') + 1500);
+  assert.match(accept, /if \(!incoming\.offer && incoming\.matchId && incoming\.callId\)/, 'answering fetches a missing offer');
+});

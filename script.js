@@ -8612,8 +8612,9 @@ function showIncomingCallPrompt(callId, data) {
   pendingIncomingCall = { callId, ...data };
   playRingtone();
   const partner = matchedUsers.find(u => u.id === data.callerId) || PROFILES_DATA.find(u => u.id === data.callerId);
-  const name = partner?.name || 'Someone';
-  const isVideo = data.type === 'video';
+  const name = partner?.name || data.callerName || 'Someone';
+  // Call documents store the kind in `type`; push payloads use `callType` (their `type` is 'incoming_call').
+  const isVideo = data.type === 'video' || data.callType === 'video';
   const { overlay } = openSheetDialog({
     id: 'incomingCallPrompt',
     title: `${name} is calling`,
@@ -8639,8 +8640,23 @@ async function acceptIncomingCall(incomingOverride) {
   pendingIncomingCall = null;
 
   const uid = fbAuth.currentUser.uid;
+  // If this call came from a push payload, it has no offer yet: load the call document.
+  if (!incoming.offer && incoming.matchId && incoming.callId) {
+    try {
+      const snap = await fbDb.collection('matches').doc(incoming.matchId).collection('calls').doc(incoming.callId).get();
+      if (!snap.exists || snap.data()?.status !== 'ringing') {
+        showToast('That call has already ended.', 'info');
+        return;
+      }
+      Object.assign(incoming, snap.data());
+    } catch (err) {
+      console.warn('Could not load the call to answer it:', err.message);
+      showToast('Could not accept the call. Please try again.', 'error');
+      return;
+    }
+  }
   const partner = matchedUsers.find(u => u.id === incoming.callerId) || PROFILES_DATA.find(u => u.id === incoming.callerId);
-  const type = incoming.type === 'video' ? 'video' : 'audio';
+  const type = (incoming.type === 'video' || incoming.callType === 'video') ? 'video' : 'audio';
   if (!partner) return declineIncomingCall(incoming);
 
   try {
