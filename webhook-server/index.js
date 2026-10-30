@@ -42,6 +42,23 @@ if (!process.env.METERED_API_KEY || !process.env.METERED_DOMAIN) {
   console.warn('⚠️  Metered TURN credentials are not configured. Calls will need STUN only until configured.');
 }
 
+// One clear configuration report at startup: what is set, what is missing and what stops
+// working without it. Values are never printed.
+const CONFIG_CHECKS = [
+  ['FIREBASE_SERVICE_ACCOUNT_JSON / _BASE64', Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || process.env.FIREBASE_SERVICE_ACCOUNT), 'required: nothing works without it'],
+  ['PAYSTACK_SECRET_KEY', Boolean(PAYSTACK_SECRET_KEY), 'payments and webhook refused'],
+  ['TERMII_API_KEY', Boolean(TERMII_API_KEY), 'phone sign-in unavailable'],
+  ['METERED_API_KEY + METERED_DOMAIN', Boolean(METERED_API_KEY && METERED_DOMAIN), 'calls across networks may carry no audio'],
+  ['CLEANUP_SECRET', Boolean(CLEANUP_SECRET), 'story cleanup job refused'],
+  ['SECURITY_LOG_SALT', Boolean(process.env.SECURITY_LOG_SALT), 'log hashes fall back to another secret'],
+  ['ALLOWED_ORIGINS', ALLOWED_ORIGINS.length > 0, 'only hookmebysam.com, this project on Vercel and localhost are allowed'],
+];
+if (PAYSTACK_SECRET_KEY.startsWith('sk_test_')) {
+  console.warn('⚠️  PAYSTACK_SECRET_KEY is a TEST key: no real money is collected.');
+}
+console.log('Configuration: ' + CONFIG_CHECKS.map(([name, ok]) => `${name}=${ok ? 'set' : 'MISSING'}`).join(', '));
+for (const [name, ok, effect] of CONFIG_CHECKS) if (!ok) console.warn(`⚠️  ${name} is not set: ${effect}.`);
+
 let serviceAccount = null;
 try {
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
@@ -106,36 +123,58 @@ app.use(express.json({
 }));
 app.set('trust proxy', 1);
 app.use(express.urlencoded({ extended: false, limit: '50kb' }));
+// CORS. Origins are compared exactly (or by a strict pattern), never by substring:
+// "includes('vercel.app')" also matched https://vercel.app.attacker.com and every other
+// site anyone has deployed on Vercel. Sign-in uses bearer tokens, not cookies, so CORS is
+// defence in depth here rather than the main protection.
+const DEFAULT_ORIGINS = ['https://hookmebysam.com', 'https://www.hookmebysam.com'];
+const ORIGIN_ALLOWLIST = new Set([...DEFAULT_ORIGINS, ...ALLOWED_ORIGINS]);
+// This project's own Vercel deployments (production and previews) only.
+const VERCEL_PROJECT_ORIGIN = /^https:\/\/(?:daveemin0-sudo-)?matchmaker(?:-[a-z0-9-]+)?\.vercel\.app$/;
+
+function isAllowedOrigin(origin) {
+  if (ORIGIN_ALLOWLIST.has(origin)) return true;
+  let url;
+  try { url = new URL(origin); } catch (_) { return false; }
+  if (url.origin !== origin && !(url.protocol === 'capacitor:' && origin.startsWith('capacitor://localhost'))) return false;
+  // The Android app (Capacitor, androidScheme https) runs at https://localhost; local dev
+  // uses http://localhost:5500 and 127.0.0.1. Hostname must match exactly.
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return true;
+  return VERCEL_PROJECT_ORIGIN.test(origin);
+}
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const isLocalOrigin = origin && (
-    origin.includes('localhost') ||
-    origin.includes('127.0.0.1') ||
-    origin.includes('0.0.0.0')
-  );
-  const isVercelOrigin = origin && (
-    origin.endsWith('.vercel.app') ||
-    origin.includes('vercel.app')
-  );
-  const originAllowed = !origin || !ALLOWED_ORIGINS.length || ALLOWED_ORIGINS.includes(origin) || isLocalOrigin || isVercelOrigin;
+  const originAllowed = !origin || isAllowedOrigin(origin);
 
   if (origin && originAllowed) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-  } else if (!origin) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
   }
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Cleanup-Secret');
   res.setHeader('Access-Control-Max-Age', '86400');
 
+  if (origin && !originAllowed) {
+    res.locals.securityLogged = true;
+    securityEvent('origin_blocked', { req, detail: { origin: String(origin).slice(0, 120) } });
+    return res.status(403).json({ error: 'Origin not allowed.' });
+  }
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
+  next();
+});
 
-  if (origin && !originAllowed) {
-    return res.status(403).json({ error: 'Origin not allowed.' });
-  }
+// Security headers. This server only returns JSON, so it can be locked down completely.
+app.disable('x-powered-by');
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Cache-Control', 'no-store');
   next();
 });
 
@@ -472,6 +511,7 @@ function profileSearchKeys(name) {
 }
 
 app.get('/profiles/me', requireAuth, async (req, res) => {
+  if (!rateLimit('profiles-me:' + req.user.uid, 60, 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   try {
     const snap = await db.collection('users').doc(req.user.uid).get();
     if (!snap.exists) {
@@ -892,6 +932,7 @@ app.put('/profiles/voice-intro', requireAuth, async (req, res) => {
 });
 
 app.delete('/profiles/voice-intro', requireAuth, async (req, res) => {
+  if (!rateLimit('voice-intro-del:' + req.user.uid, 20, 60 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const uid = req.user.uid;
   try {
     const remove = admin.firestore.FieldValue.delete ? admin.firestore.FieldValue.delete() : null;
@@ -1104,6 +1145,7 @@ app.post('/blocks', requireAuth, async (req, res) => {
 });
 
 app.delete('/blocks/:blockedUserId', requireAuth, async (req, res) => {
+  if (!rateLimit('unblock:' + req.user.uid, 30, 10 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const uid=req.user.uid, blockedUserId=String(req.params.blockedUserId||'').trim();
   if(!blockedUserId || blockedUserId===uid) return res.status(400).json({success:false,error:'Invalid unblock.'});
   try {
@@ -1596,6 +1638,7 @@ app.post('/fcm/new-message', requireAuth, async (req, res) => {
 });
 
 app.post('/fcm/incoming-call', requireAuth, async (req, res) => {
+  if (!(await persistentRateLimit('call-push:' + req.user.uid, 20, 10 * 60 * 1000))) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const { toUserId, callType, callId, matchId } = req.body || {};
   if (!toUserId || !matchId) return res.status(400).json({ error: 'toUserId and matchId are required.' });
   try {
@@ -1627,6 +1670,7 @@ app.post('/fcm/incoming-call', requireAuth, async (req, res) => {
 });
 
 app.post('/fcm/call-ended', requireAuth, async (req, res) => {
+  if (!rateLimit('call-ended:' + req.user.uid, 40, 10 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const { toUserId, callId } = req.body || {};
   if (!toUserId) return res.status(400).json({ error: 'toUserId is required.' });
   try {
@@ -1651,6 +1695,7 @@ app.post('/fcm/call-ended', requireAuth, async (req, res) => {
 });
 
 app.post('/stories/cleanup', async (req, res) => {
+  if (!rateLimit('cleanup:' + req.ip, 10, 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   // Fail closed: with CLEANUP_SECRET unset, an empty header must not match.
   const providedSecret = Buffer.from(String(req.headers['x-cleanup-secret'] || ''));
   const expectedSecret = Buffer.from(CLEANUP_SECRET);
@@ -1683,6 +1728,7 @@ app.post('/stories/cleanup', async (req, res) => {
 });
 
 app.get('/turn/credentials', requireAuth, async (_req, res) => {
+  if (!(await persistentRateLimit('turn:' + _req.user.uid, 30, 10 * 60 * 1000))) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const fallbackServers = [
     { urls: "stun:stun.relay.metered.ca:80" },
     { urls: "stun:stun.l.google.com:19302" },
@@ -1901,6 +1947,7 @@ app.post('/admin/reports/update', requireAuth, requireAdmin, async (req, res) =>
 });
 
 app.post('/admin/users/suspend', requireAuth, requireAdmin, async (req, res) => {
+  if (!rateLimit('admin-suspend:' + req.user.uid, 60, 10 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const targetUid = String(req.body?.userId || '');
   const reason = String(req.body?.reason || 'Policy violation').slice(0, 500);
   if (!targetUid || targetUid === req.user.uid) {
@@ -1925,6 +1972,7 @@ app.post('/admin/users/suspend', requireAuth, requireAdmin, async (req, res) => 
 });
 
 app.post('/admin/users/unsuspend', requireAuth, requireAdmin, async (req, res) => {
+  if (!rateLimit('admin-unsuspend:' + req.user.uid, 60, 10 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const targetUid = String(req.body?.userId || '');
   if (!targetUid) return res.status(400).json({ error: 'Invalid target user.' });
   try {
@@ -1997,9 +2045,15 @@ app.post('/admin/security/alerts/ack', requireAuth, requireAdmin, async (req, re
   }
 });
 
-app.get('/health', async (_req, res) => {
+let _healthProbeAt = 0;
+app.get('/health', async (req, res) => {
+  if (!rateLimit('health:' + req.ip, 30, 60 * 1000)) return res.status(429).json({ ok: false, error: 'Too many requests.' });
   try {
-    await db.collection('users').limit(1).get();
+    // Public endpoint: probe Firestore at most every 30 s.
+    if (Date.now() - _healthProbeAt > 30 * 1000) {
+      await db.collection('users').limit(1).get();
+      _healthProbeAt = Date.now();
+    }
     return res.json({
       ok: true,
       service: 'hookmebysam-backend',
@@ -2023,5 +2077,21 @@ app.get('/health', async (_req, res) => {
   }
 });
 app.get('/', (_req, res) => res.json({ service: 'hookmebysam backend', status: 'online' }));
+
+// Unknown routes and errors return plain JSON. Express's default handler would send an
+// HTML page with the stack trace whenever NODE_ENV isn't "production" (it isn't set here),
+// e.g. for a request with malformed JSON.
+app.use((req, res) => res.status(404).json({ error: 'Not found.' }));
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) {
+    return res.status(400).json({ error: 'Malformed request body.' });
+  }
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request is too large.' });
+  }
+  console.error('Unhandled error:', err && err.message);
+  return res.status(500).json({ error: 'Something went wrong.' });
+});
 
 app.listen(PORT, () => console.log(`hookmebysam backend listening on port ${PORT}`));

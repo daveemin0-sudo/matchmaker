@@ -7,7 +7,7 @@
     "androidScheme": "https"
   },
   "android": {
-    "allowMixedContent": true,
+    "allowMixedContent": false,
     "buildOptions": {
       "keystorePath": "hookmebysam.keystore",
       "keystoreAlias": "hookmebysam",
@@ -31,7 +31,11 @@
       "darkButtons": false
     },
     "PushNotifications": {
-      "presentationOptions": ["badge", "sound", "alert"]
+      "presentationOptions": [
+        "badge",
+        "sound",
+        "alert"
+      ]
     }
   }
 }

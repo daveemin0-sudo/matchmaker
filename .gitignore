@@ -1,6 +1,6 @@
 # Dependencies
 node_modules/
-package-lock.json
+# (package-lock.json files ARE committed: CI and Render install the exact locked versions.)
 
 # Environment Variables & Secrets
 .env
@@ -13,6 +13,11 @@ firebase-service-account*.json
 serviceAccountKey*.json
 *adminsdk*.json
 *.key
+# Android signing keys (capacitor.config.json points at hookmebysam.keystore)
+*.keystore
+*.jks
+keystore.properties
+google-services.json
 
 # Logs
 logs/
