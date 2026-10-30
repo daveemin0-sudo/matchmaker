@@ -16,7 +16,8 @@ const TERMII_SENDER_ID = (process.env.TERMII_SENDER_ID || 'N-Alert').trim().repl
 const PAYSTACK_SECRET_KEY = (process.env.PAYSTACK_SECRET_KEY || '').trim().replace(/[\r\n\t]/g, '');
 const CLEANUP_SECRET = (process.env.CLEANUP_SECRET || '').trim().replace(/[\r\n\t]/g, '');
 const METERED_API_KEY = (process.env.METERED_API_KEY || '').trim().replace(/[\r\n\t]/g, '');
-const METERED_DOMAIN = (process.env.METERED_DOMAIN || '').trim().replace(/[\r\n\t]/g, '');
+// Accept "name.metered.live" as well as a pasted "https://name.metered.live/".
+const METERED_DOMAIN = (process.env.METERED_DOMAIN || '').trim().replace(/[\r\n\t]/g, '').replace(/^https?:\/\//i, '').replace(/\/.*$/, '');
 const DAILY_FREE_SWIPES = Math.max(1, Number(process.env.DAILY_FREE_SWIPES || 100));
 
 function nigeriaDateKey(date = new Date()) {
@@ -40,6 +41,23 @@ if (!process.env.CLEANUP_SECRET) {
 if (!process.env.METERED_API_KEY || !process.env.METERED_DOMAIN) {
   console.warn('⚠️  Metered TURN credentials are not configured. Calls will need STUN only until configured.');
 }
+
+// One clear configuration report at startup: what is set, what is missing and what stops
+// working without it. Values are never printed.
+const CONFIG_CHECKS = [
+  ['FIREBASE_SERVICE_ACCOUNT_JSON / _BASE64', Boolean(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || process.env.FIREBASE_SERVICE_ACCOUNT), 'required: nothing works without it'],
+  ['PAYSTACK_SECRET_KEY', Boolean(PAYSTACK_SECRET_KEY), 'payments and webhook refused'],
+  ['TERMII_API_KEY', Boolean(TERMII_API_KEY), 'phone sign-in unavailable'],
+  ['METERED_API_KEY + METERED_DOMAIN', Boolean(METERED_API_KEY && METERED_DOMAIN), 'calls across networks may carry no audio'],
+  ['CLEANUP_SECRET', Boolean(CLEANUP_SECRET), 'story cleanup job refused'],
+  ['SECURITY_LOG_SALT', Boolean(process.env.SECURITY_LOG_SALT), 'log hashes fall back to another secret'],
+  ['ALLOWED_ORIGINS', ALLOWED_ORIGINS.length > 0, 'only hookmebysam.com, this project on Vercel and localhost are allowed'],
+];
+if (PAYSTACK_SECRET_KEY.startsWith('sk_test_')) {
+  console.warn('⚠️  PAYSTACK_SECRET_KEY is a TEST key: no real money is collected.');
+}
+console.log('Configuration: ' + CONFIG_CHECKS.map(([name, ok]) => `${name}=${ok ? 'set' : 'MISSING'}`).join(', '));
+for (const [name, ok, effect] of CONFIG_CHECKS) if (!ok) console.warn(`⚠️  ${name} is not set: ${effect}.`);
 
 let serviceAccount = null;
 try {
@@ -83,44 +101,184 @@ try {
   console.warn('⚠️  Firestore client pending credentials initialization.');
 }
 
+// Every 401/403/429/5xx response is recorded, so probing and brute force show up on the
+// admin page even on routes that have no explicit event. Handlers that record a more
+// specific event set res.locals.securityLogged to avoid counting it twice.
+app.use((req, res, next) => {
+  res.on('finish', () => {
+    if (res.locals.securityLogged) return;
+    const code = res.statusCode;
+    const p = String(req.originalUrl || req.url || '');
+    if (code === 401) securityEvent('unauthenticated', { req });
+    else if (code === 403) securityEvent(p.startsWith('/admin') ? 'admin_denied' : 'forbidden', { req });
+    else if (code === 429) securityEvent('rate_limited', { req });
+    else if (code >= 500) securityEvent('server_error', { req, detail: { status: code } });
+  });
+  next();
+});
+
 app.use(express.json({
   limit: '15mb',
   verify: (req, _res, buf) => { req.rawBody = Buffer.from(buf); }
 }));
 app.set('trust proxy', 1);
 app.use(express.urlencoded({ extended: false, limit: '50kb' }));
+// CORS. Origins are compared exactly (or by a strict pattern), never by substring:
+// "includes('vercel.app')" also matched https://vercel.app.attacker.com and every other
+// site anyone has deployed on Vercel. Sign-in uses bearer tokens, not cookies, so CORS is
+// defence in depth here rather than the main protection.
+const DEFAULT_ORIGINS = ['https://hookmebysam.com', 'https://www.hookmebysam.com'];
+const ORIGIN_ALLOWLIST = new Set([...DEFAULT_ORIGINS, ...ALLOWED_ORIGINS]);
+// This project's own Vercel deployments (production and previews) only.
+const VERCEL_PROJECT_ORIGIN = /^https:\/\/(?:daveemin0-sudo-)?matchmaker(?:-[a-z0-9-]+)?\.vercel\.app$/;
+
+function isAllowedOrigin(origin) {
+  if (ORIGIN_ALLOWLIST.has(origin)) return true;
+  let url;
+  try { url = new URL(origin); } catch (_) { return false; }
+  if (url.origin !== origin && !(url.protocol === 'capacitor:' && origin.startsWith('capacitor://localhost'))) return false;
+  // The Android app (Capacitor, androidScheme https) runs at https://localhost; local dev
+  // uses http://localhost:5500 and 127.0.0.1. Hostname must match exactly.
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') return true;
+  return VERCEL_PROJECT_ORIGIN.test(origin);
+}
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const isLocalOrigin = origin && (
-    origin.includes('localhost') ||
-    origin.includes('127.0.0.1') ||
-    origin.includes('0.0.0.0')
-  );
-  const isVercelOrigin = origin && (
-    origin.endsWith('.vercel.app') ||
-    origin.includes('vercel.app')
-  );
-  const originAllowed = !origin || !ALLOWED_ORIGINS.length || ALLOWED_ORIGINS.includes(origin) || isLocalOrigin || isVercelOrigin;
+  const originAllowed = !origin || isAllowedOrigin(origin);
 
   if (origin && originAllowed) {
     res.setHeader('Access-Control-Allow-Origin', origin);
-  } else if (!origin) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
   }
   res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Cleanup-Secret');
   res.setHeader('Access-Control-Max-Age', '86400');
 
+  if (origin && !originAllowed) {
+    res.locals.securityLogged = true;
+    securityEvent('origin_blocked', { req, detail: { origin: String(origin).slice(0, 120) } });
+    return res.status(403).json({ error: 'Origin not allowed.' });
+  }
   if (req.method === 'OPTIONS') {
     return res.status(204).end();
   }
-
-  if (origin && !originAllowed) {
-    return res.status(403).json({ error: 'Origin not allowed.' });
-  }
   next();
 });
+
+// Security headers. This server only returns JSON, so it can be locked down completely.
+app.disable('x-powered-by');
+app.use((_req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  res.setHeader('Cache-Control', 'no-store');
+  next();
+});
+
+/*
+ * Security monitoring. Suspicious activity is written to security_events (server-only),
+ * and bursts that cross a threshold raise one security_alerts document per key and window,
+ * shown on the admin page and logged with a [SECURITY_ALERT] prefix for the Render logs.
+ * IP addresses are stored only as a salted hash (enough to correlate, not to identify), and
+ * every document carries expiresAt so a Firestore TTL policy can delete it after 30 days.
+ * Writes are capped per key and window so an attacker cannot inflate Firestore costs.
+ * Email/password sign-in goes straight from the app to Firebase Auth, which throttles
+ * it itself; this server never sees those attempts.
+ */
+const SECURITY_SALT = (process.env.SECURITY_LOG_SALT || CLEANUP_SECRET || PAYSTACK_SECRET_KEY || 'hmbs-security').trim();
+const SECURITY_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+const SECURITY_EVENT_WRITES_PER_KEY = 5; // per window, after which only the counter grows
+
+// type -> { severity, threshold (events per key in window that raise an alert), windowMs, by }
+// `by` picks the key the burst is counted on: 'ip', 'uid', 'target' or 'global'.
+const SECURITY_RULES = {
+  unauthenticated:      { severity: 'low',      threshold: 30, windowMs: 5 * 60 * 1000,  by: 'ip' },
+  forbidden:            { severity: 'low',      threshold: 20, windowMs: 10 * 60 * 1000, by: 'ip' },
+  rate_limited:         { severity: 'medium',   threshold: 10, windowMs: 10 * 60 * 1000, by: 'ip' },
+  admin_denied:         { severity: 'high',     threshold: 1,  windowMs: 60 * 60 * 1000, by: 'uid' },
+  admin_action:         { severity: 'info',     threshold: 0,  windowMs: 60 * 60 * 1000, by: 'uid', audit: true },
+  otp_sent:             { severity: 'info',     threshold: 15, windowMs: 60 * 60 * 1000, by: 'ip' },
+  otp_send_burst:       { severity: 'high',     threshold: 60, windowMs: 60 * 60 * 1000, by: 'global' },
+  otp_verify_failed:    { severity: 'medium',   threshold: 5,  windowMs: 10 * 60 * 1000, by: 'target' },
+  webhook_bad_signature:{ severity: 'high',     threshold: 3,  windowMs: 10 * 60 * 1000, by: 'ip' },
+  payment_mismatch:     { severity: 'high',     threshold: 1,  windowMs: 60 * 60 * 1000, by: 'uid' },
+  upload_rejected:      { severity: 'medium',   threshold: 10, windowMs: 10 * 60 * 1000, by: 'uid' },
+  origin_blocked:       { severity: 'low',      threshold: 50, windowMs: 10 * 60 * 1000, by: 'ip' },
+  user_reported:        { severity: 'medium',   threshold: 3,  windowMs: 24 * 60 * 60 * 1000, by: 'target' },
+  suspended_access:     { severity: 'medium',   threshold: 5,  windowMs: 60 * 60 * 1000, by: 'uid' },
+  account_deleted:      { severity: 'info',     threshold: 0,  windowMs: 60 * 60 * 1000, by: 'uid', audit: true },
+  server_error:         { severity: 'medium',   threshold: 20, windowMs: 10 * 60 * 1000, by: 'global' },
+};
+
+const securityCounters = new Map(); // `${type}|${key}` -> { start, count, written, alerted }
+
+function hashForLog(value) {
+  if (!value) return null;
+  return crypto.createHmac('sha256', SECURITY_SALT).update(String(value)).digest('hex').slice(0, 16);
+}
+
+function securityEvent(type, { req = null, uid = null, target = null, detail = {} } = {}) {
+  const rule = SECURITY_RULES[type];
+  if (!rule) return;
+  try {
+    const ipHash = hashForLog(req ? req.ip : null);
+    const actor = uid || (req && req.user && req.user.uid) || null;
+    const targetHash = target ? hashForLog(target) : null;
+    const key = rule.by === 'global' ? 'all' : rule.by === 'uid' ? (actor || ipHash || 'anon') : rule.by === 'target' ? (targetHash || ipHash || 'anon') : (ipHash || actor || 'anon');
+    const counterKey = type + '|' + key;
+    const now = Date.now();
+    let c = securityCounters.get(counterKey);
+    if (!c || now - c.start > rule.windowMs) c = { start: now, count: 0, written: 0, alerted: false };
+    c.count += 1;
+    securityCounters.set(counterKey, c);
+
+    const safeDetail = {};
+    for (const [k, v] of Object.entries(detail || {})) {
+      if (v === undefined || v === null) continue;
+      safeDetail[k] = typeof v === 'number' || typeof v === 'boolean' ? v : String(v).slice(0, 200);
+    }
+    const base = {
+      type, severity: rule.severity,
+      uid: actor, ipHash, targetHash,
+      path: req ? String(req.originalUrl || req.url || '').split('?')[0].slice(0, 120) : null,
+      method: req ? req.method : null,
+      detail: safeDetail,
+    };
+    if (!db) return;
+    const now_ts = admin.firestore.FieldValue.serverTimestamp();
+    const expiresAt = admin.firestore.Timestamp.fromMillis(now + SECURITY_RETENTION_MS);
+    // Audit events (admin actions, deletions) are always kept; they can't be triggered by outsiders.
+    if (rule.audit || c.written < SECURITY_EVENT_WRITES_PER_KEY) {
+      c.written += 1;
+      db.collection('security_events').doc().set({ ...base, createdAt: now_ts, expiresAt }).catch(err => console.warn('security_events write failed:', err.message));
+    }
+    if (rule.threshold > 0 && !c.alerted && c.count >= rule.threshold) {
+      c.alerted = true;
+      const alertId = crypto.createHash('sha256').update(counterKey + '|' + c.start).digest('hex').slice(0, 32);
+      const summary = `${c.count} × ${type} in ${Math.round((now - c.start) / 1000)} s` + (rule.by !== 'global' ? ` (same ${rule.by})` : '');
+      console.error(`[SECURITY_ALERT] ${rule.severity.toUpperCase()} ${summary} path=${base.path || '-'} uid=${actor || '-'} ip=${ipHash || '-'}`);
+      db.collection('security_alerts').doc(alertId).set({
+        ...base, count: c.count, windowSeconds: Math.round(rule.windowMs / 1000), summary,
+        status: 'open', firstSeenAt: admin.firestore.Timestamp.fromMillis(c.start), lastSeenAt: now_ts, expiresAt
+      }, { merge: true }).catch(err => console.warn('security_alerts write failed:', err.message));
+    }
+  } catch (err) {
+    console.warn('securityEvent failed:', err.message);
+  }
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, c] of securityCounters) {
+    const rule = SECURITY_RULES[k.split('|')[0]];
+    if (!rule || now - c.start > rule.windowMs) securityCounters.delete(k);
+  }
+  // Hard cap so a flood of distinct IPs cannot grow memory without bound.
+  if (securityCounters.size > 50000) securityCounters.clear();
+}, 60 * 1000).unref();
 
 const rateBuckets = new Map();
 
@@ -173,6 +331,8 @@ async function requireAdmin(req, res, next) {
   try {
     const doc = await db.collection('users').doc(req.user.uid).get();
     if (!doc.exists || doc.data()?.role !== 'admin') {
+      res.locals.securityLogged = true;
+      securityEvent('admin_denied', { req });
       return res.status(403).json({ error: 'Admin access required.' });
     }
     req.adminProfile = doc.data();
@@ -190,6 +350,8 @@ async function requireAuth(req, res, next) {
     const decoded = await admin.auth().verifyIdToken(header.slice(7));
     const userRecord = await admin.auth().getUser(decoded.uid);
     if (userRecord.disabled) {
+      res.locals.securityLogged = true;
+      securityEvent('suspended_access', { req, uid: decoded.uid });
       return res.status(403).json({ error: 'This account has been suspended.' });
     }
     req.user = decoded;
@@ -279,12 +441,16 @@ async function grantVip({ reference, uid, tier, payment }) {
 /* Paystack webhook: verify raw signature, then verify transaction server-to-server. */
 app.post('/webhook/paystack', async (req, res) => {
   try {
+    // Fail closed: an HMAC with an empty key is something anyone can compute.
+    if (!PAYSTACK_SECRET_KEY) return res.status(503).json({ error: 'Payments are not configured.' });
     const signature = String(req.headers['x-paystack-signature'] || '');
     const expected = crypto.createHmac('sha512', PAYSTACK_SECRET_KEY)
       .update(req.rawBody || Buffer.from(''))
       .digest('hex');
     if (!signature || signature.length !== expected.length ||
         !crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) {
+      res.locals.securityLogged = true;
+      securityEvent('webhook_bad_signature', { req, detail: { hasSignature: Boolean(signature) } });
       return res.status(401).json({ error: 'Invalid signature' });
     }
 
@@ -325,7 +491,27 @@ app.post('/webhook/paystack', async (req, res) => {
 });
 
 /* Retrieve authenticated user's own profile. Read-only: it never clones a profile to another uid. */
+/*
+ * People search. Firestore cannot search inside text, so each published profile carries
+ * searchKeys: the 2-20 character prefixes of every word of its display name. A search asks
+ * Firestore for one key and checks the remaining words here, so a phone never downloads the
+ * whole public_profiles collection.
+ */
+function searchWords(text) {
+  return String(text || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+function profileSearchKeys(name) {
+  const keys = new Set();
+  for (const w of searchWords(name).slice(0, 6)) {
+    for (let i = 2; i <= Math.min(w.length, 20); i++) keys.add(w.slice(0, i));
+  }
+  return [...keys].slice(0, 120);
+}
+
 app.get('/profiles/me', requireAuth, async (req, res) => {
+  if (!rateLimit('profiles-me:' + req.user.uid, 60, 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   try {
     const snap = await db.collection('users').doc(req.user.uid).get();
     if (!snap.exists) {
@@ -422,6 +608,24 @@ app.post('/auth/link-google', requireAuth, async (req, res) => {
 });
 
 /* Authenticated direct payment verification. Never trusts uid/amount from the browser. */
+// Profile photos are shown to everyone in Discovery, so only accept what the app itself
+// produces: compressed JPEG/PNG/WebP data URLs (Storage is not provisioned yet), Firebase
+// Storage links, Google profile photos, and the Unsplash images older profiles carry.
+// Anything else (http://, javascript:, SVG, a tracking pixel on someone's own server that
+// would collect every viewer's IP, or a multi-megabyte string) is dropped.
+const PHOTO_HOSTS = /^(?:firebasestorage\.googleapis\.com|storage\.googleapis\.com|[a-z0-9-]+\.googleusercontent\.com|images\.unsplash\.com)$/;
+const MAX_PHOTO_DATA_URL = 700 * 1024;
+
+function safePhotoUrl(value) {
+  const v = String(value || '').trim();
+  if (!v) return '';
+  if (/^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(v)) return v.length <= MAX_PHOTO_DATA_URL ? v : '';
+  let url;
+  try { url = new URL(v); } catch (_) { return ''; }
+  return url.protocol === 'https:' && PHOTO_HOSTS.test(url.hostname) && v.length <= 2048 ? v : '';
+}
+const safePhotoList = (list) => (Array.isArray(list) ? list : []).map(safePhotoUrl).filter(Boolean).slice(0, 6);
+
 app.post('/profiles/sync', requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
@@ -452,13 +656,13 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
     if (Array.isArray(body.interests) && (!d.interests || !d.interests.length)) {
       updates.interests = body.interests.slice(0, 30).map(v => String(v).slice(0, 40));
     }
-    const bodyImage = String(body.image || body.avatar || (Array.isArray(body.photos) && body.photos[0]) || '');
+    const bodyImage = safePhotoUrl(body.image || body.avatar || (Array.isArray(body.photos) && body.photos[0]) || '');
     if (bodyImage && !d.image && !d.avatar) {
       updates.image = bodyImage;
       updates.avatar = bodyImage;
     }
-    if (Array.isArray(body.photos) && body.photos.length > 0 && (!d.photos || !d.photos.length)) {
-      updates.photos = body.photos.slice(0, 6);
+    if (safePhotoList(body.photos).length > 0 && (!d.photos || !d.photos.length)) {
+      updates.photos = safePhotoList(body.photos);
     }
     if (Object.keys(updates).length > 0) {
       updates.updatedAt = admin.firestore.FieldValue.serverTimestamp();
@@ -467,15 +671,18 @@ app.post('/profiles/sync', requireAuth, async (req, res) => {
     }
 
     const city = String(d.city || body.city || '').trim().slice(0,80);
-    const finalImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || bodyImage || '');
-    const finalPhotos = Array.isArray(d.photos) && d.photos.length > 0
-      ? d.photos.slice(0, 6)
-      : (Array.isArray(body.photos) && body.photos.length > 0
-        ? body.photos.slice(0, 6)
+    // d.* comes from the user's own Firestore document, which the client writes directly,
+    // so it is validated here too before anything is published.
+    const finalImage = safePhotoUrl(d.image) || safePhotoUrl(d.avatar) || safePhotoList(d.photos)[0] || bodyImage || '';
+    const finalPhotos = safePhotoList(d.photos).length > 0
+      ? safePhotoList(d.photos)
+      : (safePhotoList(body.photos).length > 0
+        ? safePhotoList(body.photos)
         : (finalImage ? [finalImage] : []));
 
+    const publicName = String(d.displayName || d.name || body.displayName || body.name || 'User').slice(0,80);
     await db.collection('public_profiles').doc(uid).set({
-      id: uid, displayName: String(d.displayName || d.name || body.displayName || body.name || 'User').slice(0,80),
+      id: uid, displayName: publicName, searchKeys: profileSearchKeys(publicName),
       age: Math.floor(age), gender: String(d.gender || body.gender || '').slice(0,40),
       bio: String(d.bio || body.bio || '').slice(0,1000),
       interests: Array.isArray(d.interests) ? d.interests.slice(0,30).map(v => String(v).slice(0,40)) : (Array.isArray(body.interests) ? body.interests.slice(0,30).map(v => String(v).slice(0,40)) : []),
@@ -513,6 +720,36 @@ function getStorageBucket() {
 
 const MEDIA_UPLOAD_ROOTS = new Set(['stories', 'voicenotes', 'chat_media', 'chat_images', 'chat_videos']);
 
+// What a file really is, from its first bytes. Uploads must match the type they claim:
+// a browser-supplied Content-Type is just a label, and SVG (which can carry script) is
+// never accepted. Returns the set of top-level kinds the bytes are valid for.
+function sniffMediaKinds(buf) {
+  if (!buf || buf.length < 12) return new Set();
+  const hex = buf.subarray(0, 16).toString('hex');
+  const ascii = (a, b) => buf.subarray(a, b).toString('latin1');
+  if (hex.startsWith('ffd8ff')) return new Set(['image']);                      // JPEG
+  if (hex.startsWith('89504e470d0a1a0a')) return new Set(['image']);            // PNG
+  if (ascii(0, 4) === 'GIF8') return new Set(['image']);                        // GIF
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return new Set(['image']);
+  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WAVE') return new Set(['audio']);
+  if (ascii(4, 8) === 'ftyp') {                                                 // ISO BMFF
+    const brand = ascii(8, 12).toLowerCase();
+    if (['heic', 'heix', 'heif', 'mif1', 'msf1', 'avif'].includes(brand)) return new Set(['image']);
+    return new Set(['video', 'audio']);                                         // mp4, m4a, mov, 3gp
+  }
+  if (hex.startsWith('1a45dfa3')) return new Set(['video', 'audio']);           // WebM / Matroska
+  if (ascii(0, 4) === 'OggS') return new Set(['audio', 'video']);
+  if (ascii(0, 3) === 'ID3' || /^fff[23ab]/.test(hex) || /^fff[19]/.test(hex)) return new Set(['audio']); // MP3, AAC ADTS
+  if (ascii(0, 4) === 'fLaC' || ascii(0, 5) === '#!AMR') return new Set(['audio']);
+  return new Set();
+}
+
+function mediaMatchesClaim(buf, contentType) {
+  const kind = String(contentType || '').split('/')[0];
+  if (/svg|xml|html/i.test(String(contentType || ''))) return false;
+  return sniffMediaKinds(buf).has(kind);
+}
+
 app.post('/media/upload', requireAuth, async (req, res) => {
   try {
     const { dataBase64, contentType, path, fileName } = req.body || {};
@@ -520,6 +757,14 @@ app.post('/media/upload', requireAuth, async (req, res) => {
       return res.status(400).json({ success: false, error: 'dataBase64 is required.' });
     }
     const uid = req.user.uid;
+    if (!(await persistentRateLimit('media-upload:' + uid, 60, 60 * 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many uploads. Please try again later.' });
+    }
+    const reject = (reason, message) => {
+      res.locals.securityLogged = true;
+      securityEvent('upload_rejected', { req, detail: { reason, contentType: String(contentType || '').slice(0, 60) } });
+      return res.status(400).json({ success: false, error: message });
+    };
     const safePath = String(path || 'chat_media').replace(/[^a-zA-Z0-9_\-\/]/g, '');
     const cleanContentType = String(contentType || 'audio/webm').split(';')[0].trim().toLowerCase();
 
@@ -529,10 +774,10 @@ app.post('/media/upload', requireAuth, async (req, res) => {
     // match the caller belongs to.
     const pathParts = safePath.split('/').filter(Boolean);
     if (!MEDIA_UPLOAD_ROOTS.has(pathParts[0])) {
-      return res.status(400).json({ success: false, error: 'Unsupported upload path.' });
+      return reject('path', 'Unsupported upload path.');
     }
     if (!/^(image|video|audio)\/[a-z0-9.+-]+$/.test(cleanContentType)) {
-      return res.status(400).json({ success: false, error: 'Only image, video and audio uploads are allowed.' });
+      return reject('type', 'Only image, video and audio uploads are allowed.');
     }
     if (pathParts[0] === 'chat_media') {
       const matchId = pathParts[1] || '';
@@ -556,7 +801,10 @@ app.post('/media/upload', requireAuth, async (req, res) => {
     const buffer = Buffer.from(rawBase64, 'base64');
 
     if (buffer.length > 15 * 1024 * 1024) {
-      return res.status(400).json({ success: false, error: 'File size exceeds 15MB limit.' });
+      return reject('size', 'File size exceeds 15MB limit.');
+    }
+    if (!mediaMatchesClaim(buffer, cleanContentType)) {
+      return reject('content', "That file isn't a supported photo, video or audio file.");
     }
 
     let downloadUrl = null;
@@ -594,30 +842,216 @@ app.post('/media/upload', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/profiles/search', requireAuth, async (req, res) => {
+  try {
+    const uid = req.user.uid;
+    if (!(await persistentRateLimit('search:' + uid, 60, 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many searches. Please slow down.' });
+    }
+    const words = searchWords(String(req.query.q || '').slice(0, 80)).slice(0, 5);
+    if (!words.length || words.every(w => w.length < 2)) return res.json({ success: true, users: [] });
+    // Query on the longest word (most selective); check every word against the name below.
+    const key = words.reduce((a, b) => (b.length > a.length ? b : a)).slice(0, 20);
+    const [outgoing, incoming, profiles] = await Promise.all([
+      db.collection('blocks').where('blockedBy', '==', uid).get(),
+      db.collection('blocks').where('blockedUserId', '==', uid).get(),
+      db.collection('public_profiles').where('searchKeys', 'array-contains', key).limit(60).get()
+    ]);
+    const excluded = new Set([uid]);
+    outgoing.forEach(s => { const d = s.data() || {}; if (d.blockedUserId) excluded.add(String(d.blockedUserId)); });
+    incoming.forEach(s => { const d = s.data() || {}; if (d.blockedBy) excluded.add(String(d.blockedBy)); });
+    const users = [];
+    profiles.forEach(doc => {
+      if (users.length >= 20 || excluded.has(doc.id) || doc.id.startsWith('live_')) return;
+      const d = doc.data() || {};
+      if (d.active !== true) return;
+      const nameWords = searchWords(d.displayName || d.name);
+      if (!words.every(w => nameWords.some(nw => nw.startsWith(w)))) return;
+      const age = Number(d.age);
+      users.push({
+        id: doc.id,
+        name: d.displayName || d.name || 'User',
+        age: Number.isFinite(age) && age >= 18 ? Math.floor(age) : null,
+        bio: String(d.bio || '').slice(0, 200),
+        gender: d.gender || '',
+        image: String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || ''),
+        tags: Array.isArray(d.interests) ? d.interests : [],
+        city: d.city || '',
+        isRealUser: true
+      });
+    });
+    res.json({ success: true, users });
+  } catch (err) {
+    console.error('profile search error:', err.message);
+    res.status(500).json({ success: false, error: 'Search failed.' });
+  }
+});
+
+/*
+ * Voice introductions (max 20 s). Stored in Cloud Storage when it is provisioned, otherwise
+ * in a server-only voice_intros/{uid} document (clients have no Firestore access to it).
+ * public_profiles only carries { durationSeconds, duration, url? } so Discovery stays light,
+ * and the audio is fetched when someone actually presses play.
+ */
+const VOICE_INTRO_MAX_BYTES = 600 * 1024;
+const VOICE_INTRO_MAX_SECONDS = 20;
+
+function voiceIntroDuration(seconds) {
+  return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+}
+
+app.put('/profiles/voice-intro', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  try {
+    if (!(await persistentRateLimit('voice-intro:' + uid, 10, 60 * 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many uploads. Please try again later.' });
+    }
+    const { dataBase64, contentType } = req.body || {};
+    const seconds = Math.round(Number((req.body || {}).durationSeconds));
+    const type = String(contentType || '').split(';')[0].trim().toLowerCase();
+    if (!/^audio\/[a-z0-9.+-]+$/.test(type)) return res.status(400).json({ success: false, error: 'A voice intro must be audio.' });
+    if (!Number.isFinite(seconds) || seconds < 1 || seconds > VOICE_INTRO_MAX_SECONDS) {
+      return res.status(400).json({ success: false, error: `A voice intro must be 1 to ${VOICE_INTRO_MAX_SECONDS} seconds.` });
+    }
+    const raw = String(dataBase64 || '').includes(';base64,') ? String(dataBase64).split(';base64,')[1] : String(dataBase64 || '');
+    const buffer = Buffer.from(raw, 'base64');
+    if (!buffer.length) return res.status(400).json({ success: false, error: 'The recording is empty.' });
+    if (buffer.length > VOICE_INTRO_MAX_BYTES) return res.status(400).json({ success: false, error: 'The recording is too large.' });
+    if (!mediaMatchesClaim(buffer, type)) {
+      res.locals.securityLogged = true;
+      securityEvent('upload_rejected', { req, detail: { reason: 'content', contentType: type } });
+      return res.status(400).json({ success: false, error: "That recording isn't a supported audio file." });
+    }
+
+    let url = null;
+    try {
+      const bucket = getStorageBucket();
+      const destination = `voice_intros/${uid}/${Date.now()}.${(type.split('/')[1] || 'webm').replace(/[^a-z0-9]/g, '')}`;
+      const token = crypto.randomUUID ? crypto.randomUUID() : crypto.randomBytes(16).toString('hex');
+      await bucket.file(destination).save(buffer, { metadata: { contentType: type, metadata: { firebaseStorageDownloadTokens: token } }, resumable: false });
+      url = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(destination)}?alt=media&token=${token}`;
+    } catch (storageErr) {
+      console.warn('Voice intro: Storage unavailable, keeping audio in Firestore:', storageErr.message);
+    }
+
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    const meta = { durationSeconds: seconds, duration: voiceIntroDuration(seconds), ...(url ? { url } : {}), updatedAt: now };
+    if (url) {
+      await db.collection('voice_intros').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; });
+    } else {
+      await db.collection('voice_intros').doc(uid).set({ ownerId: uid, contentType: type, dataBase64: buffer.toString('base64'), durationSeconds: seconds, updatedAt: now });
+    }
+    await db.collection('public_profiles').doc(uid).set({ voiceIntro: meta }, { merge: true });
+    await db.collection('users').doc(uid).set({ voiceIntro: meta }, { merge: true });
+    const { updatedAt, ...publicMeta } = meta;
+    return res.json({ success: true, voiceIntro: publicMeta });
+  } catch (err) {
+    console.error('voice intro upload error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not save your voice intro.' });
+  }
+});
+
+app.delete('/profiles/voice-intro', requireAuth, async (req, res) => {
+  if (!rateLimit('voice-intro-del:' + req.user.uid, 20, 60 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
+  const uid = req.user.uid;
+  try {
+    const remove = admin.firestore.FieldValue.delete ? admin.firestore.FieldValue.delete() : null;
+    await Promise.all([
+      db.collection('voice_intros').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
+      db.collection('public_profiles').doc(uid).set({ voiceIntro: remove }, { merge: true }),
+      db.collection('users').doc(uid).set({ voiceIntro: remove }, { merge: true }),
+      deleteStoragePrefixes([`voice_intros/${uid}/`]).catch(() => {})
+    ]);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('voice intro delete error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not remove your voice intro.' });
+  }
+});
+
+// Audio for one person's intro. Anyone signed in may listen, except across a block, and only
+// to an active profile (or their own).
+app.get('/profiles/:uid/voice-intro', requireAuth, async (req, res) => {
+  const viewer = req.user.uid;
+  const owner = String(req.params.uid || '');
+  try {
+    if (!(await persistentRateLimit('voice-intro-play:' + viewer, 120, 60 * 1000))) {
+      return res.status(429).json({ success: false, error: 'Too many requests.' });
+    }
+    if (owner !== viewer) {
+      const [a, b, pub] = await Promise.all([
+        db.collection('blocks').doc(viewer + '_' + owner).get(),
+        db.collection('blocks').doc(owner + '_' + viewer).get(),
+        db.collection('public_profiles').doc(owner).get()
+      ]);
+      if (a.exists || b.exists || !pub.exists || (pub.data() || {}).active !== true) {
+        return res.status(404).json({ success: false, error: 'Voice intro not found.' });
+      }
+    }
+    const pub = await db.collection('public_profiles').doc(owner).get();
+    const meta = (pub.exists && (pub.data() || {}).voiceIntro) || null;
+    if (meta && meta.url) return res.json({ success: true, url: meta.url, duration: meta.duration });
+    const doc = await db.collection('voice_intros').doc(owner).get();
+    if (!doc.exists) return res.status(404).json({ success: false, error: 'Voice intro not found.' });
+    const d = doc.data() || {};
+    return res.json({ success: true, contentType: d.contentType, dataBase64: d.dataBase64, duration: meta ? meta.duration : voiceIntroDuration(Number(d.durationSeconds) || 0) });
+  } catch (err) {
+    console.error('voice intro fetch error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not load the voice intro.' });
+  }
+});
+
+// Discovery applies the viewer's preferences here and pages through every active profile.
+// It used to take the first 200 active profiles only and leave filtering to the phone, so
+// once someone had swiped through those 200, Discovery stayed empty however many people joined.
+const DISCOVERY_PAGE = 200;
+const DISCOVERY_MAX_PAGES = 5;
+const GENDERS_FOR = { men: ['male', 'man'], women: ['female', 'woman'] };
+
 app.get('/discovery', requireAuth, async (req, res) => {
   try {
     const uid = req.user.uid;
     if (!(await persistentRateLimit('discovery:' + uid, 30, 60 * 1000))) return res.status(429).json({success:false,error:'Too many discovery requests. Please slow down.'});
     const limit = Math.min(Math.max(Number(req.query.limit) || 40, 1), 60);
-    const [outgoing, incoming, swipes, profiles] = await Promise.all([
+    const minAge = Math.min(Math.max(Math.floor(Number(req.query.minAge)) || 18, 18), 100);
+    const maxAge = Math.max(Math.min(Math.floor(Number(req.query.maxAge)) || 100, 100), minAge);
+    let interestedIn = String(req.query.interestedIn || '').trim().toLowerCase();
+    if (!['men', 'women', 'everyone'].includes(interestedIn)) {
+      const me = await db.collection('users').doc(uid).get();
+      interestedIn = String((me.exists && (me.data() || {}).interestedIn) || 'everyone').toLowerCase();
+    }
+    const wantGenders = GENDERS_FOR[interestedIn] || null;
+
+    const [outgoing, incoming, swipes] = await Promise.all([
       db.collection('blocks').where('blockedBy','==',uid).get(),
       db.collection('blocks').where('blockedUserId','==',uid).get(),
-      db.collection('swipes').where('fromUserId','==',uid).get(),
-      db.collection('public_profiles').where('active','==',true).limit(200).get()
+      db.collection('swipes').where('fromUserId','==',uid).get()
     ]);
     const excluded = new Set([uid]);
     outgoing.forEach(s => { const d=s.data()||{}; if(d.blockedUserId) excluded.add(String(d.blockedUserId)); });
     incoming.forEach(s => { const d=s.data()||{}; if(d.blockedBy) excluded.add(String(d.blockedBy)); });
     swipes.forEach(s => { const d=s.data()||{}; if(d.toUserId) excluded.add(String(d.toUserId)); });
-    const users=[];
-    profiles.forEach(doc => {
-      if(users.length>=limit || excluded.has(doc.id) || doc.id.startsWith('live_')) return;
-      const d = doc.data() || {}, age = Number(d.age);
-      const userImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || '');
-      if(!userImage || !Number.isFinite(age) || age<18 || d.active!==true) return;
-      const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (userImage ? [userImage] : []);
-      users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:userImage,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',isRealUser:true});
-    });
+
+    const users = [];
+    let cursor = null;
+    for (let page = 0; page < DISCOVERY_MAX_PAGES && users.length < limit; page++) {
+      let q = db.collection('public_profiles').where('active','==',true)
+        .orderBy(admin.firestore.FieldPath.documentId()).limit(DISCOVERY_PAGE);
+      if (cursor) q = q.startAfter(cursor);
+      const snap = await q.get();
+      snap.forEach(doc => {
+        if (users.length >= limit || excluded.has(doc.id) || doc.id.startsWith('live_')) return;
+        const d = doc.data() || {}, age = Number(d.age);
+        const userImage = String(d.image || d.avatar || (Array.isArray(d.photos) && d.photos[0]) || '');
+        if (!userImage || !Number.isFinite(age) || age < minAge || age > maxAge || d.active !== true) return;
+        const gender = String(d.gender || '').toLowerCase();
+        if (wantGenders && gender && !wantGenders.includes(gender)) return;
+        const userPhotos = Array.isArray(d.photos) && d.photos.length > 0 ? d.photos : (userImage ? [userImage] : []);
+        users.push({id:doc.id,name:d.displayName||'User',age:Math.floor(age),bio:d.bio||'',gender:d.gender||'',image:userImage,photos:userPhotos,tags:Array.isArray(d.interests)?d.interests:[],city:d.city||'',...(d.voiceIntro&&d.voiceIntro.durationSeconds?{voiceIntro:{duration:d.voiceIntro.duration,hasAudio:true}}:{}),isRealUser:true});
+      });
+      if (snap.size < DISCOVERY_PAGE) break;
+      cursor = snap.docs[snap.docs.length - 1];
+    }
     res.json({success:true,users});
   } catch (err) {
     console.error('discovery error:', err.message);
@@ -656,10 +1090,53 @@ app.post('/reports', requireAuth, async (req, res) => {
       });
       tx.set(blockRef,{blockedBy:reporterId,blockedUserId:reportedUserId,createdAt:now},{merge:true});
     });
+    // Several reports against one person in a day is a moderation signal worth surfacing.
+    securityEvent('user_reported', { req, target: reportedUserId, detail: { reason, reportedUserId } });
     res.json({success:true,reportId:reportRef.id,blocked:true});
   } catch(err) {
     console.error('report error:',err.message);
     res.status(500).json({success:false,error:'Could not submit the report.'});
+  }
+});
+
+/*
+ * Ending a conversation. Clients cannot delete the match or the other person's messages
+ * (Firestore rules), so the in-app actions that promise this are done here:
+ *   clear   - delete every message for both people; the match stays
+ *   delete  - delete the match and everything in it for both people
+ *   unmatch - delete, and record a block (kind 'unmatch') so neither side can message,
+ *             call or re-match, and neither appears in the other's Discovery or search
+ */
+const END_MATCH_ACTIONS = new Set(['clear', 'delete', 'unmatch']);
+
+app.post('/matches/end', requireAuth, async (req, res) => {
+  const uid = req.user.uid;
+  const partnerId = String((req.body || {}).partnerId || '').trim();
+  const action = String((req.body || {}).action || '').trim();
+  if (!partnerId || partnerId === uid || partnerId.includes('/') || partnerId.includes('_') || !END_MATCH_ACTIONS.has(action)) {
+    return res.status(400).json({ success: false, error: 'Invalid request.' });
+  }
+  if (!(await persistentRateLimit('end-match:' + uid, 30, 10 * 60 * 1000))) {
+    return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
+  }
+  try {
+    const matchRef = db.collection('matches').doc([uid, partnerId].sort().join('_'));
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    if (action === 'clear') {
+      await deleteQueryDocs(matchRef.collection('messages'));
+      const snap = await matchRef.get();
+      if (snap.exists) await matchRef.set({ lastMessage: '', lastSender: '', clearedAt: now, lastUpdated: now }, { merge: true });
+      return res.json({ success: true });
+    }
+    if (action === 'unmatch') {
+      await db.collection('blocks').doc(uid + '_' + partnerId).set({ blockedBy: uid, blockedUserId: partnerId, kind: 'unmatch', createdAt: now }, { merge: true });
+      await db.collection('swipes').doc(uid + '_' + partnerId).set({ fromUserId: uid, toUserId: partnerId, action: 'pass', unmatched: true, createdAt: now }, { merge: true }).catch(() => {});
+    }
+    await deleteDocumentTree(matchRef);
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('end match error:', err.message);
+    return res.status(500).json({ success: false, error: 'Could not update this conversation.' });
   }
 });
 
@@ -688,6 +1165,7 @@ app.post('/blocks', requireAuth, async (req, res) => {
 });
 
 app.delete('/blocks/:blockedUserId', requireAuth, async (req, res) => {
+  if (!rateLimit('unblock:' + req.user.uid, 30, 10 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const uid=req.user.uid, blockedUserId=String(req.params.blockedUserId||'').trim();
   if(!blockedUserId || blockedUserId===uid) return res.status(400).json({success:false,error:'Invalid unblock.'});
   try {
@@ -716,6 +1194,8 @@ app.post('/payment/verify', requireAuth, async (req, res) => {
     const isOwnerByMetadata = Boolean(metadataUserId && metadataUserId === req.user.uid);
     const isOwnerByEmail = Boolean(authenticatedEmail && paidEmail && authenticatedEmail === paidEmail);
     if (!isOwnerByEmail && !isOwnerByMetadata) {
+      res.locals.securityLogged = true;
+      securityEvent('payment_mismatch', { req, detail: { reason: 'customer', reference: String(reference).slice(0, 60) } });
       return res.status(403).json({ success: false, error: 'Payment customer does not match the signed-in account.' });
     }
     const granted = await grantVip({
@@ -727,6 +1207,9 @@ app.post('/payment/verify', requireAuth, async (req, res) => {
     return res.json({ success: true, alreadyProcessed: !granted });
   } catch (err) {
     console.error('Payment verification error:', err.message);
+    if (/amount or currency/i.test(err.message || '')) {
+      securityEvent('payment_mismatch', { req, detail: { reason: 'amount', reference: String(reference).slice(0, 60), tier: Number(tier) } });
+    }
     const safeError = err.message && !err.message.includes('sk_') && !err.message.includes('Bearer') && !err.message.includes('header')
       ? err.message
       : 'Payment could not be verified.';
@@ -827,6 +1310,8 @@ app.post('/auth/send-otp', async (req, res) => {
       return res.status(502).json({ success: false, error: 'Could not send SMS right now. Try again shortly.' });
     }
     await savePendingOtp(phone, data.pinId, Date.now() + 10 * 60 * 1000);
+    securityEvent('otp_sent', { req, target: phone });
+    securityEvent('otp_send_burst', { req });
     return res.json({ success: true, message: 'OTP sent. Check your SMS.' });
   } catch (err) {
     console.error('OTP send error:', err.message);
@@ -849,7 +1334,10 @@ app.post('/auth/verify-otp', async (req, res) => {
 
   try {
     const result = await verifyTermiiOtp(phone, otp);
-    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+    if (!result.ok) {
+      securityEvent('otp_verify_failed', { req, target: phone });
+      return res.status(400).json({ success: false, error: result.error });
+    }
 
     let userRecord;
     try {
@@ -892,7 +1380,10 @@ app.post('/auth/verify-phone', requireAuth, async (req, res) => {
 
   try {
     const result = await verifyTermiiOtp(phone, otp);
-    if (!result.ok) return res.status(400).json({ success: false, error: result.error });
+    if (!result.ok) {
+      securityEvent('otp_verify_failed', { req, target: phone });
+      return res.status(400).json({ success: false, error: result.error });
+    }
 
     let updated;
     try {
@@ -1167,6 +1658,7 @@ app.post('/fcm/new-message', requireAuth, async (req, res) => {
 });
 
 app.post('/fcm/incoming-call', requireAuth, async (req, res) => {
+  if (!(await persistentRateLimit('call-push:' + req.user.uid, 20, 10 * 60 * 1000))) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const { toUserId, callType, callId, matchId } = req.body || {};
   if (!toUserId || !matchId) return res.status(400).json({ error: 'toUserId and matchId are required.' });
   try {
@@ -1198,6 +1690,7 @@ app.post('/fcm/incoming-call', requireAuth, async (req, res) => {
 });
 
 app.post('/fcm/call-ended', requireAuth, async (req, res) => {
+  if (!rateLimit('call-ended:' + req.user.uid, 40, 10 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const { toUserId, callId } = req.body || {};
   if (!toUserId) return res.status(400).json({ error: 'toUserId is required.' });
   try {
@@ -1222,6 +1715,7 @@ app.post('/fcm/call-ended', requireAuth, async (req, res) => {
 });
 
 app.post('/stories/cleanup', async (req, res) => {
+  if (!rateLimit('cleanup:' + req.ip, 10, 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   // Fail closed: with CLEANUP_SECRET unset, an empty header must not match.
   const providedSecret = Buffer.from(String(req.headers['x-cleanup-secret'] || ''));
   const expectedSecret = Buffer.from(CLEANUP_SECRET);
@@ -1254,6 +1748,7 @@ app.post('/stories/cleanup', async (req, res) => {
 });
 
 app.get('/turn/credentials', requireAuth, async (_req, res) => {
+  if (!(await persistentRateLimit('turn:' + _req.user.uid, 30, 10 * 60 * 1000))) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const fallbackServers = [
     { urls: "stun:stun.relay.metered.ca:80" },
     { urls: "stun:stun.l.google.com:19302" },
@@ -1265,8 +1760,14 @@ app.get('/turn/credentials', requireAuth, async (_req, res) => {
   try {
     const response = await fetch(`https://${METERED_DOMAIN}/api/v1/turn/credentials?apiKey=${encodeURIComponent(METERED_API_KEY)}`);
     if (!response.ok) throw new Error(`Metered returned ${response.status}`);
-    res.json(await response.json());
+    const servers = await response.json();
+    if (!Array.isArray(servers) || !servers.some(sv => [].concat(sv.urls || sv.url || []).some(u => /^turns?:/i.test(u)))) {
+      throw new Error('Metered response contained no TURN relay servers');
+    }
+    res.json(servers);
   } catch (err) {
+    // Without a relay, calls between different networks connect but carry no audio or video.
+    console.error('TURN credentials unavailable, serving STUN only:', err.message);
     return res.json(fallbackServers);
   }
 });
@@ -1337,11 +1838,13 @@ app.post('/account/delete', requireAuth, async (req, res) => {
     await Promise.all([
       db.collection('users').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
       db.collection('public_profiles').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
-      deleteStoragePrefixes([`stories/${uid}/`, `voicenotes/${uid}/`, ...matchMediaPrefixes])
+      db.collection('voice_intros').doc(uid).delete().catch(err => { if (err.code !== 5) throw err; }),
+      deleteStoragePrefixes([`stories/${uid}/`, `voicenotes/${uid}/`, `voice_intros/${uid}/`, ...matchMediaPrefixes])
     ]);
 
     // Delete the Auth account last so a partial cleanup can be retried safely.
     await admin.auth().deleteUser(uid);
+    securityEvent('account_deleted', { req, uid });
 
     return res.json({ success: true });
   } catch (err) {
@@ -1379,7 +1882,9 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
         id: doc.id,
         name: d.name || d.displayName || 'User',
         displayName: d.displayName || d.name || 'User',
-        age: Number(d.age || 24),
+        searchKeys: profileSearchKeys(d.displayName || d.name),
+        // Never invent an age: Discovery and search drop profiles without a real adult age.
+        ...(Number.isFinite(Number(d.age)) && Number(d.age) >= 18 ? { age: Math.floor(Number(d.age)) } : {}),
         bio: String(d.bio || '').slice(0, 2000),
         gender: d.gender || '',
         interests: Array.isArray(d.interests) ? d.interests.slice(0, 30) : [],
@@ -1394,6 +1899,7 @@ app.post('/admin/migrate-public-profiles', requireAuth, requireAdmin, async (req
     }
     await commit();
 
+    securityEvent('admin_action', { req, detail: { action: 'migrate_public_profiles' } });
     return res.json({ success: true, migrated });
   } catch (err) {
     console.error('Public profile migration error:', err.message);
@@ -1452,6 +1958,7 @@ app.post('/admin/reports/update', requireAuth, requireAdmin, async (req, res) =>
       reviewedBy: req.user.uid,
       reviewedAt: admin.firestore.FieldValue.serverTimestamp()
     });
+    securityEvent('admin_action', { req, detail: { action: 'report_update', reportId: String(req.body?.reportId || ''), status: String(req.body?.status || '') } });
     return res.json({ success: true });
   } catch (err) {
     console.error('Admin report update error:', err.message);
@@ -1460,6 +1967,7 @@ app.post('/admin/reports/update', requireAuth, requireAdmin, async (req, res) =>
 });
 
 app.post('/admin/users/suspend', requireAuth, requireAdmin, async (req, res) => {
+  if (!rateLimit('admin-suspend:' + req.user.uid, 60, 10 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const targetUid = String(req.body?.userId || '');
   const reason = String(req.body?.reason || 'Policy violation').slice(0, 500);
   if (!targetUid || targetUid === req.user.uid) {
@@ -1475,6 +1983,7 @@ app.post('/admin/users/suspend', requireAuth, requireAdmin, async (req, res) => 
       suspensionReason: reason
     }, { merge: true });
     await db.collection('public_profiles').doc(targetUid).set({ active: false }, { merge: true }).catch(() => {});
+    securityEvent('admin_action', { req, target: targetUid, detail: { action: 'suspend_user', targetUid } });
     return res.json({ success: true });
   } catch (err) {
     console.error('Admin suspension error:', err.message);
@@ -1483,6 +1992,7 @@ app.post('/admin/users/suspend', requireAuth, requireAdmin, async (req, res) => 
 });
 
 app.post('/admin/users/unsuspend', requireAuth, requireAdmin, async (req, res) => {
+  if (!rateLimit('admin-unsuspend:' + req.user.uid, 60, 10 * 60 * 1000)) return res.status(429).json({ success: false, error: 'Too many requests. Please try again later.' });
   const targetUid = String(req.body?.userId || '');
   if (!targetUid) return res.status(400).json({ error: 'Invalid target user.' });
   try {
@@ -1493,6 +2003,7 @@ app.post('/admin/users/unsuspend', requireAuth, requireAdmin, async (req, res) =
       unsuspendedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     await db.collection('public_profiles').doc(targetUid).set({ active: true }, { merge: true }).catch(() => {});
+    securityEvent('admin_action', { req, target: targetUid, detail: { action: 'unsuspend_user', targetUid } });
     return res.json({ success: true });
   } catch (err) {
     console.error('Admin unsuspension error:', err.message);
@@ -1500,9 +2011,69 @@ app.post('/admin/users/unsuspend', requireAuth, requireAdmin, async (req, res) =
   }
 });
 
-app.get('/health', async (_req, res) => {
+/* Security monitoring for admins: open alerts and the recent event log. */
+const SECURITY_SEVERITIES = ['info', 'low', 'medium', 'high'];
+
+function securityDocOut(doc) {
+  const d = doc.data() || {};
+  const ts = (v) => (v && typeof v.toMillis === 'function' ? v.toMillis() : (typeof v === 'number' ? v : null));
+  return {
+    id: doc.id, type: d.type, severity: d.severity, uid: d.uid || null, ipHash: d.ipHash || null,
+    targetHash: d.targetHash || null, path: d.path || null, method: d.method || null, detail: d.detail || {},
+    count: d.count || null, summary: d.summary || null, status: d.status || null,
+    createdAt: ts(d.createdAt), firstSeenAt: ts(d.firstSeenAt), lastSeenAt: ts(d.lastSeenAt),
+    acknowledgedBy: d.acknowledgedBy || null,
+  };
+}
+
+app.get('/admin/security', requireAuth, requireAdmin, async (req, res) => {
+  if (!rateLimit(`admin-security:${req.user.uid}`, 60, 60 * 1000)) {
+    return res.status(429).json({ error: 'Too many requests.' });
+  }
   try {
-    await db.collection('users').limit(1).get();
+    const limit = Math.min(Math.max(Number(req.query.limit) || 100, 1), 300);
+    const minSeverity = SECURITY_SEVERITIES.includes(String(req.query.minSeverity)) ? String(req.query.minSeverity) : 'low';
+    const keep = (x) => SECURITY_SEVERITIES.indexOf(x.severity) >= SECURITY_SEVERITIES.indexOf(minSeverity);
+    const [alerts, events] = await Promise.all([
+      db.collection('security_alerts').where('status', '==', 'open').limit(200).get(),
+      db.collection('security_events').orderBy('createdAt', 'desc').limit(limit).get(),
+    ]);
+    const byTime = (a, b) => (b.lastSeenAt || b.createdAt || 0) - (a.lastSeenAt || a.createdAt || 0);
+    return res.json({
+      alerts: alerts.docs.map(securityDocOut).sort(byTime),
+      events: events.docs.map(securityDocOut).filter(e => keep(e) || e.type === 'admin_action'),
+    });
+  } catch (err) {
+    console.error('Admin security fetch error:', err.message);
+    return res.status(500).json({ error: 'Could not load security activity.' });
+  }
+});
+
+app.post('/admin/security/alerts/ack', requireAuth, requireAdmin, async (req, res) => {
+  const alertId = String(req.body?.alertId || '');
+  if (!/^[a-f0-9]{32}$/.test(alertId)) return res.status(400).json({ error: 'Invalid alert.' });
+  try {
+    const ref = db.collection('security_alerts').doc(alertId);
+    const snap = await ref.get();
+    if (!snap.exists) return res.status(404).json({ error: 'Alert not found.' });
+    await ref.set({ status: 'acknowledged', acknowledgedBy: req.user.uid, acknowledgedAt: admin.firestore.FieldValue.serverTimestamp() }, { merge: true });
+    securityEvent('admin_action', { req, detail: { action: 'acknowledge_alert', alertId } });
+    return res.json({ success: true });
+  } catch (err) {
+    console.error('Alert acknowledge error:', err.message);
+    return res.status(500).json({ error: 'Could not update the alert.' });
+  }
+});
+
+let _healthProbeAt = 0;
+app.get('/health', async (req, res) => {
+  if (!rateLimit('health:' + req.ip, 30, 60 * 1000)) return res.status(429).json({ ok: false, error: 'Too many requests.' });
+  try {
+    // Public endpoint: probe Firestore at most every 30 s.
+    if (Date.now() - _healthProbeAt > 30 * 1000) {
+      await db.collection('users').limit(1).get();
+      _healthProbeAt = Date.now();
+    }
     return res.json({
       ok: true,
       service: 'hookmebysam-backend',
@@ -1526,5 +2097,21 @@ app.get('/health', async (_req, res) => {
   }
 });
 app.get('/', (_req, res) => res.json({ service: 'hookmebysam backend', status: 'online' }));
+
+// Unknown routes and errors return plain JSON. Express's default handler would send an
+// HTML page with the stack trace whenever NODE_ENV isn't "production" (it isn't set here),
+// e.g. for a request with malformed JSON.
+app.use((req, res) => res.status(404).json({ error: 'Not found.' }));
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, _next) => {
+  if (err && (err.type === 'entity.parse.failed' || err instanceof SyntaxError)) {
+    return res.status(400).json({ error: 'Malformed request body.' });
+  }
+  if (err && err.type === 'entity.too.large') {
+    return res.status(413).json({ error: 'Request is too large.' });
+  }
+  console.error('Unhandled error:', err && err.message);
+  return res.status(500).json({ error: 'Something went wrong.' });
+});
 
 app.listen(PORT, () => console.log(`hookmebysam backend listening on port ${PORT}`));

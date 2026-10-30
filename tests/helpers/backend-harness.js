@@ -13,6 +13,7 @@ function createHarness({ port, env = {} }) {
   const store = new Map(); // "collection/doc" -> data
   const state = {
     paystackVerifyResponse: null,
+    fetchUrls: [],
     authUsers: {},   // uid -> user record
     idTokens: {},    // bearer token -> decoded token ({ uid, email, ... })
     authCalls: [],   // [{ fn, args }]
@@ -37,15 +38,23 @@ function createHarness({ port, env = {} }) {
       },
       delete: async () => { store.delete(key); },
       collection: (name) => query(`${key}/${name}`, []),
-      listCollections: async () => [],
+      // Subcollections are derived from stored keys, like Firestore's listCollections().
+      listCollections: async () => {
+        const names = new Set();
+        for (const k of store.keys()) {
+          if (k.startsWith(key + '/')) names.add(k.slice(key.length + 1).split('/')[0]);
+        }
+        return [...names].map(name => query(`${key}/${name}`, []));
+      },
     };
   }
 
-  function query(col, filters) {
+  // opts: { ordered: sort by document id, after: id to start after, max: limit }
+  function query(col, filters, opts = {}) {
     const run = () => {
-      const docs = [];
+      let docs = [];
       for (const [key, data] of store) {
-        if (!key.startsWith(col + '/')) continue;
+        if (!key.startsWith(col + '/') || key.slice(col.length + 1).includes('/')) continue;
         const ok = filters.every(([field, op, value]) => {
           if (op === '==') return data[field] === value;
           if (op === 'in') return value.includes(data[field]);
@@ -54,12 +63,17 @@ function createHarness({ port, env = {} }) {
         });
         if (ok) { const id = key.slice(col.length + 1); docs.push({ id, data: () => data, ref: docRef(col, id) }); }
       }
+      if (opts.ordered || opts.after !== undefined) docs.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      if (opts.after !== undefined) docs = docs.filter(d => d.id > opts.after);
+      if (opts.max !== undefined) docs = docs.slice(0, opts.max);
       return docs;
     };
     const q = {
-      where: (f, o, v) => query(col, [...filters, [f, o, v]]),
-      limit: () => q,
-      get: async () => { const docs = run(); return { docs, empty: docs.length === 0, size: docs.length, forEach: (fn) => docs.forEach(fn) }; },
+      where: (f, o, v) => query(col, [...filters, [f, o, v]], opts),
+      orderBy: () => query(col, filters, { ...opts, ordered: true }),
+      startAfter: (cursor) => query(col, filters, { ...opts, after: typeof cursor === 'string' ? cursor : cursor.id }),
+      limit: (n) => query(col, filters, { ...opts, max: n }),
+      get: async () => { state.queryReads = (state.queryReads || 0) + 1; const docs = run(); return { docs, empty: docs.length === 0, size: docs.length, forEach: (fn) => docs.forEach(fn) }; },
     };
     return q;
   }
@@ -68,6 +82,9 @@ function createHarness({ port, env = {} }) {
     collection: (col) => ({
       doc: (id) => docRef(col, id === undefined ? 'auto_' + Math.random().toString(36).slice(2, 12) : id),
       where: (f, o, v) => query(col, [[f, o, v]]),
+      orderBy: () => query(col, [], { ordered: true }),
+      limit: (n) => query(col, [], { max: n }),
+      get: () => query(col, []).get(),
     }),
     batch: () => { const ops = []; return { delete: (ref) => ops.push(ref), commit: async () => { for (const ref of ops) await ref.delete(); } }; },
     runTransaction: async (fn) => fn({
@@ -95,7 +112,8 @@ function createHarness({ port, env = {} }) {
   const adminStub = (() => {
     const firestoreFn = () => db;
     firestoreFn.FieldValue = { serverTimestamp: () => '__SERVER_TS__' };
-    firestoreFn.Timestamp = { fromDate: (d) => ({ _date: d }), now: () => ({}) };
+    firestoreFn.Timestamp = { fromDate: (d) => ({ _date: d }), fromMillis: (ms) => ({ _ms: ms, toMillis: () => ms }), now: () => ({}) };
+    firestoreFn.FieldPath = { documentId: () => '__name__' };
     return {
       initializeApp: () => {},
       credential: { cert: () => ({}) },
@@ -130,7 +148,7 @@ function createHarness({ port, env = {} }) {
     const realLoad = Module._load;
     Module._load = function (request) {
       if (request === 'firebase-admin') return adminStub;
-      if (request === 'node-fetch') return async () => ({ ok: true, json: async () => state.paystackVerifyResponse });
+      if (request === 'node-fetch') return async (url) => { state.fetchUrls.push(String(url)); return { ok: true, json: async () => state.paystackVerifyResponse }; };
       if (request === 'dotenv') return { config: () => {} };
       return realLoad.apply(this, arguments);
     };
@@ -157,7 +175,7 @@ function createHarness({ port, env = {} }) {
     });
   }
 
-  const reset = () => { store.clear(); state.paystackVerifyResponse = null; state.authUsers = {}; state.idTokens = {}; state.authCalls = []; state.storageSaves = []; state.defaultBucketConfigured = false; state.bucketMissing = false; };
+  const reset = () => { store.clear(); state.paystackVerifyResponse = null; state.fetchUrls = []; state.authUsers = {}; state.idTokens = {}; state.authCalls = []; state.storageSaves = []; state.defaultBucketConfigured = false; state.bucketMissing = false; };
   const stop = () => setTimeout(() => process.exit(0), 50).unref();
 
   return { store, state, start, request, reset, stop };

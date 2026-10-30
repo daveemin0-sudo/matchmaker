@@ -379,7 +379,7 @@
             <div class="field" role="radiogroup" aria-labelledby="genderLabel">
               <span class="field-label" id="genderLabel">I am</span>
               <div class="choice-grid">
-                <button type="button" class="choice gender-option selected" role="radio" aria-checked="true" onclick="selectGender('Male', this)">Man</button>
+                <button type="button" class="choice gender-option" role="radio" aria-checked="false" onclick="selectGender('Male', this)">Man</button>
                 <button type="button" class="choice gender-option" role="radio" aria-checked="false" onclick="selectGender('Female', this)">Woman</button>
                 <button type="button" class="choice gender-option" role="radio" aria-checked="false" onclick="selectGender('Non-binary', this)">Non-binary</button>
                 <button type="button" class="choice gender-option" role="radio" aria-checked="false" onclick="selectGender('Other', this)">Other</button>
@@ -1076,7 +1076,7 @@
                 <span class="row-icon acct-gold-icon"><svg class="i" aria-hidden="true"><use href="#i-crown"/></svg></span>
                 <span class="row-body">
                   <span class="row-title" id="hkVipHeading">HookMe Gold</span>
-                  <span class="row-sub" id="hkVipSub">Unlimited likes, rewinds and AI portraits</span>
+                  <span class="row-sub" id="hkVipSub">Unlimited likes and rewinds</span>
                 </span>
                 <span class="btn btn-gold btn-sm" id="hkVipCtaBtn" aria-hidden="true">See plans</span>
               </button>
@@ -1291,7 +1291,7 @@
             <svg class="i" aria-hidden="true"><use href="#i-crown"/></svg>
             <span class="row-body">
               <span class="acct-gold-title" id="vipStatusRow">Upgrade to Gold</span>
-              <span class="row-sub" id="vipStatusSub">Unlimited likes, rewinds and AI portraits</span>
+              <span class="row-sub" id="vipStatusSub">Unlimited likes and rewinds</span>
             </span>
             <svg class="i row-trail" aria-hidden="true"><use href="#i-chevron-right"/></svg>
           </button>
@@ -1471,7 +1471,7 @@
         </div>
 
         <div class="sheet-body paywall-body">
-          <p class="paywall-reason" id="paywallReason">Remove the daily limits on likes, rewinds and AI portraits.</p>
+          <p class="paywall-reason" id="paywallReason">Remove the daily limits on likes and rewinds.</p>
 
           <div class="plans" role="radiogroup" aria-label="Choose a plan">
             <button type="button" class="plan" id="pricingCard1" role="radio" aria-checked="false" onclick="selectPricingTier(1)">
@@ -1499,7 +1499,6 @@
             <tbody>
               <tr><th scope="row">Daily likes</th><td>Limited</td><td class="compare-gold">Unlimited</td></tr>
               <tr><th scope="row">Rewind a pass</th><td>1</td><td class="compare-gold">Unlimited</td></tr>
-              <tr><th scope="row">AI portraits</th><td>1</td><td class="compare-gold">Unlimited</td></tr>
             </tbody>
           </table>
 
@@ -1994,7 +1993,7 @@
         <div class="search-bar">
           <div class="input-wrap">
             <svg class="i" aria-hidden="true"><use href="#i-search"/></svg>
-            <input type="search" class="input" id="searchModalInput" placeholder="Search by name or bio" aria-label="Search by name or bio" oninput="handleModalSearchInput(event)" autocomplete="off">
+            <input type="search" class="input" id="searchModalInput" placeholder="Search by name" aria-label="Search by name" oninput="handleModalSearchInput(event)" autocomplete="off">
             <button id="clearModalSearchBtn" type="button" class="input-action" onclick="clearModalSearch()" aria-label="Clear search" style="display:none"><svg class="i" aria-hidden="true"><use href="#i-x"/></svg></button>
           </div>
         </div>

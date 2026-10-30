@@ -1,0 +1,218 @@
+{
+  "viewports": {
+    "360x740": {
+      "screens": {
+        "login": {
+          "scrollW": 360,
+          "vw": 360,
+          "overflow": false,
+          "wide": []
+        },
+        "discovery": {
+          "scrollW": 360,
+          "vw": 360,
+          "overflow": false,
+          "wide": []
+        },
+        "matches": {
+          "scrollW": 360,
+          "vw": 360,
+          "overflow": false,
+          "wide": []
+        },
+        "chatsList": {
+          "scrollW": 360,
+          "vw": 360,
+          "overflow": false,
+          "wide": []
+        },
+        "profile": {
+          "scrollW": 360,
+          "vw": 360,
+          "overflow": false,
+          "wide": []
+        },
+        "settings": {
+          "scrollW": 360,
+          "vw": 360,
+          "overflow": false,
+          "wide": []
+        }
+      },
+      "ageGateShown": true,
+      "errors": []
+    },
+    "390x844": {
+      "screens": {
+        "login": {
+          "scrollW": 390,
+          "vw": 390,
+          "overflow": false,
+          "wide": []
+        },
+        "discovery": {
+          "scrollW": 390,
+          "vw": 390,
+          "overflow": false,
+          "wide": []
+        },
+        "matches": {
+          "scrollW": 390,
+          "vw": 390,
+          "overflow": false,
+          "wide": []
+        },
+        "chatsList": {
+          "scrollW": 390,
+          "vw": 390,
+          "overflow": false,
+          "wide": []
+        },
+        "profile": {
+          "scrollW": 390,
+          "vw": 390,
+          "overflow": false,
+          "wide": []
+        },
+        "settings": {
+          "scrollW": 390,
+          "vw": 390,
+          "overflow": false,
+          "wide": []
+        }
+      },
+      "ageGateShown": true,
+      "errors": []
+    },
+    "768x1024": {
+      "screens": {
+        "login": {
+          "scrollW": 768,
+          "vw": 768,
+          "overflow": false,
+          "wide": []
+        },
+        "discovery": {
+          "scrollW": 768,
+          "vw": 768,
+          "overflow": false,
+          "wide": []
+        },
+        "matches": {
+          "scrollW": 768,
+          "vw": 768,
+          "overflow": false,
+          "wide": []
+        },
+        "chatsList": {
+          "scrollW": 768,
+          "vw": 768,
+          "overflow": false,
+          "wide": []
+        },
+        "profile": {
+          "scrollW": 768,
+          "vw": 768,
+          "overflow": false,
+          "wide": []
+        },
+        "settings": {
+          "scrollW": 768,
+          "vw": 768,
+          "overflow": false,
+          "wide": []
+        }
+      },
+      "ageGateShown": true,
+      "errors": []
+    },
+    "1280x800": {
+      "screens": {
+        "login": {
+          "scrollW": 1280,
+          "vw": 1280,
+          "overflow": false,
+          "wide": []
+        },
+        "discovery": {
+          "scrollW": 1280,
+          "vw": 1280,
+          "overflow": false,
+          "wide": []
+        },
+        "matches": {
+          "scrollW": 1280,
+          "vw": 1280,
+          "overflow": false,
+          "wide": []
+        },
+        "chatsList": {
+          "scrollW": 1280,
+          "vw": 1280,
+          "overflow": false,
+          "wide": []
+        },
+        "profile": {
+          "scrollW": 1280,
+          "vw": 1280,
+          "overflow": false,
+          "wide": []
+        },
+        "settings": {
+          "scrollW": 1280,
+          "vw": 1280,
+          "overflow": false,
+          "wide": []
+        }
+      },
+      "ageGateShown": true,
+      "errors": []
+    }
+  },
+  "xss": {
+    "executed": 0,
+    "injectedImgs": 0,
+    "steps": [
+      "cards:ok",
+      "matches:ok",
+      "inbox:ok",
+      "chat:ok",
+      "profileSheet:ok",
+      "searchRow:ok"
+    ]
+  },
+  "metrics": {
+    "domContentLoaded": 1978,
+    "load": 2406,
+    "lcp": 972,
+    "cls": 0,
+    "transferredKB": 322,
+    "requests": 20,
+    "longTasksNote": "n/a",
+    "wallLoadMs": 2414,
+    "raw": {
+      "script.js": {
+        "rawKB": 648,
+        "gzipKB": 162
+      },
+      "index.html": {
+        "rawKB": 173,
+        "gzipKB": 34
+      },
+      "firebase-config.js": {
+        "rawKB": 76,
+        "gzipKB": 19
+      },
+      "style.css": {
+        "rawKB": 30,
+        "gzipKB": 8
+      },
+      "premium.css": {
+        "rawKB": 17,
+        "gzipKB": 4
+      }
+    },
+    "conditions": "390x844, CPU 4x slowdown, 150 ms RTT, 1.6 Mbps down, local server with gzip, Firebase CDN unreachable from sandbox"
+  },
+  "errors": []
+}

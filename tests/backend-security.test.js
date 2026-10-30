@@ -25,6 +25,13 @@ test('stories cleanup fails closed when CLEANUP_SECRET is not configured', async
 
 // ---------- /media/upload ----------
 const b64 = Buffer.from('hello').toString('base64');
+// Real leading bytes for each type, so uploads pass the server's file-signature check.
+const HEADERS = {
+  image: Buffer.from('ffd8ffe000104a46494600010100000100010000', 'hex'),                  // JPEG
+  video: Buffer.concat([Buffer.from('0000001c', 'hex'), Buffer.from('ftypisom'), Buffer.alloc(16)]), // MP4
+  audio: Buffer.concat([Buffer.from('1a45dfa3', 'hex'), Buffer.alloc(28)]),             // WebM
+};
+const fileOf = (type) => Buffer.concat([HEADERS[String(type).split('/')[0]] || Buffer.from('hello'), Buffer.from('payload')]).toString('base64');
 
 function asUser(uid) {
   state.idTokens['tok_' + uid] = { uid, email: uid + '@example.com' };
@@ -34,8 +41,8 @@ function asUser(uid) {
 
 test('media upload rejects unknown storage roots and non-media content types', async () => {
   const auth = asUser('alice');
-  const badRoot = await h.request('POST', '/media/upload', { dataBase64: b64, contentType: 'image/jpeg', path: 'users/bob' }, auth);
-  const badType = await h.request('POST', '/media/upload', { dataBase64: b64, contentType: 'text/html', path: 'stories' }, auth);
+  const badRoot = await h.request('POST', '/media/upload', { dataBase64: fileOf('image/jpeg'), contentType: 'image/jpeg', path: 'users/bob' }, auth);
+  const badType = await h.request('POST', '/media/upload', { dataBase64: fileOf('text/html'), contentType: 'text/html', path: 'stories' }, auth);
   assert.equal(badRoot.status, 400);
   assert.equal(badType.status, 400);
   assert.equal(state.storageSaves.length, 0);
@@ -43,7 +50,7 @@ test('media upload rejects unknown storage roots and non-media content types', a
 
 test('media upload to chat_media requires a live match the caller belongs to', async () => {
   const auth = asUser('alice');
-  const body = { dataBase64: b64, contentType: 'image/jpeg', path: 'chat_media/alice_bob' };
+  const body = { dataBase64: fileOf('image/jpeg'), contentType: 'image/jpeg', path: 'chat_media/alice_bob' };
 
   const noMatch = await h.request('POST', '/media/upload', body, auth);
   assert.equal(noMatch.status, 403, 'no match document => forbidden');
@@ -65,10 +72,10 @@ test('media upload to chat_media requires a live match the caller belongs to', a
 
 test('media upload still accepts story uploads and voice-note audio types', async () => {
   const auth = asUser('alice');
-  const story = await h.request('POST', '/media/upload', { dataBase64: b64, contentType: 'video/mp4', path: 'stories', fileName: 's.mp4' }, auth);
+  const story = await h.request('POST', '/media/upload', { dataBase64: fileOf('video/mp4'), contentType: 'video/mp4', path: 'stories', fileName: 's.mp4' }, auth);
   assert.equal(story.status, 200);
   store.set('matches/alice_bob', { users: ['alice', 'bob'] });
-  const voice = await h.request('POST', '/media/upload', { dataBase64: b64, contentType: 'audio/webm;codecs=opus', path: 'chat_media/alice_bob' }, auth);
+  const voice = await h.request('POST', '/media/upload', { dataBase64: fileOf('audio/webm;codecs=opus'), contentType: 'audio/webm;codecs=opus', path: 'chat_media/alice_bob' }, auth);
   assert.equal(voice.status, 200);
 });
 
@@ -108,7 +115,7 @@ test('google linking into a VERIFIED email/password account keeps the password s
 test('media upload uses the project bucket even when no default bucket is configured', async () => {
   const auth = asUser('alice');
   store.set('matches/alice_bob', { users: ['alice', 'bob'] });
-  const res = await h.request('POST', '/media/upload', { dataBase64: b64, contentType: 'image/jpeg', path: 'chat_media/alice_bob' }, auth);
+  const res = await h.request('POST', '/media/upload', { dataBase64: fileOf('image/jpeg'), contentType: 'image/jpeg', path: 'chat_media/alice_bob' }, auth);
   assert.equal(res.status, 200);
   assert.equal(state.storageSaves.length, 1, 'file must be saved to Cloud Storage, not silently inlined');
   assert.equal(state.storageSaves[0].bucket, 'demo-test.firebasestorage.app', 'falls back to <FIREBASE_PROJECT_ID>.firebasestorage.app');
@@ -118,7 +125,7 @@ test('media upload uses the project bucket even when no default bucket is config
 test('media upload falls back to an inline data URL (not a 500) when the bucket does not exist', async () => {
   const auth = asUser('alice');
   state.bucketMissing = true;
-  const res = await h.request('POST', '/media/upload', { dataBase64: b64, contentType: 'audio/webm', path: 'voicenotes' }, auth);
+  const res = await h.request('POST', '/media/upload', { dataBase64: fileOf('audio/webm'), contentType: 'audio/webm', path: 'voicenotes' }, auth);
   assert.equal(res.status, 200);
   assert.equal(res.json.success, true);
   assert.match(res.json.url, /^data:audio\/webm;base64,/);

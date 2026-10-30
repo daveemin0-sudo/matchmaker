@@ -38,9 +38,9 @@ test('Case A: Existing Google user signs in and preserves existing complete prof
     gender: 'Female',
     bio: 'Pioneer of computing',
     interests: ['Tech 💻', 'Math 📐'],
-    photos: ['https://example.com/ada.jpg'],
-    image: 'https://example.com/ada.jpg',
-    avatar: 'https://example.com/ada.jpg',
+    photos: ['https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/ada.jpg'],
+    image: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/ada.jpg',
+    avatar: 'https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/ada.jpg',
     city: 'London',
     accountStatus: 'active',
     onboardingComplete: true,
@@ -132,7 +132,7 @@ test('Case B: New Google user completes onboarding with valid 18+ age, username 
     gender: 'Female',
     bio: 'Compiler pioneer',
     interests: ['Tech 💻', 'Navy ⚓'],
-    photos: ['https://example.com/grace.jpg'],
+    photos: ['https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/grace.jpg'],
     accountStatus: 'active',
     onboardingComplete: true
   };
@@ -185,7 +185,7 @@ test('Case B: Underage onboarding submission is rejected and user remains unpubl
     displayName: 'Teen User',
     age: 16,
     gender: 'Male',
-    photos: ['https://example.com/teen.jpg']
+    photos: ['https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/teen.jpg']
   };
 
   const syncRes = await h.request('POST', '/profiles/sync', underagePayload, auth);
@@ -213,7 +213,7 @@ test('Case C: Existing email/password user linking Google preserves original UID
     gender: 'Male',
     bio: 'Original bio and preferences',
     interests: ['Coffee ☕', 'Hiking 🥾'],
-    photos: ['https://example.com/sam.jpg'],
+    photos: ['https://firebasestorage.googleapis.com/v0/b/hookmebysam.appspot.com/o/sam.jpg'],
     accountStatus: 'active',
     onboardingComplete: true,
     authProvider: 'password'
