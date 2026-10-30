@@ -10,14 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Delete expired stories and media
+      - name: Wake the backend (Render's free plan sleeps when idle)
+        run: curl --silent --output /dev/null --max-time 90 --retry 3 --retry-delay 10 --retry-all-errors https://matchmaker-viwb.onrender.com/ || true
+      - name: Delete expired stories, media and old security records
         env:
-          CLEANUP_URL: ${{ secrets.CLEANUP_URL }}
+          # The URL is not secret. The old CLEANUP_URL secret held a malformed value
+          # (curl exit 3, every run failed), so it is no longer used.
+          CLEANUP_URL: https://matchmaker-viwb.onrender.com/stories/cleanup
           CLEANUP_SECRET: ${{ secrets.CLEANUP_SECRET }}
         run: |
-          test -n "$CLEANUP_URL"
-          test -n "$CLEANUP_SECRET"
-          curl --fail --silent --show-error --max-time 30             -X POST "$CLEANUP_URL"             -H "x-cleanup-secret: $CLEANUP_SECRET"
+          test -n "$CLEANUP_SECRET" || { echo "::error::Add the CLEANUP_SECRET repository secret (same value as on Render)"; exit 1; }
+          status=$(curl --silent --show-error --max-time 60 --retry 2 --retry-delay 10 -o response.json -w '%{http_code}' \
+            -X POST "$CLEANUP_URL" -H "x-cleanup-secret: $CLEANUP_SECRET")
+          echo "HTTP $status: $(cat response.json)"
+          if [ "$status" = "401" ]; then echo "::error::CLEANUP_SECRET in GitHub does not match CLEANUP_SECRET on Render"; exit 1; fi
+          test "$status" = "200"
 
   backend-health:
     runs-on: ubuntu-latest
@@ -27,5 +34,5 @@ jobs:
         env:
           BACKEND_HEALTH_URL: https://matchmaker-viwb.onrender.com/health
         run: |
-          test -n "$BACKEND_HEALTH_URL"
-          curl --fail --silent --show-error --max-time 20 "$BACKEND_HEALTH_URL"
+          # Up to ~4 minutes: a sleeping free-plan server takes 30-60 s to start.
+          curl --fail --silent --show-error --max-time 90 --retry 3 --retry-delay 15 --retry-all-errors "$BACKEND_HEALTH_URL"

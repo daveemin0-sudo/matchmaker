@@ -59,6 +59,7 @@ function createHarness({ port, env = {} }) {
           if (op === '==') return data[field] === value;
           if (op === 'in') return value.includes(data[field]);
           if (op === 'array-contains') return Array.isArray(data[field]) && data[field].includes(value);
+          if (op === '<=') { const m = (v) => (v && typeof v.toMillis === 'function' ? v.toMillis() : v); return m(data[field]) <= m(value); }
           return true;
         });
         if (ok) { const id = key.slice(col.length + 1); docs.push({ id, data: () => data, ref: docRef(col, id) }); }
@@ -112,7 +113,7 @@ function createHarness({ port, env = {} }) {
   const adminStub = (() => {
     const firestoreFn = () => db;
     firestoreFn.FieldValue = { serverTimestamp: () => '__SERVER_TS__' };
-    firestoreFn.Timestamp = { fromDate: (d) => ({ _date: d }), fromMillis: (ms) => ({ _ms: ms, toMillis: () => ms }), now: () => ({}) };
+    firestoreFn.Timestamp = { fromDate: (d) => ({ _date: d }), fromMillis: (ms) => ({ _ms: ms, toMillis: () => ms }), now: () => ({ toMillis: () => Date.now() }) };
     firestoreFn.FieldPath = { documentId: () => '__name__' };
     return {
       initializeApp: () => {},

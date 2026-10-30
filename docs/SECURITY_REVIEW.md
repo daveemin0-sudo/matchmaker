@@ -60,7 +60,7 @@ How this was found: every file version in all 371 commits on all 17 branches was
 - **Cost:** at most 5 event writes per key and window; floods only increase a counter.
 - **Not visible to the server:** email/password sign-in attempts go straight to Firebase Auth, which throttles them itself (and reports them in the Firebase console).
 
-**Owner setup:** set `SECURITY_LOG_SALT` on Render, then add a Firestore **TTL policy** on the `expiresAt` field for `security_events` and `security_alerts` (Firestore → TTL). Without the policy the records are never deleted.
+**Owner setup:** set `SECURITY_LOG_SALT` on Render. Records past `expiresAt` are deleted by the scheduled *Production Ops* job (`POST /stories/cleanup`, twice an hour), because a Firestore TTL policy needs billing enabled.
 
 ## Remaining (not blockers)
 
