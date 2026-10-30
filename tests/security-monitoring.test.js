@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { createHarness } = require('./helpers/backend-harness');
 
-const h = createHarness({ port: 3200, env: { PAYSTACK_SECRET_KEY: 'sk_test_monitoring', SECURITY_LOG_SALT: 'test-salt' } });
+const h = createHarness({ port: 3200, env: { PAYSTACK_SECRET_KEY: 'sk_test_monitoring', SECURITY_LOG_SALT: 'test-salt', CLEANUP_SECRET: 'cleanup-test-secret' } });
 const { store, state } = h;
 const settle = () => new Promise(r => setTimeout(r, 30)); // event writes are fire-and-forget
 
@@ -147,4 +147,25 @@ test('the admin page shows alerts and events, escaping everything it renders', (
   const renderer = html.slice(html.indexOf('async function loadSecurity'), html.indexOf('alertsBody.addEventListener'));
   const interpolations = renderer.match(/' \+ (?!escapeHtml|sevPill)[^']+ \+ '/g) || [];
   assert.deepEqual(interpolations, [], 'every value goes through escapeHtml');
+});
+
+test('the scheduled cleanup deletes security records older than 30 days and keeps newer ones', async () => {
+  const ts = (ms) => ({ toMillis: () => ms });
+  store.set('security_events/old', { type: 'unauthenticated', expiresAt: ts(Date.now() - 1000) });
+  store.set('security_events/new', { type: 'unauthenticated', expiresAt: ts(Date.now() + 864e5) });
+  store.set('security_alerts/old', { type: 'admin_denied', expiresAt: ts(Date.now() - 1000) });
+  const denied = await h.request('POST', '/stories/cleanup', {}, { 'x-cleanup-secret': 'wrong' });
+  assert.equal(denied.status, 401);
+  const r = await h.request('POST', '/stories/cleanup', {}, { 'x-cleanup-secret': 'cleanup-test-secret' });
+  assert.equal(r.status, 200);
+  assert.equal(r.json.securityDeleted, 2);
+  assert.ok(!store.has('security_events/old') && !store.has('security_alerts/old'));
+  assert.ok(store.has('security_events/new'));
+});
+
+test('the scheduled workflow calls the real cleanup URL and waits for a sleeping server', () => {
+  const wf = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'production-ops.yml'), 'utf8');
+  assert.match(wf, /CLEANUP_URL: https:\/\/matchmaker-viwb\.onrender\.com\/stories\/cleanup/);
+  assert.doesNotMatch(wf, /secrets\.CLEANUP_URL/);
+  assert.match(wf, /--max-time 90 --retry 3/);
 });

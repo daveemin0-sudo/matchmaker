@@ -1725,8 +1725,20 @@ app.post('/stories/cleanup', async (req, res) => {
   }
   try {
     const now = admin.firestore.Timestamp.now();
+    // Security records older than 30 days. This replaces a Firestore TTL policy, which
+    // needs billing enabled on the project; the scheduled job runs twice an hour.
+    let securityDeleted = 0;
+    for (const col of ['security_events', 'security_alerts']) {
+      const old = await db.collection(col).where('expiresAt', '<=', now).limit(400).get();
+      if (!old.empty) {
+        const b = db.batch();
+        old.docs.forEach(doc => b.delete(doc.ref));
+        await b.commit();
+        securityDeleted += old.size;
+      }
+    }
     const snap = await db.collection('stories').where('expiresAt', '<=', now).limit(100).get();
-    if (snap.empty) return res.json({ success: true, deleted: 0 });
+    if (snap.empty) return res.json({ success: true, deleted: 0, securityDeleted });
     const bucket = getStorageBucket();
     await Promise.all(snap.docs.map(async doc => {
       const storagePath = String(doc.data()?.storagePath || '');
@@ -1740,7 +1752,7 @@ app.post('/stories/cleanup', async (req, res) => {
     const batch = db.batch();
     snap.docs.forEach(doc => batch.delete(doc.ref));
     await batch.commit();
-    return res.json({ success: true, deleted: snap.size });
+    return res.json({ success: true, deleted: snap.size, securityDeleted });
   } catch (err) {
     console.error('Story cleanup error:', err.message);
     return res.status(500).json({ error: 'Cleanup failed.' });
