@@ -63,3 +63,19 @@ test('calls announced by push are loaded before ringing, show the right kind, an
   const accept = app.slice(app.indexOf('async function acceptIncomingCall'), app.indexOf('async function acceptIncomingCall') + 1500);
   assert.match(accept, /if \(!incoming\.offer && incoming\.matchId && incoming\.callId\)/, 'answering fetches a missing offer');
 });
+
+test('the h logo is in every place the app shows its icon, and every referenced file exists', () => {
+  const exists = (f) => fs.existsSync(path.join(__dirname, '..', f));
+  const manifest = JSON.parse(read('manifest.json'));
+  for (const icon of manifest.icons) assert.ok(exists(icon.src), icon.src);
+  assert.ok(manifest.icons.some(i => i.purpose === 'maskable') && manifest.icons.some(i => i.purpose === 'any'));
+  for (const f of ['logo.svg', 'logo.png', 'favicon.png', 'apple-touch-icon.png', 'icons/mark.svg', 'icons/badge-96.png']) assert.ok(exists(f), f);
+  // One mark everywhere: the in-app symbol, the sprite file, its build tool and the standalone SVGs.
+  const stem = 'M16.6 12.8 V49.9';
+  for (const f of ['index.html', 'icons/sprite.svg', 'tools/build-sprite.js', 'logo.svg', 'icons/mark.svg']) assert.ok(read(f).includes(stem), f);
+  // Notification badges use the white-on-transparent shape, not the full-colour square.
+  for (const f of ['sw.js', 'firebase-messaging-sw.js', 'script.js', 'webhook-server/index.js']) {
+    assert.match(read(f), /\/icons\/badge-96\.png/, f);
+    assert.doesNotMatch(read(f), /badge: ['"]\/icons\/icon-72\.png/, f);
+  }
+});

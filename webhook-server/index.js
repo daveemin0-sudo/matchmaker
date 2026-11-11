@@ -1548,7 +1548,7 @@ async function sendPushToUser(userId, { title, body, data = {} }) {
         title: String(title).slice(0, 120),
         body: String(body || '').slice(0, 500),
         icon: '/icons/icon-192.png',
-        badge: '/icons/icon-72.png',
+        badge: '/icons/badge-96.png',
         tag: isIncomingCall ? `call_${data.callId}` : (data?.matchId || 'hmbs-notif'),
         renotify: true,
         requireInteraction: isIncomingCall,

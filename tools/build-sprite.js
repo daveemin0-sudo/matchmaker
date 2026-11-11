@@ -24,7 +24,7 @@ video-off mic mic-off phone phone-off phone-call play pause volume-2 smile langu
 pencil share-2 forward reply copy download upload log-out clock calendar cake briefcase graduation-cap ruler wine
 cigarette dumbbell baby coffee plane utensils music scan-face fingerprint wifi-off bookmark layers keyboard delete rotate-cw archive archive-restore file square-pen circle circle-x circle-user user-round message-circle-heart heart-off bell-ring images file-text film inbox lightbulb at-sign bot wand-sparkles rewind arrow-up arrow-down square refresh-ccw volume-x list-filter hourglass`.split(/\s+/).filter(Boolean);
 
-const LOGO = '<symbol id="i-logo" viewBox="0 0 64 64"><path d="M31 47 C19 40 14 33 14 26 a8.5 8.5 0 0 1 17 -3 a8.5 8.5 0 0 1 17 3 c0 6 -4 10 -9 15 c-3 3 -4.5 4.5 -4.5 7 a4.5 4.5 0 0 0 9 0" stroke-width="4.5"/></symbol>';
+const LOGO = '<symbol id="i-logo" viewBox="0 0 64 64"><path d="M16.6 12.8 V49.9 M16.6 35.8 C16.6 26.9 34.6 25.6 34.6 35.8 V41 a6.7 6.7 0 0 0 13.4 0 v-3.2" stroke-width="5.1"/><path d="M42.2 25.6 c-5.8 -3.5 -7.4 -6.4 -7.4 -8.6 a3.7 3.7 0 0 1 7.4 -1.3 a3.7 3.7 0 0 1 7.4 1.3 c0 2.2 -1.6 5.1 -7.4 8.6z" fill="var(--gold, #E0AC48)" stroke="none"/></symbol>';
 
 let sprite;
 if (process.env.LUCIDE_DIR) {
