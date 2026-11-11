@@ -13404,7 +13404,7 @@ function triggerSystemNotification(title, options = {}) {
 
   const defaultOptions = {
     icon: '/icons/icon-192.png',
-    badge: '/icons/icon-72.png',
+    badge: '/icons/badge-96.png',
     vibrate: [200, 100, 200],
     tag: options.data?.matchId || 'hmbs-msg',
     renotify: true,

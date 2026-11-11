@@ -32,7 +32,7 @@ function handleCallOrPush(payloadData, notif) {
   const options = {
     body: notif?.body || (isIncomingCall ? `${payloadData?.callerName || 'Someone'} is calling you... Tap to answer!` : "You have a new message!"),
     icon: notif?.icon || "/icons/icon-192.png",
-    badge: "/icons/icon-72.png",
+    badge: "/icons/badge-96.png",
     vibrate: isIncomingCall ? [600, 300, 600, 300, 600, 300, 600] : [200, 100, 200],
     tag: isIncomingCall ? `call_${payloadData?.callId || Date.now()}` : (payloadData?.matchId || "hmbs-notif"),
     renotify: true,

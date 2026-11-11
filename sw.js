@@ -8,7 +8,7 @@
    - Static assets (images/fonts/icons): CACHE-FIRST. These are rarely
      edited, so serving from cache first saves bandwidth and is safe.
    ------------------------------------------------------------------ */
-const SW_VERSION = "v70.1";
+const SW_VERSION = "v71.0";
 const CACHE_NAME = `hmbs-${SW_VERSION}`;
 
 const APP_SHELL = [
@@ -116,7 +116,7 @@ self.addEventListener("push", (event) => {
   const options = {
     body: data.body || data.notification?.body || (isIncomingCall ? "Someone is calling you... Tap to answer!" : "You have a new message or match!"),
     icon: "/icons/icon-192.png",
-    badge: "/icons/icon-72.png",
+    badge: "/icons/badge-96.png",
     vibrate: isIncomingCall ? [600, 300, 600, 300, 600, 300, 600, 300, 600] : [200, 100, 200],
     tag: isIncomingCall ? `call_${payloadData.callId || Date.now()}` : (data.tag || payloadData.matchId || "hmbs-notif"),
     renotify: true,
